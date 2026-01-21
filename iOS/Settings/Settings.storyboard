@@ -650,6 +650,7 @@
                         <outlet property="timelineSortOrderSwitch" destination="Keq-Np-l9O" id="Zm7-HG-r5h"/>
                         <outlet property="obsidianSyncSwitch" destination="Obs-Switch-001" id="Obs-Out-004"/>
                         <outlet property="obsidianVaultLabel" destination="Obs-Detail-001" id="Obs-Out-005"/>
+                        <outlet property="obsidianVaultCell" destination="Obs-Cell-002" id="Obs-Out-006"/>
                     </connections>
                 </tableViewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="GZq-IX-Qod" userLabel="First Responder" sceneMemberID="firstResponder"/>

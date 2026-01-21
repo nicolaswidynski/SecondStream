@@ -35,6 +35,7 @@ final class SettingsViewController: UITableViewController {
 	@IBOutlet var enableJavaScriptSwitch: UISwitch!
 	@IBOutlet var obsidianSyncSwitch: UISwitch!
 	@IBOutlet var obsidianVaultLabel: UILabel!
+	@IBOutlet var obsidianVaultCell: UITableViewCell!
 
 	var scrollToArticlesSection = false
 	weak var presentingParentController: UIViewController?
@@ -233,7 +234,10 @@ final class SettingsViewController: UITableViewController {
 			// Obsidian section
 			switch indexPath.row {
 			case 1:
-				presentObsidianVaultPicker()
+				// Only allow vault picker when sync is enabled
+				if obsidianSyncSwitch.isOn {
+					presentObsidianVaultPicker()
+				}
 			default:
 				break
 			}
@@ -343,6 +347,7 @@ final class SettingsViewController: UITableViewController {
 
 	@IBAction func switchObsidianSync(_ sender: Any) {
 		AppDefaults.shared.isObsidianSyncEnabled = obsidianSyncSwitch.isOn
+		updateObsidianVaultLabel()
 	}
 
 	// MARK: - Notifications
@@ -495,6 +500,13 @@ private extension SettingsViewController {
 		} else {
 			obsidianVaultLabel.text = NSLocalizedString("Not Set", comment: "Obsidian vault not configured")
 		}
+
+		// Enable/disable vault cell based on sync toggle
+		let isEnabled = obsidianSyncSwitch.isOn
+		obsidianVaultCell?.isUserInteractionEnabled = isEnabled
+		obsidianVaultCell?.textLabel?.isEnabled = isEnabled
+		obsidianVaultLabel.isEnabled = isEnabled
+		obsidianVaultLabel.textColor = isEnabled ? .label : .secondaryLabel
 	}
 
 	func exportOPML(sourceView: UIView, sourceRect: CGRect) {

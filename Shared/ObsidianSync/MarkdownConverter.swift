@@ -21,11 +21,7 @@ struct MarkdownConverter {
 		markdown += generateFrontmatter(article: article, feed: feed)
 		markdown += "\n"
 
-		// Add title as H1
-		let title = article.title ?? "Untitled"
-		markdown += "# \(escapeMarkdown(title))\n\n"
-
-		// Add article body
+		// Add article body only (no H1 title - it's already in frontmatter)
 		if let body = getBodyContent(from: article) {
 			markdown += body
 		}
@@ -38,8 +34,9 @@ struct MarkdownConverter {
 	@MainActor private static func generateFrontmatter(article: Article, feed: Feed) -> String {
 		var frontmatter = "---\n"
 
-		// Title
-		let title = article.title ?? "Untitled"
+		// Title - strip HTML tags to get plain text
+		let rawTitle = article.title ?? "Untitled"
+		let title = stripHTMLTags(rawTitle)
 		frontmatter += "title: \"\(escapeYAMLString(title))\"\n"
 
 		// Author
@@ -48,11 +45,10 @@ struct MarkdownConverter {
 			frontmatter += "author: \"\(escapeYAMLString(authorName))\"\n"
 		}
 
-		// Date
-		let dateFormatter = ISO8601DateFormatter()
-		dateFormatter.formatOptions = [.withFullDate]
-		if let datePublished = article.datePublished {
-			frontmatter += "date: \(dateFormatter.string(from: datePublished))\n"
+		// Date - try to extract from URL first, then use datePublished
+		let dateString = extractDateForFrontmatter(from: article)
+		if let dateString {
+			frontmatter += "date: \(dateString)\n"
 		}
 
 		// Source URL
@@ -65,14 +61,44 @@ struct MarkdownConverter {
 		// Feed name
 		frontmatter += "feed: \"\(escapeYAMLString(feed.nameForDisplay))\"\n"
 
-		// Tags (optional - for Obsidian)
+		// Tags (only rss tag, no starred)
 		frontmatter += "tags:\n"
 		frontmatter += "  - rss\n"
-		frontmatter += "  - starred\n"
 
 		frontmatter += "---\n"
 
 		return frontmatter
+	}
+
+	/// Extract date from article URL or use datePublished
+	private static func extractDateForFrontmatter(from article: Article) -> String? {
+		// Try to extract date from URL first
+		if let rawLink = article.rawLink {
+			let pattern = #"(\d{4}-\d{2}-\d{2})"#
+			if let regex = try? NSRegularExpression(pattern: pattern),
+			   let match = regex.firstMatch(in: rawLink, range: NSRange(rawLink.startIndex..., in: rawLink)),
+			   let range = Range(match.range(at: 1), in: rawLink) {
+				return String(rawLink[range])
+			}
+		}
+
+		// Fall back to datePublished
+		if let datePublished = article.datePublished {
+			let dateFormatter = DateFormatter()
+			dateFormatter.dateFormat = "yyyy-MM-dd"
+			return dateFormatter.string(from: datePublished)
+		}
+
+		return nil
+	}
+
+	/// Strip HTML tags from a string
+	private static func stripHTMLTags(_ text: String) -> String {
+		// Remove HTML tags
+		var result = text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+		// Decode common HTML entities
+		result = decodeHTMLEntities(result)
+		return result.trimmingCharacters(in: .whitespacesAndNewlines)
 	}
 
 	// MARK: - Body Content
@@ -95,6 +121,9 @@ struct MarkdownConverter {
 	private static func convertHTMLToMarkdown(_ html: String) -> String {
 		var result = html
 
+		// Remove any "This summary..." boilerplate text that some feeds add
+		result = result.replacingOccurrences(of: "This summary of the[^.]*is formatted for seamless export to Obsidian[^.]*\\.", with: "", options: .regularExpression)
+
 		// Convert common HTML elements to markdown equivalents
 		// Headers
 		result = result.replacingOccurrences(of: "<h1[^>]*>", with: "# ", options: .regularExpression)
@@ -110,11 +139,20 @@ struct MarkdownConverter {
 		result = result.replacingOccurrences(of: "<h6[^>]*>", with: "###### ", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</h6>", with: "\n")
 
-		// Bold and italic
-		result = result.replacingOccurrences(of: "<strong[^>]*>|<b[^>]*>", with: "**", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</strong>|</b>", with: "**", options: .regularExpression)
-		result = result.replacingOccurrences(of: "<em[^>]*>|<i[^>]*>", with: "*", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</em>|</i>", with: "*", options: .regularExpression)
+		// Bold - use proper regex to capture content and avoid trailing issues
+		// Match <strong>content</strong> or <b>content</b> and replace with **content**
+		let boldPattern = "<(strong|b)[^>]*>([^<]*)</(strong|b)>"
+		if let regex = try? NSRegularExpression(pattern: boldPattern, options: .caseInsensitive) {
+			let range = NSRange(result.startIndex..., in: result)
+			result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "**$2**")
+		}
+
+		// Italic - use proper regex to capture content
+		let italicPattern = "<(em|i)[^>]*>([^<]*)</(em|i)>"
+		if let regex = try? NSRegularExpression(pattern: italicPattern, options: .caseInsensitive) {
+			let range = NSRange(result.startIndex..., in: result)
+			result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "*$2*")
+		}
 
 		// Code
 		result = result.replacingOccurrences(of: "<code[^>]*>", with: "`", options: .regularExpression)
@@ -124,9 +162,24 @@ struct MarkdownConverter {
 		result = result.replacingOccurrences(of: "<pre[^>]*>", with: "```\n", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</pre>", with: "\n```")
 
-		// Blockquotes
-		result = result.replacingOccurrences(of: "<blockquote[^>]*>", with: "> ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</blockquote>", with: "\n")
+		// Blockquotes - capture content and format properly
+		let blockquotePattern = "<blockquote[^>]*>([\\s\\S]*?)</blockquote>"
+		if let regex = try? NSRegularExpression(pattern: blockquotePattern, options: .caseInsensitive) {
+			let range = NSRange(result.startIndex..., in: result)
+			let matches = regex.matches(in: result, options: [], range: range)
+			// Process in reverse to preserve indices
+			for match in matches.reversed() {
+				if let contentRange = Range(match.range(at: 1), in: result),
+				   let fullRange = Range(match.range, in: result) {
+					let content = String(result[contentRange])
+						.trimmingCharacters(in: .whitespacesAndNewlines)
+						.components(separatedBy: .newlines)
+						.map { "> \($0.trimmingCharacters(in: .whitespaces))" }
+						.joined(separator: "\n")
+					result.replaceSubrange(fullRange, with: "\n\(content)\n")
+				}
+			}
+		}
 
 		// Links - extract href and text
 		let linkPattern = "<a[^>]+href=[\"']([^\"']+)[\"'][^>]*>([^<]*)</a>"
@@ -142,6 +195,13 @@ struct MarkdownConverter {
 			result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "![$2]($1)")
 		}
 
+		// Paragraphs - add proper spacing
+		result = result.replacingOccurrences(of: "<p[^>]*>", with: "", options: .regularExpression)
+		result = result.replacingOccurrences(of: "</p>", with: "\n\n")
+
+		// Line breaks
+		result = result.replacingOccurrences(of: "<br[^>]*/?>", with: "\n", options: .regularExpression)
+
 		// Lists
 		result = result.replacingOccurrences(of: "<ul[^>]*>", with: "", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</ul>", with: "\n")
@@ -153,11 +213,14 @@ struct MarkdownConverter {
 		// Horizontal rule
 		result = result.replacingOccurrences(of: "<hr[^>]*/??>", with: "---\n", options: .regularExpression)
 
-		// Use RSCore's convertingToPlainText() to handle remaining HTML tags and spacing
-		result = result.convertingToPlainText()
+		// Remove any remaining HTML tags
+		result = result.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
 
 		// Clean up excessive newlines
 		result = result.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
+
+		// Clean up excessive spaces
+		result = result.replacingOccurrences(of: " {2,}", with: " ", options: .regularExpression)
 
 		// Decode common HTML entities
 		result = decodeHTMLEntities(result)

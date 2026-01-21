@@ -98,19 +98,51 @@ enum ObsidianFileManagerError: LocalizedError {
 
 	// MARK: - Path Generation
 
-	/// Get the subfolder name for a feed (custom or default to feed name)
-	static func getSubfolder(for feed: Feed) -> String {
-		if let customSubfolder = feed.obsidianSubfolder, !customSubfolder.isEmpty {
-			return sanitizeFilename(customSubfolder)
+	/// Sanitize a path component (single folder name, not a full path)
+	private static func sanitizePathComponent(_ name: String) -> String {
+		// Characters that are invalid in folder names (excluding / which is handled separately)
+		let invalidCharacters = CharacterSet(charactersIn: "\\:*?\"<>|")
+		var sanitized = name.components(separatedBy: invalidCharacters).joined(separator: "-")
+		sanitized = sanitized.trimmingCharacters(in: .whitespacesAndNewlines)
+		sanitized = sanitized.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+		if sanitized.isEmpty {
+			sanitized = "Untitled"
 		}
-		return sanitizeFilename(feed.nameForDisplay)
+		return sanitized
+	}
+
+	/// Get the custom subfolder path for a feed (supports nested paths like a/b/c)
+	static func getCustomSubfolderPath(for feed: Feed) -> [String] {
+		guard let customSubfolder = feed.obsidianSubfolder, !customSubfolder.isEmpty else {
+			return []
+		}
+		// Split by "/" to support nested folders, sanitize each component
+		return customSubfolder
+			.components(separatedBy: "/")
+			.map { $0.trimmingCharacters(in: .whitespaces) }
+			.filter { !$0.isEmpty }
+			.map { sanitizePathComponent($0) }
 	}
 
 	/// Get the full file path for an article within the vault
+	/// Structure: vault / customSubfolder (if any) / feedName / filename.md
 	static func getFilePath(for article: Article, feed: Feed, vaultURL: URL) -> URL {
-		let subfolder = getSubfolder(for: feed)
+		var url = vaultURL
+
+		// Add custom subfolder path components (supports nested folders)
+		for component in getCustomSubfolderPath(for: feed) {
+			url = url.appendingPathComponent(component)
+		}
+
+		// Always add feed name as the final folder
+		let feedFolder = sanitizePathComponent(feed.nameForDisplay)
+		url = url.appendingPathComponent(feedFolder)
+
+		// Add the filename
 		let filename = generateFilename(for: article)
-		return vaultURL.appendingPathComponent(subfolder).appendingPathComponent(filename)
+		url = url.appendingPathComponent(filename)
+
+		return url
 	}
 
 	// MARK: - Security-Scoped Bookmark Handling
