@@ -43,6 +43,8 @@ final class AppDefaults: Sendable {
 		static let defaultBrowserID = "defaultBrowserID"
 		static let currentThemeName = "currentThemeName"
 		static let articleContentJavascriptEnabled = "articleContentJavascriptEnabled"
+		static let obsidianSyncEnabled = "obsidianSyncEnabled"
+		static let obsidianVaultBookmark = "obsidianVaultBookmark"
 
 		// Hidden prefs
 		static let showDebugMenu = "ShowDebugMenu"
@@ -313,6 +315,24 @@ final class AppDefaults: Sendable {
 		}
 		set {
 			UserDefaults.standard.set(newValue, forKey: Key.articleContentJavascriptEnabled)
+		}
+	}
+
+	var isObsidianSyncEnabled: Bool {
+		get {
+			AppDefaults.bool(for: Key.obsidianSyncEnabled)
+		}
+		set {
+			AppDefaults.setBool(for: Key.obsidianSyncEnabled, newValue)
+		}
+	}
+
+	var obsidianVaultBookmark: Data? {
+		get {
+			UserDefaults.standard.data(forKey: Key.obsidianVaultBookmark)
+		}
+		set {
+			UserDefaults.standard.set(newValue, forKey: Key.obsidianVaultBookmark)
 		}
 	}
 

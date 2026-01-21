@@ -92,6 +92,7 @@ import Secrets
 
 		UNUserNotificationCenter.current().delegate = self
 		UserNotificationManager.shared.start()
+		ObsidianSyncManager.shared.start()
 
 		ArticleThemesManager.shared.start()
 		NetworkMonitor.shared.start()

@@ -222,6 +222,7 @@ let appName = "NetNewsWire"
 
 		UNUserNotificationCenter.current().delegate = self
 		UserNotificationManager.shared.start()
+		ObsidianSyncManager.shared.start()
 
 		#if DEBUG
 		refreshTimer!.update()

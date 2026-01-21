@@ -16,7 +16,13 @@ import Account
 
 final class SettingsViewController: UITableViewController {
 
+	private enum DocumentPickerMode {
+		case opmlImport
+		case obsidianVault
+	}
+
 	private weak var opmlAccount: Account?
+	private var documentPickerMode: DocumentPickerMode = .opmlImport
 
 	@IBOutlet var timelineSortOrderSwitch: UISwitch!
 	@IBOutlet var groupByFeedSwitch: UISwitch!
@@ -27,6 +33,8 @@ final class SettingsViewController: UITableViewController {
 	@IBOutlet var colorPaletteDetailLabel: UILabel!
 	@IBOutlet var openLinksInNetNewsWire: UISwitch!
 	@IBOutlet var enableJavaScriptSwitch: UISwitch!
+	@IBOutlet var obsidianSyncSwitch: UISwitch!
+	@IBOutlet var obsidianVaultLabel: UILabel!
 
 	var scrollToArticlesSection = false
 	weak var presentingParentController: UIViewController?
@@ -91,6 +99,9 @@ final class SettingsViewController: UITableViewController {
 		colorPaletteDetailLabel.text = String(describing: AppDefaults.userInterfaceColorPalette)
 
 		openLinksInNetNewsWire.isOn = !AppDefaults.shared.useSystemBrowser
+
+		obsidianSyncSwitch.isOn = AppDefaults.shared.isObsidianSyncEnabled
+		updateObsidianVaultLabel()
 
 		let buildLabel = NonIntrinsicLabel(frame: CGRect(x: 32.0, y: 0.0, width: 0.0, height: 0.0))
 		buildLabel.font = UIFont.systemFont(ofSize: 11.0)
@@ -219,6 +230,15 @@ final class SettingsViewController: UITableViewController {
 			let colorPalette = UIStoryboard.settings.instantiateController(ofType: ColorPaletteTableViewController.self)
 			self.navigationController?.pushViewController(colorPalette, animated: true)
 		case 6:
+			// Obsidian section
+			switch indexPath.row {
+			case 1:
+				presentObsidianVaultPicker()
+			default:
+				break
+			}
+			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
+		case 7:
 			switch indexPath.row {
 			case 0:
 				openURL(HelpURL.helpHome.rawValue)
@@ -321,6 +341,10 @@ final class SettingsViewController: UITableViewController {
 		AppDefaults.shared.isArticleContentJavascriptEnabled = enableJavaScriptSwitch.isOn
  	}
 
+	@IBAction func switchObsidianSync(_ sender: Any) {
+		AppDefaults.shared.isObsidianSyncEnabled = obsidianSyncSwitch.isOn
+	}
+
 	// MARK: - Notifications
 
 	@objc func contentSizeCategoryDidChange() {
@@ -341,21 +365,37 @@ final class SettingsViewController: UITableViewController {
 
 }
 
-// MARK: - OPML Document Picker
+// MARK: - Document Picker
 
 extension SettingsViewController: UIDocumentPickerDelegate {
 
 	func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-		for url in urls {
-			opmlAccount?.importOPML(url) { result in
-				switch result {
-				case .success:
-					break
-				case .failure:
-					let title = NSLocalizedString("Import Failed", comment: "Import Failed")
-					let message = NSLocalizedString("We were unable to process the selected file.  Please ensure that it is a properly formatted OPML file.", comment: "Import Failed Message")
-					self.presentError(title: title, message: message)
+		switch documentPickerMode {
+		case .opmlImport:
+			for url in urls {
+				opmlAccount?.importOPML(url) { result in
+					switch result {
+					case .success:
+						break
+					case .failure:
+						let title = NSLocalizedString("Import Failed", comment: "Import Failed")
+						let message = NSLocalizedString("We were unable to process the selected file.  Please ensure that it is a properly formatted OPML file.", comment: "Import Failed Message")
+						self.presentError(title: title, message: message)
+					}
 				}
+			}
+
+		case .obsidianVault:
+			guard let url = urls.first else {
+				return
+			}
+			do {
+				try ObsidianFileManager.storeVaultBookmark(for: url)
+				updateObsidianVaultLabel()
+			} catch {
+				let title = NSLocalizedString("Error", comment: "Error")
+				let message = NSLocalizedString("Unable to access the selected folder. Please try again.", comment: "Obsidian vault access error")
+				presentError(title: title, message: message)
 			}
 		}
 	}
@@ -415,6 +455,8 @@ private extension SettingsViewController {
 	}
 
 	func importOPMLDocumentPicker() {
+		documentPickerMode = .opmlImport
+
 		var contentTypes: [UTType] = []
 
 		// Create UTType for .opml files by extension, without requiring conformance.
@@ -436,6 +478,23 @@ private extension SettingsViewController {
 		documentPicker.delegate = self
 		documentPicker.modalPresentationStyle = .formSheet
 		self.present(documentPicker, animated: true)
+	}
+
+	func presentObsidianVaultPicker() {
+		documentPickerMode = .obsidianVault
+
+		let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: [.folder])
+		documentPicker.delegate = self
+		documentPicker.modalPresentationStyle = .formSheet
+		self.present(documentPicker, animated: true)
+	}
+
+	func updateObsidianVaultLabel() {
+		if let displayPath = ObsidianFileManager.vaultDisplayPath() {
+			obsidianVaultLabel.text = displayPath
+		} else {
+			obsidianVaultLabel.text = NSLocalizedString("Not Set", comment: "Obsidian vault not configured")
+		}
 	}
 
 	func exportOPML(sourceView: UIView, sourceRect: CGRect) {

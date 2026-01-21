@@ -75,6 +75,8 @@ final class AppDefaults: Sendable {
 		static let selectedArticle = "selectedArticle"
 		static let didMigrateLegacyStateRestorationInfo = "didMigrateLegacyStateRestorationInfo"
 		static let splitViewPreferredDisplayMode = "splitViewPreferredDisplayMode"
+		static let obsidianSyncEnabled = "obsidianSyncEnabled"
+		static let obsidianVaultBookmark = "obsidianVaultBookmark"
 	}
 
 	let isDeveloperBuild: Bool = {
@@ -380,6 +382,24 @@ final class AppDefaults: Sendable {
 		}
 		set {
 			UserDefaults.standard.set(newValue, forKey: Key.didMigrateLegacyStateRestorationInfo)
+		}
+	}
+
+	var isObsidianSyncEnabled: Bool {
+		get {
+			AppDefaults.bool(for: Key.obsidianSyncEnabled)
+		}
+		set {
+			AppDefaults.setBool(for: Key.obsidianSyncEnabled, newValue)
+		}
+	}
+
+	var obsidianVaultBookmark: Data? {
+		get {
+			AppDefaults.store.data(forKey: Key.obsidianVaultBookmark)
+		}
+		set {
+			AppDefaults.store.set(newValue, forKey: Key.obsidianVaultBookmark)
 		}
 	}
 

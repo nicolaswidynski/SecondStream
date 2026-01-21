@@ -31,6 +31,7 @@ import Articles
 		case externalID = "subscriptionID"
 		case folderRelationship
 		case lastCheckDate
+		case obsidianSubfolder
 	}
 
 	var feedID: String {
@@ -157,6 +158,15 @@ import Articles
 		didSet {
 			if lastCheckDate != oldValue {
 				valueDidChange(.lastCheckDate)
+			}
+		}
+	}
+
+	/// Subfolder path for Obsidian vault sync (relative to vault root).
+	var obsidianSubfolder: String? {
+		didSet {
+			if obsidianSubfolder != oldValue {
+				valueDidChange(.obsidianSubfolder)
 			}
 		}
 	}

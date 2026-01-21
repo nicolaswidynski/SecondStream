@@ -466,6 +466,76 @@
                                     </tableViewCell>
                                 </cells>
                             </tableViewSection>
+                            <tableViewSection headerTitle="Obsidian" id="Obs-Sync-001">
+                                <cells>
+                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="none" indentationWidth="10" id="Obs-Cell-001" customClass="VibrantTableViewCell" customModule="NetNewsWire" customModuleProvider="target">
+                                        <rect key="frame" x="20" y="1210" width="374" height="51.5"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="Obs-Cell-001" id="Obs-Con-001">
+                                            <rect key="frame" x="0.0" y="0.0" width="374" height="51.5"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                            <subviews>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" horizontalCompressionResistancePriority="250" text="Sync Starred Articles" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Obs-Lbl-001" customClass="VibrantLabel" customModule="NetNewsWire" customModuleProvider="target">
+                                                    <rect key="frame" x="20" y="15" width="167.5" height="21.5"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                                <switch opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="Obs-Switch-001">
+                                                    <rect key="frame" x="295" y="12" width="63" height="28"/>
+                                                    <color key="onTintColor" name="primaryAccentColor"/>
+                                                    <connections>
+                                                        <action selector="switchObsidianSync:" destination="a0p-rk-skQ" eventType="valueChanged" id="Obs-Act-001"/>
+                                                    </connections>
+                                                </switch>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstItem="Obs-Switch-001" firstAttribute="top" relation="greaterThanOrEqual" secondItem="Obs-Con-001" secondAttribute="top" constant="6" id="Obs-C01"/>
+                                                <constraint firstItem="Obs-Switch-001" firstAttribute="centerY" secondItem="Obs-Con-001" secondAttribute="centerY" id="Obs-C02"/>
+                                                <constraint firstItem="Obs-Lbl-001" firstAttribute="top" secondItem="Obs-Con-001" secondAttribute="topMargin" id="Obs-C03"/>
+                                                <constraint firstAttribute="bottomMargin" secondItem="Obs-Lbl-001" secondAttribute="bottom" id="Obs-C04"/>
+                                                <constraint firstAttribute="trailing" secondItem="Obs-Switch-001" secondAttribute="trailing" constant="18" id="Obs-C05"/>
+                                                <constraint firstItem="Obs-Switch-001" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="Obs-Lbl-001" secondAttribute="trailing" constant="8" id="Obs-C06"/>
+                                                <constraint firstItem="Obs-Lbl-001" firstAttribute="leading" secondItem="Obs-Con-001" secondAttribute="leadingMargin" id="Obs-C07"/>
+                                                <constraint firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="Obs-Switch-001" secondAttribute="bottom" constant="6" id="Obs-C08"/>
+                                            </constraints>
+                                        </tableViewCellContentView>
+                                    </tableViewCell>
+                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" accessoryType="disclosureIndicator" indentationWidth="10" id="Obs-Cell-002" customClass="VibrantBasicTableViewCell" customModule="NetNewsWire" customModuleProvider="target">
+                                        <rect key="frame" x="20" y="1261.5" width="374" height="51"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="Obs-Cell-002" id="Obs-Con-002">
+                                            <rect key="frame" x="0.0" y="0.0" width="355.5" height="51"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                            <subviews>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Obsidian Vault" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Obs-Lbl-002">
+                                                    <rect key="frame" x="20" y="15.5" width="110" height="20.5"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Not Set" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Obs-Detail-001">
+                                                    <rect key="frame" x="258" y="15.5" width="77.5" height="20.5"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
+                                                    <color key="textColor" systemColor="secondaryLabelColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstItem="Obs-Detail-001" firstAttribute="trailing" secondItem="Obs-Con-002" secondAttribute="trailingMargin" id="Obs-C09"/>
+                                                <constraint firstItem="Obs-Detail-001" firstAttribute="centerY" secondItem="Obs-Con-002" secondAttribute="centerY" id="Obs-C10"/>
+                                                <constraint firstItem="Obs-Lbl-002" firstAttribute="leading" secondItem="Obs-Con-002" secondAttribute="leadingMargin" id="Obs-C11"/>
+                                                <constraint firstItem="Obs-Lbl-002" firstAttribute="centerY" secondItem="Obs-Con-002" secondAttribute="centerY" id="Obs-C12"/>
+                                                <constraint firstItem="Obs-Detail-001" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="Obs-Lbl-002" secondAttribute="trailing" constant="8" symbolic="YES" id="Obs-C13"/>
+                                            </constraints>
+                                        </tableViewCellContentView>
+                                        <connections>
+                                            <outlet property="detail" destination="Obs-Detail-001" id="Obs-Out-002"/>
+                                            <outlet property="label" destination="Obs-Lbl-002" id="Obs-Out-003"/>
+                                        </connections>
+                                    </tableViewCell>
+                                </cells>
+                            </tableViewSection>
                             <tableViewSection headerTitle="Help" id="CS8-fJ-ghn">
                                 <cells>
                                     <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" textLabel="uGk-2d-oFc" style="IBUITableViewCellStyleDefault" id="Tle-IV-D40" customClass="VibrantTableViewCell" customModule="NetNewsWire" customModuleProvider="target">
@@ -578,6 +648,8 @@
                         <outlet property="refreshClearsReadArticlesSwitch" destination="duV-CN-JmH" id="xTd-jF-Ei1"/>
                         <outlet property="showFullscreenArticlesSwitch" destination="2Md-2E-7Z4" id="lEN-VP-wEO"/>
                         <outlet property="timelineSortOrderSwitch" destination="Keq-Np-l9O" id="Zm7-HG-r5h"/>
+                        <outlet property="obsidianSyncSwitch" destination="Obs-Switch-001" id="Obs-Out-004"/>
+                        <outlet property="obsidianVaultLabel" destination="Obs-Detail-001" id="Obs-Out-005"/>
                     </connections>
                 </tableViewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="GZq-IX-Qod" userLabel="First Responder" sceneMemberID="firstResponder"/>

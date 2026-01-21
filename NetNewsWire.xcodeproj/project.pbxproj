@@ -920,28 +920,23 @@
 					};
 					51314636235A7BBE00387FDC = {
 						CreatedOnToolsVersion = 11.2;
-						DevelopmentTeam = SHJK2V3AJG;
 						LastSwiftMigration = 1120;
 						ProvisioningStyle = Automatic;
 					};
 					513C5CE5232571C2003D4054 = {
 						CreatedOnToolsVersion = 11.0;
-						DevelopmentTeam = SHJK2V3AJG;
 						ProvisioningStyle = Automatic;
 					};
 					518B2ED12351B3DD00400001 = {
 						CreatedOnToolsVersion = 11.2;
-						DevelopmentTeam = SHJK2V3AJG;
 						ProvisioningStyle = Automatic;
 						TestTargetID = 840D617B2029031C009BC708;
 					};
 					6581C73220CED60000F4AD34 = {
-						DevelopmentTeam = SHJK2V3AJG;
 						ProvisioningStyle = Automatic;
 					};
 					840D617B2029031C009BC708 = {
 						CreatedOnToolsVersion = 9.3;
-						DevelopmentTeam = SHJK2V3AJG;
 						LastSwiftMigration = 1250;
 						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
@@ -952,7 +947,6 @@
 					};
 					849C645F1ED37A5D003D8FC0 = {
 						CreatedOnToolsVersion = 8.2.1;
-						DevelopmentTeam = SHJK2V3AJG;
 						LastSwiftMigration = 1620;
 						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
@@ -963,7 +957,6 @@
 					};
 					849C64701ED37A5D003D8FC0 = {
 						CreatedOnToolsVersion = 8.2.1;
-						DevelopmentTeam = SHJK2V3AJG;
 						ProvisioningStyle = Automatic;
 						TestTargetID = 849C645F1ED37A5D003D8FC0;
 					};
@@ -1341,6 +1334,8 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSwidgetextension_target.xcconfig;
 			buildSettings = {
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS.WidgetExtension;
 			};
 			name = Debug;
 		};
@@ -1349,6 +1344,8 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSwidgetextension_target.xcconfig;
 			buildSettings = {
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS.WidgetExtension;
 			};
 			name = Release;
 		};
@@ -1357,6 +1354,8 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_shareextension_target.xcconfig;
 			buildSettings = {
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal;
 			};
 			name = Debug;
 		};
@@ -1365,6 +1364,8 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_shareextension_target.xcconfig;
 			buildSettings = {
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal;
 			};
 			name = Release;
 		};
@@ -1373,6 +1374,8 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSintentextension_target.xcconfig;
 			buildSettings = {
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS.IntentsExtension;
 			};
 			name = Debug;
 		};
@@ -1381,6 +1384,8 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSintentextension_target.xcconfig;
 			buildSettings = {
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS.IntentsExtension;
 			};
 			name = Release;
 		};
@@ -1389,6 +1394,8 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSshareextension_target.xcconfig;
 			buildSettings = {
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS.ShareExtension;
 			};
 			name = Debug;
 		};
@@ -1397,6 +1404,8 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSshareextension_target.xcconfig;
 			buildSettings = {
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS.ShareExtension;
 			};
 			name = Release;
 		};
@@ -1405,6 +1414,7 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSTests_target.xcconfig;
 			buildSettings = {
+				DEVELOPMENT_TEAM = TA7LM6E222;
 			};
 			name = Debug;
 		};
@@ -1413,6 +1423,7 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSTests_target.xcconfig;
 			buildSettings = {
+				DEVELOPMENT_TEAM = TA7LM6E222;
 			};
 			name = Release;
 		};
@@ -1421,6 +1432,8 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_safariextension_target.xcconfig;
 			buildSettings = {
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal;
 			};
 			name = Debug;
 		};
@@ -1429,6 +1442,8 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_safariextension_target.xcconfig;
 			buildSettings = {
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal;
 			};
 			name = Release;
 		};
@@ -1437,6 +1452,10 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSapp_target.xcconfig;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "";
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SKIP_APP_GROUP_ACCESS NO_ICLOUD";
 			};
 			name = Debug;
 		};
@@ -1445,6 +1464,10 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSapp_target.xcconfig;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "";
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = NO_ICLOUD;
 			};
 			name = Release;
 		};
@@ -1453,6 +1476,7 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_project_debug.xcconfig;
 			buildSettings = {
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SKIP_APP_GROUP_ACCESS NO_ICLOUD";
 			};
 			name = Debug;
 		};
@@ -1461,6 +1485,7 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_project_release.xcconfig;
 			buildSettings = {
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = NO_ICLOUD;
 			};
 			name = Release;
 		};
@@ -1469,6 +1494,10 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_macapp_target.xcconfig;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "";
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SKIP_APP_GROUP_ACCESS NO_ICLOUD";
 			};
 			name = Debug;
 		};
@@ -1477,6 +1506,24 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_macapp_target.xcconfig;
 			buildSettings = {
+				AUTOMATION_APPLE_EVENTS = NO;
+				CODE_SIGN_ENTITLEMENTS = "";
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal;
+				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
+				RUNTIME_EXCEPTION_ALLOW_JIT = NO;
+				RUNTIME_EXCEPTION_ALLOW_UNSIGNED_EXECUTABLE_MEMORY = NO;
+				RUNTIME_EXCEPTION_DEBUGGING_TOOL = NO;
+				RUNTIME_EXCEPTION_DISABLE_EXECUTABLE_PAGE_PROTECTION = NO;
+				RUNTIME_EXCEPTION_DISABLE_LIBRARY_VALIDATION = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = NO_ICLOUD;
 			};
 			name = Release;
 		};
@@ -1485,6 +1532,8 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWireTests_target.xcconfig;
 			buildSettings = {
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocalTests;
 			};
 			name = Debug;
 		};
@@ -1493,6 +1542,8 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWireTests_target.xcconfig;
 			buildSettings = {
+				DEVELOPMENT_TEAM = TA7LM6E222;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocalTests;
 			};
 			name = Release;
 		};

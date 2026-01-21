@@ -189,6 +189,17 @@ import Articles
 			metadata.lastCheckDate = newValue
 		}
 	}
+
+	/// Subfolder path for Obsidian vault sync (relative to vault root).
+	public var obsidianSubfolder: String? {
+		get {
+			metadata.obsidianSubfolder
+		}
+		set {
+			metadata.obsidianSubfolder = newValue
+		}
+	}
+
 	// MARK: - DisplayNameProvider
 
 	public var nameForDisplay: String {

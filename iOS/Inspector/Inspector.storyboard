@@ -343,6 +343,38 @@
                                     </tableViewCell>
                                 </cells>
                             </tableViewSection>
+                            <tableViewSection headerTitle="Obsidian" id="Obs-Feed-001">
+                                <cells>
+                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="none" indentationWidth="10" id="Obs-Feed-Cell-001">
+                                        <rect key="frame" x="20" y="401" width="374" height="51"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="Obs-Feed-Cell-001" id="Obs-Feed-Con-001">
+                                            <rect key="frame" x="0.0" y="0.0" width="374" height="51"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                            <subviews>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Subfolder" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Obs-Feed-Lbl-001">
+                                                    <rect key="frame" x="20" y="15.5" width="70" height="20.5"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                                <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" placeholder="Feed Name" textAlignment="right" adjustsFontForContentSizeCategory="YES" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="Obs-Feed-TF-001">
+                                                    <rect key="frame" x="98" y="14.5" width="256" height="22"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
+                                                    <textInputTraits key="textInputTraits" autocapitalizationType="words"/>
+                                                </textField>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstItem="Obs-Feed-Lbl-001" firstAttribute="leading" secondItem="Obs-Feed-Con-001" secondAttribute="leadingMargin" id="Obs-Feed-C01"/>
+                                                <constraint firstItem="Obs-Feed-Lbl-001" firstAttribute="centerY" secondItem="Obs-Feed-Con-001" secondAttribute="centerY" id="Obs-Feed-C02"/>
+                                                <constraint firstItem="Obs-Feed-TF-001" firstAttribute="leading" secondItem="Obs-Feed-Lbl-001" secondAttribute="trailing" constant="8" id="Obs-Feed-C03"/>
+                                                <constraint firstAttribute="trailingMargin" secondItem="Obs-Feed-TF-001" secondAttribute="trailing" id="Obs-Feed-C04"/>
+                                                <constraint firstItem="Obs-Feed-TF-001" firstAttribute="centerY" secondItem="Obs-Feed-Con-001" secondAttribute="centerY" id="Obs-Feed-C05"/>
+                                            </constraints>
+                                        </tableViewCellContentView>
+                                    </tableViewCell>
+                                </cells>
+                            </tableViewSection>
                         </sections>
                         <connections>
                             <outlet property="dataSource" destination="lEH-bG-pQW" id="B83-a4-nKt"/>
@@ -362,6 +394,7 @@
                         <outlet property="homePageLabel" destination="HUP-Cu-FGT" id="EDm-vt-2r0"/>
                         <outlet property="nameTextField" destination="ZdA-rl-9eP" id="GzR-uc-fpV"/>
                         <outlet property="notifyAboutNewArticlesSwitch" destination="g39-wK-xUs" id="ahS-ZK-6xN"/>
+                        <outlet property="obsidianSubfolderTextField" destination="Obs-Feed-TF-001" id="Obs-Feed-Out-001"/>
                     </connections>
                 </tableViewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="qKF-0N-vfa" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>

@@ -23,6 +23,7 @@ final class FeedInspectorViewController: UITableViewController {
 	@IBOutlet var alwaysShowReaderViewSwitch: UISwitch!
 	@IBOutlet var homePageLabel: InteractiveLabel!
 	@IBOutlet var feedURLLabel: InteractiveLabel!
+	@IBOutlet var obsidianSubfolderTextField: UITextField!
 
 	private var headerView: InspectorIconHeaderView?
 	private var iconImage: IconImage? {
@@ -50,6 +51,9 @@ final class FeedInspectorViewController: UITableViewController {
 		homePageLabel.text = feed.homePageURL
 		feedURLLabel.text = feed.url
 
+		obsidianSubfolderTextField.text = feed.obsidianSubfolder ?? ""
+		obsidianSubfolderTextField.placeholder = feed.nameForDisplay
+
 		NotificationCenter.default.addObserver(self, selector: #selector(feedIconDidBecomeAvailable(_:)), name: .feedIconDidBecomeAvailable, object: nil)
 
 		NotificationCenter.default.addObserver(self, selector: #selector(updateNotificationSettings), name: UIApplication.willEnterForegroundNotification, object: nil)
@@ -65,6 +69,12 @@ final class FeedInspectorViewController: UITableViewController {
 			let nameText = nameTextField.text ?? ""
 			let newName = nameText.isEmpty ? (feed.name ?? NSLocalizedString("Untitled", comment: "Feed name")) : nameText
 			feed.rename(to: newName) { _ in }
+		}
+
+		// Save Obsidian subfolder if changed
+		let subfolder = obsidianSubfolderTextField.text?.isEmpty == false ? obsidianSubfolderTextField.text : nil
+		if subfolder != feed.obsidianSubfolder {
+			feed.obsidianSubfolder = subfolder
 		}
 	}
 
