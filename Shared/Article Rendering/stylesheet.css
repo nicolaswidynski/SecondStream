@@ -313,6 +313,37 @@ blockquote {
 	border-inline-start: 3px solid var(--block-quote-border-color);
 }
 
+/* Collapsible Sections */
+
+.nnw-collapsible {
+	margin: 0.5em 0;
+}
+
+.nnw-collapsible-header {
+	font-weight: bold;
+	line-height: 1.15em;
+	padding-bottom: 0;
+	margin-bottom: 5px;
+	cursor: pointer;
+	-webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+}
+
+.nnw-collapsible-header:active {
+	opacity: 0.7;
+}
+
+/* Header level styling */
+.nnw-collapsible-h1 { font-size: 1.5em; }
+.nnw-collapsible-h2 { font-size: 1.3em; }
+.nnw-collapsible-h3 { font-size: 1.1em; }
+.nnw-collapsible-h4 { font-size: 1em; }
+.nnw-collapsible-h5 { font-size: 0.9em; }
+.nnw-collapsible-h6 { font-size: 0.8em; }
+
+.nnw-collapsible-content {
+	/* No indentation */
+}
+
 /* Feed Specific */
 
 .feedbin--article-wrap {

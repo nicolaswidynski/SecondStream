@@ -156,6 +156,112 @@ function removeWpSmiley() {
 	}
 }
 
+// Make headers collapsible - tap header to collapse/expand
+function makeHeadersCollapsible() {
+	const articleBody = document.querySelector(".articleBody");
+	if (!articleBody) {
+		return;
+	}
+
+	// Get all headers in the article body
+	const headers = articleBody.querySelectorAll("h1, h2, h3, h4, h5, h6");
+	if (headers.length === 0) {
+		return;
+	}
+
+	// Count H1s - if there's only one, remove it (title is already shown above)
+	const h1Headers = articleBody.querySelectorAll("h1");
+	if (h1Headers.length === 1) {
+		h1Headers[0].remove();
+	}
+
+	// Re-query headers after potential H1 removal
+	const remainingHeaders = articleBody.querySelectorAll("h1, h2, h3, h4, h5, h6");
+	if (remainingHeaders.length === 0) {
+		return;
+	}
+
+	// Process headers in reverse order to avoid index shifting issues
+	const headerArray = Array.from(remainingHeaders);
+
+	for (let i = headerArray.length - 1; i >= 0; i--) {
+		const header = headerArray[i];
+		const headerLevel = parseInt(header.tagName.charAt(1));
+
+		// Create wrapper div for the collapsible section
+		const wrapper = document.createElement("div");
+		wrapper.className = "nnw-collapsible";
+		wrapper.setAttribute("data-open", "true");
+		wrapper.setAttribute("data-level", String(headerLevel));
+
+		// Create clickable header
+		const headerDiv = document.createElement("div");
+		headerDiv.className = "nnw-collapsible-header nnw-collapsible-h" + headerLevel;
+		headerDiv.innerHTML = header.innerHTML;
+
+		// Create a div to hold the content
+		const content = document.createElement("div");
+		content.className = "nnw-collapsible-content";
+
+		// Find all siblings until the next header of same or higher level
+		// Skip any already-processed collapsible wrappers at same or higher level
+		let sibling = header.nextElementSibling;
+		const siblingsToMove = [];
+
+		while (sibling) {
+			const nextSibling = sibling.nextElementSibling;
+
+			// Check if this is an already-processed collapsible at same or higher level
+			if (sibling.classList && sibling.classList.contains("nnw-collapsible")) {
+				const siblingLevel = parseInt(sibling.getAttribute("data-level") || "99");
+				if (siblingLevel <= headerLevel) {
+					break;
+				}
+			}
+
+			// Check if this sibling is an unprocessed header
+			if (/^H[1-6]$/.test(sibling.tagName)) {
+				const siblingLevel = parseInt(sibling.tagName.charAt(1));
+				if (siblingLevel <= headerLevel) {
+					break;
+				}
+			}
+
+			siblingsToMove.push(sibling);
+			sibling = nextSibling;
+		}
+
+		// Move siblings to content div
+		for (const sib of siblingsToMove) {
+			content.appendChild(sib);
+		}
+
+		// Build the wrapper
+		wrapper.appendChild(headerDiv);
+		wrapper.appendChild(content);
+
+		// Add click handler to header
+		headerDiv.addEventListener("click", function(e) {
+			e.preventDefault();
+			e.stopPropagation();
+			const section = this.closest(".nnw-collapsible");
+			const contentDiv = section.querySelector(".nnw-collapsible-content");
+			const isOpen = section.getAttribute("data-open") === "true";
+
+			if (isOpen) {
+				section.setAttribute("data-open", "false");
+				contentDiv.style.display = "none";
+			} else {
+				section.setAttribute("data-open", "true");
+				contentDiv.style.display = "block";
+			}
+		});
+
+		// Replace the header with the wrapper
+		header.parentNode.replaceChild(wrapper, header);
+	}
+}
+
 function processPage() {
 	wrapFrames();
 	wrapTables();

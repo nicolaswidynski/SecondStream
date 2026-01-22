@@ -77,6 +77,7 @@ final class AppDefaults: Sendable {
 		static let splitViewPreferredDisplayMode = "splitViewPreferredDisplayMode"
 		static let obsidianSyncEnabled = "obsidianSyncEnabled"
 		static let obsidianVaultBookmark = "obsidianVaultBookmark"
+		static let collapsibleSectionsEnabled = "collapsibleSectionsEnabled"
 	}
 
 	let isDeveloperBuild: Bool = {
@@ -403,6 +404,15 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	var isCollapsibleSectionsEnabled: Bool {
+		get {
+			AppDefaults.bool(for: Key.collapsibleSectionsEnabled)
+		}
+		set {
+			AppDefaults.setBool(for: Key.collapsibleSectionsEnabled, newValue)
+		}
+	}
+
 	@MainActor static func registerDefaults() {
 		let defaults: [String: Any] = [Key.userInterfaceColorPalette: UserInterfaceColorPalette.automatic.rawValue,
 										Key.timelineGroupByFeed: false,
@@ -415,7 +425,8 @@ final class AppDefaults: Sendable {
 										Key.confirmMarkAllAsRead: true,
 										Key.articleContentJavascriptEnabled: true,
 										Key.currentThemeName: Self.defaultThemeName,
-									   Key.splitViewPreferredDisplayMode: UISplitViewController.DisplayMode.oneBesideSecondary.rawValue]
+										Key.splitViewPreferredDisplayMode: UISplitViewController.DisplayMode.oneBesideSecondary.rawValue,
+										Key.collapsibleSectionsEnabled: false]
 		AppDefaults.store.register(defaults: defaults)
 	}
 }

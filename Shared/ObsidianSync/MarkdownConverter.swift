@@ -10,8 +10,11 @@ import Foundation
 import Account
 import Articles
 import RSCore
+import os.log
 
 struct MarkdownConverter {
+
+	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "MarkdownConverter")
 
 	/// Convert an article to markdown format for Obsidian
 	@MainActor static func convert(article: Article, feed: Feed) -> String {
@@ -104,15 +107,27 @@ struct MarkdownConverter {
 	// MARK: - Body Content
 
 	private static func getBodyContent(from article: Article) -> String? {
+		var body: String?
+
 		// Prefer contentHTML, then contentText, then summary
 		if let html = article.contentHTML, !html.isEmpty {
-			return convertHTMLToMarkdown(html)
+			logger.debug("Using contentHTML for body")
+			body = convertHTMLToMarkdown(html)
+		} else if let text = article.contentText, !text.isEmpty {
+			logger.debug("Using contentText for body (not HTML)")
+			body = text
+		} else if let summary = article.summary, !summary.isEmpty {
+			logger.debug("Using summary for body")
+			body = convertHTMLToMarkdown(summary)
+		} else {
+			logger.debug("No body content found")
 		}
-		if let text = article.contentText, !text.isEmpty {
-			return text
-		}
-		if let summary = article.summary, !summary.isEmpty {
-			return convertHTMLToMarkdown(summary)
+
+		// Apply H1 removal to all content types (in case content is already markdown-formatted)
+		if let content = body {
+			let result = removeSingleH1IfNeeded(content)
+			logger.debug("Body content processed, final length: \(result.count)")
+			return result
 		}
 		return nil
 	}
@@ -121,11 +136,28 @@ struct MarkdownConverter {
 	private static func convertHTMLToMarkdown(_ html: String) -> String {
 		var result = html
 
+		logger.debug("convertHTMLToMarkdown called, HTML length: \(html.count)")
+
 		// Remove any "This summary..." boilerplate text that some feeds add
 		result = result.replacingOccurrences(of: "This summary of the[^.]*is formatted for seamless export to Obsidian[^.]*\\.", with: "", options: .regularExpression)
 
+		// Count H1 tags - if there's only one, remove it entirely (title is in frontmatter)
+		let h1Pattern = "<h1[^>]*>[\\s\\S]*?</h1>"
+		if let h1Regex = try? NSRegularExpression(pattern: h1Pattern, options: .caseInsensitive) {
+			let range = NSRange(result.startIndex..., in: result)
+			let h1Count = h1Regex.numberOfMatches(in: result, options: [], range: range)
+			logger.debug("Found \(h1Count) H1 tags in HTML")
+			if h1Count == 1 {
+				// Remove the single H1 entirely
+				logger.debug("Removing single H1 from HTML")
+				result = h1Regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
+			}
+		} else {
+			logger.error("Failed to create H1 regex")
+		}
+
 		// Convert common HTML elements to markdown equivalents
-		// Headers
+		// Headers (H1 may already be removed above if there was only one)
 		result = result.replacingOccurrences(of: "<h1[^>]*>", with: "# ", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</h1>", with: "\n")
 		result = result.replacingOccurrences(of: "<h2[^>]*>", with: "## ", options: .regularExpression)
@@ -226,6 +258,35 @@ struct MarkdownConverter {
 		result = decodeHTMLEntities(result)
 
 		return result.trimmingCharacters(in: .whitespacesAndNewlines)
+	}
+
+	/// Remove the H1 heading if there's only one in the content
+	private static func removeSingleH1IfNeeded(_ markdown: String) -> String {
+		// Use regex to find H1 headings: lines starting with "# " (exactly one #)
+		// Pattern: start of line, optional whitespace, single #, space, then content
+		let h1Pattern = "(?m)^\\s*# [^\n]+"
+
+		guard let regex = try? NSRegularExpression(pattern: h1Pattern) else {
+			return markdown
+		}
+
+		let range = NSRange(markdown.startIndex..., in: markdown)
+		let matches = regex.matches(in: markdown, options: [], range: range)
+
+		// Only remove if there's exactly one H1
+		guard matches.count == 1, let match = matches.first, let matchRange = Range(match.range, in: markdown) else {
+			return markdown
+		}
+
+		var result = markdown
+		result.replaceSubrange(matchRange, with: "")
+
+		// Clean up any resulting excessive newlines at the start
+		result = result.replacingOccurrences(of: "^\\s*\\n+", with: "", options: .regularExpression)
+		// Clean up excessive newlines in general
+		result = result.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
+
+		return result
 	}
 
 	// MARK: - String Escaping

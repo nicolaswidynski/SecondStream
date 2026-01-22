@@ -1335,6 +1335,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSwidgetextension_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS.WidgetExtension;
 			};
 			name = Debug;
@@ -1345,6 +1346,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSwidgetextension_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS.WidgetExtension;
 			};
 			name = Release;
@@ -1355,6 +1357,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_shareextension_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal;
 			};
 			name = Debug;
@@ -1365,6 +1368,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_shareextension_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal;
 			};
 			name = Release;
@@ -1375,6 +1379,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSintentextension_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS.IntentsExtension;
 			};
 			name = Debug;
@@ -1385,6 +1390,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSintentextension_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS.IntentsExtension;
 			};
 			name = Release;
@@ -1395,6 +1401,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSshareextension_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS.ShareExtension;
 			};
 			name = Debug;
@@ -1405,6 +1412,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSshareextension_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS.ShareExtension;
 			};
 			name = Release;
@@ -1415,6 +1423,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSTests_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 			};
 			name = Debug;
 		};
@@ -1424,6 +1433,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSTests_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 			};
 			name = Release;
 		};
@@ -1433,6 +1443,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_safariextension_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal;
 			};
 			name = Debug;
@@ -1443,6 +1454,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_safariextension_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal;
 			};
 			name = Release;
@@ -1453,6 +1465,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSapp_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS;
 			};
 			name = Debug;
@@ -1463,6 +1476,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSapp_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal.iOS;
 			};
 			name = Release;
@@ -1489,6 +1503,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_macapp_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal;
 			};
 			name = Debug;
@@ -1499,6 +1514,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_macapp_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocal;
 			};
 			name = Release;
@@ -1509,6 +1525,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWireTests_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocalTests;
 			};
 			name = Debug;
@@ -1519,6 +1536,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWireTests_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nwidynski.NetNewsWireLocalTests;
 			};
 			name = Release;

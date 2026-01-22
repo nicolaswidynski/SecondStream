@@ -33,6 +33,7 @@ final class SettingsViewController: UITableViewController {
 	@IBOutlet var colorPaletteDetailLabel: UILabel!
 	@IBOutlet var openLinksInNetNewsWire: UISwitch!
 	@IBOutlet var enableJavaScriptSwitch: UISwitch!
+	@IBOutlet var collapsibleSectionsSwitch: UISwitch!
 	@IBOutlet var obsidianSyncSwitch: UISwitch!
 	@IBOutlet var obsidianVaultLabel: UILabel!
 	@IBOutlet var obsidianVaultCell: UITableViewCell!
@@ -96,6 +97,8 @@ final class SettingsViewController: UITableViewController {
 		} else {
 			enableJavaScriptSwitch.isOn = false
 		}
+
+		collapsibleSectionsSwitch.isOn = AppDefaults.shared.isCollapsibleSectionsEnabled
 
 		colorPaletteDetailLabel.text = String(describing: AppDefaults.userInterfaceColorPalette)
 
@@ -344,6 +347,10 @@ final class SettingsViewController: UITableViewController {
 	@IBAction func switchJavaScriptPreference(_ sender: Any) {
 		AppDefaults.shared.isArticleContentJavascriptEnabled = enableJavaScriptSwitch.isOn
  	}
+
+	@IBAction func switchCollapsibleSections(_ sender: Any) {
+		AppDefaults.shared.isCollapsibleSectionsEnabled = collapsibleSectionsSwitch.isOn
+	}
 
 	@IBAction func switchObsidianSync(_ sender: Any) {
 		AppDefaults.shared.isObsidianSyncEnabled = obsidianSyncSwitch.isOn

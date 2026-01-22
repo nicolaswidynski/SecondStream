@@ -602,7 +602,8 @@ private extension WebViewController {
 			"baseURL": rendering.baseURL,
 			"style": rendering.style,
 			"body": rendering.html,
-			"windowScrollY": String(windowScrollY)
+			"windowScrollY": String(windowScrollY),
+			"collapsibleSections": AppDefaults.shared.isCollapsibleSectionsEnabled ? "true" : "false"
 		]
 
 		var html = try! MacroProcessor.renderedText(withTemplate: ArticleRenderer.page.html, substitutions: substitutions)
