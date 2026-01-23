@@ -694,8 +694,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let addFolderAction = UIAction(title: addFolderActionTitle, image: Assets.Images.folderOutlinePlus) { _ in
 			self.coordinator.showAddFolder()
 		}
-
 		menuItems.append(addFolderAction)
+
+		let addPodcastSummaryTitle = NSLocalizedString("Add Podcast Summary", comment: "Add Podcast Summary")
+		let addPodcastSummaryAction = UIAction(title: addPodcastSummaryTitle, image: UIImage(systemName: "mic.fill")) { _ in
+			self.showPodcastSources()
+		}
+		menuItems.append(addPodcastSummaryAction)
 
 		let contextMenu = UIMenu(title: NSLocalizedString("Add Item", comment: "Add Item"), image: nil, identifier: nil, options: [], children: menuItems.reversed())
 
@@ -729,14 +734,61 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			self.coordinator.showAddFolder()
 		}
 
-		alertController.addAction(addFeedAction)
+		let addPodcastSummaryTitle = NSLocalizedString("Add Podcast Summary", comment: "Add Podcast Summary")
+		let addPodcastSummaryAction = UIAlertAction(title: addPodcastSummaryTitle, style: .default) { _ in
+			self.showPodcastSources()
+		}
 
+		alertController.addAction(addFeedAction)
 		alertController.addAction(addFolderAction)
+		alertController.addAction(addPodcastSummaryAction)
 		alertController.addAction(cancelAction)
 
 		alertController.popoverPresentationController?.barButtonItem = sender
 
 		present(alertController, animated: true)
+	}
+
+	private func showPodcastSources() {
+		// Fetch latest podcast sources first
+		Task {
+			await PodcastSourcesManager.shared.fetchPodcastSources()
+
+			let sources = PodcastSourcesManager.shared.podcastSources
+
+			if sources.isEmpty {
+				let alert = UIAlertController(
+					title: NSLocalizedString("No Podcasts", comment: "No Podcasts"),
+					message: NSLocalizedString("No podcast sources available.", comment: "No podcast sources available."),
+					preferredStyle: .alert
+				)
+				alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
+				self.present(alert, animated: true)
+				return
+			}
+
+			// Show list of podcasts
+			let alertController = UIAlertController(
+				title: NSLocalizedString("Podcast Sources", comment: "Podcast Sources"),
+				message: NSLocalizedString("Select a podcast to add as a feed", comment: "Select a podcast to add as a feed"),
+				preferredStyle: .actionSheet
+			)
+
+			for source in sources {
+				let action = UIAlertAction(title: source.name, style: .default) { _ in
+					self.coordinator.showAddFeed(initialFeed: source.rssURL, initialFeedName: source.name)
+				}
+				alertController.addAction(action)
+			}
+
+			let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
+			alertController.addAction(cancelAction)
+
+			alertController.popoverPresentationController?.sourceView = self.view
+			alertController.popoverPresentationController?.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
+
+			self.present(alertController, animated: true)
+		}
 	}
 
 	@IBAction func toggleFilter(_ sender: Any) {
