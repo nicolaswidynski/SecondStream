@@ -22,6 +22,11 @@ struct PodcastSource: Codable {
 
 	private let apiURL = URL(string: "https://n8n.nwidynski.com/webhook/get-podcast-sources")!
 
+	// MARK: - Fetch State
+
+	private(set) var isFetching = false
+	private var fetchTask: Task<Void, Never>?
+
 	// MARK: - Stored Podcast Sources
 
 	private let podcastSourcesKey = "podcastSources"
@@ -54,7 +59,32 @@ struct PodcastSource: Codable {
 
 	// MARK: - API
 
-	func fetchPodcastSources() async {
+	/// Starts fetching podcast sources in the background. Does nothing if already fetching.
+	func startFetching() {
+		guard !isFetching else {
+			return
+		}
+		fetchTask = Task {
+			await fetchPodcastSources()
+		}
+	}
+
+	/// Waits for any in-progress fetch to complete, or fetches if not already fetching.
+	func waitForFetch() async {
+		if let task = fetchTask {
+			await task.value
+		} else if !isFetching {
+			await fetchPodcastSources()
+		}
+	}
+
+	private func fetchPodcastSources() async {
+		isFetching = true
+		defer {
+			isFetching = false
+			fetchTask = nil
+		}
+
 		guard let token = bearerToken else {
 			Self.logger.error("No bearer token available")
 			return

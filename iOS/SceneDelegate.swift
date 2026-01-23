@@ -79,11 +79,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		appDelegate.resumeDatabaseProcessingIfNecessary()
 		appDelegate.prepareAccountsForForeground()
 		coordinator.resetFocus()
-
-		// Fetch podcast sources on foreground
-		Task {
-			await PodcastSourcesManager.shared.fetchPodcastSources()
-		}
 	}
 
 	func stateRestorationActivity(for scene: UIScene) -> NSUserActivity? {

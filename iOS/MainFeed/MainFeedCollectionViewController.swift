@@ -682,7 +682,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			2. Add Folder
 		*/
 
-		var menuItems: [UIAction] = []
+		var menuItems: [UIMenuElement] = []
 
 		let addFeedActionTitle = NSLocalizedString("Add Feed", comment: "Add Feed")
 		let addFeedAction = UIAction(title: addFeedActionTitle, image: Assets.Images.plus) { _ in
@@ -702,7 +702,14 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 		menuItems.append(addPodcastSummaryAction)
 
-		let contextMenu = UIMenu(title: NSLocalizedString("Add Item", comment: "Add Item"), image: nil, identifier: nil, options: [], children: menuItems.reversed())
+		// Wrap in deferred element to trigger fetch when menu opens
+		let deferredMenu = UIDeferredMenuElement.uncached { completion in
+			// Start fetching podcast sources when menu is about to open
+			PodcastSourcesManager.shared.startFetching()
+			completion(menuItems.reversed())
+		}
+
+		let contextMenu = UIMenu(title: NSLocalizedString("Add Item", comment: "Add Item"), image: nil, identifier: nil, options: [], children: [deferredMenu])
 
 		self.addNewItemButton.menu = contextMenu
 	}
@@ -718,6 +725,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@IBAction func add(_ sender: UIBarButtonItem) {
+		// Start fetching podcast sources early
+		PodcastSourcesManager.shared.startFetching()
+
 		let title = NSLocalizedString("Add Item", comment: "Add Item")
 		let alertController = UIAlertController(title: title, message: nil, preferredStyle: .actionSheet)
 
@@ -750,45 +760,73 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func showPodcastSources() {
-		// Fetch latest podcast sources first
-		Task {
-			await PodcastSourcesManager.shared.fetchPodcastSources()
-
-			let sources = PodcastSourcesManager.shared.podcastSources
-
-			if sources.isEmpty {
-				let alert = UIAlertController(
-					title: NSLocalizedString("No Podcasts", comment: "No Podcasts"),
-					message: NSLocalizedString("No podcast sources available.", comment: "No podcast sources available."),
-					preferredStyle: .alert
-				)
-				alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
-				self.present(alert, animated: true)
-				return
-			}
-
-			// Show list of podcasts
-			let alertController = UIAlertController(
-				title: NSLocalizedString("Podcast Sources", comment: "Podcast Sources"),
-				message: NSLocalizedString("Select a podcast to add as a feed", comment: "Select a podcast to add as a feed"),
-				preferredStyle: .actionSheet
+		// Show loading indicator if fetch is in progress
+		if PodcastSourcesManager.shared.isFetching {
+			let loadingAlert = UIAlertController(
+				title: nil,
+				message: NSLocalizedString("Loading podcasts...", comment: "Loading podcasts..."),
+				preferredStyle: .alert
 			)
 
-			for source in sources {
-				let action = UIAlertAction(title: source.name, style: .default) { _ in
-					self.coordinator.showAddFeed(initialFeed: source.rssURL, initialFeedName: source.name)
+			let activityIndicator = UIActivityIndicatorView(style: .medium)
+			activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+			activityIndicator.startAnimating()
+			loadingAlert.view.addSubview(activityIndicator)
+
+			NSLayoutConstraint.activate([
+				activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+				activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
+			])
+
+			present(loadingAlert, animated: true)
+
+			Task {
+				await PodcastSourcesManager.shared.waitForFetch()
+				loadingAlert.dismiss(animated: true) {
+					self.presentPodcastSourcesList()
 				}
-				alertController.addAction(action)
 			}
-
-			let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
-			alertController.addAction(cancelAction)
-
-			alertController.popoverPresentationController?.sourceView = self.view
-			alertController.popoverPresentationController?.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
-
-			self.present(alertController, animated: true)
+		} else {
+			// Fetch is already complete, show the list directly
+			presentPodcastSourcesList()
 		}
+	}
+
+	private func presentPodcastSourcesList() {
+		let sources = PodcastSourcesManager.shared.podcastSources
+
+		if sources.isEmpty {
+			let alert = UIAlertController(
+				title: NSLocalizedString("No Podcasts", comment: "No Podcasts"),
+				message: NSLocalizedString("No podcast sources available.", comment: "No podcast sources available."),
+				preferredStyle: .alert
+			)
+			alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
+			self.present(alert, animated: true)
+			return
+		}
+
+		// Show list of podcasts
+		let alertController = UIAlertController(
+			title: NSLocalizedString("Podcast Sources", comment: "Podcast Sources"),
+			message: NSLocalizedString("Select a podcast to add as a feed", comment: "Select a podcast to add as a feed"),
+			preferredStyle: .actionSheet
+		)
+
+		for source in sources {
+			let action = UIAlertAction(title: source.name, style: .default) { _ in
+				self.coordinator.showAddFeed(initialFeed: source.rssURL, initialFeedName: source.name)
+			}
+			alertController.addAction(action)
+		}
+
+		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
+		alertController.addAction(cancelAction)
+
+		alertController.popoverPresentationController?.sourceView = self.view
+		alertController.popoverPresentationController?.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
+
+		self.present(alertController, animated: true)
 	}
 
 	@IBAction func toggleFilter(_ sender: Any) {
