@@ -14,13 +14,22 @@ struct PodcastSource: Codable {
 	let rssURL: String
 }
 
+enum AddPodcastResult {
+	case success(summaryURL: String)
+	case unauthorized
+	case badRSS
+	case wrongFormat
+	case error(String)
+}
+
 @MainActor final class PodcastSourcesManager {
 
 	static let shared = PodcastSourcesManager()
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "PodcastSources")
 
-	private let apiURL = URL(string: "https://n8n.nwidynski.com/webhook/get-podcast-sources")!
+	private let getSourcesURL = URL(string: "https://n8n.nwidynski.com/webhook/get-podcast-sources")!
+	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-podcast-source")!
 
 	// MARK: - Fetch State
 
@@ -90,7 +99,7 @@ struct PodcastSource: Codable {
 			return
 		}
 
-		var request = URLRequest(url: apiURL)
+		var request = URLRequest(url: getSourcesURL)
 		request.httpMethod = "POST"
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -139,6 +148,76 @@ struct PodcastSource: Codable {
 			}
 		} catch {
 			Self.logger.error("Failed to fetch podcast sources: \(error.localizedDescription)")
+		}
+	}
+
+	/// Adds a podcast source by sending the RSS URL to the webhook.
+	/// Returns the summary feed URL on success.
+	func addPodcastSource(rssURL: String) async -> AddPodcastResult {
+		guard let token = bearerToken else {
+			Self.logger.error("No bearer token available")
+			return .error("No authentication token")
+		}
+
+		var request = URLRequest(url: addSourceURL)
+		request.httpMethod = "POST"
+		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+		let body: [String: String] = ["rss_url": rssURL]
+		do {
+			request.httpBody = try JSONSerialization.data(withJSONObject: body)
+		} catch {
+			Self.logger.error("Failed to encode request body")
+			return .error("Failed to encode request")
+		}
+
+		do {
+			let (data, response) = try await URLSession.shared.data(for: request)
+
+			guard let httpResponse = response as? HTTPURLResponse else {
+				Self.logger.error("Invalid response type")
+				return .error("Invalid response")
+			}
+
+			let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+
+			switch httpResponse.statusCode {
+			case 200:
+				if let json,
+				   let status = json["status"] as? String,
+				   status == "success",
+				   let summaryURL = json["summary_url"] as? String {
+					Self.logger.info("Podcast added successfully")
+					return .success(summaryURL: summaryURL)
+				} else {
+					Self.logger.error("Failed to parse success response")
+					return .error("Failed to parse response")
+				}
+
+			case 401:
+				Self.logger.error("Unauthorized - wrong credentials")
+				return .unauthorized
+
+			case 422:
+				if let json, let status = json["status"] as? String {
+					if status == "bad_rss" {
+						Self.logger.error("RSS not found")
+						return .badRSS
+					} else if status == "wrong_format" {
+						Self.logger.error("RSS format not supported")
+						return .wrongFormat
+					}
+				}
+				return .error("Invalid RSS")
+
+			default:
+				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
+				return .error("Unexpected error")
+			}
+		} catch {
+			Self.logger.error("Failed to add podcast source: \(error.localizedDescription)")
+			return .error(error.localizedDescription)
 		}
 	}
 }

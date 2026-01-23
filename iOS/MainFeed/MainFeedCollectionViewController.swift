@@ -795,17 +795,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	private func presentPodcastSourcesList() {
 		let sources = PodcastSourcesManager.shared.podcastSources
 
-		if sources.isEmpty {
-			let alert = UIAlertController(
-				title: NSLocalizedString("No Podcasts", comment: "No Podcasts"),
-				message: NSLocalizedString("No podcast sources available.", comment: "No podcast sources available."),
-				preferredStyle: .alert
-			)
-			alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
-			self.present(alert, animated: true)
-			return
-		}
-
 		// Show list of podcasts
 		let alertController = UIAlertController(
 			title: NSLocalizedString("Podcast Sources", comment: "Podcast Sources"),
@@ -815,10 +804,17 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		for source in sources {
 			let action = UIAlertAction(title: source.name, style: .default) { _ in
-				self.coordinator.showAddFeed(initialFeed: source.rssURL, initialFeedName: source.name)
+				self.addPodcastSummary(rssURL: source.rssURL)
 			}
 			alertController.addAction(action)
 		}
+
+		// Add option to enter custom RSS URL
+		let enterURLTitle = NSLocalizedString("Enter RSS URL...", comment: "Enter RSS URL...")
+		let enterURLAction = UIAlertAction(title: enterURLTitle, style: .default) { _ in
+			self.showEnterPodcastURLDialog()
+		}
+		alertController.addAction(enterURLAction)
 
 		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
 		alertController.addAction(cancelAction)
@@ -827,6 +823,97 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		alertController.popoverPresentationController?.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
 
 		self.present(alertController, animated: true)
+	}
+
+	private func showEnterPodcastURLDialog() {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Enter Podcast RSS URL", comment: "Enter Podcast RSS URL"),
+			message: nil,
+			preferredStyle: .alert
+		)
+
+		alert.addTextField { textField in
+			textField.placeholder = "https://example.com/feed.rss"
+			textField.keyboardType = .URL
+			textField.autocapitalizationType = .none
+			textField.autocorrectionType = .no
+		}
+
+		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
+			if let urlText = alert.textFields?.first?.text, !urlText.isEmpty {
+				self.addPodcastSummary(rssURL: urlText)
+			}
+		}
+
+		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
+
+		alert.addAction(addAction)
+		alert.addAction(cancelAction)
+
+		present(alert, animated: true)
+	}
+
+	private func addPodcastSummary(rssURL: String) {
+		// Show loading indicator
+		let loadingAlert = UIAlertController(
+			title: nil,
+			message: NSLocalizedString("Adding podcast...", comment: "Adding podcast..."),
+			preferredStyle: .alert
+		)
+
+		let activityIndicator = UIActivityIndicatorView(style: .medium)
+		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+		activityIndicator.startAnimating()
+		loadingAlert.view.addSubview(activityIndicator)
+
+		NSLayoutConstraint.activate([
+			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
+		])
+
+		present(loadingAlert, animated: true)
+
+		Task {
+			let result = await PodcastSourcesManager.shared.addPodcastSource(rssURL: rssURL)
+
+			loadingAlert.dismiss(animated: true) {
+				switch result {
+				case .success(let summaryURL):
+					// Automatically add the summary feed
+					self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil)
+
+				case .unauthorized:
+					self.showPodcastError(
+						title: NSLocalizedString("Unauthorized", comment: "Unauthorized"),
+						message: NSLocalizedString("Authentication failed. Please check your credentials.", comment: "Authentication failed message")
+					)
+
+				case .badRSS:
+					self.showPodcastError(
+						title: NSLocalizedString("RSS Not Found", comment: "RSS Not Found"),
+						message: NSLocalizedString("The RSS feed could not be found at the specified URL.", comment: "RSS not found message")
+					)
+
+				case .wrongFormat:
+					self.showPodcastError(
+						title: NSLocalizedString("Unsupported Format", comment: "Unsupported Format"),
+						message: NSLocalizedString("The RSS feed format is not supported.", comment: "Unsupported format message")
+					)
+
+				case .error(let message):
+					self.showPodcastError(
+						title: NSLocalizedString("Error", comment: "Error"),
+						message: message
+					)
+				}
+			}
+		}
+	}
+
+	private func showPodcastError(title: String, message: String) {
+		let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
+		present(alert, animated: true)
 	}
 
 	@IBAction func toggleFilter(_ sender: Any) {
