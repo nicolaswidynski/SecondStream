@@ -108,13 +108,15 @@ struct PodcastSource: Codable {
 				if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
 				   let status = json["status"] as? String,
 				   status == "success",
-				   let dataArray = json["data"] as? [[String: Any]] {
+				   let dataArray = json["data"] as? [[String: Any]],
+				   let firstItem = dataArray.first,
+				   let names = firstItem["name"] as? [String],
+				   let urls = firstItem["url"] as? [String] {
 
 					var sources: [PodcastSource] = []
-					for item in dataArray {
-						if let name = item["name"] as? String,
-						   let url = item["url"] as? String {
-							sources.append(PodcastSource(name: name, rssURL: url))
+					for (index, name) in names.enumerated() {
+						if index < urls.count {
+							sources.append(PodcastSource(name: name, rssURL: urls[index]))
 						}
 					}
 
