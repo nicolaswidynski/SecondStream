@@ -696,7 +696,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 		menuItems.append(addFolderAction)
 
-		let addPodcastSummaryTitle = NSLocalizedString("Add Podcast Summary", comment: "Add Podcast Summary")
+		let addPodcastSummaryTitle = NSLocalizedString("Add Podcast", comment: "Add Podcast")
 		let addPodcastSummaryAction = UIAction(title: addPodcastSummaryTitle, image: UIImage(systemName: "mic.fill")) { _ in
 			self.showPodcastSources()
 		}
@@ -744,7 +744,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			self.coordinator.showAddFolder()
 		}
 
-		let addPodcastSummaryTitle = NSLocalizedString("Add Podcast Summary", comment: "Add Podcast Summary")
+		let addPodcastSummaryTitle = NSLocalizedString("Add Podcast", comment: "Add Podcast")
 		let addPodcastSummaryAction = UIAlertAction(title: addPodcastSummaryTitle, style: .default) { _ in
 			self.showPodcastSources()
 		}
@@ -793,36 +793,11 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func presentPodcastSourcesList() {
-		let sources = PodcastSourcesManager.shared.podcastSources
-
-		// Show list of podcasts
-		let alertController = UIAlertController(
-			title: NSLocalizedString("Podcast Sources", comment: "Podcast Sources"),
-			message: NSLocalizedString("Select a podcast to add as a feed", comment: "Select a podcast to add as a feed"),
-			preferredStyle: .actionSheet
-		)
-
-		for source in sources {
-			let action = UIAlertAction(title: source.name, style: .default) { _ in
-				self.addPodcastSummary(rssURL: source.rssURL)
-			}
-			alertController.addAction(action)
-		}
-
-		// Add option to enter custom RSS URL
-		let enterURLTitle = NSLocalizedString("Enter RSS URL...", comment: "Enter RSS URL...")
-		let enterURLAction = UIAlertAction(title: enterURLTitle, style: .default) { _ in
-			self.showEnterPodcastURLDialog()
-		}
-		alertController.addAction(enterURLAction)
-
-		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
-		alertController.addAction(cancelAction)
-
-		alertController.popoverPresentationController?.sourceView = self.view
-		alertController.popoverPresentationController?.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
-
-		self.present(alertController, animated: true)
+		let picker = PodcastPickerViewController(style: .plain)
+		picker.delegate = self
+		let nav = UINavigationController(rootViewController: picker)
+		nav.modalPresentationStyle = .formSheet
+		present(nav, animated: true)
 	}
 
 	private func showEnterPodcastURLDialog() {
@@ -1391,5 +1366,26 @@ extension MainFeedCollectionViewController {
 
 		pushUndoableCommand(deleteCommand)
 		deleteCommand.perform()
+	}
+}
+
+// MARK: - PodcastPickerDelegate
+
+extension MainFeedCollectionViewController: PodcastPickerDelegate {
+
+	func podcastPickerDidSelectCustomURL(_ picker: PodcastPickerViewController) {
+		picker.dismiss(animated: true) {
+			self.showEnterPodcastURLDialog()
+		}
+	}
+
+	func podcastPicker(_ picker: PodcastPickerViewController, didSelectPodcast source: PodcastSource) {
+		picker.dismiss(animated: true) {
+			self.addPodcastSummary(rssURL: source.rssURL)
+		}
+	}
+
+	func podcastPickerDidCancel(_ picker: PodcastPickerViewController) {
+		picker.dismiss(animated: true)
 	}
 }
