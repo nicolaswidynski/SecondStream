@@ -177,6 +177,9 @@ static const NSInteger kEnclosureLength = 10;
 static const char *kLanguage = "language";
 static const NSInteger kLanguageLength = 9;
 
+static const char *kMp3URL = "mp3_url";
+static const NSInteger kMp3URLLength = 8;
+
 #pragma mark - Parsing
 
 - (void)parse {
@@ -398,6 +401,12 @@ static const NSInteger kLanguageLength = 9;
 	}
 	else if (RSSAXEqualTags(localName, kEnclosure, kEnclosureLength)) {
 		[self addEnclosure];
+	}
+	else if (RSSAXEqualTags(localName, kMp3URL, kMp3URLLength)) {
+		NSString *mp3URLString = [self currentString];
+		if (!RSParserStringIsEmpty(mp3URLString)) {
+			self.currentArticle.mp3URL = mp3URLString;
+		}
 	}
 }
 

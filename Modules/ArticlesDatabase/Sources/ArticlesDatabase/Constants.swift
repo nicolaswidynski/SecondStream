@@ -37,6 +37,7 @@ struct DatabaseKey {
 	static let dateModified = "dateModified"
 	static let authors = "authors"
 	static let searchRowID = "searchRowID"
+	static let mp3URL = "mp3URL"
 
 	// ArticleStatus
 	static let read = "read"

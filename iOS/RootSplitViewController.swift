@@ -13,6 +13,9 @@ final class RootSplitViewController: UISplitViewController {
 
 	var coordinator: SceneCoordinator!
 
+	private var miniPlayerView: MiniPlayerView?
+	private var miniPlayerBottomConstraint: NSLayoutConstraint?
+
 	override var prefersStatusBarHidden: Bool {
 		return coordinator.prefersStatusBarHidden
 	}
@@ -21,8 +24,31 @@ final class RootSplitViewController: UISplitViewController {
 		return .slide
 	}
 
+	override func viewDidLoad() {
+		super.viewDidLoad()
+		setupMiniPlayer()
+	}
+
 	override func viewDidAppear(_ animated: Bool) {
 		coordinator.resetFocus()
+	}
+
+	private func setupMiniPlayer() {
+		let playerView = MiniPlayerView()
+		playerView.translatesAutoresizingMaskIntoConstraints = false
+		playerView.isHidden = true
+		view.addSubview(playerView)
+
+		let bottomConstraint = playerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+		NSLayoutConstraint.activate([
+			playerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+			playerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+			playerView.heightAnchor.constraint(equalToConstant: 60),
+			bottomConstraint
+		])
+
+		miniPlayerView = playerView
+		miniPlayerBottomConstraint = bottomConstraint
 	}
 
 	override func show(_ column: UISplitViewController.Column) {

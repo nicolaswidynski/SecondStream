@@ -28,6 +28,7 @@ public struct ParsedItem: Hashable, Sendable {
 	public let authors: Set<ParsedAuthor>?
 	public let tags: Set<String>?
 	public let attachments: Set<ParsedAttachment>?
+	public let mp3URL: String?
 
 	public init(syncServiceID: String?,
 	            uniqueID: String,
@@ -46,7 +47,8 @@ public struct ParsedItem: Hashable, Sendable {
 	            dateModified: Date?,
 	            authors: Set<ParsedAuthor>?,
 	            tags: Set<String>?,
-	            attachments: Set<ParsedAttachment>?) {
+	            attachments: Set<ParsedAttachment>?,
+	            mp3URL: String? = nil) {
 		self.syncServiceID = syncServiceID
 		self.uniqueID = uniqueID
 		self.feedURL = feedURL
@@ -64,6 +66,7 @@ public struct ParsedItem: Hashable, Sendable {
 		self.authors = authors
 		self.tags = tags
 		self.attachments = attachments
+		self.mp3URL = mp3URL
 
 		// Render Markdown when present, else use contentHTML
 		if let markdown {

@@ -44,6 +44,8 @@ final class ArticleViewController: UIViewController {
 		return button
 	}()
 
+	private var playAudioBarButtonItem: UIBarButtonItem?
+
 	weak var coordinator: SceneCoordinator!
 
 	private let poppableDelegate = PoppableGestureRecognizerDelegate()
@@ -103,6 +105,13 @@ final class ArticleViewController: UIViewController {
 
 		articleExtractorButton.addTarget(self, action: #selector(toggleArticleExtractor(_:)), for: .touchUpInside)
 		toolbarItems?.insert(UIBarButtonItem(customView: articleExtractorButton), at: 6)
+
+		// Add play audio button
+		playAudioBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "play.circle"), style: .plain, target: self, action: #selector(playAudioTapped))
+		playAudioBarButtonItem?.isHidden = true
+		if let playButton = playAudioBarButtonItem {
+			toolbarItems?.insert(playButton, at: 7)
+		}
 
 		if let parentNavController = navigationController?.parent as? UINavigationController {
 			poppableDelegate.navigationController = parentNavController
@@ -211,6 +220,7 @@ final class ArticleViewController: UIViewController {
 			readBarButtonItem.isEnabled = false
 			starBarButtonItem.isEnabled = false
 			actionBarButtonItem.isEnabled = false
+			playAudioBarButtonItem?.isHidden = true
 			return
 		}
 
@@ -223,6 +233,19 @@ final class ArticleViewController: UIViewController {
 		let permalinkPresent = article.preferredLink != nil
 		articleExtractorButton.isEnabled = permalinkPresent && !AppDefaults.shared.isDeveloperBuild
 		actionBarButtonItem.isEnabled = permalinkPresent
+
+		// Show play button if article has mp3URL
+		if let mp3URL = article.mp3URL, !mp3URL.isEmpty {
+			playAudioBarButtonItem?.isHidden = false
+			// Update icon based on current playback state
+			if AudioPlayerManager.shared.currentMP3URL == mp3URL && AudioPlayerManager.shared.isPlaying {
+				playAudioBarButtonItem?.image = UIImage(systemName: "pause.circle")
+			} else {
+				playAudioBarButtonItem?.image = UIImage(systemName: "play.circle")
+			}
+		} else {
+			playAudioBarButtonItem?.isHidden = true
+		}
 
 		if article.status.read {
 			readBarButtonItem.image = Assets.Images.circleOpen
@@ -308,6 +331,21 @@ final class ArticleViewController: UIViewController {
 
 	@IBAction func showActivityDialog(_ sender: Any) {
 		currentWebViewController?.showActivityDialog(popOverBarButtonItem: actionBarButtonItem)
+	}
+
+	@objc func playAudioTapped() {
+		guard let article = article, let mp3URL = article.mp3URL else {
+			return
+		}
+
+		if AudioPlayerManager.shared.currentMP3URL == mp3URL {
+			// Same audio - toggle play/pause
+			AudioPlayerManager.shared.togglePlayPause()
+		} else {
+			// Different audio - load and play
+			AudioPlayerManager.shared.loadAndPlay(url: mp3URL, title: article.title)
+		}
+		updateUI()
 	}
 
 	@objc func toggleReaderView(_ sender: Any?) {
