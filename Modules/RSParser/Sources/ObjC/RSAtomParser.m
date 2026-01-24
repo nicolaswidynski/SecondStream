@@ -141,6 +141,9 @@ static const NSInteger kUpdatedLength = 8;
 static const char *kModified = "modified";
 static const NSInteger kModifiedLength = 9;
 
+static const char *kMp3URL = "mp3_url";
+static const NSInteger kMp3URLLength = 8;
+
 static const char *kAuthor = "author";
 static const NSInteger kAuthorLength = 7;
 
@@ -472,6 +475,12 @@ static NSString *httpURLPrefix = @"http://";
 	else if (RSSAXEqualTags(localName, kModified, kModifiedLength)) {
 		if (!self.currentArticle.dateModified) {
 			self.currentArticle.dateModified = self.currentDate;
+		}
+	}
+	else if (RSSAXEqualTags(localName, kMp3URL, kMp3URLLength)) {
+		NSString *mp3URLString = [self currentString];
+		if (!RSParserStringIsEmpty(mp3URLString)) {
+			self.currentArticle.mp3URL = mp3URLString;
 		}
 	}
 }
