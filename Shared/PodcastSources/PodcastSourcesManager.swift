@@ -19,6 +19,7 @@ enum AddPodcastResult {
 	case unauthorized
 	case badRSS
 	case wrongFormat
+	case maxPodcasts
 	case error(String)
 }
 
@@ -207,6 +208,9 @@ enum AddPodcastResult {
 					} else if status == "wrong_format" {
 						Self.logger.error("RSS format not supported")
 						return .wrongFormat
+					} else if status == "max_podcasts" {
+						Self.logger.error("Maximum number of podcasts reached")
+						return .maxPodcasts
 					}
 				}
 				return .error("Invalid RSS")

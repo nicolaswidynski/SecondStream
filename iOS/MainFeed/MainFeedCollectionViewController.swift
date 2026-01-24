@@ -882,6 +882,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 						message: NSLocalizedString("The RSS feed format is not supported.", comment: "Unsupported format message")
 					)
 
+				case .maxPodcasts:
+					self.showPodcastError(
+						title: NSLocalizedString("Limit Reached", comment: "Limit Reached"),
+						message: NSLocalizedString("Maximum number of supported podcasts reached.", comment: "Max podcasts message")
+					)
+
 				case .error(let message):
 					self.showPodcastError(
 						title: NSLocalizedString("Error", comment: "Error"),
