@@ -25,6 +25,7 @@ final class WebViewController: UIViewController {
 		static let imageWasClicked = "imageWasClicked"
 		static let imageWasShown = "imageWasShown"
 		static let showFeedInspector = "showFeedInspector"
+		static let playAudio = "playAudio"
 	}
 
 	private var topShowBarsView: UIView!
@@ -466,6 +467,14 @@ extension WebViewController: WKScriptMessageHandler {
 			if let feed = article?.feed {
 				coordinator.showFeedInspector(for: feed)
 			}
+		case MessageName.playAudio:
+			if let body = message.body as? [String: Any],
+			   let url = body["url"] as? String {
+				let title = body["title"] as? String
+				let startTime = body["startTime"] as? Double ?? 0
+				let endTime = body["endTime"] as? Double
+				AudioPlayerManager.shared.loadAndPlay(url: url, title: title, startTime: startTime, endTime: endTime)
+			}
 		default:
 			return
 		}
@@ -564,11 +573,13 @@ private extension WebViewController {
 				webView.configuration.userContentController.removeScriptMessageHandler(forName: MessageName.imageWasClicked)
 				webView.configuration.userContentController.removeScriptMessageHandler(forName: MessageName.imageWasShown)
 				webView.configuration.userContentController.removeScriptMessageHandler(forName: MessageName.showFeedInspector)
+				webView.configuration.userContentController.removeScriptMessageHandler(forName: MessageName.playAudio)
 
 				// Add handlers
 				webView.configuration.userContentController.add(WrapperScriptMessageHandler(self), name: MessageName.imageWasClicked)
 				webView.configuration.userContentController.add(WrapperScriptMessageHandler(self), name: MessageName.imageWasShown)
 				webView.configuration.userContentController.add(WrapperScriptMessageHandler(self), name: MessageName.showFeedInspector)
+				webView.configuration.userContentController.add(WrapperScriptMessageHandler(self), name: MessageName.playAudio)
 
 				self.renderPage(webView)
 			}

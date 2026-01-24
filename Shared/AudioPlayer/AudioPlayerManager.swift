@@ -33,6 +33,9 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 	private var player: AVPlayer?
 	private var playerItem: AVPlayerItem?
 	private var timeObserver: Any?
+	private var boundaryObserver: Any?
+	private var pendingStartTime: Double?
+	private var endTime: Double?
 
 	private override init() {
 		super.init()
@@ -93,7 +96,7 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 
 	// MARK: - Playback Controls
 
-	func loadAndPlay(url: String, title: String?) {
+	func loadAndPlay(url: String, title: String?, startTime: Double = 0, endTime: Double? = nil) {
 		guard let audioURL = URL(string: url) else {
 			state = .error("Invalid URL")
 			return
@@ -104,9 +107,11 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 
 		currentMP3URL = url
 		currentTitle = title
+		self.pendingStartTime = startTime > 0 ? startTime : nil
+		self.endTime = endTime
 		state = .loading
 
-		Self.logger.info("Loading audio: \(url)")
+		Self.logger.info("Loading audio: \(url) startTime: \(startTime)")
 
 		playerItem = AVPlayerItem(url: audioURL)
 		player = AVPlayer(playerItem: playerItem)
@@ -152,10 +157,16 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 
 	func stop() {
 		player?.pause()
+		if let boundaryObserver, let player {
+			player.removeTimeObserver(boundaryObserver)
+		}
+		boundaryObserver = nil
 		playerItem?.removeObserver(self, forKeyPath: "status")
 		NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: playerItem)
 		player = nil
 		playerItem = nil
+		pendingStartTime = nil
+		endTime = nil
 		state = .idle
 		MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
 	}
@@ -189,7 +200,21 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 		switch playerItem.status {
 		case .readyToPlay:
 			Self.logger.info("Audio ready to play")
-			play()
+
+			// Seek to start time if specified
+			if let startTime = pendingStartTime {
+				let time = CMTime(seconds: startTime, preferredTimescale: 1000)
+				player?.seek(to: time) { [weak self] _ in
+					Task { @MainActor in
+						self?.pendingStartTime = nil
+						self?.setupEndTimeBoundary()
+						self?.play()
+					}
+				}
+			} else {
+				setupEndTimeBoundary()
+				play()
+			}
 		case .failed:
 			let errorMessage = playerItem.error?.localizedDescription ?? "Unknown error"
 			Self.logger.error("Failed to load audio: \(errorMessage)")
@@ -198,6 +223,26 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 			break
 		@unknown default:
 			break
+		}
+	}
+
+	private func setupEndTimeBoundary() {
+		guard let player, let endTime else {
+			return
+		}
+
+		// Remove existing boundary observer
+		if let boundaryObserver {
+			player.removeTimeObserver(boundaryObserver)
+			self.boundaryObserver = nil
+		}
+
+		let boundaryTime = CMTime(seconds: endTime, preferredTimescale: 1000)
+		boundaryObserver = player.addBoundaryTimeObserver(forTimes: [NSValue(time: boundaryTime)], queue: .main) { [weak self] in
+			Task { @MainActor in
+				Self.logger.info("Reached end time boundary, pausing")
+				self?.pause()
+			}
 		}
 	}
 

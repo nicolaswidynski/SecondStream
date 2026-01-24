@@ -37,13 +37,6 @@ final class ArticleViewController: UIViewController {
 		return pageViewController?.viewControllers?.first as? WebViewController
 	}
 
-	private var articleExtractorButton: ArticleExtractorButton = {
-		let button = ArticleExtractorButton(type: .system)
-		button.frame = CGRect(x: 0, y: 0, width: 44.0, height: 44.0)
-		button.setImage(Assets.Images.articleExtractorOff, for: .normal)
-		return button
-	}()
-
 	private var playAudioBarButtonItem: UIBarButtonItem?
 
 	weak var coordinator: SceneCoordinator!
@@ -103,14 +96,11 @@ final class ArticleViewController: UIViewController {
 		fullScreenTapZone.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(didTapNavigationBar)))
 		navigationItem.titleView = fullScreenTapZone
 
-		articleExtractorButton.addTarget(self, action: #selector(toggleArticleExtractor(_:)), for: .touchUpInside)
-		toolbarItems?.insert(UIBarButtonItem(customView: articleExtractorButton), at: 6)
-
 		// Add play audio button
 		playAudioBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "play.circle"), style: .plain, target: self, action: #selector(playAudioTapped))
 		playAudioBarButtonItem?.isHidden = true
 		if let playButton = playAudioBarButtonItem {
-			toolbarItems?.insert(playButton, at: 7)
+			toolbarItems?.insert(playButton, at: 6)
 		}
 
 		if let parentNavController = navigationController?.parent as? UINavigationController {
@@ -153,8 +143,6 @@ final class ArticleViewController: UIViewController {
 		if let rsp = restoreScrollPosition {
 			controller.setScrollPosition(isShowingExtractedArticle: rsp.isShowingExtractedArticle, articleWindowScrollY: rsp.articleWindowScrollY)
 		}
-
-		articleExtractorButton.buttonState = controller.articleExtractorButtonState
 
 		self.pageViewController.setViewControllers([controller], direction: .forward, animated: false, completion: nil)
 		if AppDefaults.shared.logicalArticleFullscreenEnabled {
@@ -213,7 +201,6 @@ final class ArticleViewController: UIViewController {
 	func updateUI() {
 
 		guard let article = article else {
-			articleExtractorButton.isEnabled = false
 			nextUnreadBarButtonItem.isEnabled = false
 			prevArticleBarButtonItem.isEnabled = false
 			nextArticleBarButtonItem.isEnabled = false
@@ -231,7 +218,6 @@ final class ArticleViewController: UIViewController {
 		starBarButtonItem.isEnabled = true
 
 		let permalinkPresent = article.preferredLink != nil
-		articleExtractorButton.isEnabled = permalinkPresent && !AppDefaults.shared.isDeveloperBuild
 		actionBarButtonItem.isEnabled = permalinkPresent
 
 		// Show play button if article has mp3URL
@@ -470,9 +456,7 @@ extension ArticleViewController {
 extension ArticleViewController: WebViewControllerDelegate {
 
 	func webViewController(_ webViewController: WebViewController, articleExtractorButtonStateDidUpdate buttonState: ArticleExtractorButtonState) {
-		if webViewController === currentWebViewController {
-			articleExtractorButton.buttonState = buttonState
-		}
+		// Article extractor button removed - no-op
 	}
 
 }
@@ -510,7 +494,6 @@ extension ArticleViewController: UIPageViewControllerDelegate {
 		guard let article = currentWebViewController?.article else { return }
 
 		coordinator.selectArticle(article, animations: [.select, .scroll, .navigation])
-		articleExtractorButton.buttonState = currentWebViewController?.articleExtractorButtonState ?? .off
 
 		for viewController in previousViewControllers {
 			if let webViewController = viewController as? WebViewController {

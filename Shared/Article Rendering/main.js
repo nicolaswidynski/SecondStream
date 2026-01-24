@@ -262,6 +262,136 @@ function makeHeadersCollapsible() {
 	}
 }
 
+// Parse timestamp string like "[01:50]" or "[1:23:45]" to seconds
+function parseTimestamp(timestampStr) {
+	// Remove brackets and trim
+	const clean = timestampStr.replace(/[\[\]]/g, "").trim();
+	const parts = clean.split(":").map(Number);
+
+	if (parts.length === 2) {
+		// MM:SS format
+		return parts[0] * 60 + parts[1];
+	} else if (parts.length === 3) {
+		// HH:MM:SS format
+		return parts[0] * 3600 + parts[1] * 60 + parts[2];
+	}
+	return 0;
+}
+
+// Find the MP3 URL from the metadata section
+function findMp3Url() {
+	const listItems = document.querySelectorAll(".articleBody li");
+	for (const li of listItems) {
+		const strong = li.querySelector("strong");
+		if (strong && strong.textContent.trim() === "MP3:") {
+			const link = li.querySelector("a");
+			if (link && link.href) {
+				return link.href;
+			}
+		}
+	}
+	return null;
+}
+
+// Add play buttons next to MP3 links in metadata and outline timestamps
+function addMp3PlayButtons() {
+	const mp3Url = findMp3Url();
+	const titleElement = document.querySelector(".articleTitle h1 a, .articleTitle h1");
+	const articleTitle = titleElement ? titleElement.textContent : "Podcast";
+
+	// Collect all timestamps for calculating end times
+	const outlineItems = [];
+
+	// Find all list items
+	const listItems = document.querySelectorAll(".articleBody li");
+
+	for (const li of listItems) {
+		// Skip if already processed
+		if (li.querySelector(".nnw-mp3-play-button")) {
+			continue;
+		}
+
+		const strong = li.querySelector("strong");
+		if (!strong) continue;
+
+		const strongText = strong.textContent.trim();
+
+		// Check for MP3: label
+		if (strongText === "MP3:") {
+			const link = li.querySelector("a");
+			if (link && link.href) {
+				// Create play button
+				const playButton = document.createElement("button");
+				playButton.className = "nnw-mp3-play-button";
+				playButton.innerHTML = "&#9654;"; // Play triangle
+				playButton.title = "Play audio";
+
+				playButton.addEventListener("click", function(e) {
+					e.preventDefault();
+					e.stopPropagation();
+
+					// Send message to native code
+					if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.playAudio) {
+						window.webkit.messageHandlers.playAudio.postMessage({
+							url: link.href,
+							title: articleTitle,
+							startTime: 0
+						});
+					}
+				});
+
+				// Insert button after the link
+				link.parentNode.insertBefore(playButton, link.nextSibling);
+			}
+		}
+		// Check for timestamp format like [00:00] or [01:50]
+		else if (/^\[\d{1,2}:\d{2}(:\d{2})?\]$/.test(strongText)) {
+			outlineItems.push({
+				element: li,
+				strong: strong,
+				timestamp: strongText,
+				seconds: parseTimestamp(strongText)
+			});
+		}
+	}
+
+	// Now add play buttons to outline items with end times
+	for (let i = 0; i < outlineItems.length; i++) {
+		const item = outlineItems[i];
+		const nextItem = outlineItems[i + 1];
+		const endTime = nextItem ? nextItem.seconds : null;
+
+		// Create play button for this timestamp
+		const playButton = document.createElement("button");
+		playButton.className = "nnw-mp3-play-button nnw-timestamp-button";
+		playButton.innerHTML = "&#9654;";
+		playButton.title = "Play from " + item.timestamp;
+
+		const startSeconds = item.seconds;
+		const endSeconds = endTime;
+
+		playButton.addEventListener("click", function(e) {
+			e.preventDefault();
+			e.stopPropagation();
+
+			if (mp3Url && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.playAudio) {
+				const message = {
+					url: mp3Url,
+					title: articleTitle,
+					startTime: startSeconds
+				};
+				if (endSeconds !== null) {
+					message.endTime = endSeconds;
+				}
+				window.webkit.messageHandlers.playAudio.postMessage(message);
+			}
+		});
+
+		// Insert button before the timestamp
+		item.strong.parentNode.insertBefore(playButton, item.strong);
+	}
+}
+
 function processPage() {
 	wrapFrames();
 	wrapTables();
@@ -272,6 +402,7 @@ function processPage() {
 	flattenPreElements();
 	styleLocalFootnotes();
 	removeWpSmiley()
+	addMp3PlayButtons();
 	postRenderProcessing();
 }
 
