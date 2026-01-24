@@ -816,7 +816,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
 			if let urlText = alert.textFields?.first?.text, !urlText.isEmpty {
-				self.addPodcastSummary(rssURL: urlText)
+				self.addPodcastSummary(rssURL: urlText, isCustomURL: true)
 			}
 		}
 
@@ -828,7 +828,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		present(alert, animated: true)
 	}
 
-	private func addPodcastSummary(rssURL: String) {
+	private func addPodcastSummary(rssURL: String, isCustomURL: Bool = false) {
 		// Show loading indicator
 		let loadingAlert = UIAlertController(
 			title: nil,
@@ -854,8 +854,15 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			loadingAlert.dismiss(animated: true) {
 				switch result {
 				case .success(let summaryURL):
-					// Automatically add the summary feed
-					self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil)
+					if isCustomURL {
+						// Show success message for custom URL entries
+						self.showPodcastSuccessMessage {
+							self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil)
+						}
+					} else {
+						// Automatically add the summary feed
+						self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil)
+					}
 
 				case .unauthorized:
 					self.showPodcastError(
@@ -883,6 +890,18 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				}
 			}
 		}
+	}
+
+	private func showPodcastSuccessMessage(completion: @escaping () -> Void) {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Podcast Added", comment: "Podcast Added"),
+			message: NSLocalizedString("Episodes from the last 2 months will be populated within approximately 15 minutes.", comment: "Podcast success message"),
+			preferredStyle: .alert
+		)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default) { _ in
+			completion()
+		})
+		present(alert, animated: true)
 	}
 
 	private func showPodcastError(title: String, message: String) {
