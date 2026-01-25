@@ -39,19 +39,28 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 
 	private override init() {
 		super.init()
-		setupAudioSession()
 		setupRemoteCommandCenter()
 	}
 
 	// MARK: - Audio Session
 
-	private func setupAudioSession() {
+	private func activateAudioSession() {
 		#if os(iOS)
 		do {
 			try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
 			try AVAudioSession.sharedInstance().setActive(true)
 		} catch {
-			Self.logger.error("Failed to setup audio session: \(error.localizedDescription)")
+			Self.logger.error("Failed to activate audio session: \(error.localizedDescription)")
+		}
+		#endif
+	}
+
+	private func deactivateAudioSession() {
+		#if os(iOS)
+		do {
+			try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+		} catch {
+			Self.logger.error("Failed to deactivate audio session: \(error.localizedDescription)")
 		}
 		#endif
 	}
@@ -104,6 +113,9 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 
 		// Stop current playback
 		stop()
+
+		// Activate audio session when starting playback
+		activateAudioSession()
 
 		currentMP3URL = url
 		currentTitle = title
@@ -169,6 +181,9 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 		endTime = nil
 		state = .idle
 		MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+
+		// Deactivate audio session to allow other apps to resume
+		deactivateAudioSession()
 	}
 
 	var isPlaying: Bool {

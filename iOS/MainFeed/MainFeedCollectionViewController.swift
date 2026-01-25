@@ -853,9 +853,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 			loadingAlert.dismiss(animated: true) {
 				switch result {
-				case .success(let summaryURL):
+				case .successExisting(let summaryURL):
+					// Podcast already exists, no wait needed - just add the feed
+					self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil)
+
+				case .successNew(let summaryURL):
 					if isCustomURL {
-						// Show success message for custom URL entries
+						// Show success message for custom URL entries (new podcasts need processing)
 						self.showPodcastSuccessMessage {
 							self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil)
 						}

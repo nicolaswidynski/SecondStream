@@ -15,7 +15,8 @@ struct PodcastSource: Codable {
 }
 
 enum AddPodcastResult {
-	case success(summaryURL: String)
+	case successExisting(summaryURL: String)  // 201 - Podcast already exists, no wait
+	case successNew(summaryURL: String)       // 202 - New podcast, wait ~15 minutes
 	case unauthorized
 	case badRSS
 	case wrongFormat
@@ -185,35 +186,49 @@ enum AddPodcastResult {
 
 			switch httpResponse.statusCode {
 			case 200:
+				// max_podcasts error
+				if let json, let status = json["status"] as? String, status == "max_podcasts" {
+					Self.logger.error("Maximum number of podcasts reached")
+					return .maxPodcasts
+				}
+				Self.logger.error("Unexpected 200 response")
+				return .error("Unexpected response")
+
+			case 201:
+				// Success - podcast already exists, no wait needed
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
 				   let summaryURL = json["summary_url"] as? String {
-					Self.logger.info("Podcast added successfully")
-					return .success(summaryURL: summaryURL)
-				} else {
-					Self.logger.error("Failed to parse success response")
-					return .error("Failed to parse response")
+					Self.logger.info("Podcast already exists")
+					return .successExisting(summaryURL: summaryURL)
 				}
+				Self.logger.error("Failed to parse 201 response")
+				return .error("Failed to parse response")
+
+			case 202:
+				// Success - new podcast, wait ~15 minutes
+				if let json,
+				   let status = json["status"] as? String,
+				   status == "success",
+				   let summaryURL = json["summary_url"] as? String {
+					Self.logger.info("New podcast added, processing required")
+					return .successNew(summaryURL: summaryURL)
+				}
+				Self.logger.error("Failed to parse 202 response")
+				return .error("Failed to parse response")
+
+			case 400:
+				Self.logger.error("RSS format not supported")
+				return .wrongFormat
 
 			case 401:
 				Self.logger.error("Unauthorized - wrong credentials")
 				return .unauthorized
 
-			case 422:
-				if let json, let status = json["status"] as? String {
-					if status == "bad_rss" {
-						Self.logger.error("RSS not found")
-						return .badRSS
-					} else if status == "wrong_format" {
-						Self.logger.error("RSS format not supported")
-						return .wrongFormat
-					} else if status == "max_podcasts" {
-						Self.logger.error("Maximum number of podcasts reached")
-						return .maxPodcasts
-					}
-				}
-				return .error("Invalid RSS")
+			case 404:
+				Self.logger.error("RSS not found")
+				return .badRSS
 
 			default:
 				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
