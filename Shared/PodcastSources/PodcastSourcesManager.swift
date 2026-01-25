@@ -17,10 +17,12 @@ struct PodcastSource: Codable {
 enum AddPodcastResult {
 	case successExisting(summaryURL: String)  // 201 - Podcast already exists, no wait
 	case successNew(summaryURL: String)       // 202 - New podcast, wait ~15 minutes
-	case unauthorized
-	case badRSS
-	case wrongFormat
-	case maxPodcasts
+	case unauthorized                         // 401
+	case badRSS                               // 551
+	case wrongFormat                          // 552
+	case maxPodcasts                          // 553
+	case badMessage                           // 554 - Neither podcast nor rss_url set
+	case badPodcast                           // 555 - Podcast not found
 	case error(String)
 }
 
@@ -156,6 +158,16 @@ enum AddPodcastResult {
 	/// Adds a podcast source by sending the RSS URL to the webhook.
 	/// Returns the summary feed URL on success.
 	func addPodcastSource(rssURL: String) async -> AddPodcastResult {
+		return await sendAddPodcastRequest(body: ["rss_url": rssURL])
+	}
+
+	/// Adds a podcast source by sending the podcast name to the webhook.
+	/// Returns the summary feed URL on success.
+	func addPodcastByName(_ podcastName: String) async -> AddPodcastResult {
+		return await sendAddPodcastRequest(body: ["podcast": podcastName])
+	}
+
+	private func sendAddPodcastRequest(body: [String: String]) async -> AddPodcastResult {
 		guard let token = bearerToken else {
 			Self.logger.error("No bearer token available")
 			return .error("No authentication token")
@@ -166,7 +178,6 @@ enum AddPodcastResult {
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-		let body: [String: String] = ["rss_url": rssURL]
 		do {
 			request.httpBody = try JSONSerialization.data(withJSONObject: body)
 		} catch {
@@ -185,15 +196,6 @@ enum AddPodcastResult {
 			let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
 
 			switch httpResponse.statusCode {
-			case 200:
-				// max_podcasts error
-				if let json, let status = json["status"] as? String, status == "max_podcasts" {
-					Self.logger.error("Maximum number of podcasts reached")
-					return .maxPodcasts
-				}
-				Self.logger.error("Unexpected 200 response")
-				return .error("Unexpected response")
-
 			case 201:
 				// Success - podcast already exists, no wait needed
 				if let json,
@@ -218,17 +220,29 @@ enum AddPodcastResult {
 				Self.logger.error("Failed to parse 202 response")
 				return .error("Failed to parse response")
 
-			case 400:
-				Self.logger.error("RSS format not supported")
-				return .wrongFormat
-
 			case 401:
 				Self.logger.error("Unauthorized - wrong credentials")
 				return .unauthorized
 
-			case 404:
+			case 551:
 				Self.logger.error("RSS not found")
 				return .badRSS
+
+			case 552:
+				Self.logger.error("RSS format not supported")
+				return .wrongFormat
+
+			case 553:
+				Self.logger.error("Maximum number of podcasts reached")
+				return .maxPodcasts
+
+			case 554:
+				Self.logger.error("Bad request - neither podcast nor rss_url set")
+				return .badMessage
+
+			case 555:
+				Self.logger.error("Podcast not found")
+				return .badPodcast
 
 			default:
 				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")

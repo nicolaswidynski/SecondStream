@@ -9,6 +9,7 @@
 import UIKit
 
 @MainActor protocol PodcastPickerDelegate: AnyObject {
+	func podcastPickerDidSelectPodcastName(_ picker: PodcastPickerViewController)
 	func podcastPickerDidSelectCustomURL(_ picker: PodcastPickerViewController)
 	func podcastPicker(_ picker: PodcastPickerViewController, didSelectPodcast source: PodcastSource)
 	func podcastPickerDidCancel(_ picker: PodcastPickerViewController)
@@ -74,7 +75,7 @@ final class PodcastPickerViewController: UITableViewController {
 
 	override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
 		if section == customURLSection {
-			return 1
+			return 2  // "Enter Podcast Name..." and "Enter RSS URL..."
 		}
 		return sections[section - 1].sources.count
 	}
@@ -90,7 +91,11 @@ final class PodcastPickerViewController: UITableViewController {
 		let cell = tableView.dequeueReusableCell(withIdentifier: "PodcastCell", for: indexPath)
 
 		if indexPath.section == customURLSection {
-			cell.textLabel?.text = NSLocalizedString("Enter RSS URL...", comment: "Enter RSS URL...")
+			if indexPath.row == 0 {
+				cell.textLabel?.text = NSLocalizedString("Enter Podcast Name...", comment: "Enter Podcast Name...")
+			} else {
+				cell.textLabel?.text = NSLocalizedString("Enter RSS URL...", comment: "Enter RSS URL...")
+			}
 			cell.textLabel?.textColor = Assets.Colors.primaryAccent
 			cell.accessoryType = .disclosureIndicator
 		} else {
@@ -121,7 +126,11 @@ final class PodcastPickerViewController: UITableViewController {
 		tableView.deselectRow(at: indexPath, animated: true)
 
 		if indexPath.section == customURLSection {
-			delegate?.podcastPickerDidSelectCustomURL(self)
+			if indexPath.row == 0 {
+				delegate?.podcastPickerDidSelectPodcastName(self)
+			} else {
+				delegate?.podcastPickerDidSelectCustomURL(self)
+			}
 		} else {
 			let source = sections[indexPath.section - 1].sources[indexPath.row]
 			delegate?.podcastPicker(self, didSelectPodcast: source)

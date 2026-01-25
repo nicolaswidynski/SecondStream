@@ -800,6 +800,33 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		present(nav, animated: true)
 	}
 
+	private func showEnterPodcastNameDialog() {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Enter Podcast Name", comment: "Enter Podcast Name"),
+			message: nil,
+			preferredStyle: .alert
+		)
+
+		alert.addTextField { textField in
+			textField.placeholder = NSLocalizedString("Podcast name", comment: "Podcast name placeholder")
+			textField.autocapitalizationType = .words
+			textField.autocorrectionType = .default
+		}
+
+		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
+			if let podcastName = alert.textFields?.first?.text, !podcastName.isEmpty {
+				self.addPodcastByName(podcastName)
+			}
+		}
+
+		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
+
+		alert.addAction(addAction)
+		alert.addAction(cancelAction)
+
+		present(alert, animated: true)
+	}
+
 	private func showEnterPodcastURLDialog() {
 		let alert = UIAlertController(
 			title: NSLocalizedString("Enter Podcast RSS URL", comment: "Enter Podcast RSS URL"),
@@ -890,6 +917,99 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 					self.showPodcastError(
 						title: NSLocalizedString("Limit Reached", comment: "Limit Reached"),
 						message: NSLocalizedString("Maximum number of supported podcasts reached.", comment: "Max podcasts message")
+					)
+
+				case .badMessage:
+					self.showPodcastError(
+						title: NSLocalizedString("Bad Request", comment: "Bad Request"),
+						message: NSLocalizedString("Invalid request format.", comment: "Bad request message")
+					)
+
+				case .badPodcast:
+					self.showPodcastError(
+						title: NSLocalizedString("Podcast Not Found", comment: "Podcast Not Found"),
+						message: NSLocalizedString("The podcast could not be found.", comment: "Podcast not found message")
+					)
+
+				case .error(let message):
+					self.showPodcastError(
+						title: NSLocalizedString("Error", comment: "Error"),
+						message: message
+					)
+				}
+			}
+		}
+	}
+
+	private func addPodcastByName(_ podcastName: String) {
+		// Show loading indicator
+		let loadingAlert = UIAlertController(
+			title: nil,
+			message: NSLocalizedString("Searching for podcast...", comment: "Searching for podcast..."),
+			preferredStyle: .alert
+		)
+
+		let activityIndicator = UIActivityIndicatorView(style: .medium)
+		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+		activityIndicator.startAnimating()
+		loadingAlert.view.addSubview(activityIndicator)
+
+		NSLayoutConstraint.activate([
+			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
+		])
+
+		present(loadingAlert, animated: true)
+
+		Task {
+			let result = await PodcastSourcesManager.shared.addPodcastByName(podcastName)
+
+			loadingAlert.dismiss(animated: true) {
+				switch result {
+				case .successExisting(let summaryURL):
+					// Podcast already exists, no wait needed - just add the feed
+					self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil)
+
+				case .successNew(let summaryURL):
+					// Show success message for new podcasts (need processing)
+					self.showPodcastSuccessMessage {
+						self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil)
+					}
+
+				case .unauthorized:
+					self.showPodcastError(
+						title: NSLocalizedString("Unauthorized", comment: "Unauthorized"),
+						message: NSLocalizedString("Authentication failed. Please check your credentials.", comment: "Authentication failed message")
+					)
+
+				case .badRSS:
+					self.showPodcastError(
+						title: NSLocalizedString("RSS Not Found", comment: "RSS Not Found"),
+						message: NSLocalizedString("The RSS feed could not be found.", comment: "RSS not found message")
+					)
+
+				case .wrongFormat:
+					self.showPodcastError(
+						title: NSLocalizedString("Unsupported Format", comment: "Unsupported Format"),
+						message: NSLocalizedString("The RSS feed format is not supported.", comment: "Unsupported format message")
+					)
+
+				case .maxPodcasts:
+					self.showPodcastError(
+						title: NSLocalizedString("Limit Reached", comment: "Limit Reached"),
+						message: NSLocalizedString("Maximum number of supported podcasts reached.", comment: "Max podcasts message")
+					)
+
+				case .badMessage:
+					self.showPodcastError(
+						title: NSLocalizedString("Bad Request", comment: "Bad Request"),
+						message: NSLocalizedString("Invalid request format.", comment: "Bad request message")
+					)
+
+				case .badPodcast:
+					self.showPodcastError(
+						title: NSLocalizedString("Podcast Not Found", comment: "Podcast Not Found"),
+						message: NSLocalizedString("The podcast could not be found.", comment: "Podcast not found message")
 					)
 
 				case .error(let message):
@@ -1401,6 +1521,12 @@ extension MainFeedCollectionViewController {
 // MARK: - PodcastPickerDelegate
 
 extension MainFeedCollectionViewController: PodcastPickerDelegate {
+
+	func podcastPickerDidSelectPodcastName(_ picker: PodcastPickerViewController) {
+		picker.dismiss(animated: true) {
+			self.showEnterPodcastNameDialog()
+		}
+	}
 
 	func podcastPickerDidSelectCustomURL(_ picker: PodcastPickerViewController) {
 		picker.dismiss(animated: true) {
