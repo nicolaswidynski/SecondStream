@@ -495,6 +495,43 @@
                                     </tableViewCell>
                                 </cells>
                             </tableViewSection>
+                            <tableViewSection headerTitle="Text-to-Speech" id="TTS-Section-001">
+                                <cells>
+                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" accessoryType="disclosureIndicator" indentationWidth="10" id="TTS-Cell-001" customClass="VibrantBasicTableViewCell" customModule="NetNewsWire" customModuleProvider="target">
+                                        <rect key="frame" x="20" y="1210" width="374" height="51"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="TTS-Cell-001" id="TTS-Con-001">
+                                            <rect key="frame" x="0.0" y="0.0" width="355.5" height="51"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                            <subviews>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Voice" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="TTS-Lbl-001">
+                                                    <rect key="frame" x="20" y="15.5" width="98" height="20.5"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Female" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="TTS-Detail-001">
+                                                    <rect key="frame" x="258" y="15.5" width="77.5" height="20.5"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstItem="TTS-Detail-001" firstAttribute="trailing" secondItem="TTS-Con-001" secondAttribute="trailingMargin" id="TTS-C01"/>
+                                                <constraint firstItem="TTS-Detail-001" firstAttribute="centerY" secondItem="TTS-Con-001" secondAttribute="centerY" id="TTS-C02"/>
+                                                <constraint firstItem="TTS-Lbl-001" firstAttribute="leading" secondItem="TTS-Con-001" secondAttribute="leadingMargin" id="TTS-C03"/>
+                                                <constraint firstItem="TTS-Lbl-001" firstAttribute="centerY" secondItem="TTS-Con-001" secondAttribute="centerY" id="TTS-C04"/>
+                                                <constraint firstItem="TTS-Detail-001" firstAttribute="leading" secondItem="TTS-Lbl-001" secondAttribute="trailing" constant="8" symbolic="YES" id="TTS-C05"/>
+                                            </constraints>
+                                        </tableViewCellContentView>
+                                        <connections>
+                                            <outlet property="detail" destination="TTS-Detail-001" id="TTS-Out-001"/>
+                                            <outlet property="label" destination="TTS-Lbl-001" id="TTS-Out-002"/>
+                                        </connections>
+                                    </tableViewCell>
+                                </cells>
+                            </tableViewSection>
                             <tableViewSection headerTitle="Obsidian" id="Obs-Sync-001">
                                 <cells>
                                     <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="none" indentationWidth="10" id="Obs-Cell-001" customClass="VibrantTableViewCell" customModule="NetNewsWire" customModuleProvider="target">
@@ -673,6 +710,7 @@
                         <outlet property="confirmMarkAllAsReadSwitch" destination="UOo-9z-IuL" id="yLZ-Kf-wDt"/>
                         <outlet property="enableJavaScriptSwitch" destination="Djo-HE-LWS" id="muL-I5-eDE"/>
                         <outlet property="collapsibleSectionsSwitch" destination="Coll-Switch-001" id="Coll-Out-001"/>
+                        <outlet property="ttsVoiceDetailLabel" destination="TTS-Detail-001" id="TTS-Out-003"/>
                         <outlet property="groupByFeedSwitch" destination="JNi-Wz-RbU" id="TwH-Kd-o6N"/>
                         <outlet property="openLinksInNetNewsWire" destination="dhR-L2-PX3" id="z1b-pX-bwG"/>
                         <outlet property="refreshClearsReadArticlesSwitch" destination="duV-CN-JmH" id="xTd-jF-Ei1"/>

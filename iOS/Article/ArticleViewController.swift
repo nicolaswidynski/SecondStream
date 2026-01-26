@@ -37,7 +37,7 @@ final class ArticleViewController: UIViewController {
 		return pageViewController?.viewControllers?.first as? WebViewController
 	}
 
-	private var playAudioBarButtonItem: UIBarButtonItem?
+	private var ttsBarButtonItem: UIBarButtonItem?
 
 	weak var coordinator: SceneCoordinator!
 
@@ -96,11 +96,10 @@ final class ArticleViewController: UIViewController {
 		fullScreenTapZone.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(didTapNavigationBar)))
 		navigationItem.titleView = fullScreenTapZone
 
-		// Add play audio button
-		playAudioBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "play.circle"), style: .plain, target: self, action: #selector(playAudioTapped))
-		playAudioBarButtonItem?.isHidden = true
-		if let playButton = playAudioBarButtonItem {
-			toolbarItems?.insert(playButton, at: 6)
+		// Add TTS button
+		ttsBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "speaker.wave.2"), style: .plain, target: self, action: #selector(ttsTapped))
+		if let ttsButton = ttsBarButtonItem {
+			toolbarItems?.insert(ttsButton, at: 6)
 		}
 
 		if let parentNavController = navigationController?.parent as? UINavigationController {
@@ -207,7 +206,7 @@ final class ArticleViewController: UIViewController {
 			readBarButtonItem.isEnabled = false
 			starBarButtonItem.isEnabled = false
 			actionBarButtonItem.isEnabled = false
-			playAudioBarButtonItem?.isHidden = true
+			ttsBarButtonItem?.isEnabled = false
 			return
 		}
 
@@ -220,17 +219,14 @@ final class ArticleViewController: UIViewController {
 		let permalinkPresent = article.preferredLink != nil
 		actionBarButtonItem.isEnabled = permalinkPresent
 
-		// Show play button if article has mp3URL
-		if let mp3URL = article.mp3URL, !mp3URL.isEmpty {
-			playAudioBarButtonItem?.isHidden = false
-			// Update icon based on current playback state
-			if AudioPlayerManager.shared.currentMP3URL == mp3URL && AudioPlayerManager.shared.isPlaying {
-				playAudioBarButtonItem?.image = UIImage(systemName: "pause.circle")
-			} else {
-				playAudioBarButtonItem?.image = UIImage(systemName: "play.circle")
-			}
+		// Update TTS button state
+		ttsBarButtonItem?.isEnabled = true
+		if TextToSpeechManager.shared.isSpeaking {
+			ttsBarButtonItem?.image = UIImage(systemName: "stop.circle")
+		} else if TextToSpeechManager.shared.isPaused {
+			ttsBarButtonItem?.image = UIImage(systemName: "play.circle")
 		} else {
-			playAudioBarButtonItem?.isHidden = true
+			ttsBarButtonItem?.image = UIImage(systemName: "speaker.wave.2")
 		}
 
 		if article.status.read {
@@ -319,17 +315,20 @@ final class ArticleViewController: UIViewController {
 		currentWebViewController?.showActivityDialog(popOverBarButtonItem: actionBarButtonItem)
 	}
 
-	@objc func playAudioTapped() {
-		guard let article = article, let mp3URL = article.mp3URL else {
-			return
-		}
-
-		if AudioPlayerManager.shared.currentMP3URL == mp3URL {
-			// Same audio - toggle play/pause
-			AudioPlayerManager.shared.togglePlayPause()
+	@objc func ttsTapped() {
+		if TextToSpeechManager.shared.isActive {
+			// TTS is active - stop it
+			TextToSpeechManager.shared.stop()
 		} else {
-			// Different audio - load and play
-			AudioPlayerManager.shared.loadAndPlay(url: mp3URL, title: article.title)
+			// Start TTS with article content
+			currentWebViewController?.getArticleText { [weak self] text in
+				guard let text, !text.isEmpty else {
+					return
+				}
+				let voiceIdentifier = AppDefaults.shared.ttsVoiceIdentifier
+				TextToSpeechManager.shared.speak(text: text, voiceIdentifier: voiceIdentifier)
+				self?.updateUI()
+			}
 		}
 		updateUI()
 	}

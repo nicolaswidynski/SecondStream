@@ -906,4 +906,50 @@ extension WebViewController {
 		webView?.evaluateJavaScript("selectPreviousResult()")
 	}
 
+	func getArticleText(completionHandler: @escaping (String?) -> Void) {
+		// Get the text content from the article
+		let script = """
+			(function() {
+				var articleBody = document.querySelector('.articleBody');
+				if (!articleBody) return null;
+
+				// Check if metadata has a Title
+				var hasMetadataTitle = false;
+				var items = articleBody.querySelectorAll('li');
+				for (var i = 0; i < items.length; i++) {
+					var strong = items[i].querySelector('strong');
+					if (strong && strong.textContent.trim().toLowerCase() === 'title:') {
+						hasMetadataTitle = true;
+						break;
+					}
+				}
+
+				// Get entry title
+				var entryTitle = '';
+				if (!hasMetadataTitle) {
+					var articleTitleEl = document.querySelector('.articleTitle');
+					if (articleTitleEl) {
+						entryTitle = (articleTitleEl.innerText || articleTitleEl.textContent || '').trim();
+					}
+				}
+
+				// Get all body text
+				var bodyText = articleBody.innerText || articleBody.textContent || '';
+
+				// Combine: entry title (if no metadata title) + body
+				if (entryTitle) {
+					return entryTitle + '. ' + bodyText;
+				}
+				return bodyText;
+			})();
+		"""
+		webView?.evaluateJavaScript(script) { result, error in
+			if let text = result as? String, !text.isEmpty {
+				completionHandler(text)
+			} else {
+				completionHandler(nil)
+			}
+		}
+	}
+
 }

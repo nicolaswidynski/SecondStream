@@ -11,6 +11,7 @@ import os.log
 import Account
 import Articles
 
+
 enum UserInterfaceColorPalette: Int, CustomStringConvertible, CaseIterable {
 	case automatic = 0
 	case light = 1
@@ -78,6 +79,7 @@ final class AppDefaults: Sendable {
 		static let obsidianSyncEnabled = "obsidianSyncEnabled"
 		static let obsidianVaultBookmark = "obsidianVaultBookmark"
 		static let collapsibleSectionsEnabled = "collapsibleSectionsEnabled"
+		static let ttsVoiceIdentifier = "ttsVoiceIdentifier"
 	}
 
 	let isDeveloperBuild: Bool = {
@@ -410,6 +412,15 @@ final class AppDefaults: Sendable {
 		}
 		set {
 			AppDefaults.setBool(for: Key.collapsibleSectionsEnabled, newValue)
+		}
+	}
+
+	var ttsVoiceIdentifier: String? {
+		get {
+			return AppDefaults.string(for: Key.ttsVoiceIdentifier)
+		}
+		set {
+			AppDefaults.setString(for: Key.ttsVoiceIdentifier, newValue)
 		}
 	}
 

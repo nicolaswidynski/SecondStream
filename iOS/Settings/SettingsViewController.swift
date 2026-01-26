@@ -11,6 +11,7 @@ import CoreServices
 import SafariServices
 import SwiftUI
 import UniformTypeIdentifiers
+import AVFoundation
 import RSCore
 import Account
 
@@ -37,6 +38,7 @@ final class SettingsViewController: UITableViewController {
 	@IBOutlet var obsidianSyncSwitch: UISwitch!
 	@IBOutlet var obsidianVaultLabel: UILabel!
 	@IBOutlet var obsidianVaultCell: UITableViewCell!
+	@IBOutlet var ttsVoiceDetailLabel: UILabel!
 
 	var scrollToArticlesSection = false
 	weak var presentingParentController: UIViewController?
@@ -106,6 +108,8 @@ final class SettingsViewController: UITableViewController {
 
 		obsidianSyncSwitch.isOn = AppDefaults.shared.isObsidianSyncEnabled
 		updateObsidianVaultLabel()
+
+		updateTTSVoiceLabel()
 
 		let buildLabel = NonIntrinsicLabel(frame: CGRect(x: 32.0, y: 0.0, width: 0.0, height: 0.0))
 		buildLabel.font = UIFont.systemFont(ofSize: 11.0)
@@ -234,6 +238,10 @@ final class SettingsViewController: UITableViewController {
 			let colorPalette = UIStoryboard.settings.instantiateController(ofType: ColorPaletteTableViewController.self)
 			self.navigationController?.pushViewController(colorPalette, animated: true)
 		case 6:
+			// Text-to-Speech section
+			presentTTSVoicePicker()
+			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
+		case 7:
 			// Obsidian section
 			switch indexPath.row {
 			case 1:
@@ -245,7 +253,7 @@ final class SettingsViewController: UITableViewController {
 				break
 			}
 			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
-		case 7:
+		case 8:
 			switch indexPath.row {
 			case 0:
 				openURL(HelpURL.helpHome.rawValue)
@@ -500,6 +508,67 @@ private extension SettingsViewController {
 		documentPicker.modalPresentationStyle = .formSheet
 		self.present(documentPicker, animated: true)
 	}
+
+	func presentTTSVoicePicker() {
+		let voices = TextToSpeechManager.availableVoices()
+
+		// If no enhanced/premium voices available, show instructions
+		if voices.isEmpty {
+			let title = NSLocalizedString("No Enhanced Voices Available", comment: "No enhanced voices title")
+			let message = NSLocalizedString("Download enhanced or premium voices from Settings → Accessibility → Spoken Content → Voices", comment: "Download voices instructions")
+			let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+			alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
+			present(alert, animated: true)
+			return
+		}
+
+		let title = NSLocalizedString("Select Voice", comment: "Select Voice")
+		let alert = UIAlertController(title: title, message: nil, preferredStyle: .actionSheet)
+
+		if let popoverController = alert.popoverPresentationController {
+			popoverController.sourceView = view
+			popoverController.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+			popoverController.permittedArrowDirections = []
+		}
+
+		let currentIdentifier = AppDefaults.shared.ttsVoiceIdentifier
+
+		for voice in voices {
+			let qualityLabel: String
+			switch voice.quality {
+			case .premium:
+				qualityLabel = " (Premium)"
+			case .enhanced:
+				qualityLabel = " (Enhanced)"
+			default:
+				qualityLabel = ""
+			}
+
+			let action = UIAlertAction(title: voice.name + qualityLabel, style: .default) { [weak self] _ in
+				AppDefaults.shared.ttsVoiceIdentifier = voice.identifier
+				self?.updateTTSVoiceLabel()
+			}
+			if voice.identifier == currentIdentifier {
+				action.setValue(true, forKey: "checked")
+			}
+			alert.addAction(action)
+		}
+
+		let cancelTitle = NSLocalizedString("Cancel", comment: "Cancel")
+		alert.addAction(UIAlertAction(title: cancelTitle, style: .cancel))
+
+		present(alert, animated: true)
+	}
+
+	func updateTTSVoiceLabel() {
+		if let identifier = AppDefaults.shared.ttsVoiceIdentifier,
+		   let voice = AVSpeechSynthesisVoice(identifier: identifier) {
+			ttsVoiceDetailLabel.text = voice.name
+		} else {
+			ttsVoiceDetailLabel.text = NSLocalizedString("System Default", comment: "System default voice")
+		}
+	}
+
 
 	func updateObsidianVaultLabel() {
 		if let displayPath = ObsidianFileManager.vaultDisplayPath() {
