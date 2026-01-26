@@ -79,3 +79,6 @@ fastlane/test_output
 
 # Podcast API token
 /Shared/PodcastSources/podcast_token.txt
+
+# Mac app (iOS only fork)
+/Mac/
