@@ -507,31 +507,10 @@
                             <outlet property="dropDelegate" destination="6Bn-mF-MPS" id="kkq-e8-I1D"/>
                         </connections>
                     </collectionView>
-                    <toolbarItems>
-                        <barButtonItem title="Settings" image="gear" catalog="system" id="N0L-yy-Bfq">
-                            <connections>
-                                <action selector="settings:" destination="6Bn-mF-MPS" id="hbg-Ot-ImT"/>
-                            </connections>
-                        </barButtonItem>
-                        <barButtonItem style="plain" systemItem="flexibleSpace" id="xNq-ig-7IX"/>
-                        <barButtonItem title="Add" image="plus" catalog="system" id="iTI-PO-3e6"/>
-                    </toolbarItems>
-                    <navigationItem key="navigationItem" title="Feeds" id="zgM-dx-bIO">
-                        <barButtonItem key="rightBarButtonItem" image="line.3.horizontal.decrease" catalog="system" id="pBp-WF-vxp">
-                            <userDefinedRuntimeAttributes>
-                                <userDefinedRuntimeAttribute type="string" keyPath="accLabelText" value="Feeds Filter"/>
-                            </userDefinedRuntimeAttributes>
-                            <connections>
-                                <action selector="toggleFilter:" destination="6Bn-mF-MPS" id="ZgH-7w-cAC"/>
-                            </connections>
-                        </barButtonItem>
-                    </navigationItem>
+                    <toolbarItems/>
+                    <navigationItem key="navigationItem" id="zgM-dx-bIO"/>
                     <simulatedNavigationBarMetrics key="simulatedTopBarMetrics" prompted="NO"/>
                     <simulatedToolbarMetrics key="simulatedBottomBarMetrics"/>
-                    <connections>
-                        <outlet property="addNewItemButton" destination="iTI-PO-3e6" id="lnC-7T-ziu"/>
-                        <outlet property="filterButton" destination="pBp-WF-vxp" id="ehZ-fU-VAz"/>
-                    </connections>
                 </collectionViewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="15O-aC-V5r" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
             </objects>

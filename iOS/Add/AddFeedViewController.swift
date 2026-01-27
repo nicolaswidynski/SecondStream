@@ -27,6 +27,7 @@ final class AddFeedViewController: UITableViewController {
 
 	var initialFeed: String?
 	var initialFeedName: String?
+	var feedCategory: FeedCategory = .rss
 
 	var container: Container?
 
@@ -111,6 +112,8 @@ final class AddFeedViewController: UITableViewController {
 
 			switch result {
 			case .success(let feed):
+				// Set the feed category based on how it was added
+				feed.feedCategory = self.feedCategory
 				self.dismiss(animated: true)
 				NotificationCenter.default.post(name: .UserDidAddFeed, object: self, userInfo: [UserInfoKey.feed: feed])
 			case .failure(let error):
