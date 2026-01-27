@@ -10,7 +10,6 @@
 			document.addEventListener("DOMContentLoaded", function(event) {
 				window.scrollTo(0, [[windowScrollY]]);
 				processPage();
-				// Always run for testing - will be conditional on [[collapsibleSections]] later
 				if (typeof makeHeadersCollapsible === 'function') {
 					makeHeadersCollapsible();
 				}

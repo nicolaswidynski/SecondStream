@@ -34,7 +34,6 @@ final class SettingsViewController: UITableViewController {
 	@IBOutlet var colorPaletteDetailLabel: UILabel!
 	@IBOutlet var openLinksInNetNewsWire: UISwitch!
 	@IBOutlet var enableJavaScriptSwitch: UISwitch!
-	@IBOutlet var collapsibleSectionsSwitch: UISwitch!
 	@IBOutlet var obsidianSyncSwitch: UISwitch!
 	@IBOutlet var obsidianVaultLabel: UILabel!
 	@IBOutlet var obsidianVaultCell: UITableViewCell!
@@ -100,8 +99,6 @@ final class SettingsViewController: UITableViewController {
 			enableJavaScriptSwitch.isOn = false
 		}
 
-		collapsibleSectionsSwitch.isOn = AppDefaults.shared.isCollapsibleSectionsEnabled
-
 		colorPaletteDetailLabel.text = String(describing: AppDefaults.userInterfaceColorPalette)
 
 		openLinksInNetNewsWire.isOn = !AppDefaults.shared.useSystemBrowser
@@ -143,12 +140,6 @@ final class SettingsViewController: UITableViewController {
 		switch section {
 		case 1:
 			return AccountManager.shared.accounts.count + 1
-		case 2:
-			let defaultNumberOfRows = super.tableView(tableView, numberOfRowsInSection: section)
-			if AccountManager.shared.activeAccounts.isEmpty || AccountManager.shared.anyAccountHasNetNewsWireNewsSubscription() {
-				return defaultNumberOfRows - 1
-			}
-			return defaultNumberOfRows
 		case 4:
 			return traitCollection.userInterfaceIdiom == .phone ? 5 : 4
 		default:
@@ -212,9 +203,6 @@ final class SettingsViewController: UITableViewController {
 					let sourceRect = tableView.rectForRow(at: indexPath)
 					exportOPML(sourceView: sourceView, sourceRect: sourceRect)
 				}
-			case 2:
-				addFeed()
-				tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
 			default:
 				break
 			}
@@ -254,25 +242,8 @@ final class SettingsViewController: UITableViewController {
 			}
 			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
 		case 8:
-			switch indexPath.row {
-			case 0:
-				openURL(HelpURL.helpHome.rawValue)
-				tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
-			case 1:
-				openURL(HelpURL.discourse.rawValue)
-				tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
-			case 2:
-				openURL(HelpURL.releaseNotes.rawValue)
-				tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
-			case 3:
-				openURL(HelpURL.bugTracker.rawValue)
-				tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
-			case 4:
-				let hosting = UIHostingController(rootView: AboutView())
-				self.navigationController?.pushViewController(hosting, animated: true)
-			default:
-				break
-			}
+			let hosting = UIHostingController(rootView: AboutWPodView())
+			self.navigationController?.pushViewController(hosting, animated: true)
 		default:
 			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
 		}
@@ -356,10 +327,6 @@ final class SettingsViewController: UITableViewController {
 		AppDefaults.shared.isArticleContentJavascriptEnabled = enableJavaScriptSwitch.isOn
  	}
 
-	@IBAction func switchCollapsibleSections(_ sender: Any) {
-		AppDefaults.shared.isCollapsibleSectionsEnabled = collapsibleSectionsSwitch.isOn
-	}
-
 	@IBAction func switchObsidianSync(_ sender: Any) {
 		AppDefaults.shared.isObsidianSyncEnabled = obsidianSyncSwitch.isOn
 		updateObsidianVaultLabel()
@@ -425,19 +392,6 @@ extension SettingsViewController: UIDocumentPickerDelegate {
 // MARK: - Private
 
 private extension SettingsViewController {
-
-	func addFeed() {
-		self.dismiss(animated: true)
-
-		let addNavViewController = UIStoryboard.add.instantiateViewController(withIdentifier: "AddFeedViewControllerNav") as! UINavigationController
-		let addViewController = addNavViewController.topViewController as! AddFeedViewController
-		addViewController.initialFeed = AccountManager.netNewsWireNewsURL
-		addViewController.initialFeedName = NSLocalizedString("NetNewsWire News", comment: "NetNewsWire News")
-		addNavViewController.modalPresentationStyle = .formSheet
-		addNavViewController.preferredContentSize = AddFeedViewController.preferredContentSizeForFormSheetDisplay
-
-		presentingParentController?.present(addNavViewController, animated: true)
-	}
 
 	func importOPML(sourceView: UIView, sourceRect: CGRect) {
 		switch AccountManager.shared.activeAccounts.count {
