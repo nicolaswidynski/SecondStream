@@ -924,8 +924,13 @@ struct SidebarItemNode: Hashable, Sendable {
 	}
 
 	func unreadCountForCategorySection(_ section: FeedSectionIdentifier) -> Int {
-		guard section != .smartFeeds else {
-			return 0
+		// For Smart Feeds, return the total unread count across all accounts
+		if section == .smartFeeds {
+			var total = 0
+			for account in AccountManager.shared.activeAccounts {
+				total += account.unreadCount
+			}
+			return total
 		}
 
 		var count = 0

@@ -72,10 +72,20 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		return stack
 	}()
 
-	/// The current update status text to display (shown as navigation title)
+	/// The update status label positioned at top right
+	private lazy var updateStatusLabel: UILabel = {
+		let label = UILabel()
+		label.font = .preferredFont(forTextStyle: .caption2)
+		label.textColor = .secondaryLabel
+		label.textAlignment = .right
+		label.translatesAutoresizingMaskIntoConstraints = false
+		return label
+	}()
+
+	/// The current update status text to display
 	var updateStatusText: String? {
 		didSet {
-			navigationItem.title = updateStatusText
+			updateStatusLabel.text = updateStatusText
 		}
 	}
 
@@ -162,7 +172,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func configureNavigationBar() {
-		// Title will show "Updated X ago" text (set via updateStatusText)
+		// No title - update status is shown separately
 		navigationItem.title = nil
 
 		// Left bar button: Settings
@@ -175,8 +185,16 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		settingsButton.accessibilityLabel = NSLocalizedString("Settings", comment: "Settings")
 		navigationItem.leftBarButtonItem = settingsButton
 
-		// No right bar button items - actions are in the bottom bar
-		navigationItem.rightBarButtonItem = nil
+		// Right side: Update status as plain text (using a title view approach)
+		// Create a container that spans the title area but aligns text to the right
+		let titleContainer = UIView()
+		titleContainer.translatesAutoresizingMaskIntoConstraints = false
+		updateStatusLabel.translatesAutoresizingMaskIntoConstraints = true
+		updateStatusLabel.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+		updateStatusLabel.frame = CGRect(x: 0, y: 0, width: 200, height: 44)
+		titleContainer.addSubview(updateStatusLabel)
+		titleContainer.frame = CGRect(x: 0, y: 0, width: 200, height: 44)
+		navigationItem.titleView = titleContainer
 	}
 
 	@objc private func settingsTapped() {
