@@ -72,10 +72,20 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		return stack
 	}()
 
+	/// The update status label (added directly to view, not navigation bar)
+	private lazy var updateStatusLabel: UILabel = {
+		let label = UILabel()
+		label.font = .preferredFont(forTextStyle: .caption2)
+		label.textColor = .secondaryLabel
+		label.textAlignment = .right
+		label.translatesAutoresizingMaskIntoConstraints = false
+		return label
+	}()
+
 	/// The current update status text to display
 	var updateStatusText: String? {
 		didSet {
-			navigationItem.rightBarButtonItem?.title = updateStatusText
+			updateStatusLabel.text = updateStatusText
 		}
 	}
 
@@ -176,14 +186,15 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		settingsButton.accessibilityLabel = NSLocalizedString("Settings", comment: "Settings")
 		navigationItem.leftBarButtonItem = settingsButton
 
-		// Right side: Update status as plain text using UIBarButtonItem with title
-		let updateButton = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
-		updateButton.isEnabled = false
-		updateButton.setTitleTextAttributes([
-			.font: UIFont.preferredFont(forTextStyle: .caption2),
-			.foregroundColor: UIColor.secondaryLabel
-		], for: .disabled)
-		navigationItem.rightBarButtonItem = updateButton
+		// No right bar button - update status is shown as a label in the view
+		navigationItem.rightBarButtonItem = nil
+
+		// Add update status label to the view (not navigation bar)
+		view.addSubview(updateStatusLabel)
+		NSLayoutConstraint.activate([
+			updateStatusLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -30),
+			updateStatusLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+		])
 	}
 
 	@objc private func settingsTapped() {
