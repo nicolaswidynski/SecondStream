@@ -78,7 +78,6 @@ final class AppDefaults: Sendable {
 		static let splitViewPreferredDisplayMode = "splitViewPreferredDisplayMode"
 		static let obsidianSyncEnabled = "obsidianSyncEnabled"
 		static let obsidianVaultBookmark = "obsidianVaultBookmark"
-		static let collapsibleSectionsEnabled = "collapsibleSectionsEnabled"
 		static let ttsVoiceIdentifier = "ttsVoiceIdentifier"
 	}
 
@@ -406,15 +405,6 @@ final class AppDefaults: Sendable {
 		}
 	}
 
-	var isCollapsibleSectionsEnabled: Bool {
-		get {
-			AppDefaults.bool(for: Key.collapsibleSectionsEnabled)
-		}
-		set {
-			AppDefaults.setBool(for: Key.collapsibleSectionsEnabled, newValue)
-		}
-	}
-
 	var ttsVoiceIdentifier: String? {
 		get {
 			return AppDefaults.string(for: Key.ttsVoiceIdentifier)
@@ -436,8 +426,7 @@ final class AppDefaults: Sendable {
 										Key.confirmMarkAllAsRead: true,
 										Key.articleContentJavascriptEnabled: true,
 										Key.currentThemeName: Self.defaultThemeName,
-										Key.splitViewPreferredDisplayMode: UISplitViewController.DisplayMode.oneBesideSecondary.rawValue,
-										Key.collapsibleSectionsEnabled: false]
+										Key.splitViewPreferredDisplayMode: UISplitViewController.DisplayMode.oneBesideSecondary.rawValue]
 		AppDefaults.store.register(defaults: defaults)
 	}
 }
