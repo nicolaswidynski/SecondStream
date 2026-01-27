@@ -58,12 +58,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		return label
 	}()
 
-	/// The floating bottom action bar with blur effect
+	/// The floating bottom action bar with blur effect (pill-shaped)
 	private lazy var bottomActionBar: UIVisualEffectView = {
 		let blurEffect = UIBlurEffect(style: .systemMaterial)
 		let visualEffectView = UIVisualEffectView(effect: blurEffect)
 		visualEffectView.translatesAutoresizingMaskIntoConstraints = false
-		visualEffectView.layer.cornerRadius = 12
+		// Use half the height (26pt) for a full pill/oval shape
+		visualEffectView.layer.cornerRadius = 26
 		visualEffectView.clipsToBounds = true
 		return visualEffectView
 	}()
@@ -454,26 +455,18 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		case .smartFeeds:
 			return 0  // Smart feeds show their individual counts
 		case .rssFeeds, .podcasts, .youtube, .news:
-			// Calculate unread count for feeds of this type
+			// Count unread from items actually in this section of the snapshot
+			let snapshot = dataSource.snapshot()
+			let sectionID = section.rawValue
+			guard snapshot.sectionIdentifiers.contains(sectionID) else {
+				return 0
+			}
+
 			var count = 0
-			for account in AccountManager.shared.activeAccounts {
-				for feed in account.flattenedFeeds() {
-					let targetType: FeedCategory
-					switch section {
-					case .rssFeeds:
-						targetType = .rss
-					case .podcasts:
-						targetType = .podcast
-					case .youtube:
-						targetType = .youtube
-					case .news:
-						targetType = .news
-					case .smartFeeds:
-						return 0
-					}
-					if feed.feedCategory == targetType {
-						count += feed.unreadCount
-					}
+			let items = snapshot.itemIdentifiers(inSection: sectionID)
+			for item in items {
+				if let sidebarItem = item.node.representedObject as? SidebarItem {
+					count += sidebarItem.unreadCount
 				}
 			}
 			return count
