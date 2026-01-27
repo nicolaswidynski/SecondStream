@@ -72,20 +72,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		return stack
 	}()
 
-	/// The update status label positioned at top right
-	private lazy var updateStatusLabel: UILabel = {
-		let label = UILabel()
-		label.font = .preferredFont(forTextStyle: .caption2)
-		label.textColor = .secondaryLabel
-		label.textAlignment = .right
-		label.translatesAutoresizingMaskIntoConstraints = false
-		return label
-	}()
-
 	/// The current update status text to display
 	var updateStatusText: String? {
 		didSet {
-			updateStatusLabel.text = updateStatusText
+			navigationItem.rightBarButtonItem?.title = updateStatusText
 		}
 	}
 
@@ -152,7 +142,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			actionButtonsStack.centerYAnchor.constraint(equalTo: bottomActionBar.contentView.centerYAnchor)
 		])
 
-		// Add content insets for the bottom bar
+		// Add content insets: top to avoid navigation bar overlay, bottom for action bar
+		collectionView.contentInset.top = 8
 		collectionView.contentInset.bottom = 80
 	}
 
@@ -172,7 +163,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func configureNavigationBar() {
-		// No title - update status is shown separately
+		// No title
 		navigationItem.title = nil
 
 		// Left bar button: Settings
@@ -185,16 +176,14 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		settingsButton.accessibilityLabel = NSLocalizedString("Settings", comment: "Settings")
 		navigationItem.leftBarButtonItem = settingsButton
 
-		// Right side: Update status as plain text (using a title view approach)
-		// Create a container that spans the title area but aligns text to the right
-		let titleContainer = UIView()
-		titleContainer.translatesAutoresizingMaskIntoConstraints = false
-		updateStatusLabel.translatesAutoresizingMaskIntoConstraints = true
-		updateStatusLabel.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-		updateStatusLabel.frame = CGRect(x: 0, y: 0, width: 200, height: 44)
-		titleContainer.addSubview(updateStatusLabel)
-		titleContainer.frame = CGRect(x: 0, y: 0, width: 200, height: 44)
-		navigationItem.titleView = titleContainer
+		// Right side: Update status as plain text using UIBarButtonItem with title
+		let updateButton = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
+		updateButton.isEnabled = false
+		updateButton.setTitleTextAttributes([
+			.font: UIFont.preferredFont(forTextStyle: .caption2),
+			.foregroundColor: UIColor.secondaryLabel
+		], for: .disabled)
+		navigationItem.rightBarButtonItem = updateButton
 	}
 
 	@objc private func settingsTapped() {
