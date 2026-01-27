@@ -22,16 +22,6 @@ private let folderIdentifier = "Folder"
 private let containerReuseIdentifier = "Container"
 
 final class MainFeedCollectionViewController: UICollectionViewController, UndoableCommandRunner {
-	@IBOutlet var filterButton: UIBarButtonItem!
-	@IBOutlet var addNewItemButton: UIBarButtonItem! {
-		didSet {
-			if #available(iOS 14, *) {
-				addNewItemButton.primaryAction = nil
-			} else {
-				addNewItemButton.action = #selector(MainFeedCollectionViewController.add(_:))
-			}
-		}
-	}
 
 	private let keyboardManager = KeyboardManager(type: .sidebar)
 	override var keyCommands: [UIKeyCommand]? {
@@ -59,6 +49,23 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// `viewDidAppear(_:)` after a delay to allow the deselection animation to complete.
 	private var isAnimating: Bool = false
 
+	/// The footer label for "Updated X ago" text
+	private let footerLabel: UILabel = {
+		let label = UILabel()
+		label.font = .preferredFont(forTextStyle: .footnote)
+		label.textColor = .secondaryLabel
+		label.textAlignment = .center
+		label.translatesAutoresizingMaskIntoConstraints = false
+		return label
+	}()
+
+	/// The current update status text to display in the footer
+	var updateStatusText: String? {
+		didSet {
+			footerLabel.text = updateStatusText
+		}
+	}
+
 	var dataSource: UICollectionViewDiffableDataSource<String, SidebarItemNode>!
 
 	override func viewDidLoad() {
@@ -66,23 +73,109 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		registerForNotifications()
 		configureCollectionView()
 		configureDiffableDataSource()
+		configureNavigationBar()
+		configureFooterLabel()
 		collectionView.dragDelegate = self
 		collectionView.dropDelegate = self
 		becomeFirstResponder()
     }
 
+	private func configureFooterLabel() {
+		view.addSubview(footerLabel)
+
+		NSLayoutConstraint.activate([
+			footerLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+			footerLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+			footerLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8)
+		])
+
+		// Add content insets: top padding since buttons are on top, bottom for footer
+		collectionView.contentInset.top = 12
+		collectionView.contentInset.bottom = 40
+	}
+
+	private func configureNavigationBar() {
+		// Remove navigation title
+		navigationItem.title = nil
+
+		// Left bar button: Settings
+		let settingsButton = UIBarButtonItem(
+			image: UIImage(systemName: "gearshape"),
+			style: .plain,
+			target: self,
+			action: #selector(settingsTapped)
+		)
+		settingsButton.accessibilityLabel = NSLocalizedString("Settings", comment: "Settings")
+		navigationItem.leftBarButtonItem = settingsButton
+
+		// Right bar buttons: RSS, Podcast, YouTube, News (displayed right-to-left)
+		let rssButton = UIBarButtonItem(
+			image: UIImage(systemName: "dot.radiowaves.left.and.right"),
+			style: .plain,
+			target: self,
+			action: #selector(addRSSFeed)
+		)
+		rssButton.accessibilityLabel = NSLocalizedString("Add RSS Feed", comment: "Add RSS Feed")
+
+		let podcastButton = UIBarButtonItem(
+			image: UIImage(systemName: "mic.fill"),
+			style: .plain,
+			target: self,
+			action: #selector(addPodcast)
+		)
+		podcastButton.accessibilityLabel = NSLocalizedString("Add Podcast", comment: "Add Podcast")
+
+		let youtubeButton = UIBarButtonItem(
+			image: UIImage(systemName: "play.rectangle"),
+			style: .plain,
+			target: self,
+			action: #selector(addYoutube)
+		)
+		youtubeButton.accessibilityLabel = NSLocalizedString("Add YouTube Channel", comment: "Add YouTube Channel")
+
+		let newsButton = UIBarButtonItem(
+			image: UIImage(systemName: "newspaper"),
+			style: .plain,
+			target: self,
+			action: #selector(addNews)
+		)
+		newsButton.accessibilityLabel = NSLocalizedString("Add News", comment: "Add News")
+
+		// Order: News, YouTube, Podcast, RSS (displayed right-to-left so RSS is leftmost)
+		navigationItem.rightBarButtonItems = [newsButton, youtubeButton, podcastButton, rssButton]
+	}
+
+	@objc private func settingsTapped() {
+		coordinator.showSettings()
+	}
+
+	@objc private func addRSSFeed() {
+		coordinator.showAddFeed(feedCategory: .rss)
+	}
+
+	@objc private func addPodcast() {
+		// Start fetching podcast sources early
+		PodcastSourcesManager.shared.startFetching()
+		showPodcastSources()
+	}
+
+	@objc private func addYoutube() {
+		showYoutubePicker()
+	}
+
+	@objc private func addNews() {
+		showNewsPicker()
+	}
+
 	override func viewWillAppear(_ animated: Bool) {
-		navigationController?.isToolbarHidden = false
+		// Hide the toolbar - all actions are now in the navigation bar
+		navigationController?.isToolbarHidden = true
 		updateUI()
 		super.viewWillAppear(animated)
 
 		if traitCollection.userInterfaceIdiom == .phone {
-			self.navigationController?.navigationBar.prefersLargeTitles = true
-			self.navigationItem.largeTitleDisplayMode = .always
-			DispatchQueue.main.async {
-				/// This sizes the navigation bar to large.
-				self.navigationController?.navigationBar.sizeToFit()
-			}
+			self.navigationController?.navigationBar.prefersLargeTitles = false
+			self.navigationItem.largeTitleDisplayMode = .never
 
 			/// On iPhone, we want to deselect the feed when the user navigates
 			/// back to the feeds view. To prevent the user from selecting a new feed while
@@ -130,6 +223,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		var config = UICollectionLayoutListConfiguration(appearance: traitCollection.userInterfaceIdiom == .pad ? .sidebar : .insetGrouped)
 		config.separatorConfiguration.color = .tertiarySystemFill
 		config.headerMode = .supplementary
+		// Don't use section footers - we use a standalone footer label instead
 
 		config.trailingSwipeActionsConfigurationProvider = { [unowned self] indexPath in
 			if indexPath.section == 0 { return UISwipeActionsConfiguration(actions: []) }
@@ -253,6 +347,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			guard let self else {
 				return nil
 			}
+
 			guard kind == UICollectionView.elementKindSectionHeader else {
 				return UICollectionReusableView()
 			}
@@ -263,6 +358,27 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				for: indexPath
 			) as! MainFeedCollectionHeaderReusableView
 
+			// Get section identifier from snapshot
+			let snapshot = self.dataSource.snapshot()
+			let sectionIdentifiers = snapshot.sectionIdentifiers
+			guard indexPath.section < sectionIdentifiers.count else {
+				return UICollectionReusableView()
+			}
+
+			let sectionID = sectionIdentifiers[indexPath.section]
+
+			// Check if this is a feed type section
+			if let feedSection = FeedSectionIdentifier(rawValue: sectionID) {
+				headerView.delegate = self
+				headerView.headerTitle.text = feedSection.displayName
+				headerView.unreadCount = self.unreadCountForSection(feedSection)
+				headerView.tag = indexPath.section
+				headerView.disclosureExpanded = self.coordinator.isCategorySectionExpanded(feedSection)
+				// Don't add context menu to category headers (no account actions apply)
+				return headerView
+			}
+
+			// Fallback for non-category sections (should not happen with new structure)
 			guard let nameProvider = self.coordinator.rootNode.childAtIndex(indexPath.section)?.representedObject as? DisplayNameProvider else {
 				return UICollectionReusableView()
 			}
@@ -291,14 +407,42 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 	}
 
+	private func unreadCountForSection(_ section: FeedSectionIdentifier) -> Int {
+		switch section {
+		case .smartFeeds:
+			return 0  // Smart feeds show their individual counts
+		case .rssFeeds, .podcasts, .youtube, .news:
+			// Calculate unread count for feeds of this type
+			var count = 0
+			for account in AccountManager.shared.activeAccounts {
+				for feed in account.flattenedFeeds() {
+					let targetType: FeedCategory
+					switch section {
+					case .rssFeeds:
+						targetType = .rss
+					case .podcasts:
+						targetType = .podcast
+					case .youtube:
+						targetType = .youtube
+					case .news:
+						targetType = .news
+					case .smartFeeds:
+						return 0
+					}
+					if feed.feedCategory == targetType {
+						count += feed.unreadCount
+					}
+				}
+			}
+			return count
+		}
+	}
+
+
 	func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<String, SidebarItemNode>, animatingDifferences: Bool, completion: (() -> Void)? = nil) {
 		dataSource.apply(snapshot, animatingDifferences: animatingDifferences) {
 			completion?()
 		}
-	}
-
-	@IBAction func settings(_ sender: UIBarButtonItem) {
-		coordinator.showSettings()
 	}
 
     // MARK: UICollectionViewDelegate
@@ -424,14 +568,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	func updateUI() {
-		if coordinator.isReadFeedsFiltered {
-			setFilterButtonToActive()
-		} else {
-			setFilterButtonToInactive()
-		}
-		addNewItemButton?.isEnabled = !AccountManager.shared.activeAccounts.isEmpty
-
-		configureContextMenu()
+		// Filter state is managed via settings, not a visible button
 	}
 
 	func updateFeedSelection(animations: Animations) {
@@ -607,15 +744,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		restoreSelectionIfNecessary(adjustScroll: false)
 	}
 
-	func setFilterButtonToActive() {
-		filterButton.tintColor = Assets.Colors.primaryAccent
-		filterButton?.accLabelText = NSLocalizedString("Selected - Filter Read Feeds", comment: "Selected - Filter Read Feeds")
-	}
-
-	func setFilterButtonToInactive() {
-		filterButton.tintColor = nil
-		filterButton?.accLabelText = NSLocalizedString("Filter Read Feeds", comment: "Filter Read Feeds")
-	}
 
 	// MARK: - Notifications
 
@@ -675,45 +803,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	// MARK: - Actions
 
-	@objc func configureContextMenu(_: Any? = nil) {
-		/*
-			Context Menu Order:
-			1. Add Feed
-			2. Add Folder
-		*/
-
-		var menuItems: [UIMenuElement] = []
-
-		let addFeedActionTitle = NSLocalizedString("Add Feed", comment: "Add Feed")
-		let addFeedAction = UIAction(title: addFeedActionTitle, image: Assets.Images.plus) { _ in
-			self.coordinator.showAddFeed()
-		}
-		menuItems.append(addFeedAction)
-
-		let addFolderActionTitle = NSLocalizedString("Add Folder", comment: "Add Folder")
-		let addFolderAction = UIAction(title: addFolderActionTitle, image: Assets.Images.folderOutlinePlus) { _ in
-			self.coordinator.showAddFolder()
-		}
-		menuItems.append(addFolderAction)
-
-		let addPodcastSummaryTitle = NSLocalizedString("Add Podcast", comment: "Add Podcast")
-		let addPodcastSummaryAction = UIAction(title: addPodcastSummaryTitle, image: UIImage(systemName: "mic.fill")) { _ in
-			self.showPodcastSources()
-		}
-		menuItems.append(addPodcastSummaryAction)
-
-		// Wrap in deferred element to trigger fetch when menu opens
-		let deferredMenu = UIDeferredMenuElement.uncached { completion in
-			// Start fetching podcast sources when menu is about to open
-			PodcastSourcesManager.shared.startFetching()
-			completion(menuItems.reversed())
-		}
-
-		let contextMenu = UIMenu(title: NSLocalizedString("Add Item", comment: "Add Item"), image: nil, identifier: nil, options: [], children: [deferredMenu])
-
-		self.addNewItemButton.menu = contextMenu
-	}
-
 	@objc func refreshAccounts(_ sender: Any) {
 		collectionView.refreshControl?.endRefreshing()
 
@@ -722,41 +811,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
 			appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
 		}
-	}
-
-	@IBAction func add(_ sender: UIBarButtonItem) {
-		// Start fetching podcast sources early
-		PodcastSourcesManager.shared.startFetching()
-
-		let title = NSLocalizedString("Add Item", comment: "Add Item")
-		let alertController = UIAlertController(title: title, message: nil, preferredStyle: .actionSheet)
-
-		let cancelTitle = NSLocalizedString("Cancel", comment: "Cancel")
-		let cancelAction = UIAlertAction(title: cancelTitle, style: .cancel)
-
-		let addFeedActionTitle = NSLocalizedString("Add Web Feed", comment: "Add Web Feed")
-		let addFeedAction = UIAlertAction(title: addFeedActionTitle, style: .default) { _ in
-			self.coordinator.showAddFeed()
-		}
-
-		let addFolderActionTitle = NSLocalizedString("Add Folder", comment: "Add Folder")
-		let addFolderAction = UIAlertAction(title: addFolderActionTitle, style: .default) { _ in
-			self.coordinator.showAddFolder()
-		}
-
-		let addPodcastSummaryTitle = NSLocalizedString("Add Podcast", comment: "Add Podcast")
-		let addPodcastSummaryAction = UIAlertAction(title: addPodcastSummaryTitle, style: .default) { _ in
-			self.showPodcastSources()
-		}
-
-		alertController.addAction(addFeedAction)
-		alertController.addAction(addFolderAction)
-		alertController.addAction(addPodcastSummaryAction)
-		alertController.addAction(cancelAction)
-
-		alertController.popoverPresentationController?.barButtonItem = sender
-
-		present(alertController, animated: true)
 	}
 
 	private func showPodcastSources() {
@@ -794,6 +848,22 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	private func presentPodcastSourcesList() {
 		let picker = PodcastPickerViewController(style: .plain)
+		picker.delegate = self
+		let nav = UINavigationController(rootViewController: picker)
+		nav.modalPresentationStyle = .formSheet
+		present(nav, animated: true)
+	}
+
+	private func showYoutubePicker() {
+		let picker = YoutubePickerViewController(style: .plain)
+		picker.delegate = self
+		let nav = UINavigationController(rootViewController: picker)
+		nav.modalPresentationStyle = .formSheet
+		present(nav, animated: true)
+	}
+
+	private func showNewsPicker() {
+		let picker = NewsPickerViewController(style: .plain)
 		picker.delegate = self
 		let nav = UINavigationController(rootViewController: picker)
 		nav.modalPresentationStyle = .formSheet
@@ -882,17 +952,17 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				switch result {
 				case .successExisting(let summaryURL):
 					// Podcast already exists, no wait needed - just add the feed
-					self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil)
+					self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil, feedCategory: .podcast)
 
 				case .successNew(let summaryURL):
 					if isCustomURL {
 						// Show success message for custom URL entries (new podcasts need processing)
 						self.showPodcastSuccessMessage {
-							self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil)
+							self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil, feedCategory: .podcast)
 						}
 					} else {
 						// Automatically add the summary feed
-						self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil)
+						self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil, feedCategory: .podcast)
 					}
 
 				case .unauthorized:
@@ -968,12 +1038,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				switch result {
 				case .successExisting(let summaryURL):
 					// Podcast already exists, no wait needed - just add the feed
-					self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil)
+					self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil, feedCategory: .podcast)
 
 				case .successNew(let summaryURL):
 					// Show success message for new podcasts (need processing)
 					self.showPodcastSuccessMessage {
-						self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil)
+						self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil, feedCategory: .podcast)
 					}
 
 				case .unauthorized:
@@ -1040,11 +1110,26 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		present(alert, animated: true)
 	}
 
-	@IBAction func toggleFilter(_ sender: Any) {
-		coordinator.toggleReadFeedsFilter()
-	}
-
 	func toggle(_ headerView: MainFeedCollectionHeaderReusableView) {
+		// Get section identifier from snapshot
+		let snapshot = dataSource.snapshot()
+		let sectionIdentifiers = snapshot.sectionIdentifiers
+		guard headerView.tag < sectionIdentifiers.count else {
+			return
+		}
+
+		let sectionID = sectionIdentifiers[headerView.tag]
+
+		// Check if this is a category section
+		if let feedSection = FeedSectionIdentifier(rawValue: sectionID) {
+			// Toggle category section expansion
+			let isExpanded = coordinator.isCategorySectionExpanded(feedSection)
+			headerView.disclosureExpanded = !isExpanded
+			coordinator.toggleCategorySection(feedSection)
+			return
+		}
+
+		// Fallback for non-category sections (shouldn't happen with new structure)
 		guard let sectionNode = coordinator.rootNode.childAtIndex(headerView.tag) else {
 			return
 		}
@@ -1092,8 +1177,43 @@ extension MainFeedCollectionViewController: MainFeedCollectionViewFolderCellDele
 extension MainFeedCollectionViewController: UIContextMenuInteractionDelegate {
 	func contextMenuInteraction(_ interaction: UIContextMenuInteraction, configurationForMenuAtLocation location: CGPoint) -> UIContextMenuConfiguration? {
 
-		guard let sectionIndex = interaction.view?.tag,
-			let sectionNode = coordinator.rootNode.childAtIndex(sectionIndex),
+		guard let sectionIndex = interaction.view?.tag else {
+			return nil
+		}
+
+		// Get section identifier from snapshot
+		let snapshot = dataSource.snapshot()
+		let sectionIdentifiers = snapshot.sectionIdentifiers
+		guard sectionIndex < sectionIdentifiers.count else {
+			return nil
+		}
+
+		let sectionID = sectionIdentifiers[sectionIndex]
+
+		// Check if this is a category section
+		if let feedSection = FeedSectionIdentifier(rawValue: sectionID) {
+			// Category sections can have Add Folder (adds to first active account)
+			return UIContextMenuConfiguration(identifier: sectionIndex as NSCopying, previewProvider: nil) { _ in
+				var menuElements = [UIMenuElement]()
+
+				// Add Folder action for category sections
+				let addFolderTitle = NSLocalizedString("Add Folder", comment: "Add Folder")
+				let addFolderAction = UIAction(title: addFolderTitle, image: Assets.Images.folderOutlinePlus) { [weak self] _ in
+					self?.coordinator.showAddFolder()
+				}
+				menuElements.append(UIMenu(title: "", options: .displayInline, children: [addFolderAction]))
+
+				// Mark All as Read for this category
+				if let markAllAction = self.markAllAsReadActionForSection(feedSection, contentView: interaction.view) {
+					menuElements.append(UIMenu(title: "", options: .displayInline, children: [markAllAction]))
+				}
+
+				return UIMenu(title: "", children: menuElements)
+			}
+		}
+
+		// Fallback for old account-based sections (should not happen with new structure)
+		guard let sectionNode = coordinator.rootNode.childAtIndex(sectionIndex),
 			let account = sectionNode.representedObject as? Account
 				else {
 					return nil
@@ -1104,6 +1224,10 @@ extension MainFeedCollectionViewController: UIContextMenuInteractionDelegate {
 			var menuElements = [UIMenuElement]()
 			menuElements.append(UIMenu(title: "", options: .displayInline, children: [self.getAccountInfoAction(account: account)]))
 
+			// Add Folder action
+			let addFolderAction = self.addFolderAction(account: account)
+			menuElements.append(UIMenu(title: "", options: .displayInline, children: [addFolderAction]))
+
 			if let markAllAction = self.markAllAsReadAction(account: account, contentView: interaction.view) {
 				menuElements.append(UIMenu(title: "", options: .displayInline, children: [markAllAction]))
 			}
@@ -1111,6 +1235,54 @@ extension MainFeedCollectionViewController: UIContextMenuInteractionDelegate {
 			menuElements.append(UIMenu(title: "", options: .displayInline, children: [self.deactivateAccountAction(account: account)]))
 
 			return UIMenu(title: "", children: menuElements)
+		}
+	}
+
+	private func markAllAsReadActionForSection(_ section: FeedSectionIdentifier, contentView: UIView?) -> UIAction? {
+		guard section != .smartFeeds else {
+			return nil
+		}
+
+		let targetType: FeedCategory
+		switch section {
+		case .rssFeeds:
+			targetType = .rss
+		case .podcasts:
+			targetType = .podcast
+		case .youtube:
+			targetType = .youtube
+		case .news:
+			targetType = .news
+		case .smartFeeds:
+			return nil
+		}
+
+		// Collect all feeds of this type
+		var feedsToMark = [Feed]()
+		for account in AccountManager.shared.activeAccounts {
+			for feed in account.flattenedFeeds() {
+				if feed.feedCategory == targetType {
+					feedsToMark.append(feed)
+				}
+			}
+		}
+
+		guard !feedsToMark.isEmpty else {
+			return nil
+		}
+
+		let title = NSLocalizedString("Mark All as Read", comment: "Mark All as Read")
+		return UIAction(title: title, image: UIImage(systemName: "checkmark.circle")) { [weak self] _ in
+			// Collect all unread articles from feeds of this category
+			var allArticles = [Article]()
+			for feed in feedsToMark {
+				if let articles = try? feed.fetchUnreadArticles() {
+					allArticles.append(contentsOf: articles)
+				}
+			}
+			if !allArticles.isEmpty {
+				self?.coordinator.markAllAsRead(allArticles)
+			}
 		}
 	}
 
@@ -1353,6 +1525,14 @@ extension MainFeedCollectionViewController {
 		return action
 	}
 
+	func addFolderAction(account: Account) -> UIAction {
+		let title = NSLocalizedString("Add Folder", comment: "Add Folder")
+		let action = UIAction(title: title, image: Assets.Images.folderOutlinePlus) { [weak self] _ in
+			self?.coordinator.showAddFolder()
+		}
+		return action
+	}
+
 	func getInfoAlertAction(indexPath: IndexPath, completion: @escaping (Bool) -> Void) -> UIAlertAction? {
 		guard let feed = coordinator.nodeFor(indexPath)?.representedObject as? Feed else {
 			return nil
@@ -1542,5 +1722,108 @@ extension MainFeedCollectionViewController: PodcastPickerDelegate {
 
 	func podcastPickerDidCancel(_ picker: PodcastPickerViewController) {
 		picker.dismiss(animated: true)
+	}
+}
+
+// MARK: - YoutubePickerDelegate
+
+extension MainFeedCollectionViewController: YoutubePickerDelegate {
+
+	func youtubePickerDidSelectChannelURL(_ picker: YoutubePickerViewController) {
+		picker.dismiss(animated: true) {
+			self.showEnterYoutubeURLDialog()
+		}
+	}
+
+	func youtubePickerDidCancel(_ picker: YoutubePickerViewController) {
+		picker.dismiss(animated: true)
+	}
+
+	private func showEnterYoutubeURLDialog() {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Enter YouTube Channel URL", comment: "Enter YouTube Channel URL"),
+			message: NSLocalizedString("Enter the URL of a YouTube channel to subscribe to its RSS feed.", comment: "YouTube URL dialog message"),
+			preferredStyle: .alert
+		)
+
+		alert.addTextField { textField in
+			textField.placeholder = "https://www.youtube.com/@channelname"
+			textField.keyboardType = .URL
+			textField.autocapitalizationType = .none
+			textField.autocorrectionType = .no
+		}
+
+		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
+			if let urlText = alert.textFields?.first?.text, !urlText.isEmpty {
+				// Convert YouTube channel URL to RSS feed URL
+				let feedURL = self.convertYoutubeURLToFeed(urlText)
+				self.coordinator.showAddFeed(initialFeed: feedURL, initialFeedName: nil, feedCategory: .youtube)
+			}
+		}
+
+		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
+
+		alert.addAction(addAction)
+		alert.addAction(cancelAction)
+
+		present(alert, animated: true)
+	}
+
+	private func convertYoutubeURLToFeed(_ urlString: String) -> String {
+		// Basic YouTube channel URL to RSS conversion
+		// Format: https://www.youtube.com/feeds/videos.xml?channel_id=CHANNEL_ID
+		// or: https://www.youtube.com/feeds/videos.xml?user=USERNAME
+
+		// For now, just return the URL and let the user provide the RSS URL directly
+		// A more sophisticated implementation would parse different YouTube URL formats
+		if urlString.contains("youtube.com/feeds/") {
+			return urlString
+		}
+
+		// If it's already a feed URL, return as-is
+		return urlString
+	}
+}
+
+// MARK: - NewsPickerDelegate
+
+extension MainFeedCollectionViewController: NewsPickerDelegate {
+
+	func newsPickerDidSelectNewsURL(_ picker: NewsPickerViewController) {
+		picker.dismiss(animated: true) {
+			self.showEnterNewsURLDialog()
+		}
+	}
+
+	func newsPickerDidCancel(_ picker: NewsPickerViewController) {
+		picker.dismiss(animated: true)
+	}
+
+	private func showEnterNewsURLDialog() {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Enter News RSS URL", comment: "Enter News RSS URL"),
+			message: nil,
+			preferredStyle: .alert
+		)
+
+		alert.addTextField { textField in
+			textField.placeholder = "https://example.com/feed.rss"
+			textField.keyboardType = .URL
+			textField.autocapitalizationType = .none
+			textField.autocorrectionType = .no
+		}
+
+		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
+			if let urlText = alert.textFields?.first?.text, !urlText.isEmpty {
+				self.coordinator.showAddFeed(initialFeed: urlText, initialFeedName: nil, feedCategory: .news)
+			}
+		}
+
+		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
+
+		alert.addAction(addAction)
+		alert.addAction(cancelAction)
+
+		present(alert, animated: true)
 	}
 }

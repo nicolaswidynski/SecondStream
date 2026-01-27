@@ -200,6 +200,16 @@ import Articles
 		}
 	}
 
+	/// The category of feed (rss, podcast, youtube, news). Defaults to .rss if nil.
+	public var feedCategory: FeedCategory {
+		get {
+			metadata.feedCategory ?? .rss
+		}
+		set {
+			metadata.feedCategory = newValue
+		}
+	}
+
 	// MARK: - DisplayNameProvider
 
 	public var nameForDisplay: String {

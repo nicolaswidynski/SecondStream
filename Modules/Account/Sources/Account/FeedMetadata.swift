@@ -10,6 +10,14 @@ import Foundation
 import RSWeb
 import Articles
 
+/// Represents how a feed was added to the app (feed category for UI organization)
+public enum FeedCategory: String, Codable, Sendable {
+	case rss
+	case podcast
+	case youtube
+	case news
+}
+
 @MainActor protocol FeedMetadataDelegate: AnyObject {
 	func valueDidChange(_ feedMetadata: FeedMetadata, key: FeedMetadata.CodingKeys)
 }
@@ -32,6 +40,7 @@ import Articles
 		case folderRelationship
 		case lastCheckDate
 		case obsidianSubfolder
+		case feedCategory
 	}
 
 	var feedID: String {
@@ -167,6 +176,15 @@ import Articles
 		didSet {
 			if obsidianSubfolder != oldValue {
 				valueDidChange(.obsidianSubfolder)
+			}
+		}
+	}
+
+	/// The category of feed (rss, podcast, youtube, news). Defaults to rss if nil.
+	var feedCategory: FeedCategory? {
+		didSet {
+			if feedCategory != oldValue {
+				valueDidChange(.feedCategory)
 			}
 		}
 	}

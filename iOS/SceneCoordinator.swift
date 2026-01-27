@@ -26,6 +26,30 @@ enum ShowFeedName {
 	case feed
 }
 
+/// Section identifiers for category-based feed organization
+enum FeedSectionIdentifier: String {
+	case smartFeeds = "smart-feeds"
+	case rssFeeds = "my-feeds"
+	case podcasts = "my-podcasts"
+	case youtube = "my-youtube"
+	case news = "my-news"
+
+	var displayName: String {
+		switch self {
+		case .smartFeeds:
+			return NSLocalizedString("Smart Feeds", comment: "Smart Feeds section")
+		case .rssFeeds:
+			return NSLocalizedString("My Feeds", comment: "My Feeds section")
+		case .podcasts:
+			return NSLocalizedString("My Podcasts", comment: "My Podcasts section")
+		case .youtube:
+			return NSLocalizedString("My YouTube channels", comment: "My YouTube channels section")
+		case .news:
+			return NSLocalizedString("My News", comment: "My News section")
+		}
+	}
+}
+
 struct SidebarItemNode: Hashable, Sendable {
 	let node: Node
 	let sidebarItemID: SidebarItemIdentifier
@@ -72,6 +96,9 @@ struct SidebarItemNode: Hashable, Sendable {
 
 	// Which Containers used to be expanded. Reset by rebuilding the sidebar.
 	private var lastExpandedContainers = Set<ContainerIdentifier>()
+
+	// Which category sections are expanded (all expanded by default)
+	private var expandedCategorySections = Set<FeedSectionIdentifier>([.smartFeeds, .rssFeeds, .podcasts, .youtube, .news])
 
 	private let hidingReadArticlesState = HidingReadArticlesState()
 
@@ -627,8 +654,8 @@ struct SidebarItemNode: Hashable, Sendable {
 					let localizedRefreshText = NSLocalizedString("Updated %@", comment: "Updated")
 					let refreshText = NSString.localizedStringWithFormat(localizedRefreshText as NSString, refreshed) as String
 
-					// Update Feeds with Updated text
-					self.mainFeedCollectionViewController?.navigationItem.subtitle = refreshText
+					// Update Feeds footer with Updated text
+					self.mainFeedCollectionViewController?.updateStatusText = refreshText
 
 					// If unread count > 0, add unread string to timeline
 					if timelineFeed != nil, timelineUnreadCount > 0 {
@@ -645,7 +672,7 @@ struct SidebarItemNode: Hashable, Sendable {
 					}
 				} else {
 					// Use 'Updated Just Now' while <60s have passed since refresh.
-					self.mainFeedCollectionViewController?.navigationItem.subtitle = NSLocalizedString("Updated Just Now", comment: "Updated Just Now")
+					self.mainFeedCollectionViewController?.updateStatusText = NSLocalizedString("Updated Just Now", comment: "Updated Just Now")
 
 					// If unread count > 0, add unread string to timeline
 					if timelineFeed != nil, timelineUnreadCount > 0 {
@@ -662,7 +689,7 @@ struct SidebarItemNode: Hashable, Sendable {
 					}
 				}
 			} else {
-				self.mainFeedCollectionViewController?.navigationItem.subtitle = ""
+				self.mainFeedCollectionViewController?.updateStatusText = nil
 				// If unread count > 0, add unread string to timeline
 				if timelineFeed != nil, timelineUnreadCount > 0 {
 					let localizedUnreadCount = NSLocalizedString("%i Unread", comment: "14 Unread")
@@ -678,8 +705,8 @@ struct SidebarItemNode: Hashable, Sendable {
 				}
 			}
 		} else {
-			// Updating in progress, apply to both iPhone and iPad Feeds.
-			self.mainFeedCollectionViewController?.navigationItem.subtitle = NSLocalizedString("Updating...", comment: "Updating...")
+			// Updating in progress, show in footer
+			self.mainFeedCollectionViewController?.updateStatusText = NSLocalizedString("Updating...", comment: "Updating...")
 		}
 
 		scheduleNavigationBarSubtitleUpdate()
@@ -879,6 +906,21 @@ struct SidebarItemNode: Hashable, Sendable {
 		}
 		lastExpandedContainers.remove(containerID)
 		collapse(containerID)
+	}
+
+	// MARK: - Category Section Expansion
+
+	func isCategorySectionExpanded(_ section: FeedSectionIdentifier) -> Bool {
+		return expandedCategorySections.contains(section)
+	}
+
+	func toggleCategorySection(_ section: FeedSectionIdentifier) {
+		if expandedCategorySections.contains(section) {
+			expandedCategorySections.remove(section)
+		} else {
+			expandedCategorySections.insert(section)
+		}
+		rebuildBackingStores()
 	}
 
 	func collapseAllFolders() {
@@ -1342,7 +1384,7 @@ struct SidebarItemNode: Hashable, Sendable {
 		rootSplitViewController.present(feedInspectorNavController, animated: true)
 	}
 
-	func showAddFeed(initialFeed: String? = nil, initialFeedName: String? = nil) {
+	func showAddFeed(initialFeed: String? = nil, initialFeedName: String? = nil, feedCategory: FeedCategory = .rss) {
 
 		// Since Add Feed can be opened from anywhere with a keyboard shortcut, we have to deselect any currently selected feeds
 		selectFeed(nil)
@@ -1352,6 +1394,7 @@ struct SidebarItemNode: Hashable, Sendable {
 		let addViewController = addNavViewController.topViewController as! AddFeedViewController
 		addViewController.initialFeed = initialFeed
 		addViewController.initialFeedName = initialFeedName
+		addViewController.feedCategory = feedCategory
 
 		addNavViewController.modalPresentationStyle = .formSheet
 		addNavViewController.preferredContentSize = AddFeedViewController.preferredContentSizeForFormSheetDisplay
@@ -1665,25 +1708,83 @@ private extension SceneCoordinator {
 	private func createSidebarSnapshot() -> NSDiffableDataSourceSnapshot<String, SidebarItemNode> {
 		var snapshot = NSDiffableDataSourceSnapshot<String, SidebarItemNode>()
 
+		// Group feeds by type for category-based display
+		var rssFeedNodes = [SidebarItemNode]()
+		var podcastNodes = [SidebarItemNode]()
+		var youtubeNodes = [SidebarItemNode]()
+		var newsNodes = [SidebarItemNode]()
+
 		for i in 0..<treeController.rootNode.numberOfChildNodes {
 			let sectionNode = treeController.rootNode.childAtIndex(i)!
-			let sectionID = (sectionNode.representedObject as? Account)?.accountID ?? ""
 
-			snapshot.appendSections([sectionID])
+			// Handle Smart Feeds section (first section)
+			if sectionNode.representedObject is SmartFeedsController {
+				snapshot.appendSections([FeedSectionIdentifier.smartFeeds.rawValue])
 
+				if isCategorySectionExpanded(.smartFeeds) {
+					var siNodes = [SidebarItemNode]()
+					for node in sectionNode.childNodes {
+						siNodes.append(SidebarItemNode(node))
+					}
+					snapshot.appendItems(siNodes, toSection: FeedSectionIdentifier.smartFeeds.rawValue)
+				}
+				continue
+			}
+
+			// For account sections, collect feeds and group by category
 			if isExpanded(sectionNode) {
-				var siNodes = [SidebarItemNode]()
-
 				for node in sectionNode.childNodes {
-					siNodes.append(SidebarItemNode(node))
-					if isExpanded(node) {
-						for child in node.childNodes {
-							siNodes.append(SidebarItemNode(child))
+					if let feed = node.representedObject as? Feed {
+						let sidebarNode = SidebarItemNode(node)
+						switch feed.feedCategory {
+						case .rss:
+							rssFeedNodes.append(sidebarNode)
+						case .podcast:
+							podcastNodes.append(sidebarNode)
+						case .youtube:
+							youtubeNodes.append(sidebarNode)
+						case .news:
+							newsNodes.append(sidebarNode)
+						}
+					} else if node.representedObject is Folder {
+						// Add folders to RSS section for now
+						rssFeedNodes.append(SidebarItemNode(node))
+						if isExpanded(node) {
+							for child in node.childNodes {
+								rssFeedNodes.append(SidebarItemNode(child))
+							}
 						}
 					}
 				}
+			}
+		}
 
-				snapshot.appendItems(siNodes, toSection: sectionID)
+		// Add category sections only if they have content
+		if !rssFeedNodes.isEmpty {
+			snapshot.appendSections([FeedSectionIdentifier.rssFeeds.rawValue])
+			if isCategorySectionExpanded(.rssFeeds) {
+				snapshot.appendItems(rssFeedNodes, toSection: FeedSectionIdentifier.rssFeeds.rawValue)
+			}
+		}
+
+		if !podcastNodes.isEmpty {
+			snapshot.appendSections([FeedSectionIdentifier.podcasts.rawValue])
+			if isCategorySectionExpanded(.podcasts) {
+				snapshot.appendItems(podcastNodes, toSection: FeedSectionIdentifier.podcasts.rawValue)
+			}
+		}
+
+		if !youtubeNodes.isEmpty {
+			snapshot.appendSections([FeedSectionIdentifier.youtube.rawValue])
+			if isCategorySectionExpanded(.youtube) {
+				snapshot.appendItems(youtubeNodes, toSection: FeedSectionIdentifier.youtube.rawValue)
+			}
+		}
+
+		if !newsNodes.isEmpty {
+			snapshot.appendSections([FeedSectionIdentifier.news.rawValue])
+			if isCategorySectionExpanded(.news) {
+				snapshot.appendItems(newsNodes, toSection: FeedSectionIdentifier.news.rawValue)
 			}
 		}
 
