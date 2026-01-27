@@ -49,16 +49,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// `viewDidAppear(_:)` after a delay to allow the deselection animation to complete.
 	private var isAnimating: Bool = false
 
-	/// The update status label for "Updated X ago" text (shown in navigation bar)
-	private let updateLabel: UILabel = {
-		let label = UILabel()
-		label.font = .preferredFont(forTextStyle: .caption2)
-		label.textColor = .tertiaryLabel
-		label.textAlignment = .right
-		label.backgroundColor = .clear
-		label.isUserInteractionEnabled = false
-		return label
-	}()
 
 	/// The floating bottom action bar with blur effect (pill-shaped)
 	private lazy var bottomActionBar: UIVisualEffectView = {
@@ -82,10 +72,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		return stack
 	}()
 
-	/// The current update status text to display
+	/// The current update status text to display (shown as navigation title)
 	var updateStatusText: String? {
 		didSet {
-			updateLabel.text = updateStatusText
+			navigationItem.title = updateStatusText
 		}
 	}
 
@@ -172,7 +162,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func configureNavigationBar() {
-		// Remove navigation title
+		// Title will show "Updated X ago" text (set via updateStatusText)
 		navigationItem.title = nil
 
 		// Left bar button: Settings
@@ -185,9 +175,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		settingsButton.accessibilityLabel = NSLocalizedString("Settings", comment: "Settings")
 		navigationItem.leftBarButtonItem = settingsButton
 
-		// Right side: Update status label (smaller font)
-		let updateBarButton = UIBarButtonItem(customView: updateLabel)
-		navigationItem.rightBarButtonItem = updateBarButton
+		// No right bar button items - actions are in the bottom bar
+		navigationItem.rightBarButtonItem = nil
 	}
 
 	@objc private func settingsTapped() {
@@ -1142,6 +1131,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		if let feedSection = FeedSectionIdentifier(rawValue: sectionID) {
 			// Toggle category section expansion
 			let isExpanded = coordinator.isCategorySectionExpanded(feedSection)
+			// Set unread count BEFORE changing expansion state so the label shows correctly
+			headerView.unreadCount = unreadCountForSection(feedSection)
 			headerView.disclosureExpanded = !isExpanded
 			coordinator.toggleCategorySection(feedSection)
 			return
