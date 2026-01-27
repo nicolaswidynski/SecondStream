@@ -49,20 +49,40 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// `viewDidAppear(_:)` after a delay to allow the deselection animation to complete.
 	private var isAnimating: Bool = false
 
-	/// The footer label for "Updated X ago" text
-	private let footerLabel: UILabel = {
+	/// The update status label for "Updated X ago" text (shown in navigation bar)
+	private let updateLabel: UILabel = {
 		let label = UILabel()
-		label.font = .preferredFont(forTextStyle: .footnote)
-		label.textColor = .secondaryLabel
-		label.textAlignment = .center
-		label.translatesAutoresizingMaskIntoConstraints = false
+		label.font = .preferredFont(forTextStyle: .caption2)
+		label.textColor = .tertiaryLabel
+		label.textAlignment = .right
 		return label
 	}()
 
-	/// The current update status text to display in the footer
+	/// The floating bottom action bar with blur effect
+	private lazy var bottomActionBar: UIVisualEffectView = {
+		let blurEffect = UIBlurEffect(style: .systemMaterial)
+		let visualEffectView = UIVisualEffectView(effect: blurEffect)
+		visualEffectView.translatesAutoresizingMaskIntoConstraints = false
+		visualEffectView.layer.cornerRadius = 12
+		visualEffectView.clipsToBounds = true
+		return visualEffectView
+	}()
+
+	/// Stack view containing the action buttons
+	private lazy var actionButtonsStack: UIStackView = {
+		let stack = UIStackView()
+		stack.axis = .horizontal
+		stack.distribution = .equalSpacing
+		stack.alignment = .center
+		stack.spacing = 24
+		stack.translatesAutoresizingMaskIntoConstraints = false
+		return stack
+	}()
+
+	/// The current update status text to display
 	var updateStatusText: String? {
 		didSet {
-			footerLabel.text = updateStatusText
+			updateLabel.text = updateStatusText
 		}
 	}
 
@@ -74,24 +94,78 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		configureCollectionView()
 		configureDiffableDataSource()
 		configureNavigationBar()
-		configureFooterLabel()
+		configureBottomActionBar()
 		collectionView.dragDelegate = self
 		collectionView.dropDelegate = self
 		becomeFirstResponder()
     }
 
-	private func configureFooterLabel() {
-		view.addSubview(footerLabel)
+	private func configureBottomActionBar() {
+		view.addSubview(bottomActionBar)
+
+		// Create action buttons
+		let rssButton = createActionButton(
+			systemName: "dot.radiowaves.left.and.right",
+			accessibilityLabel: NSLocalizedString("Add RSS Feed", comment: "Add RSS Feed"),
+			action: #selector(addRSSFeed)
+		)
+
+		let podcastButton = createActionButton(
+			systemName: "mic.fill",
+			accessibilityLabel: NSLocalizedString("Add Podcast", comment: "Add Podcast"),
+			action: #selector(addPodcast)
+		)
+
+		let youtubeButton = createActionButton(
+			systemName: "play.rectangle",
+			accessibilityLabel: NSLocalizedString("Add YouTube Channel", comment: "Add YouTube Channel"),
+			action: #selector(addYoutube)
+		)
+
+		let newsButton = createActionButton(
+			systemName: "newspaper",
+			accessibilityLabel: NSLocalizedString("Add News", comment: "Add News"),
+			action: #selector(addNews)
+		)
+
+		// Add buttons to stack
+		actionButtonsStack.addArrangedSubview(rssButton)
+		actionButtonsStack.addArrangedSubview(podcastButton)
+		actionButtonsStack.addArrangedSubview(youtubeButton)
+		actionButtonsStack.addArrangedSubview(newsButton)
+
+		// Add stack to the content view of the visual effect view
+		bottomActionBar.contentView.addSubview(actionButtonsStack)
 
 		NSLayoutConstraint.activate([
-			footerLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-			footerLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-			footerLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8)
+			// Position action bar at bottom center
+			bottomActionBar.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+			bottomActionBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
+			bottomActionBar.heightAnchor.constraint(equalToConstant: 52),
+
+			// Stack view constraints inside the action bar
+			actionButtonsStack.leadingAnchor.constraint(equalTo: bottomActionBar.contentView.leadingAnchor, constant: 20),
+			actionButtonsStack.trailingAnchor.constraint(equalTo: bottomActionBar.contentView.trailingAnchor, constant: -20),
+			actionButtonsStack.centerYAnchor.constraint(equalTo: bottomActionBar.contentView.centerYAnchor)
 		])
 
-		// Add content insets: top padding since buttons are on top, bottom for footer
-		collectionView.contentInset.top = 12
-		collectionView.contentInset.bottom = 40
+		// Add content insets for the bottom bar
+		collectionView.contentInset.bottom = 80
+	}
+
+	private func createActionButton(systemName: String, accessibilityLabel: String, action: Selector) -> UIButton {
+		let button = UIButton(type: .system)
+		let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+		button.setImage(UIImage(systemName: systemName, withConfiguration: config), for: .normal)
+		button.tintColor = .label
+		button.accessibilityLabel = accessibilityLabel
+		button.addTarget(self, action: action, for: .touchUpInside)
+		button.translatesAutoresizingMaskIntoConstraints = false
+		NSLayoutConstraint.activate([
+			button.widthAnchor.constraint(equalToConstant: 44),
+			button.heightAnchor.constraint(equalToConstant: 44)
+		])
+		return button
 	}
 
 	private func configureNavigationBar() {
@@ -108,41 +182,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		settingsButton.accessibilityLabel = NSLocalizedString("Settings", comment: "Settings")
 		navigationItem.leftBarButtonItem = settingsButton
 
-		// Right bar buttons: RSS, Podcast, YouTube, News (displayed right-to-left)
-		let rssButton = UIBarButtonItem(
-			image: UIImage(systemName: "dot.radiowaves.left.and.right"),
-			style: .plain,
-			target: self,
-			action: #selector(addRSSFeed)
-		)
-		rssButton.accessibilityLabel = NSLocalizedString("Add RSS Feed", comment: "Add RSS Feed")
-
-		let podcastButton = UIBarButtonItem(
-			image: UIImage(systemName: "mic.fill"),
-			style: .plain,
-			target: self,
-			action: #selector(addPodcast)
-		)
-		podcastButton.accessibilityLabel = NSLocalizedString("Add Podcast", comment: "Add Podcast")
-
-		let youtubeButton = UIBarButtonItem(
-			image: UIImage(systemName: "play.rectangle"),
-			style: .plain,
-			target: self,
-			action: #selector(addYoutube)
-		)
-		youtubeButton.accessibilityLabel = NSLocalizedString("Add YouTube Channel", comment: "Add YouTube Channel")
-
-		let newsButton = UIBarButtonItem(
-			image: UIImage(systemName: "newspaper"),
-			style: .plain,
-			target: self,
-			action: #selector(addNews)
-		)
-		newsButton.accessibilityLabel = NSLocalizedString("Add News", comment: "Add News")
-
-		// Order: News, YouTube, Podcast, RSS (displayed right-to-left so RSS is leftmost)
-		navigationItem.rightBarButtonItems = [newsButton, youtubeButton, podcastButton, rssButton]
+		// Right side: Update status label (smaller font)
+		let updateBarButton = UIBarButtonItem(customView: updateLabel)
+		navigationItem.rightBarButtonItem = updateBarButton
 	}
 
 	@objc private func settingsTapped() {
