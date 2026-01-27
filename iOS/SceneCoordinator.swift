@@ -923,6 +923,51 @@ struct SidebarItemNode: Hashable, Sendable {
 		rebuildBackingStores()
 	}
 
+	func unreadCountForCategorySection(_ section: FeedSectionIdentifier) -> Int {
+		guard section != .smartFeeds else {
+			return 0
+		}
+
+		var count = 0
+		let targetCategory: FeedCategory
+		switch section {
+		case .rssFeeds:
+			targetCategory = .rss
+		case .podcasts:
+			targetCategory = .podcast
+		case .youtube:
+			targetCategory = .youtube
+		case .news:
+			targetCategory = .news
+		case .smartFeeds:
+			return 0
+		}
+
+		// Iterate through tree the same way as createSidebarSnapshot
+		for sectionNode in treeController.rootNode.childNodes {
+			// Skip smart feeds
+			if sectionNode.representedObject is SmartFeedsController {
+				continue
+			}
+
+			// For account sections, collect feeds by category
+			for node in sectionNode.childNodes {
+				if let feed = node.representedObject as? Feed {
+					if feed.feedCategory == targetCategory {
+						count += feed.unreadCount
+					}
+				} else if let folder = node.representedObject as? Folder {
+					// For RSS section, also count folders
+					if targetCategory == .rss {
+						count += folder.unreadCount
+					}
+				}
+			}
+		}
+
+		return count
+	}
+
 	func collapseAllFolders() {
 		for sectionNode in treeController.rootNode.childNodes {
 			for topLevelNode in sectionNode.childNodes {

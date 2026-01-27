@@ -55,6 +55,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		label.font = .preferredFont(forTextStyle: .caption2)
 		label.textColor = .tertiaryLabel
 		label.textAlignment = .right
+		label.backgroundColor = .clear
+		label.isUserInteractionEnabled = false
 		return label
 	}()
 
@@ -451,26 +453,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func unreadCountForSection(_ section: FeedSectionIdentifier) -> Int {
-		switch section {
-		case .smartFeeds:
-			return 0  // Smart feeds show their individual counts
-		case .rssFeeds, .podcasts, .youtube, .news:
-			// Count unread from items actually in this section of the snapshot
-			let snapshot = dataSource.snapshot()
-			let sectionID = section.rawValue
-			guard snapshot.sectionIdentifiers.contains(sectionID) else {
-				return 0
-			}
-
-			var count = 0
-			let items = snapshot.itemIdentifiers(inSection: sectionID)
-			for item in items {
-				if let sidebarItem = item.node.representedObject as? SidebarItem {
-					count += sidebarItem.unreadCount
-				}
-			}
-			return count
-		}
+		return coordinator.unreadCountForCategorySection(section)
 	}
 
 
