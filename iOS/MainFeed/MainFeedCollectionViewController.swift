@@ -202,21 +202,114 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc private func addRSSFeed() {
-		coordinator.showAddFeed(feedCategory: .rss)
+		showAddURLDialog(category: .rss, title: "Add RSS Feed", placeholder: "https://example.com/feed.xml")
 	}
 
 	@objc private func addPodcast() {
-		// Start fetching podcast sources early
-		PodcastSourcesManager.shared.startFetching()
-		showPodcastSources()
+		let picker = PodcastPickerViewController()
+		picker.delegate = self
+		let navController = UINavigationController(rootViewController: picker)
+		present(navController, animated: true)
 	}
 
 	@objc private func addYoutube() {
-		showYoutubePicker()
+		let picker = YoutubePickerViewController()
+		picker.delegate = self
+		let navController = UINavigationController(rootViewController: picker)
+		present(navController, animated: true)
 	}
 
 	@objc private func addNews() {
-		showNewsPicker()
+		showAddURLDialog(category: .news, title: "Add News Source", placeholder: "https://example.com/feed.xml")
+	}
+
+	private func showAddURLDialog(category: FeedCategory, title: String, placeholder: String) {
+		let alert = UIAlertController(
+			title: NSLocalizedString(title, comment: title),
+			message: nil,
+			preferredStyle: .alert
+		)
+
+		alert.addTextField { textField in
+			textField.placeholder = placeholder
+			textField.autocapitalizationType = .none
+			textField.autocorrectionType = .no
+			textField.keyboardType = .URL
+
+			// Check clipboard for URL
+			if let clipboardString = UIPasteboard.general.string, clipboardString.mayBeURL {
+				textField.text = clipboardString.normalizedURL
+			}
+		}
+
+		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
+			if let urlString = alert.textFields?.first?.text, !urlString.isEmpty {
+				self.addFeedDirectly(urlString: urlString, category: category)
+			}
+		}
+
+		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
+
+		alert.addAction(addAction)
+		alert.addAction(cancelAction)
+
+		present(alert, animated: true)
+	}
+
+	private func addFeedDirectly(urlString: String, category: FeedCategory) {
+		let normalizedURL = urlString.normalizedURL
+		guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else {
+			return
+		}
+
+		// Get the first active account
+		guard let account = AccountManager.shared.activeAccounts.first else {
+			return
+		}
+
+		// Check if already subscribed
+		if account.hasFeed(withURL: url.absoluteString) {
+			let alert = UIAlertController(
+				title: NSLocalizedString("Already Subscribed", comment: "Already Subscribed"),
+				message: NSLocalizedString("You are already subscribed to this feed.", comment: "Already subscribed message"),
+				preferredStyle: .alert
+			)
+			alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
+			present(alert, animated: true)
+			return
+		}
+
+		// Show loading indicator
+		let loadingAlert = UIAlertController(title: nil, message: NSLocalizedString("Adding...", comment: "Adding..."), preferredStyle: .alert)
+		let activityIndicator = UIActivityIndicatorView(style: .medium)
+		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+		activityIndicator.startAnimating()
+		loadingAlert.view.addSubview(activityIndicator)
+		NSLayoutConstraint.activate([
+			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
+		])
+		present(loadingAlert, animated: true)
+
+		BatchUpdate.shared.start()
+
+		account.createFeed(url: url.absoluteString, name: nil, container: account, validateFeed: true) { result in
+			// Set category before ending batch update to avoid UI flicker
+			if case .success(let feed) = result {
+				feed.feedCategory = category
+			}
+
+			BatchUpdate.shared.end()
+
+			loadingAlert.dismiss(animated: true) {
+				switch result {
+				case .success(let feed):
+					NotificationCenter.default.post(name: .UserDidAddFeed, object: self, userInfo: [UserInfoKey.feed: feed])
+				case .failure(let error):
+					self.presentError(error)
+				}
+			}
+		}
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
@@ -976,18 +1069,18 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			loadingAlert.dismiss(animated: true) {
 				switch result {
 				case .successExisting(let summaryURL):
-					// Podcast already exists, no wait needed - just add the feed
-					self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil, feedCategory: .podcast)
+					// Podcast already exists, no wait needed - add the feed directly
+					self.addFeedDirectly(urlString: summaryURL, category: .podcast)
 
 				case .successNew(let summaryURL):
 					if isCustomURL {
 						// Show success message for custom URL entries (new podcasts need processing)
 						self.showPodcastSuccessMessage {
-							self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil, feedCategory: .podcast)
+							self.addFeedDirectly(urlString: summaryURL, category: .podcast)
 						}
 					} else {
-						// Automatically add the summary feed
-						self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil, feedCategory: .podcast)
+						// Automatically add the feed directly
+						self.addFeedDirectly(urlString: summaryURL, category: .podcast)
 					}
 
 				case .unauthorized:
@@ -1062,13 +1155,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			loadingAlert.dismiss(animated: true) {
 				switch result {
 				case .successExisting(let summaryURL):
-					// Podcast already exists, no wait needed - just add the feed
-					self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil, feedCategory: .podcast)
+					// Podcast already exists, no wait needed - add the feed directly
+					self.addFeedDirectly(urlString: summaryURL, category: .podcast)
 
 				case .successNew(let summaryURL):
 					// Show success message for new podcasts (need processing)
 					self.showPodcastSuccessMessage {
-						self.coordinator.showAddFeed(initialFeed: summaryURL, initialFeedName: nil, feedCategory: .podcast)
+						self.addFeedDirectly(urlString: summaryURL, category: .podcast)
 					}
 
 				case .unauthorized:
@@ -1784,7 +1877,7 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 			if let urlText = alert.textFields?.first?.text, !urlText.isEmpty {
 				// Convert YouTube channel URL to RSS feed URL
 				let feedURL = self.convertYoutubeURLToFeed(urlText)
-				self.coordinator.showAddFeed(initialFeed: feedURL, initialFeedName: nil, feedCategory: .youtube)
+				self.addFeedDirectly(urlString: feedURL, category: .youtube)
 			}
 		}
 

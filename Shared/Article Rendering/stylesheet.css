@@ -623,3 +623,21 @@ a.footnote:hover,
 		background-color: var(--secondary-accent-color, #5E9EF4);
 	}
 }
+
+/* Timestamp Links */
+.nnw-timestamp-link {
+	color: var(--primary-accent-color, #086AEE);
+	text-decoration: none;
+	font-weight: bold;
+	cursor: pointer;
+}
+
+.nnw-timestamp-link:hover {
+	text-decoration: underline;
+}
+
+@media(prefers-color-scheme: dark) {
+	.nnw-timestamp-link {
+		color: var(--secondary-accent-color, #5E9EF4);
+	}
+}

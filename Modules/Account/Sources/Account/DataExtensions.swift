@@ -38,6 +38,11 @@ extension Feed {
 		homePageURL = parsedFeed.homePageURL
 		name = parsedFeed.title
 		authors = Author.authorsWithParsedAuthors(parsedFeed.authors)
+		// Store the feed URL from the feed itself (e.g., <feed_url> tag in Atom)
+		// Only if it's different from the subscription URL
+		if let feedURL = parsedFeed.feedURL, feedURL != url {
+			displayFeedURL = feedURL
+		}
 	}
 
 	func postFeedSettingDidChangeNotification(_ codingKey: FeedMetadata.CodingKeys) {

@@ -207,7 +207,21 @@ private extension ArticleRenderer {
 		}
 
 		d["title"] = title
-		d["preferred_link"] = article.preferredLink ?? ""
+
+		// For podcasts and YouTube, don't link the title (it would go to the XML/feed URL)
+		let feedCategory = article.feed?.feedCategory ?? .rss
+		if feedCategory == .podcast || feedCategory == .youtube {
+			d["preferred_link"] = ""
+			d["title_html"] = title.escapingSpecialXMLCharacters
+		} else {
+			let preferredLink = article.preferredLink ?? ""
+			d["preferred_link"] = preferredLink
+			if preferredLink.isEmpty {
+				d["title_html"] = title.escapingSpecialXMLCharacters
+			} else {
+				d["title_html"] = "<a href=\"\(preferredLink.escapingSpecialXMLCharacters)\">\(title.escapingSpecialXMLCharacters)</a>"
+			}
+		}
 
 		if let externalLink = article.externalLink, externalLink != article.preferredLink {
 			d["external_link_label"] = NSLocalizedString("Link:", comment: "Link")
@@ -247,8 +261,17 @@ private extension ArticleRenderer {
 
 		let datePublished = article.logicalDatePublished
 		d["datetime_long"] = Self.longDateTimeFormatter.string(from: datePublished)
-		d["datetime_medium"] = Self.mediumDateTimeFormatter.string(from: datePublished)
+		let datetimeMedium = Self.mediumDateTimeFormatter.string(from: datePublished)
+		d["datetime_medium"] = datetimeMedium
 		d["datetime_short"] = Self.shortDateTimeFormatter.string(from: datePublished)
+
+		// Add datetime_html that conditionally includes the link
+		let preferredLink = d["preferred_link"] ?? ""
+		if preferredLink.isEmpty {
+			d["datetime_html"] = datetimeMedium.escapingSpecialXMLCharacters
+		} else {
+			d["datetime_html"] = "<a href=\"\(preferredLink.escapingSpecialXMLCharacters)\">\(datetimeMedium.escapingSpecialXMLCharacters)</a>"
+		}
 		d["date_long"] = Self.longDateFormatter.string(from: datePublished)
 		d["date_medium"] = Self.mediumDateFormatter.string(from: datePublished)
 		d["date_short"] = Self.shortDateFormatter.string(from: datePublished)

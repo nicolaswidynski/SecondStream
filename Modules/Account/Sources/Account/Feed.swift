@@ -210,6 +210,17 @@ import Articles
 		}
 	}
 
+	/// The feed URL as specified in the feed itself (e.g., <feed_url> tag in Atom).
+	/// This may differ from the subscription URL.
+	public var displayFeedURL: String? {
+		get {
+			metadata.displayFeedURL
+		}
+		set {
+			metadata.displayFeedURL = newValue
+		}
+	}
+
 	// MARK: - DisplayNameProvider
 
 	public var nameForDisplay: String {

@@ -49,7 +49,8 @@ final class FeedInspectorViewController: UITableViewController {
 		alwaysShowReaderViewSwitch.setOn(feed.isArticleExtractorAlwaysOn ?? false, animated: false)
 
 		homePageLabel.text = feed.homePageURL
-		feedURLLabel.text = feed.url
+		// Show the display feed URL (from <feed_url> tag) if available, otherwise the subscription URL
+		feedURLLabel.text = feed.displayFeedURL ?? feed.url
 
 		obsidianSubfolderTextField.text = feed.obsidianSubfolder ?? ""
 		obsidianSubfolderTextField.placeholder = feed.nameForDisplay

@@ -41,6 +41,7 @@ public enum FeedCategory: String, Codable, Sendable {
 		case lastCheckDate
 		case obsidianSubfolder
 		case feedCategory
+		case displayFeedURL
 	}
 
 	var feedID: String {
@@ -185,6 +186,16 @@ public enum FeedCategory: String, Codable, Sendable {
 		didSet {
 			if feedCategory != oldValue {
 				valueDidChange(.feedCategory)
+			}
+		}
+	}
+
+	/// The feed URL as specified in the feed itself (e.g., <feed_url> tag in Atom).
+	/// This may differ from the subscription URL.
+	var displayFeedURL: String? {
+		didSet {
+			if displayFeedURL != oldValue {
+				valueDidChange(.displayFeedURL)
 			}
 		}
 	}

@@ -44,6 +44,8 @@
 @property (nonatomic, readonly) NSDate *currentDate;
 @property (nonatomic) NSString *language;
 @property (nonatomic) BOOL isDaringFireball; // Special case — sometimes permalink and external link are swapped.
+@property (nonatomic) NSString *iconURLString;
+@property (nonatomic) NSString *feedURLString;
 
 @end
 
@@ -85,7 +87,7 @@
 
 	[self parse];
 
-	RSParsedFeed *parsedFeed = [[RSParsedFeed alloc] initWithURLString:self.urlString title:self.title homepageURLString:self.homepageURLString language:self.language articles:self.articles];
+	RSParsedFeed *parsedFeed = [[RSParsedFeed alloc] initWithURLString:self.urlString title:self.title homepageURLString:self.homepageURLString language:self.language articles:self.articles iconURLString:self.iconURLString feedURLString:self.feedURLString];
 
 	return parsedFeed;
 }
@@ -212,6 +214,12 @@ static const NSInteger kEnclosureLength = 10;
 
 static const char *kLength = "length";
 static const NSInteger kLengthLength = 7;
+
+static const char *kImageRef = "image_ref";
+static const NSInteger kImageRefLength = 10;
+
+static const char *kFeedURL = "feed_url";
+static const NSInteger kFeedURLLength = 9;
 
 #pragma mark - Parsing
 
@@ -664,6 +672,20 @@ static NSString *httpURLPrefix = @"http://";
 
 	else if (!self.parsingArticle && !self.parsingSource && RSSAXEqualTags(localName, kTitle, kTitleLength)) {
 		[self addFeedTitle];
+	}
+
+	else if (!self.parsingArticle && !self.parsingSource && RSSAXEqualTags(localName, kImageRef, kImageRefLength)) {
+		NSString *imageRef = [self currentString];
+		if (!RSParserStringIsEmpty(imageRef)) {
+			self.iconURLString = imageRef;
+		}
+	}
+
+	else if (!self.parsingArticle && !self.parsingSource && RSSAXEqualTags(localName, kFeedURL, kFeedURLLength)) {
+		NSString *feedURL = [self currentString];
+		if (!RSParserStringIsEmpty(feedURL)) {
+			self.feedURLString = feedURL;
+		}
 	}
 
 	[self.attributesStack removeLastObject];

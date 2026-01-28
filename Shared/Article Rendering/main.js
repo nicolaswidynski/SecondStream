@@ -316,15 +316,20 @@ function addMp3PlayButtons() {
 
 		const strongText = strong.textContent.trim();
 
-		// Check for MP3: label
+		// Check for MP3: label - replace with "Podcast: triangle"
 		if (strongText === "MP3:") {
 			const link = li.querySelector("a");
 			if (link && link.href) {
+				const audioUrl = link.href;
+
+				// Change label from "MP3:" to "Podcast:"
+				strong.textContent = "Podcast:";
+
 				// Create play button
 				const playButton = document.createElement("button");
 				playButton.className = "nnw-mp3-play-button";
 				playButton.innerHTML = "&#9654;"; // Play triangle
-				playButton.title = "Play audio";
+				playButton.title = "Play podcast";
 
 				playButton.addEventListener("click", function(e) {
 					e.preventDefault();
@@ -333,15 +338,16 @@ function addMp3PlayButtons() {
 					// Send message to native code
 					if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.playAudio) {
 						window.webkit.messageHandlers.playAudio.postMessage({
-							url: link.href,
+							url: audioUrl,
 							title: articleTitle,
 							startTime: 0
 						});
 					}
 				});
 
-				// Insert button after the link
-				link.parentNode.insertBefore(playButton, link.nextSibling);
+				// Remove the link and insert play button after the label
+				link.remove();
+				strong.parentNode.insertBefore(playButton, strong.nextSibling);
 			}
 		}
 		// Check for timestamp format like [00:00] or [01:50]
@@ -355,22 +361,23 @@ function addMp3PlayButtons() {
 		}
 	}
 
-	// Now add play buttons to outline items with end times
+	// Now convert timestamps to clickable blue links
 	for (let i = 0; i < outlineItems.length; i++) {
 		const item = outlineItems[i];
 		const nextItem = outlineItems[i + 1];
 		const endTime = nextItem ? nextItem.seconds : null;
 
-		// Create play button for this timestamp
-		const playButton = document.createElement("button");
-		playButton.className = "nnw-mp3-play-button nnw-timestamp-button";
-		playButton.innerHTML = "&#9654;";
-		playButton.title = "Play from " + item.timestamp;
-
 		const startSeconds = item.seconds;
 		const endSeconds = endTime;
 
-		playButton.addEventListener("click", function(e) {
+		// Create a clickable link from the timestamp
+		const timestampLink = document.createElement("a");
+		timestampLink.href = "#";
+		timestampLink.className = "nnw-timestamp-link";
+		timestampLink.textContent = item.timestamp;
+		timestampLink.title = "Play from " + item.timestamp;
+
+		timestampLink.addEventListener("click", function(e) {
 			e.preventDefault();
 			e.stopPropagation();
 
@@ -387,8 +394,8 @@ function addMp3PlayButtons() {
 			}
 		});
 
-		// Insert button before the timestamp
-		item.strong.parentNode.insertBefore(playButton, item.strong);
+		// Replace the strong element with the link
+		item.strong.parentNode.replaceChild(timestampLink, item.strong);
 	}
 }
 
