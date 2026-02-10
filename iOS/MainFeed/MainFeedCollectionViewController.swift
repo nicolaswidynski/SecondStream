@@ -102,9 +102,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		collectionView.dropDelegate = self
 		becomeFirstResponder()
 
-		// Start fetching podcast and YouTube sources in background
+		// Start fetching podcast, YouTube, and news sources in background
 		PodcastSourcesManager.shared.startFetching()
 		YoutubeSourcesManager.shared.startFetching()
+		NewsSourcesManager.shared.startFetching()
     }
 
 	private func configureBottomActionBar() {
@@ -282,7 +283,40 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc private func addNews() {
-		showAddURLDialog(category: .news, title: "Add News Source", placeholder: "https://example.com/feed.xml")
+		// Always fetch fresh sources when opening the picker
+		let loadingAlert = UIAlertController(
+			title: nil,
+			message: NSLocalizedString("Loading topics...", comment: "Loading topics..."),
+			preferredStyle: .alert
+		)
+
+		let activityIndicator = UIActivityIndicatorView(style: .medium)
+		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+		activityIndicator.startAnimating()
+		loadingAlert.view.addSubview(activityIndicator)
+
+		NSLayoutConstraint.activate([
+			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
+		])
+
+		present(loadingAlert, animated: true)
+
+		Task {
+			// Always fetch fresh sources
+			await NewsSourcesManager.shared.fetchFresh()
+			loadingAlert.dismiss(animated: true) {
+				self.presentNewsPicker()
+			}
+		}
+	}
+
+	private func presentNewsPicker() {
+		let picker = NewsPickerViewController()
+		picker.delegate = self
+		let navController = UINavigationController(rootViewController: picker)
+		navController.modalPresentationStyle = .formSheet
+		present(navController, animated: true)
 	}
 
 	private func showAddURLDialog(category: FeedCategory, title: String, placeholder: String) {
@@ -2118,6 +2152,12 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 
 extension MainFeedCollectionViewController: NewsPickerDelegate {
 
+	func newsPickerDidSelectTopicName(_ picker: NewsPickerViewController) {
+		picker.dismiss(animated: true) {
+			self.showEnterNewsTopicNameDialog()
+		}
+	}
+
 	func newsPickerDidSelectNewsURL(_ picker: NewsPickerViewController) {
 		picker.dismiss(animated: true) {
 			self.showEnterNewsURLDialog()
@@ -2126,6 +2166,40 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 
 	func newsPickerDidCancel(_ picker: NewsPickerViewController) {
 		picker.dismiss(animated: true)
+	}
+
+	func newsPicker(_ picker: NewsPickerViewController, didSelectSource source: NewsSource) {
+		picker.dismiss(animated: true) {
+			// Call the add-source webhook like podcasts/youtube do
+			self.addNewsByURL(source.url)
+		}
+	}
+
+	private func showEnterNewsTopicNameDialog() {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Enter Topic Name", comment: "Enter Topic Name"),
+			message: NSLocalizedString("Enter the news topic you want to follow.", comment: "News topic dialog message"),
+			preferredStyle: .alert
+		)
+
+		alert.addTextField { textField in
+			textField.placeholder = NSLocalizedString("e.g., Technology, Sports, Politics", comment: "Topic name placeholder")
+			textField.autocapitalizationType = .words
+			textField.autocorrectionType = .default
+		}
+
+		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
+			if let topicName = alert.textFields?.first?.text, !topicName.isEmpty {
+				self.addNewsByTopicName(topicName)
+			}
+		}
+
+		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
+
+		alert.addAction(addAction)
+		alert.addAction(cancelAction)
+
+		present(alert, animated: true)
 	}
 
 	private func showEnterNewsURLDialog() {
@@ -2144,7 +2218,7 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 
 		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
 			if let urlText = alert.textFields?.first?.text, !urlText.isEmpty {
-				self.coordinator.showAddFeed(initialFeed: urlText, initialFeedName: nil, feedCategory: .news)
+				self.addNewsByURL(urlText)
 			}
 		}
 
@@ -2153,6 +2227,141 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 		alert.addAction(addAction)
 		alert.addAction(cancelAction)
 
+		present(alert, animated: true)
+	}
+
+	private func addNewsByTopicName(_ topicName: String) {
+		// Show loading indicator
+		let loadingAlert = UIAlertController(
+			title: nil,
+			message: NSLocalizedString("Adding news topic...", comment: "Adding news topic..."),
+			preferredStyle: .alert
+		)
+
+		let activityIndicator = UIActivityIndicatorView(style: .medium)
+		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+		activityIndicator.startAnimating()
+		loadingAlert.view.addSubview(activityIndicator)
+
+		NSLayoutConstraint.activate([
+			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
+		])
+
+		present(loadingAlert, animated: true)
+
+		Task {
+			let result = await NewsSourcesManager.shared.addNewsByTopicName(topicName)
+
+			loadingAlert.dismiss(animated: true) {
+				self.handleNewsResult(result)
+			}
+		}
+	}
+
+	private func addNewsByURL(_ newsURL: String) {
+		// Show loading indicator
+		let loadingAlert = UIAlertController(
+			title: nil,
+			message: NSLocalizedString("Adding news source...", comment: "Adding news source..."),
+			preferredStyle: .alert
+		)
+
+		let activityIndicator = UIActivityIndicatorView(style: .medium)
+		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+		activityIndicator.startAnimating()
+		loadingAlert.view.addSubview(activityIndicator)
+
+		NSLayoutConstraint.activate([
+			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
+		])
+
+		present(loadingAlert, animated: true)
+
+		Task {
+			let result = await NewsSourcesManager.shared.addNewsByURL(newsURL)
+
+			loadingAlert.dismiss(animated: true) {
+				self.handleNewsResult(result)
+			}
+		}
+	}
+
+	private func handleNewsResult(_ result: AddNewsResult) {
+		switch result {
+		case .successExisting(let summaryURL):
+			// Topic already exists, no wait needed - add the feed directly
+			self.addFeedDirectly(urlString: summaryURL, category: .news)
+
+		case .successNew(let summaryURL):
+			// Show success message for new topics (need processing)
+			self.showNewsSuccessMessage {
+				self.addFeedDirectly(urlString: summaryURL, category: .news)
+			}
+
+		case .unauthorized:
+			self.showNewsError(
+				title: NSLocalizedString("Unauthorized", comment: "Unauthorized"),
+				message: NSLocalizedString("Authentication failed. Please check your credentials.", comment: "Authentication failed message")
+			)
+
+		case .badRSS:
+			self.showNewsError(
+				title: NSLocalizedString("RSS Not Found", comment: "RSS Not Found"),
+				message: NSLocalizedString("The RSS feed could not be found at the specified URL.", comment: "RSS not found message")
+			)
+
+		case .wrongFormat:
+			self.showNewsError(
+				title: NSLocalizedString("Unsupported Format", comment: "Unsupported Format"),
+				message: NSLocalizedString("The RSS feed format is not supported.", comment: "Unsupported format message")
+			)
+
+		case .maxTopics:
+			self.showNewsError(
+				title: NSLocalizedString("Limit Reached", comment: "Limit Reached"),
+				message: NSLocalizedString("Maximum number of supported topics reached.", comment: "Max topics message")
+			)
+
+		case .badMessage:
+			self.showNewsError(
+				title: NSLocalizedString("Bad Request", comment: "Bad Request"),
+				message: NSLocalizedString("Invalid request format.", comment: "Bad request message")
+			)
+
+		case .badTopic:
+			self.showNewsError(
+				title: NSLocalizedString("Topic Not Found", comment: "Topic Not Found"),
+				message: NSLocalizedString("The news topic could not be found.", comment: "Topic not found message")
+			)
+
+		case .error(let message):
+			self.showNewsError(
+				title: NSLocalizedString("Error", comment: "Error"),
+				message: message
+			)
+		}
+	}
+
+	private func showNewsSuccessMessage(completion: @escaping () -> Void) {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Topic Added", comment: "Topic Added"),
+			message: NSLocalizedString("The news topic has been added. It may take a few minutes for articles to appear.", comment: "News topic added message"),
+			preferredStyle: .alert
+		)
+
+		let okAction = UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default) { _ in
+			completion()
+		}
+
+		alert.addAction(okAction)
+		present(alert, animated: true)
+	}
+
+	private func showNewsError(title: String, message: String) {
+		let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
 		present(alert, animated: true)
 	}
 }

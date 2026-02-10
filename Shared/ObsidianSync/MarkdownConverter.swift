@@ -228,31 +228,39 @@ struct MarkdownConverter {
 		}
 
 		// Paragraphs - add proper spacing
-		result = result.replacingOccurrences(of: "<p[^>]*>", with: "", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</p>", with: "\n\n")
+		// First, normalize paragraph tags with any surrounding whitespace
+		result = result.replacingOccurrences(of: "\\s*<p[^>]*>\\s*", with: "", options: .regularExpression)
+		result = result.replacingOccurrences(of: "\\s*</p>\\s*", with: "\n\n", options: .regularExpression)
 
-		// Line breaks
-		result = result.replacingOccurrences(of: "<br[^>]*/?>", with: "\n", options: .regularExpression)
+		// Line breaks - also normalize surrounding whitespace
+		result = result.replacingOccurrences(of: "\\s*<br[^>]*/?>\\s*", with: "\n", options: .regularExpression)
 
-		// Lists
-		result = result.replacingOccurrences(of: "<ul[^>]*>", with: "", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</ul>", with: "\n")
-		result = result.replacingOccurrences(of: "<ol[^>]*>", with: "", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</ol>", with: "\n")
-		result = result.replacingOccurrences(of: "<li[^>]*>", with: "- ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</li>", with: "\n")
+		// Lists - normalize surrounding whitespace
+		result = result.replacingOccurrences(of: "\\s*<ul[^>]*>\\s*", with: "\n", options: .regularExpression)
+		result = result.replacingOccurrences(of: "\\s*</ul>\\s*", with: "\n", options: .regularExpression)
+		result = result.replacingOccurrences(of: "\\s*<ol[^>]*>\\s*", with: "\n", options: .regularExpression)
+		result = result.replacingOccurrences(of: "\\s*</ol>\\s*", with: "\n", options: .regularExpression)
+		result = result.replacingOccurrences(of: "\\s*<li[^>]*>\\s*", with: "- ", options: .regularExpression)
+		result = result.replacingOccurrences(of: "\\s*</li>\\s*", with: "\n", options: .regularExpression)
 
 		// Horizontal rule
-		result = result.replacingOccurrences(of: "<hr[^>]*/??>", with: "---\n", options: .regularExpression)
+		result = result.replacingOccurrences(of: "\\s*<hr[^>]*/?>\\s*", with: "\n---\n", options: .regularExpression)
 
 		// Remove any remaining HTML tags
 		result = result.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
 
-		// Clean up excessive newlines
+		// Normalize all whitespace-only lines to empty lines
+		result = result.replacingOccurrences(of: "\\n[ \\t]+\\n", with: "\n\n", options: .regularExpression)
+
+		// Clean up excessive newlines (3 or more becomes 2) - run twice to catch nested cases
+		result = result.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
 		result = result.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
 
-		// Clean up excessive spaces
-		result = result.replacingOccurrences(of: " {2,}", with: " ", options: .regularExpression)
+		// Clean up spaces at the beginning of lines (except for list items and code)
+		result = result.replacingOccurrences(of: "\\n +([^-`])", with: "\n$1", options: .regularExpression)
+
+		// Clean up excessive spaces (but not newlines)
+		result = result.replacingOccurrences(of: "[ \\t]{2,}", with: " ", options: .regularExpression)
 
 		// Decode common HTML entities
 		result = decodeHTMLEntities(result)

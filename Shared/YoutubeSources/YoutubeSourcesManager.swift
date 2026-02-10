@@ -34,8 +34,8 @@ enum AddYoutubeResult {
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "YoutubeSources")
 
 	// Use the same endpoints as podcasts
-	private let getSourcesURL = URL(string: "https://n8n.nwidynski.com/webhook/get-podcast-sources")!
-	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-podcast-source")!
+	private let getSourcesURL = URL(string: "https://n8n.nwidynski.com/webhook/get-show-sources")!
+	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
 
 	// MARK: - Fetch State
 

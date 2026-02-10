@@ -1,36 +1,36 @@
 //
-//  PodcastSourcesManager.swift
+//  NewsSourcesManager.swift
 //  NetNewsWire
 //
-//  Created by Claude on 2026-01-22.
+//  Created by Claude on 2026-02-10.
 //  Copyright © 2026 Ranchero Software. All rights reserved.
 //
 
 import Foundation
 import os.log
 
-struct PodcastSource: Codable {
+struct NewsSource: Codable {
 	let name: String
-	let rssURL: String
+	let url: String
 }
 
-enum AddPodcastResult {
-	case successExisting(summaryURL: String)  // 201 - Podcast already exists, no wait
-	case successNew(summaryURL: String)       // 202 - New podcast, wait ~15 minutes
+enum AddNewsResult {
+	case successExisting(summaryURL: String)  // 201 - Topic already exists, no wait
+	case successNew(summaryURL: String)       // 202 - New topic, wait for processing
 	case unauthorized                         // 401
 	case badRSS                               // 551
 	case wrongFormat                          // 552
-	case maxPodcasts                          // 553
-	case badMessage                           // 554 - Neither podcast nor rss_url set
-	case badPodcast                           // 555 - Podcast not found
+	case maxTopics                            // 553
+	case badMessage                           // 554 - Neither topic nor url set
+	case badTopic                             // 555 - Topic not found
 	case error(String)
 }
 
-@MainActor final class PodcastSourcesManager {
+@MainActor final class NewsSourcesManager {
 
-	static let shared = PodcastSourcesManager()
+	static let shared = NewsSourcesManager()
 
-	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "PodcastSources")
+	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "NewsSources")
 
 	private let getSourcesURL = URL(string: "https://n8n.nwidynski.com/webhook/get-show-sources")!
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
@@ -40,21 +40,21 @@ enum AddPodcastResult {
 	private(set) var isFetching = false
 	private var fetchTask: Task<Void, Never>?
 
-	// MARK: - Stored Podcast Sources
+	// MARK: - Stored News Sources
 
-	private let podcastSourcesKey = "podcastSources"
+	private let newsSourcesKey = "newsSources"
 
-	var podcastSources: [PodcastSource] {
+	var newsSources: [NewsSource] {
 		get {
-			guard let data = UserDefaults.standard.data(forKey: podcastSourcesKey),
-				  let sources = try? JSONDecoder().decode([PodcastSource].self, from: data) else {
+			guard let data = UserDefaults.standard.data(forKey: newsSourcesKey),
+				  let sources = try? JSONDecoder().decode([NewsSource].self, from: data) else {
 				return []
 			}
 			return sources
 		}
 		set {
 			if let data = try? JSONEncoder().encode(newValue) {
-				UserDefaults.standard.set(data, forKey: podcastSourcesKey)
+				UserDefaults.standard.set(data, forKey: newsSourcesKey)
 			}
 		}
 	}
@@ -62,9 +62,10 @@ enum AddPodcastResult {
 	// MARK: - Token
 
 	private var bearerToken: String? {
+		// Use the same token as podcasts
 		guard let tokenURL = Bundle.main.url(forResource: "podcast_token", withExtension: "txt"),
 			  let token = try? String(contentsOf: tokenURL, encoding: .utf8) else {
-			Self.logger.error("Failed to load podcast token from file")
+			Self.logger.error("Failed to load token from file")
 			return nil
 		}
 		return token.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -72,13 +73,13 @@ enum AddPodcastResult {
 
 	// MARK: - API
 
-	/// Starts fetching podcast sources in the background. Does nothing if already fetching.
+	/// Starts fetching news sources in the background. Does nothing if already fetching.
 	func startFetching() {
 		guard !isFetching else {
 			return
 		}
 		fetchTask = Task {
-			await fetchPodcastSources()
+			await fetchNewsSources()
 		}
 	}
 
@@ -87,7 +88,7 @@ enum AddPodcastResult {
 		if let task = fetchTask {
 			await task.value
 		} else if !isFetching {
-			await fetchPodcastSources()
+			await fetchNewsSources()
 		}
 	}
 
@@ -97,10 +98,10 @@ enum AddPodcastResult {
 		fetchTask?.cancel()
 		fetchTask = nil
 		// Fetch fresh
-		await fetchPodcastSources()
+		await fetchNewsSources()
 	}
 
-	private func fetchPodcastSources() async {
+	private func fetchNewsSources() async {
 		isFetching = true
 		defer {
 			isFetching = false
@@ -117,9 +118,9 @@ enum AddPodcastResult {
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-		// Add type in body
+		// Use type "topics" for news
 		let body: [String: String] = [
-			"type": "pod"
+			"type": "topics"
 		]
 		request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
@@ -141,48 +142,39 @@ enum AddPodcastResult {
 				   let names = firstItem["name"] as? [String],
 				   let urls = firstItem["url"] as? [String] {
 
-					var sources: [PodcastSource] = []
+					var sources: [NewsSource] = []
 					for (index, name) in names.enumerated() {
 						if index < urls.count {
-							sources.append(PodcastSource(name: name, rssURL: urls[index]))
+							sources.append(NewsSource(name: name, url: urls[index]))
 						}
 					}
 
-					self.podcastSources = sources
-					Self.logger.info("Fetched \(sources.count) podcast sources")
+					self.newsSources = sources
+					Self.logger.info("Fetched \(sources.count) news sources")
 				} else {
 					Self.logger.error("Failed to parse success response")
-				}
-			} else if httpResponse.statusCode == 422 {
-				// Bad RSS error
-				if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-				   let status = json["status"] as? String,
-				   let message = json["message"] as? String {
-					Self.logger.error("API error: status=\(status), message=\(message)")
-				} else {
-					Self.logger.error("API returned 422 but could not parse error response")
 				}
 			} else {
 				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
 			}
 		} catch {
-			Self.logger.error("Failed to fetch podcast sources: \(error.localizedDescription)")
+			Self.logger.error("Failed to fetch news sources: \(error.localizedDescription)")
 		}
 	}
 
-	/// Adds a podcast source by sending the RSS URL to the webhook.
+	/// Adds a news topic by sending the topic name to the webhook.
 	/// Returns the summary feed URL on success.
-	func addPodcastSource(rssURL: String) async -> AddPodcastResult {
-		return await sendAddPodcastRequest(link: rssURL, show: nil)
+	func addNewsByTopicName(_ topicName: String) async -> AddNewsResult {
+		return await sendAddNewsRequest(link: nil, show: topicName)
 	}
 
-	/// Adds a podcast source by sending the podcast name to the webhook.
+	/// Adds a news source by sending the URL to the webhook.
 	/// Returns the summary feed URL on success.
-	func addPodcastByName(_ podcastName: String) async -> AddPodcastResult {
-		return await sendAddPodcastRequest(link: nil, show: podcastName)
+	func addNewsByURL(_ newsURL: String) async -> AddNewsResult {
+		return await sendAddNewsRequest(link: newsURL, show: nil)
 	}
 
-	private func sendAddPodcastRequest(link: String?, show: String?) async -> AddPodcastResult {
+	private func sendAddNewsRequest(link: String?, show: String?) async -> AddNewsResult {
 		guard let token = bearerToken else {
 			Self.logger.error("No bearer token available")
 			return .error("No authentication token")
@@ -193,9 +185,9 @@ enum AddPodcastResult {
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-		// Build body with type, show, and link
+		// Build body with type "topics", show, and link
 		let body: [String: Any?] = [
-			"type": "pod",
+			"type": "topics",
 			"show": show,
 			"link": link
 		]
@@ -219,24 +211,24 @@ enum AddPodcastResult {
 
 			switch httpResponse.statusCode {
 			case 201:
-				// Success - podcast already exists, no wait needed
+				// Success - topic already exists, no wait needed
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
 				   let summaryURL = json["summary_url"] as? String {
-					Self.logger.info("Podcast already exists")
+					Self.logger.info("News topic already exists")
 					return .successExisting(summaryURL: summaryURL)
 				}
 				Self.logger.error("Failed to parse 201 response")
 				return .error("Failed to parse response")
 
 			case 202:
-				// Success - new podcast, wait ~15 minutes
+				// Success - new topic, wait for processing
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
 				   let summaryURL = json["summary_url"] as? String {
-					Self.logger.info("New podcast added, processing required")
+					Self.logger.info("New news topic added, processing required")
 					return .successNew(summaryURL: summaryURL)
 				}
 				Self.logger.error("Failed to parse 202 response")
@@ -255,23 +247,23 @@ enum AddPodcastResult {
 				return .wrongFormat
 
 			case 553:
-				Self.logger.error("Maximum number of podcasts reached")
-				return .maxPodcasts
+				Self.logger.error("Maximum number of topics reached")
+				return .maxTopics
 
 			case 554:
-				Self.logger.error("Bad request - neither podcast nor rss_url set")
+				Self.logger.error("Bad request - neither topic nor url set")
 				return .badMessage
 
 			case 555:
-				Self.logger.error("Podcast not found")
-				return .badPodcast
+				Self.logger.error("Topic not found")
+				return .badTopic
 
 			default:
 				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
 				return .error("Unexpected error")
 			}
 		} catch {
-			Self.logger.error("Failed to add podcast source: \(error.localizedDescription)")
+			Self.logger.error("Failed to add news topic: \(error.localizedDescription)")
 			return .error(error.localizedDescription)
 		}
 	}
