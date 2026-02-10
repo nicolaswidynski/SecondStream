@@ -379,13 +379,18 @@ static NSString *daringFireballPermalinkPrefix = @"https://daringfireball.net/";
 
 - (void)addContent {
 
-	self.currentArticle.body = [self currentString];
+	NSString *content = [self currentString];
+	// Only set body if content is not empty
+	if (content && content.length > 0) {
+		self.currentArticle.body = content;
+	}
 }
 
 
 - (void)addSummary {
 
-	if (!self.currentArticle.body) {
+	// Use summary if body is nil or empty (consistent with XHTML handling)
+	if (!self.currentArticle.body || self.currentArticle.body.length < 1) {
 		self.currentArticle.body = [self currentString];
 	}
 }

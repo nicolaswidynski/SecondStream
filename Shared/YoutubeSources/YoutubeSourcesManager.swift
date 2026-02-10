@@ -1,37 +1,39 @@
 //
-//  PodcastSourcesManager.swift
+//  YoutubeSourcesManager.swift
 //  NetNewsWire
 //
-//  Created by Claude on 2026-01-22.
+//  Created by Claude on 2026-01-31.
 //  Copyright © 2026 Ranchero Software. All rights reserved.
 //
 
 import Foundation
 import os.log
 
-struct PodcastSource: Codable {
+struct YoutubeSource: Codable {
 	let name: String
-	let rssURL: String
+	let url: String
 }
 
-enum AddPodcastResult {
-	case successExisting(summaryURL: String)  // 201 - Podcast already exists, no wait
-	case successNew(summaryURL: String)       // 202 - New podcast, wait ~15 minutes
+enum AddYoutubeResult {
+	case successExisting(summaryURL: String)  // 201 - Channel already exists, no wait
+	case successNew(summaryURL: String)       // 202 - New channel, wait for processing
 	case unauthorized                         // 401
 	case badRSS                               // 551
 	case wrongFormat                          // 552
-	case maxPodcasts                          // 553
-	case badMessage                           // 554 - Neither podcast nor rss_url set
-	case badPodcast                           // 555 - Podcast not found
+	case maxChannels                          // 553
+	case badMessage                           // 554 - Neither channel nor url set
+	case badChannel                           // 555 - Channel not found
+	case youtubeRSSNotFound                   // 556 - Youtube channel RSS not found
 	case error(String)
 }
 
-@MainActor final class PodcastSourcesManager {
+@MainActor final class YoutubeSourcesManager {
 
-	static let shared = PodcastSourcesManager()
+	static let shared = YoutubeSourcesManager()
 
-	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "PodcastSources")
+	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "YoutubeSources")
 
+	// Use the same endpoints as podcasts
 	private let getSourcesURL = URL(string: "https://n8n.nwidynski.com/webhook/get-podcast-sources")!
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-podcast-source")!
 
@@ -40,21 +42,21 @@ enum AddPodcastResult {
 	private(set) var isFetching = false
 	private var fetchTask: Task<Void, Never>?
 
-	// MARK: - Stored Podcast Sources
+	// MARK: - Stored Youtube Sources
 
-	private let podcastSourcesKey = "podcastSources"
+	private let youtubeSourcesKey = "youtubeSources"
 
-	var podcastSources: [PodcastSource] {
+	var youtubeSources: [YoutubeSource] {
 		get {
-			guard let data = UserDefaults.standard.data(forKey: podcastSourcesKey),
-				  let sources = try? JSONDecoder().decode([PodcastSource].self, from: data) else {
+			guard let data = UserDefaults.standard.data(forKey: youtubeSourcesKey),
+				  let sources = try? JSONDecoder().decode([YoutubeSource].self, from: data) else {
 				return []
 			}
 			return sources
 		}
 		set {
 			if let data = try? JSONEncoder().encode(newValue) {
-				UserDefaults.standard.set(data, forKey: podcastSourcesKey)
+				UserDefaults.standard.set(data, forKey: youtubeSourcesKey)
 			}
 		}
 	}
@@ -62,9 +64,10 @@ enum AddPodcastResult {
 	// MARK: - Token
 
 	private var bearerToken: String? {
+		// Use the same token as podcasts
 		guard let tokenURL = Bundle.main.url(forResource: "podcast_token", withExtension: "txt"),
 			  let token = try? String(contentsOf: tokenURL, encoding: .utf8) else {
-			Self.logger.error("Failed to load podcast token from file")
+			Self.logger.error("Failed to load token from file")
 			return nil
 		}
 		return token.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -72,13 +75,13 @@ enum AddPodcastResult {
 
 	// MARK: - API
 
-	/// Starts fetching podcast sources in the background. Does nothing if already fetching.
+	/// Starts fetching youtube sources in the background. Does nothing if already fetching.
 	func startFetching() {
 		guard !isFetching else {
 			return
 		}
 		fetchTask = Task {
-			await fetchPodcastSources()
+			await fetchYoutubeSources()
 		}
 	}
 
@@ -87,7 +90,7 @@ enum AddPodcastResult {
 		if let task = fetchTask {
 			await task.value
 		} else if !isFetching {
-			await fetchPodcastSources()
+			await fetchYoutubeSources()
 		}
 	}
 
@@ -97,10 +100,10 @@ enum AddPodcastResult {
 		fetchTask?.cancel()
 		fetchTask = nil
 		// Fetch fresh
-		await fetchPodcastSources()
+		await fetchYoutubeSources()
 	}
 
-	private func fetchPodcastSources() async {
+	private func fetchYoutubeSources() async {
 		isFetching = true
 		defer {
 			isFetching = false
@@ -119,7 +122,7 @@ enum AddPodcastResult {
 
 		// Add type in body
 		let body: [String: String] = [
-			"type": "pod"
+			"type": "yt"
 		]
 		request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
@@ -141,48 +144,41 @@ enum AddPodcastResult {
 				   let names = firstItem["name"] as? [String],
 				   let urls = firstItem["url"] as? [String] {
 
-					var sources: [PodcastSource] = []
+					var sources: [YoutubeSource] = []
 					for (index, name) in names.enumerated() {
 						if index < urls.count {
-							sources.append(PodcastSource(name: name, rssURL: urls[index]))
+							sources.append(YoutubeSource(name: name, url: urls[index]))
 						}
 					}
 
-					self.podcastSources = sources
-					Self.logger.info("Fetched \(sources.count) podcast sources")
+					self.youtubeSources = sources
+					Self.logger.info("Fetched \(sources.count) youtube sources")
 				} else {
 					Self.logger.error("Failed to parse success response")
-				}
-			} else if httpResponse.statusCode == 422 {
-				// Bad RSS error
-				if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-				   let status = json["status"] as? String,
-				   let message = json["message"] as? String {
-					Self.logger.error("API error: status=\(status), message=\(message)")
-				} else {
-					Self.logger.error("API returned 422 but could not parse error response")
 				}
 			} else {
 				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
 			}
 		} catch {
-			Self.logger.error("Failed to fetch podcast sources: \(error.localizedDescription)")
+			Self.logger.error("Failed to fetch youtube sources: \(error.localizedDescription)")
 		}
 	}
 
-	/// Adds a podcast source by sending the RSS URL to the webhook.
+	/// Adds a YouTube channel by sending the channel URL to the webhook.
 	/// Returns the summary feed URL on success.
-	func addPodcastSource(rssURL: String) async -> AddPodcastResult {
-		return await sendAddPodcastRequest(link: rssURL, show: nil)
+	func addYoutubeByURL(_ youtubeURL: String) async -> AddYoutubeResult {
+		return await sendAddYoutubeRequest(link: youtubeURL, show: nil)
 	}
 
-	/// Adds a podcast source by sending the podcast name to the webhook.
+	/// Adds a YouTube channel by sending the channel name (must start with @) to the webhook.
 	/// Returns the summary feed URL on success.
-	func addPodcastByName(_ podcastName: String) async -> AddPodcastResult {
-		return await sendAddPodcastRequest(link: nil, show: podcastName)
+	func addYoutubeByChannelName(_ channelName: String) async -> AddYoutubeResult {
+		// Ensure channel name starts with @
+		let normalizedName = channelName.hasPrefix("@") ? channelName : "@\(channelName)"
+		return await sendAddYoutubeRequest(link: nil, show: normalizedName)
 	}
 
-	private func sendAddPodcastRequest(link: String?, show: String?) async -> AddPodcastResult {
+	private func sendAddYoutubeRequest(link: String?, show: String?) async -> AddYoutubeResult {
 		guard let token = bearerToken else {
 			Self.logger.error("No bearer token available")
 			return .error("No authentication token")
@@ -195,7 +191,7 @@ enum AddPodcastResult {
 
 		// Build body with type, show, and link
 		let body: [String: Any?] = [
-			"type": "pod",
+			"type": "yt",
 			"show": show,
 			"link": link
 		]
@@ -219,24 +215,24 @@ enum AddPodcastResult {
 
 			switch httpResponse.statusCode {
 			case 201:
-				// Success - podcast already exists, no wait needed
+				// Success - channel already exists, no wait needed
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
 				   let summaryURL = json["summary_url"] as? String {
-					Self.logger.info("Podcast already exists")
+					Self.logger.info("YouTube channel already exists")
 					return .successExisting(summaryURL: summaryURL)
 				}
 				Self.logger.error("Failed to parse 201 response")
 				return .error("Failed to parse response")
 
 			case 202:
-				// Success - new podcast, wait ~15 minutes
+				// Success - new channel, wait for processing
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
 				   let summaryURL = json["summary_url"] as? String {
-					Self.logger.info("New podcast added, processing required")
+					Self.logger.info("New YouTube channel added, processing required")
 					return .successNew(summaryURL: summaryURL)
 				}
 				Self.logger.error("Failed to parse 202 response")
@@ -255,23 +251,27 @@ enum AddPodcastResult {
 				return .wrongFormat
 
 			case 553:
-				Self.logger.error("Maximum number of podcasts reached")
-				return .maxPodcasts
+				Self.logger.error("Maximum number of channels reached")
+				return .maxChannels
 
 			case 554:
-				Self.logger.error("Bad request - neither podcast nor rss_url set")
+				Self.logger.error("Bad request - neither channel nor url set")
 				return .badMessage
 
 			case 555:
-				Self.logger.error("Podcast not found")
-				return .badPodcast
+				Self.logger.error("Channel not found")
+				return .badChannel
+
+			case 556:
+				Self.logger.error("YouTube channel RSS not found")
+				return .youtubeRSSNotFound
 
 			default:
 				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
 				return .error("Unexpected error")
 			}
 		} catch {
-			Self.logger.error("Failed to add podcast source: \(error.localizedDescription)")
+			Self.logger.error("Failed to add YouTube channel: \(error.localizedDescription)")
 			return .error(error.localizedDescription)
 		}
 	}

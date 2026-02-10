@@ -9,13 +9,20 @@
 import UIKit
 
 @MainActor protocol YoutubePickerDelegate: AnyObject {
+	func youtubePickerDidSelectChannelName(_ picker: YoutubePickerViewController)
 	func youtubePickerDidSelectChannelURL(_ picker: YoutubePickerViewController)
+	func youtubePicker(_ picker: YoutubePickerViewController, didSelectChannel source: YoutubeSource)
 	func youtubePickerDidCancel(_ picker: YoutubePickerViewController)
 }
 
 final class YoutubePickerViewController: UITableViewController {
 
 	weak var delegate: YoutubePickerDelegate?
+
+	private var sections: [(letter: String, sources: [YoutubeSource])] = []
+	private var sectionIndexTitles: [String] = []
+
+	private let customURLSection = 0
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -29,6 +36,30 @@ final class YoutubePickerViewController: UITableViewController {
 		)
 
 		tableView.register(UITableViewCell.self, forCellReuseIdentifier: "YouTubeCell")
+		tableView.sectionIndexColor = Assets.Colors.primaryAccent
+
+		loadYoutubeSources()
+	}
+
+	private func loadYoutubeSources() {
+		let sources = YoutubeSourcesManager.shared.youtubeSources.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+		// Group by first letter
+		var grouped: [String: [YoutubeSource]] = [:]
+		for source in sources {
+			let firstChar = source.name.first.map { String($0).uppercased() } ?? "#"
+			let letter = firstChar.first?.isLetter == true ? firstChar : "#"
+			grouped[letter, default: []].append(source)
+		}
+
+		// Sort sections alphabetically
+		sections = grouped.map { (letter: $0.key, sources: $0.value) }
+			.sorted { $0.letter < $1.letter }
+
+		// Build section index titles
+		sectionIndexTitles = sections.map { $0.letter }
+
+		tableView.reloadData()
 	}
 
 	@objc private func cancelTapped() {
@@ -38,29 +69,71 @@ final class YoutubePickerViewController: UITableViewController {
 	// MARK: - Table View Data Source
 
 	override func numberOfSections(in tableView: UITableView) -> Int {
-		return 1
+		// +1 for the "Enter Channel Name/URL" section at the top
+		return sections.count + 1
 	}
 
 	override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-		return 1
+		if section == customURLSection {
+			return 2  // "Enter Channel Name (@...)..." and "Enter YouTube URL..."
+		}
+		return sections[section - 1].sources.count
+	}
+
+	override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+		if section == customURLSection {
+			return nil
+		}
+		return sections[section - 1].letter
 	}
 
 	override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 		let cell = tableView.dequeueReusableCell(withIdentifier: "YouTubeCell", for: indexPath)
-		cell.textLabel?.text = NSLocalizedString("Enter Channel URL...", comment: "Enter Channel URL...")
-		cell.textLabel?.textColor = Assets.Colors.primaryAccent
-		cell.accessoryType = .disclosureIndicator
+
+		if indexPath.section == customURLSection {
+			if indexPath.row == 0 {
+				cell.textLabel?.text = NSLocalizedString("Enter Channel Name (@...)...", comment: "Enter Channel Name (@...)...")
+			} else {
+				cell.textLabel?.text = NSLocalizedString("Enter YouTube URL...", comment: "Enter YouTube URL...")
+			}
+			cell.textLabel?.textColor = Assets.Colors.primaryAccent
+			cell.accessoryType = .disclosureIndicator
+		} else {
+			let source = sections[indexPath.section - 1].sources[indexPath.row]
+			cell.textLabel?.text = source.name
+			cell.textLabel?.textColor = .label
+			cell.accessoryType = .none
+		}
+
 		return cell
 	}
 
-	override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-		return NSLocalizedString("Enter a YouTube channel URL to subscribe to its RSS feed.", comment: "YouTube picker footer")
+	override func sectionIndexTitles(for tableView: UITableView) -> [String]? {
+		guard !sectionIndexTitles.isEmpty else {
+			return nil
+		}
+		return sectionIndexTitles
+	}
+
+	override func tableView(_ tableView: UITableView, sectionForSectionIndexTitle title: String, at index: Int) -> Int {
+		// +1 to account for the custom URL section at the top
+		return index + 1
 	}
 
 	// MARK: - Table View Delegate
 
 	override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
 		tableView.deselectRow(at: indexPath, animated: true)
-		delegate?.youtubePickerDidSelectChannelURL(self)
+
+		if indexPath.section == customURLSection {
+			if indexPath.row == 0 {
+				delegate?.youtubePickerDidSelectChannelName(self)
+			} else {
+				delegate?.youtubePickerDidSelectChannelURL(self)
+			}
+		} else {
+			let source = sections[indexPath.section - 1].sources[indexPath.row]
+			delegate?.youtubePicker(self, didSelectChannel: source)
+		}
 	}
 }

@@ -97,8 +97,8 @@ struct SidebarItemNode: Hashable, Sendable {
 	// Which Containers used to be expanded. Reset by rebuilding the sidebar.
 	private var lastExpandedContainers = Set<ContainerIdentifier>()
 
-	// Which category sections are expanded (all expanded by default)
-	private var expandedCategorySections = Set<FeedSectionIdentifier>([.smartFeeds, .rssFeeds, .podcasts, .youtube, .news])
+	// Which category sections are expanded (only smartFeeds expanded by default, feed categories collapsed)
+	private var expandedCategorySections = Set<FeedSectionIdentifier>([.smartFeeds])
 
 	private let hidingReadArticlesState = HidingReadArticlesState()
 
@@ -490,9 +490,9 @@ struct SidebarItemNode: Hashable, Sendable {
 			return
 		}
 
-		if isReadFeedsFiltered {
-			rebuildBackingStores()
-		}
+		// Always rebuild after unread counts initialize to ensure category sections
+		// display correct unread counts (not just when filtering read feeds)
+		rebuildBackingStores()
 	}
 
 	@objc func unreadCountDidChange(_ note: Notification) {
@@ -948,24 +948,11 @@ struct SidebarItemNode: Hashable, Sendable {
 			return 0
 		}
 
-		// Iterate through tree the same way as createSidebarSnapshot
-		for sectionNode in treeController.rootNode.childNodes {
-			// Skip smart feeds
-			if sectionNode.representedObject is SmartFeedsController {
-				continue
-			}
-
-			// For account sections, collect feeds by category
-			for node in sectionNode.childNodes {
-				if let feed = node.representedObject as? Feed {
-					if feed.feedCategory == targetCategory {
-						count += feed.unreadCount
-					}
-				} else if let folder = node.representedObject as? Folder {
-					// For RSS section, also count folders
-					if targetCategory == .rss {
-						count += folder.unreadCount
-					}
+		// Count unread for all feeds matching the target category across all accounts
+		for account in AccountManager.shared.activeAccounts {
+			for feed in account.flattenedFeeds() {
+				if feed.feedCategory == targetCategory {
+					count += feed.unreadCount
 				}
 			}
 		}

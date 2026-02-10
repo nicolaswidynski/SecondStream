@@ -53,7 +53,9 @@ final class FeedInspectorViewController: UITableViewController {
 		feedURLLabel.text = feed.displayFeedURL ?? feed.url
 
 		obsidianSubfolderTextField.text = feed.obsidianSubfolder ?? ""
-		obsidianSubfolderTextField.placeholder = feed.nameForDisplay
+		// Show the default subfolder path as placeholder (CategoryPrefix/FeedName)
+		let categoryPrefix = ObsidianFileManager.getDefaultSubfolderPrefix(for: feed)
+		obsidianSubfolderTextField.placeholder = "\(categoryPrefix)/\(feed.nameForDisplay)"
 
 		NotificationCenter.default.addObserver(self, selector: #selector(feedIconDidBecomeAvailable(_:)), name: .feedIconDidBecomeAvailable, object: nil)
 

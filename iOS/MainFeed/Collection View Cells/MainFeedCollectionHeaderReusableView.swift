@@ -41,6 +41,7 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 	}
 
 	private var _unreadCount: Int = 0
+	private var hasBeenConfigured = false
 
 	var unreadCount: Int {
 		get {
@@ -48,15 +49,20 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 		}
 		set {
 			_unreadCount = newValue
-			updateUnreadCount()
 			unreadCountLabel.text = newValue.formatted()
+			// Update visibility when count changes (for collapsed sections)
+			if hasBeenConfigured {
+				updateUnreadCount(animated: false)
+			}
 		}
 	}
 
 	var disclosureExpanded = true {
 		didSet {
-			updateExpandedState(animate: true)
-			updateUnreadCount()
+			let shouldAnimate = hasBeenConfigured && (oldValue != disclosureExpanded)
+			updateExpandedState(animate: shouldAnimate)
+			updateUnreadCount(animated: shouldAnimate)
+			hasBeenConfigured = true
 		}
 	}
 
@@ -65,9 +71,18 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 			super.awakeFromNib()
 			unreadLabelWidthConstraint = unreadCountLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 80)
 			unreadLabelWidthConstraint?.isActive = true
+			unreadCountLabel.alpha = 0  // Start hidden
 			configureUI()
 			addTapGesture()
 		}
+	}
+
+	override func prepareForReuse() {
+		super.prepareForReuse()
+		_unreadCount = 0
+		disclosureExpanded = true
+		unreadCountLabel.alpha = 0
+		hasBeenConfigured = false
 	}
 
 	func configureUI() {
@@ -90,13 +105,8 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 	}
 
 	func updateExpandedState(animate: Bool) {
-
-		if disclosureExpanded == false {
-			unreadLabelWidthConstraint = unreadCountLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 80)
-		} else {
-			unreadLabelWidthConstraint = unreadCountLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 0)
-			unreadLabelWidthConstraint?.isActive = false
-		}
+		// Update constraint constant - use 80 when collapsed (to show count), 0 when expanded (hidden)
+		unreadLabelWidthConstraint?.constant = disclosureExpanded ? 0 : 80
 
 		let angle: CGFloat = disclosureExpanded ? 0 : -.pi / 2
 		let transform = CGAffineTransform(rotationAngle: angle)
@@ -110,15 +120,14 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 		}
 	}
 
-	func updateUnreadCount() {
-		if !disclosureExpanded && unreadCount > 0 {
+	func updateUnreadCount(animated: Bool = true) {
+		let targetAlpha: CGFloat = (!disclosureExpanded && unreadCount > 0) ? 1 : 0
+		if animated {
 			UIView.animate(withDuration: 0.3) {
-				self.unreadCountLabel.alpha = 1
+				self.unreadCountLabel.alpha = targetAlpha
 			}
 		} else {
-			UIView.animate(withDuration: 0.3) {
-				self.unreadCountLabel.alpha = 0
-			}
+			self.unreadCountLabel.alpha = targetAlpha
 		}
 	}
 

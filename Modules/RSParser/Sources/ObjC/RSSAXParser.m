@@ -302,6 +302,12 @@ static void	charactersFoundSAX(void *context, const xmlChar *ch, int len) {
 }
 
 
+static void cdataBlockSAX(void *context, const xmlChar *value, int len) {
+	// Handle CDATA content the same as regular character data
+	[(__bridge RSSAXParser *)context xmlCharactersFound:value length:(NSUInteger)len];
+}
+
+
 static void endDocumentSAX(void *context) {
 	[(__bridge RSSAXParser *)context xmlEndDocument];
 }
@@ -333,7 +339,7 @@ static xmlSAXHandler saxHandlerStruct = {
 	nil,					/* error */
 	nil,					/* fatalError //: unused error() get all the errors */
 	nil,					/* getParameterEntity */
-	nil,					/* cdataBlock */
+	cdataBlockSAX,			/* cdataBlock */
 	nil,					/* externalSubset */
 	XML_SAX2_MAGIC,
 	nil,

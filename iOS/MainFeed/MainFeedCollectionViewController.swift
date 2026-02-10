@@ -101,6 +101,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		collectionView.dragDelegate = self
 		collectionView.dropDelegate = self
 		becomeFirstResponder()
+
+		// Start fetching podcast and YouTube sources in background
+		PodcastSourcesManager.shared.startFetching()
+		YoutubeSourcesManager.shared.startFetching()
     }
 
 	private func configureBottomActionBar() {
@@ -206,6 +210,35 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc private func addPodcast() {
+		// Always fetch fresh sources when opening the picker
+		let loadingAlert = UIAlertController(
+			title: nil,
+			message: NSLocalizedString("Loading podcasts...", comment: "Loading podcasts..."),
+			preferredStyle: .alert
+		)
+
+		let activityIndicator = UIActivityIndicatorView(style: .medium)
+		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+		activityIndicator.startAnimating()
+		loadingAlert.view.addSubview(activityIndicator)
+
+		NSLayoutConstraint.activate([
+			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
+		])
+
+		present(loadingAlert, animated: true)
+
+		Task {
+			// Always fetch fresh sources
+			await PodcastSourcesManager.shared.fetchFresh()
+			loadingAlert.dismiss(animated: true) {
+				self.presentPodcastPicker()
+			}
+		}
+	}
+
+	private func presentPodcastPicker() {
 		let picker = PodcastPickerViewController()
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
@@ -213,6 +246,35 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc private func addYoutube() {
+		// Always fetch fresh sources when opening the picker
+		let loadingAlert = UIAlertController(
+			title: nil,
+			message: NSLocalizedString("Loading channels...", comment: "Loading channels..."),
+			preferredStyle: .alert
+		)
+
+		let activityIndicator = UIActivityIndicatorView(style: .medium)
+		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+		activityIndicator.startAnimating()
+		loadingAlert.view.addSubview(activityIndicator)
+
+		NSLayoutConstraint.activate([
+			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
+		])
+
+		present(loadingAlert, animated: true)
+
+		Task {
+			// Always fetch fresh sources
+			await YoutubeSourcesManager.shared.fetchFresh()
+			loadingAlert.dismiss(animated: true) {
+				self.presentYoutubePicker()
+			}
+		}
+	}
+
+	private func presentYoutubePicker() {
 		let picker = YoutubePickerViewController()
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
@@ -351,6 +413,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	func registerForNotifications() {
 		NotificationCenter.default.addObserver(self, selector: #selector(unreadCountDidChange(_:)), name: .UnreadCountDidChange, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(unreadCountDidInitialize(_:)), name: .UnreadCountDidInitialize, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(faviconDidBecomeAvailable(_:)), name: .FaviconDidBecomeAvailable, object: nil)
 		// TODO: fix this temporary hack, which will probably require refactoring image handling.
 		// We want to know when to possibly reconfigure our cells with a new image, and we don’t
@@ -873,6 +936,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	@objc func unreadCountDidChange(_ note: Notification) {
 		updateUI()
 
+		// Update category section headers (My Feeds, My Podcasts, etc.)
+		updateCategorySectionUnreadCounts()
+
 		guard let unreadCountProvider = note.object as? UnreadCountProvider else {
 			return
 		}
@@ -896,6 +962,27 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		if let cell = collectionView.cellForItem(at: indexPath) as? MainFeedCollectionViewFolderCell {
 			cell.unreadCount = unreadCountProvider.unreadCount
+		}
+	}
+
+	@objc func unreadCountDidInitialize(_ note: Notification) {
+		// Update all category section headers when unread counts are fully initialized
+		updateCategorySectionUnreadCounts()
+	}
+
+	private func updateCategorySectionUnreadCounts() {
+		let sectionIdentifiers = dataSource.snapshot().sectionIdentifiers
+
+		for (sectionIndex, sectionID) in sectionIdentifiers.enumerated() {
+			if let feedSection = FeedSectionIdentifier(rawValue: sectionID) {
+				let indexPath = IndexPath(item: 0, section: sectionIndex)
+				if let headerView = collectionView.supplementaryView(
+					forElementKind: UICollectionView.elementKindSectionHeader,
+					at: indexPath
+				) as? MainFeedCollectionHeaderReusableView {
+					headerView.unreadCount = unreadCountForSection(feedSection)
+				}
+			}
 		}
 	}
 
@@ -929,63 +1016,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
 			appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
 		}
-	}
-
-	private func showPodcastSources() {
-		// Show loading indicator if fetch is in progress
-		if PodcastSourcesManager.shared.isFetching {
-			let loadingAlert = UIAlertController(
-				title: nil,
-				message: NSLocalizedString("Loading podcasts...", comment: "Loading podcasts..."),
-				preferredStyle: .alert
-			)
-
-			let activityIndicator = UIActivityIndicatorView(style: .medium)
-			activityIndicator.translatesAutoresizingMaskIntoConstraints = false
-			activityIndicator.startAnimating()
-			loadingAlert.view.addSubview(activityIndicator)
-
-			NSLayoutConstraint.activate([
-				activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
-				activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
-			])
-
-			present(loadingAlert, animated: true)
-
-			Task {
-				await PodcastSourcesManager.shared.waitForFetch()
-				loadingAlert.dismiss(animated: true) {
-					self.presentPodcastSourcesList()
-				}
-			}
-		} else {
-			// Fetch is already complete, show the list directly
-			presentPodcastSourcesList()
-		}
-	}
-
-	private func presentPodcastSourcesList() {
-		let picker = PodcastPickerViewController(style: .plain)
-		picker.delegate = self
-		let nav = UINavigationController(rootViewController: picker)
-		nav.modalPresentationStyle = .formSheet
-		present(nav, animated: true)
-	}
-
-	private func showYoutubePicker() {
-		let picker = YoutubePickerViewController(style: .plain)
-		picker.delegate = self
-		let nav = UINavigationController(rootViewController: picker)
-		nav.modalPresentationStyle = .formSheet
-		present(nav, animated: true)
-	}
-
-	private func showNewsPicker() {
-		let picker = NewsPickerViewController(style: .plain)
-		picker.delegate = self
-		let nav = UINavigationController(rootViewController: picker)
-		nav.modalPresentationStyle = .formSheet
-		present(nav, animated: true)
 	}
 
 	private func showEnterPodcastNameDialog() {
@@ -1849,6 +1879,12 @@ extension MainFeedCollectionViewController: PodcastPickerDelegate {
 
 extension MainFeedCollectionViewController: YoutubePickerDelegate {
 
+	func youtubePickerDidSelectChannelName(_ picker: YoutubePickerViewController) {
+		picker.dismiss(animated: true) {
+			self.showEnterYoutubeChannelNameDialog()
+		}
+	}
+
 	func youtubePickerDidSelectChannelURL(_ picker: YoutubePickerViewController) {
 		picker.dismiss(animated: true) {
 			self.showEnterYoutubeURLDialog()
@@ -1859,10 +1895,59 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 		picker.dismiss(animated: true)
 	}
 
+	func youtubePicker(_ picker: YoutubePickerViewController, didSelectChannel source: YoutubeSource) {
+		picker.dismiss(animated: true) {
+			// Call the add-source webhook like podcasts do
+			self.addYoutubeByURL(source.url)
+		}
+	}
+
+	private func showEnterYoutubeChannelNameDialog() {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Enter Channel Name", comment: "Enter Channel Name"),
+			message: NSLocalizedString("Enter the YouTube channel name.", comment: "YouTube channel name dialog message"),
+			preferredStyle: .alert
+		)
+
+		alert.addTextField { textField in
+			textField.text = "@"
+			textField.placeholder = "@channelname"
+			textField.autocapitalizationType = .none
+			textField.autocorrectionType = .no
+
+			// Add target to ensure @ prefix is always present
+			textField.addTarget(self, action: #selector(self.youtubeChannelNameTextFieldDidChange(_:)), for: .editingChanged)
+		}
+
+		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
+			if let channelName = alert.textFields?.first?.text, channelName.count > 1 {
+				self.addYoutubeByChannelName(channelName)
+			}
+		}
+
+		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
+
+		alert.addAction(addAction)
+		alert.addAction(cancelAction)
+
+		present(alert, animated: true)
+	}
+
+	@objc private func youtubeChannelNameTextFieldDidChange(_ textField: UITextField) {
+		// Ensure the text always starts with @
+		if let text = textField.text {
+			if !text.hasPrefix("@") {
+				textField.text = "@" + text
+			}
+		} else {
+			textField.text = "@"
+		}
+	}
+
 	private func showEnterYoutubeURLDialog() {
 		let alert = UIAlertController(
-			title: NSLocalizedString("Enter YouTube Channel URL", comment: "Enter YouTube Channel URL"),
-			message: NSLocalizedString("Enter the URL of a YouTube channel to subscribe to its RSS feed.", comment: "YouTube URL dialog message"),
+			title: NSLocalizedString("Enter YouTube URL", comment: "Enter YouTube URL"),
+			message: NSLocalizedString("Enter the URL of a YouTube channel or video.", comment: "YouTube URL dialog message"),
 			preferredStyle: .alert
 		)
 
@@ -1875,9 +1960,7 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 
 		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
 			if let urlText = alert.textFields?.first?.text, !urlText.isEmpty {
-				// Convert YouTube channel URL to RSS feed URL
-				let feedURL = self.convertYoutubeURLToFeed(urlText)
-				self.addFeedDirectly(urlString: feedURL, category: .youtube)
+				self.addYoutubeByURL(urlText)
 			}
 		}
 
@@ -1889,19 +1972,145 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 		present(alert, animated: true)
 	}
 
-	private func convertYoutubeURLToFeed(_ urlString: String) -> String {
-		// Basic YouTube channel URL to RSS conversion
-		// Format: https://www.youtube.com/feeds/videos.xml?channel_id=CHANNEL_ID
-		// or: https://www.youtube.com/feeds/videos.xml?user=USERNAME
+	private func addYoutubeByChannelName(_ channelName: String) {
+		// Show loading indicator
+		let loadingAlert = UIAlertController(
+			title: nil,
+			message: NSLocalizedString("Adding YouTube channel...", comment: "Adding YouTube channel..."),
+			preferredStyle: .alert
+		)
 
-		// For now, just return the URL and let the user provide the RSS URL directly
-		// A more sophisticated implementation would parse different YouTube URL formats
-		if urlString.contains("youtube.com/feeds/") {
-			return urlString
+		let activityIndicator = UIActivityIndicatorView(style: .medium)
+		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+		activityIndicator.startAnimating()
+		loadingAlert.view.addSubview(activityIndicator)
+
+		NSLayoutConstraint.activate([
+			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
+		])
+
+		present(loadingAlert, animated: true)
+
+		Task {
+			let result = await YoutubeSourcesManager.shared.addYoutubeByChannelName(channelName)
+
+			loadingAlert.dismiss(animated: true) {
+				self.handleYoutubeResult(result)
+			}
+		}
+	}
+
+	private func addYoutubeByURL(_ youtubeURL: String) {
+		// Show loading indicator
+		let loadingAlert = UIAlertController(
+			title: nil,
+			message: NSLocalizedString("Adding YouTube channel...", comment: "Adding YouTube channel..."),
+			preferredStyle: .alert
+		)
+
+		let activityIndicator = UIActivityIndicatorView(style: .medium)
+		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+		activityIndicator.startAnimating()
+		loadingAlert.view.addSubview(activityIndicator)
+
+		NSLayoutConstraint.activate([
+			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
+		])
+
+		present(loadingAlert, animated: true)
+
+		Task {
+			let result = await YoutubeSourcesManager.shared.addYoutubeByURL(youtubeURL)
+
+			loadingAlert.dismiss(animated: true) {
+				self.handleYoutubeResult(result)
+			}
+		}
+	}
+
+	private func handleYoutubeResult(_ result: AddYoutubeResult) {
+		switch result {
+		case .successExisting(let summaryURL):
+			// Channel already exists, no wait needed - add the feed directly
+			self.addFeedDirectly(urlString: summaryURL, category: .youtube)
+
+		case .successNew(let summaryURL):
+			// Show success message for new channels (need processing)
+			self.showYoutubeSuccessMessage {
+				self.addFeedDirectly(urlString: summaryURL, category: .youtube)
+			}
+
+		case .unauthorized:
+			self.showYoutubeError(
+				title: NSLocalizedString("Unauthorized", comment: "Unauthorized"),
+				message: NSLocalizedString("Authentication failed. Please check your credentials.", comment: "Authentication failed message")
+			)
+
+		case .badRSS:
+			self.showYoutubeError(
+				title: NSLocalizedString("RSS Not Found", comment: "RSS Not Found"),
+				message: NSLocalizedString("The RSS feed could not be found at the specified URL.", comment: "RSS not found message")
+			)
+
+		case .wrongFormat:
+			self.showYoutubeError(
+				title: NSLocalizedString("Unsupported Format", comment: "Unsupported Format"),
+				message: NSLocalizedString("The RSS feed format is not supported.", comment: "Unsupported format message")
+			)
+
+		case .maxChannels:
+			self.showYoutubeError(
+				title: NSLocalizedString("Limit Reached", comment: "Limit Reached"),
+				message: NSLocalizedString("Maximum number of supported channels reached.", comment: "Max channels message")
+			)
+
+		case .badMessage:
+			self.showYoutubeError(
+				title: NSLocalizedString("Bad Request", comment: "Bad Request"),
+				message: NSLocalizedString("Invalid request format.", comment: "Bad request message")
+			)
+
+		case .badChannel:
+			self.showYoutubeError(
+				title: NSLocalizedString("Channel Not Found", comment: "Channel Not Found"),
+				message: NSLocalizedString("The YouTube channel could not be found.", comment: "Channel not found message")
+			)
+
+		case .youtubeRSSNotFound:
+			self.showYoutubeError(
+				title: NSLocalizedString("YouTube RSS Not Found", comment: "YouTube RSS Not Found"),
+				message: NSLocalizedString("The YouTube channel RSS feed could not be found.", comment: "YouTube RSS not found message")
+			)
+
+		case .error(let message):
+			self.showYoutubeError(
+				title: NSLocalizedString("Error", comment: "Error"),
+				message: message
+			)
+		}
+	}
+
+	private func showYoutubeSuccessMessage(completion: @escaping () -> Void) {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Channel Added", comment: "Channel Added"),
+			message: NSLocalizedString("The YouTube channel has been added. It may take a few minutes for episodes to appear.", comment: "YouTube channel added message"),
+			preferredStyle: .alert
+		)
+
+		let okAction = UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default) { _ in
+			completion()
 		}
 
-		// If it's already a feed URL, return as-is
-		return urlString
+		alert.addAction(okAction)
+		present(alert, animated: true)
+	}
+
+	private func showYoutubeError(title: String, message: String) {
+		let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
+		present(alert, animated: true)
 	}
 }
 

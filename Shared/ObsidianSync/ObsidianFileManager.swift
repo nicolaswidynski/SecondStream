@@ -111,10 +111,26 @@ enum ObsidianFileManagerError: LocalizedError {
 		return sanitized
 	}
 
+	/// Get the default subfolder prefix based on feed category
+	static func getDefaultSubfolderPrefix(for feed: Feed) -> String {
+		switch feed.feedCategory {
+		case .rss:
+			return "RSS Feeds"
+		case .podcast:
+			return "Podcasts"
+		case .youtube:
+			return "YouTube"
+		case .news:
+			return "News"
+		}
+	}
+
 	/// Get the custom subfolder path for a feed (supports nested paths like a/b/c)
+	/// If no custom subfolder is set, returns the default category prefix
 	static func getCustomSubfolderPath(for feed: Feed) -> [String] {
 		guard let customSubfolder = feed.obsidianSubfolder, !customSubfolder.isEmpty else {
-			return []
+			// Return default category prefix when no custom subfolder is set
+			return [getDefaultSubfolderPrefix(for: feed)]
 		}
 		// Split by "/" to support nested folders, sanitize each component
 		return customSubfolder
