@@ -252,9 +252,15 @@ struct MarkdownConverter {
 		// Normalize all whitespace-only lines to empty lines
 		result = result.replacingOccurrences(of: "\\n[ \\t]+\\n", with: "\n\n", options: .regularExpression)
 
-		// Clean up excessive newlines (3 or more becomes 2) - run twice to catch nested cases
+		// Clean up excessive newlines (3 or more becomes 2) - run multiple times
 		result = result.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
 		result = result.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
+
+		// Remove blank lines before list items (keeps lists tight)
+		result = result.replacingOccurrences(of: "\\n\\n+- ", with: "\n- ", options: .regularExpression)
+
+		// Remove blank lines between list items
+		result = result.replacingOccurrences(of: "\\n\\n+(- )", with: "\n$1", options: .regularExpression)
 
 		// Clean up spaces at the beginning of lines (except for list items and code)
 		result = result.replacingOccurrences(of: "\\n +([^-`])", with: "\n$1", options: .regularExpression)
