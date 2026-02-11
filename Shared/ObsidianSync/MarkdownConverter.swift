@@ -158,18 +158,19 @@ struct MarkdownConverter {
 
 		// Convert common HTML elements to markdown equivalents
 		// Headers (H1 may already be removed above if there was only one)
+		// Headers need a blank line after them in markdown
 		result = result.replacingOccurrences(of: "<h1[^>]*>", with: "# ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</h1>", with: "\n")
+		result = result.replacingOccurrences(of: "</h1>", with: "\n\n")
 		result = result.replacingOccurrences(of: "<h2[^>]*>", with: "## ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</h2>", with: "\n")
+		result = result.replacingOccurrences(of: "</h2>", with: "\n\n")
 		result = result.replacingOccurrences(of: "<h3[^>]*>", with: "### ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</h3>", with: "\n")
+		result = result.replacingOccurrences(of: "</h3>", with: "\n\n")
 		result = result.replacingOccurrences(of: "<h4[^>]*>", with: "#### ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</h4>", with: "\n")
+		result = result.replacingOccurrences(of: "</h4>", with: "\n\n")
 		result = result.replacingOccurrences(of: "<h5[^>]*>", with: "##### ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</h5>", with: "\n")
+		result = result.replacingOccurrences(of: "</h5>", with: "\n\n")
 		result = result.replacingOccurrences(of: "<h6[^>]*>", with: "###### ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</h6>", with: "\n")
+		result = result.replacingOccurrences(of: "</h6>", with: "\n\n")
 
 		// Bold - use proper regex to capture content and avoid trailing issues
 		// Match <strong>content</strong> or <b>content</b> and replace with **content**
@@ -243,8 +244,8 @@ struct MarkdownConverter {
 		result = result.replacingOccurrences(of: "\\s*<li[^>]*>\\s*", with: "- ", options: .regularExpression)
 		result = result.replacingOccurrences(of: "\\s*</li>\\s*", with: "\n", options: .regularExpression)
 
-		// Horizontal rule
-		result = result.replacingOccurrences(of: "\\s*<hr[^>]*/?>\\s*", with: "\n---\n", options: .regularExpression)
+		// Horizontal rule - needs blank lines around it
+		result = result.replacingOccurrences(of: "\\s*<hr[^>]*/?>\\s*", with: "\n\n---\n\n", options: .regularExpression)
 
 		// Remove any remaining HTML tags
 		result = result.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
@@ -255,12 +256,6 @@ struct MarkdownConverter {
 		// Clean up excessive newlines (3 or more becomes 2) - run multiple times
 		result = result.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
 		result = result.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
-
-		// Remove blank lines before list items (keeps lists tight)
-		result = result.replacingOccurrences(of: "\\n\\n+- ", with: "\n- ", options: .regularExpression)
-
-		// Remove blank lines between list items
-		result = result.replacingOccurrences(of: "\\n\\n+(- )", with: "\n$1", options: .regularExpression)
 
 		// Clean up spaces at the beginning of lines (except for list items and code)
 		result = result.replacingOccurrences(of: "\\n +([^-`])", with: "\n$1", options: .regularExpression)

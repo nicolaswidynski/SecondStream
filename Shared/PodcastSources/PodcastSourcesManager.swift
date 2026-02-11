@@ -193,11 +193,11 @@ enum AddPodcastResult {
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-		// Build body with type, show, and link
-		let body: [String: Any?] = [
+		// Build body with type, show, and link (use empty strings for nil values)
+		let body: [String: String] = [
 			"type": "pod",
-			"show": show,
-			"link": link
+			"show": show ?? "",
+			"link": link ?? ""
 		]
 
 		do {
