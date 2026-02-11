@@ -141,6 +141,9 @@ struct MarkdownConverter {
 		// Remove any "This summary..." boilerplate text that some feeds add
 		result = result.replacingOccurrences(of: "This summary of the[^.]*is formatted for seamless export to Obsidian[^.]*\\.", with: "", options: .regularExpression)
 
+		// STEP 1: Normalize HTML - remove whitespace between tags for predictable processing
+		result = result.replacingOccurrences(of: ">\\s+<", with: "><", options: .regularExpression)
+
 		// Count H1 tags - if there's only one, remove it entirely (title is in frontmatter)
 		let h1Pattern = "<h1[^>]*>[\\s\\S]*?</h1>"
 		if let h1Regex = try? NSRegularExpression(pattern: h1Pattern, options: .caseInsensitive) {
@@ -148,7 +151,6 @@ struct MarkdownConverter {
 			let h1Count = h1Regex.numberOfMatches(in: result, options: [], range: range)
 			logger.debug("Found \(h1Count) H1 tags in HTML")
 			if h1Count == 1 {
-				// Remove the single H1 entirely
 				logger.debug("Removing single H1 from HTML")
 				result = h1Regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
 			}
@@ -156,24 +158,9 @@ struct MarkdownConverter {
 			logger.error("Failed to create H1 regex")
 		}
 
-		// Convert common HTML elements to markdown equivalents
-		// Headers (H1 may already be removed above if there was only one)
-		// Headers need a blank line after them in markdown
-		result = result.replacingOccurrences(of: "<h1[^>]*>", with: "# ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</h1>", with: "\n\n")
-		result = result.replacingOccurrences(of: "<h2[^>]*>", with: "## ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</h2>", with: "\n\n")
-		result = result.replacingOccurrences(of: "<h3[^>]*>", with: "### ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</h3>", with: "\n\n")
-		result = result.replacingOccurrences(of: "<h4[^>]*>", with: "#### ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</h4>", with: "\n\n")
-		result = result.replacingOccurrences(of: "<h5[^>]*>", with: "##### ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</h5>", with: "\n\n")
-		result = result.replacingOccurrences(of: "<h6[^>]*>", with: "###### ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</h6>", with: "\n\n")
+		// STEP 2: Convert inline elements first (bold, italic, links, etc.)
 
-		// Bold - use proper regex to capture content and avoid trailing issues
-		// Match <strong>content</strong> or <b>content</b> and replace with **content**
+		// Bold - use proper regex to capture content
 		let boldPattern = "<(strong|b)[^>]*>([^<]*)</(strong|b)>"
 		if let regex = try? NSRegularExpression(pattern: boldPattern, options: .caseInsensitive) {
 			let range = NSRange(result.startIndex..., in: result)
@@ -195,25 +182,6 @@ struct MarkdownConverter {
 		result = result.replacingOccurrences(of: "<pre[^>]*>", with: "```\n", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</pre>", with: "\n```")
 
-		// Blockquotes - capture content and format properly
-		let blockquotePattern = "<blockquote[^>]*>([\\s\\S]*?)</blockquote>"
-		if let regex = try? NSRegularExpression(pattern: blockquotePattern, options: .caseInsensitive) {
-			let range = NSRange(result.startIndex..., in: result)
-			let matches = regex.matches(in: result, options: [], range: range)
-			// Process in reverse to preserve indices
-			for match in matches.reversed() {
-				if let contentRange = Range(match.range(at: 1), in: result),
-				   let fullRange = Range(match.range, in: result) {
-					let content = String(result[contentRange])
-						.trimmingCharacters(in: .whitespacesAndNewlines)
-						.components(separatedBy: .newlines)
-						.map { "> \($0.trimmingCharacters(in: .whitespaces))" }
-						.joined(separator: "\n")
-					result.replaceSubrange(fullRange, with: "\n\(content)\n")
-				}
-			}
-		}
-
 		// Links - extract href and text
 		let linkPattern = "<a[^>]+href=[\"']([^\"']+)[\"'][^>]*>([^<]*)</a>"
 		if let regex = try? NSRegularExpression(pattern: linkPattern, options: .caseInsensitive) {
@@ -228,39 +196,73 @@ struct MarkdownConverter {
 			result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "![$2]($1)")
 		}
 
-		// Paragraphs - add proper spacing
-		// First, normalize paragraph tags with any surrounding whitespace
-		result = result.replacingOccurrences(of: "\\s*<p[^>]*>\\s*", with: "", options: .regularExpression)
-		result = result.replacingOccurrences(of: "\\s*</p>\\s*", with: "\n\n", options: .regularExpression)
+		// Blockquotes - capture content and format properly
+		let blockquotePattern = "<blockquote[^>]*>([\\s\\S]*?)</blockquote>"
+		if let regex = try? NSRegularExpression(pattern: blockquotePattern, options: .caseInsensitive) {
+			let range = NSRange(result.startIndex..., in: result)
+			let matches = regex.matches(in: result, options: [], range: range)
+			for match in matches.reversed() {
+				if let contentRange = Range(match.range(at: 1), in: result),
+				   let fullRange = Range(match.range, in: result) {
+					let content = String(result[contentRange])
+						.trimmingCharacters(in: .whitespacesAndNewlines)
+						.components(separatedBy: .newlines)
+						.map { "> \($0.trimmingCharacters(in: .whitespaces))" }
+						.joined(separator: "\n")
+					result.replaceSubrange(fullRange, with: "\n\(content)\n")
+				}
+			}
+		}
 
-		// Line breaks - also normalize surrounding whitespace
-		result = result.replacingOccurrences(of: "\\s*<br[^>]*/?>\\s*", with: "\n", options: .regularExpression)
+		// STEP 3: Convert block elements
 
-		// Lists - don't consume whitespace before tags (preserve spacing from headers/paragraphs)
-		result = result.replacingOccurrences(of: "<ul[^>]*>\\s*", with: "", options: .regularExpression)
-		result = result.replacingOccurrences(of: "\\s*</ul>", with: "\n", options: .regularExpression)
-		result = result.replacingOccurrences(of: "<ol[^>]*>\\s*", with: "", options: .regularExpression)
-		result = result.replacingOccurrences(of: "\\s*</ol>", with: "\n", options: .regularExpression)
-		result = result.replacingOccurrences(of: "<li[^>]*>\\s*", with: "- ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "\\s*</li>", with: "\n", options: .regularExpression)
+		// Headers - blank line BEFORE, single newline after
+		result = result.replacingOccurrences(of: "<h1[^>]*>", with: "\n\n# ", options: .regularExpression)
+		result = result.replacingOccurrences(of: "</h1>", with: "\n")
+		result = result.replacingOccurrences(of: "<h2[^>]*>", with: "\n\n## ", options: .regularExpression)
+		result = result.replacingOccurrences(of: "</h2>", with: "\n")
+		result = result.replacingOccurrences(of: "<h3[^>]*>", with: "\n\n### ", options: .regularExpression)
+		result = result.replacingOccurrences(of: "</h3>", with: "\n")
+		result = result.replacingOccurrences(of: "<h4[^>]*>", with: "\n\n#### ", options: .regularExpression)
+		result = result.replacingOccurrences(of: "</h4>", with: "\n")
+		result = result.replacingOccurrences(of: "<h5[^>]*>", with: "\n\n##### ", options: .regularExpression)
+		result = result.replacingOccurrences(of: "</h5>", with: "\n")
+		result = result.replacingOccurrences(of: "<h6[^>]*>", with: "\n\n###### ", options: .regularExpression)
+		result = result.replacingOccurrences(of: "</h6>", with: "\n")
 
-		// Horizontal rule - needs blank lines around it
-		result = result.replacingOccurrences(of: "\\s*<hr[^>]*/?>\\s*", with: "\n\n---\n\n", options: .regularExpression)
+		// Paragraphs - single newline after (headers/hr provide the blank lines before next content)
+		result = result.replacingOccurrences(of: "<p[^>]*>", with: "", options: .regularExpression)
+		result = result.replacingOccurrences(of: "</p>", with: "\n")
+
+		// Line breaks
+		result = result.replacingOccurrences(of: "<br[^>]*/?>", with: "\n", options: .regularExpression)
+
+		// Lists - tight formatting, no blank lines
+		result = result.replacingOccurrences(of: "<ul[^>]*>", with: "", options: .regularExpression)
+		result = result.replacingOccurrences(of: "</ul>", with: "")
+		result = result.replacingOccurrences(of: "<ol[^>]*>", with: "", options: .regularExpression)
+		result = result.replacingOccurrences(of: "</ol>", with: "")
+		result = result.replacingOccurrences(of: "<li[^>]*>", with: "- ", options: .regularExpression)
+		result = result.replacingOccurrences(of: "</li>", with: "\n")
+
+		// Horizontal rule - blank lines around it
+		result = result.replacingOccurrences(of: "<hr[^>]*/?>", with: "\n\n---\n\n", options: .regularExpression)
 
 		// Remove any remaining HTML tags
 		result = result.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
 
-		// Normalize all whitespace-only lines to empty lines
+		// STEP 4: Clean up whitespace
+
+		// Normalize whitespace-only lines to empty lines
 		result = result.replacingOccurrences(of: "\\n[ \\t]+\\n", with: "\n\n", options: .regularExpression)
 
-		// Clean up excessive newlines (3 or more becomes 2) - run multiple times
-		result = result.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
+		// Clean up excessive newlines (3+ becomes 2)
 		result = result.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
 
-		// Clean up spaces at the beginning of lines (except for list items and code)
+		// Clean up leading spaces on lines (except list items and code)
 		result = result.replacingOccurrences(of: "\\n +([^-`])", with: "\n$1", options: .regularExpression)
 
-		// Clean up excessive spaces (but not newlines)
+		// Clean up multiple spaces
 		result = result.replacingOccurrences(of: "[ \\t]{2,}", with: " ", options: .regularExpression)
 
 		// Decode common HTML entities
