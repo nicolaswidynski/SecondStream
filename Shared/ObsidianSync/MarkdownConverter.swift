@@ -34,7 +34,7 @@ struct MarkdownConverter {
 
 	// MARK: - Frontmatter
 
-	@MainActor private static func generateFrontmatter(article: Article, feed: Feed) -> String {
+	@MainActor static func generateFrontmatter(article: Article, feed: Feed) -> String {
 		var frontmatter = "---\n"
 
 		// Title - strip HTML tags to get plain text

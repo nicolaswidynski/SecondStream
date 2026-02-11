@@ -110,12 +110,41 @@ import os.log
 		}
 
 		do {
-			let markdown = MarkdownConverter.convert(article: article, feed: feed)
+			let markdown: String
+
+			// Check if the article link is a markdown file - if so, fetch it directly
+			if let rawLink = article.rawLink,
+			   rawLink.lowercased().hasSuffix(".md"),
+			   let url = URL(string: rawLink) {
+				Self.logger.info("Article link is markdown file, fetching directly: \(rawLink)")
+				markdown = await fetchMarkdownWithFrontmatter(from: url, article: article, feed: feed)
+			} else {
+				markdown = MarkdownConverter.convert(article: article, feed: feed)
+			}
+
 			try ObsidianFileManager.writeArticle(article, feed: feed, content: markdown)
 			Self.logger.info("Synced article to Obsidian: \(article.title ?? "Untitled")")
 		} catch {
 			Self.logger.error("Failed to sync article to Obsidian: \(error.localizedDescription)")
 		}
+	}
+
+	/// Fetches a markdown file from URL and adds frontmatter
+	private func fetchMarkdownWithFrontmatter(from url: URL, article: Article, feed: Feed) async -> String {
+		do {
+			let (data, _) = try await URLSession.shared.data(from: url)
+			if let remoteMarkdown = String(data: data, encoding: .utf8) {
+				// Add frontmatter to the remote markdown content
+				let frontmatter = MarkdownConverter.generateFrontmatter(article: article, feed: feed)
+				return frontmatter + "\n" + remoteMarkdown
+			}
+		} catch {
+			Self.logger.error("Failed to fetch markdown file: \(error.localizedDescription)")
+		}
+
+		// Fall back to conversion if fetch fails
+		Self.logger.info("Falling back to HTML conversion")
+		return MarkdownConverter.convert(article: article, feed: feed)
 	}
 
 	private func removeArticle(_ article: Article) async {
