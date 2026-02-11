@@ -136,7 +136,7 @@ import os.log
 			if let remoteMarkdown = String(data: data, encoding: .utf8) {
 				// Add frontmatter to the remote markdown content
 				let frontmatter = MarkdownConverter.generateFrontmatter(article: article, feed: feed)
-				return frontmatter + "\n" + remoteMarkdown
+				return frontmatter + remoteMarkdown
 			}
 		} catch {
 			Self.logger.error("Failed to fetch markdown file: \(error.localizedDescription)")

@@ -22,7 +22,6 @@ struct MarkdownConverter {
 
 		// Generate YAML frontmatter
 		markdown += generateFrontmatter(article: article, feed: feed)
-		markdown += "\n"
 
 		// Add article body only (no H1 title - it's already in frontmatter)
 		if let body = getBodyContent(from: article) {
@@ -54,12 +53,8 @@ struct MarkdownConverter {
 			frontmatter += "date: \(dateString)\n"
 		}
 
-		// Source URL
-		if let url = article.rawLink {
-			frontmatter += "source: \(url)\n"
-		} else if let externalURL = article.rawExternalLink {
-			frontmatter += "source: \(externalURL)\n"
-		}
+		// Source URL (feed URL, not article URL)
+		frontmatter += "source: \(feed.url)\n"
 
 		// Feed name
 		frontmatter += "feed: \"\(escapeYAMLString(feed.nameForDisplay))\"\n"
