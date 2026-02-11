@@ -236,13 +236,13 @@ struct MarkdownConverter {
 		// Line breaks - also normalize surrounding whitespace
 		result = result.replacingOccurrences(of: "\\s*<br[^>]*/?>\\s*", with: "\n", options: .regularExpression)
 
-		// Lists - normalize surrounding whitespace
-		result = result.replacingOccurrences(of: "\\s*<ul[^>]*>\\s*", with: "\n", options: .regularExpression)
-		result = result.replacingOccurrences(of: "\\s*</ul>\\s*", with: "\n", options: .regularExpression)
-		result = result.replacingOccurrences(of: "\\s*<ol[^>]*>\\s*", with: "\n", options: .regularExpression)
-		result = result.replacingOccurrences(of: "\\s*</ol>\\s*", with: "\n", options: .regularExpression)
-		result = result.replacingOccurrences(of: "\\s*<li[^>]*>\\s*", with: "- ", options: .regularExpression)
-		result = result.replacingOccurrences(of: "\\s*</li>\\s*", with: "\n", options: .regularExpression)
+		// Lists - don't consume whitespace before tags (preserve spacing from headers/paragraphs)
+		result = result.replacingOccurrences(of: "<ul[^>]*>\\s*", with: "", options: .regularExpression)
+		result = result.replacingOccurrences(of: "\\s*</ul>", with: "\n", options: .regularExpression)
+		result = result.replacingOccurrences(of: "<ol[^>]*>\\s*", with: "", options: .regularExpression)
+		result = result.replacingOccurrences(of: "\\s*</ol>", with: "\n", options: .regularExpression)
+		result = result.replacingOccurrences(of: "<li[^>]*>\\s*", with: "- ", options: .regularExpression)
+		result = result.replacingOccurrences(of: "\\s*</li>", with: "\n", options: .regularExpression)
 
 		// Horizontal rule - needs blank lines around it
 		result = result.replacingOccurrences(of: "\\s*<hr[^>]*/?>\\s*", with: "\n\n---\n\n", options: .regularExpression)
