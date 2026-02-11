@@ -401,11 +401,28 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				switch result {
 				case .success(let feed):
 					NotificationCenter.default.post(name: .UserDidAddFeed, object: self, userInfo: [UserInfoKey.feed: feed])
+					// Expand the corresponding category section
+					self.expandCategorySectionForCategory(category)
 				case .failure(let error):
 					self.presentError(error)
 				}
 			}
 		}
+	}
+
+	private func expandCategorySectionForCategory(_ category: FeedCategory) {
+		let section: FeedSectionIdentifier
+		switch category {
+		case .rss:
+			section = .rssFeeds
+		case .podcast:
+			section = .podcasts
+		case .youtube:
+			section = .youtube
+		case .news:
+			section = .news
+		}
+		coordinator.expandCategorySection(section)
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
@@ -2158,17 +2175,96 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 
 	func newsPicker(_ picker: NewsPickerViewController, didSelectSource source: NewsSource) {
 		picker.dismiss(animated: true) {
-			// Add the feed directly using the URL from the source list
-			self.addFeedDirectly(urlString: source.url, category: .news)
+			// Call the webhook with the topic name, just like podcasts/youtube
+			self.addTopicSummary(topicName: source.name)
 		}
 	}
 
-	private func showNewsError(title: String, message: String) {
-		let alert = UIAlertController(
-			title: title,
-			message: message,
+	private func addTopicSummary(topicName: String) {
+		// Show loading indicator
+		let loadingAlert = UIAlertController(
+			title: nil,
+			message: NSLocalizedString("Adding topic...", comment: "Adding topic..."),
 			preferredStyle: .alert
 		)
+
+		let activityIndicator = UIActivityIndicatorView(style: .medium)
+		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+		activityIndicator.startAnimating()
+		loadingAlert.view.addSubview(activityIndicator)
+
+		NSLayoutConstraint.activate([
+			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
+		])
+
+		present(loadingAlert, animated: true)
+
+		Task {
+			let result = await NewsSourcesManager.shared.addNewsByTopicName(topicName)
+
+			loadingAlert.dismiss(animated: true) {
+				self.handleTopicResult(result)
+			}
+		}
+	}
+
+	private func handleTopicResult(_ result: AddNewsResult) {
+		switch result {
+		case .successExisting(let summaryURL):
+			// Topic already exists, no wait needed - add the feed directly
+			self.addFeedDirectly(urlString: summaryURL, category: .news)
+
+		case .successNew(let summaryURL):
+			// Topic is new, add the feed directly (processing happens server-side)
+			self.addFeedDirectly(urlString: summaryURL, category: .news)
+
+		case .unauthorized:
+			self.showTopicError(
+				title: NSLocalizedString("Unauthorized", comment: "Unauthorized"),
+				message: NSLocalizedString("Authentication failed. Please check your credentials.", comment: "Authentication failed message")
+			)
+
+		case .badRSS:
+			self.showTopicError(
+				title: NSLocalizedString("RSS Not Found", comment: "RSS Not Found"),
+				message: NSLocalizedString("The RSS feed could not be found.", comment: "RSS not found message")
+			)
+
+		case .wrongFormat:
+			self.showTopicError(
+				title: NSLocalizedString("Unsupported Format", comment: "Unsupported Format"),
+				message: NSLocalizedString("The RSS feed format is not supported.", comment: "Unsupported format message")
+			)
+
+		case .maxTopics:
+			self.showTopicError(
+				title: NSLocalizedString("Limit Reached", comment: "Limit Reached"),
+				message: NSLocalizedString("Maximum number of topics reached.", comment: "Max topics message")
+			)
+
+		case .badMessage:
+			self.showTopicError(
+				title: NSLocalizedString("Bad Request", comment: "Bad Request"),
+				message: NSLocalizedString("Invalid request format.", comment: "Bad request message")
+			)
+
+		case .badTopic:
+			self.showTopicError(
+				title: NSLocalizedString("Topic Not Found", comment: "Topic Not Found"),
+				message: NSLocalizedString("The topic could not be found.", comment: "Topic not found message")
+			)
+
+		case .error(let message):
+			self.showTopicError(
+				title: NSLocalizedString("Error", comment: "Error"),
+				message: message
+			)
+		}
+	}
+
+	private func showTopicError(title: String, message: String) {
+		let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
 		present(alert, animated: true)
 	}

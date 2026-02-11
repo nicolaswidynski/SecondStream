@@ -185,11 +185,11 @@ enum AddNewsResult {
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-		// Build body with type "topics", show, and link
-		let body: [String: Any?] = [
+		// Build body with type "topics", show, and link (use empty strings for nil values)
+		let body: [String: String] = [
 			"type": "topics",
-			"show": show,
-			"link": link
+			"show": show ?? "",
+			"link": link ?? ""
 		]
 
 		do {

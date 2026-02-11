@@ -923,6 +923,14 @@ struct SidebarItemNode: Hashable, Sendable {
 		rebuildBackingStores()
 	}
 
+	func expandCategorySection(_ section: FeedSectionIdentifier) {
+		guard !expandedCategorySections.contains(section) else {
+			return
+		}
+		expandedCategorySections.insert(section)
+		rebuildBackingStores()
+	}
+
 	func unreadCountForCategorySection(_ section: FeedSectionIdentifier) -> Int {
 		// For Smart Feeds, return the total unread count across all accounts
 		if section == .smartFeeds {
