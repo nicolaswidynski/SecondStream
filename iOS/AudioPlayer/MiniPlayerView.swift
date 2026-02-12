@@ -317,7 +317,11 @@ final class MiniPlayerView: UIView {
 	@objc private func sliderTouchEnded() {
 		let duration = AudioPlayerManager.shared.totalDuration
 		let newTime = Double(timeSlider.value) * duration
-		AudioPlayerManager.shared.seek(to: newTime)
-		isSeeking = false
+		AudioPlayerManager.shared.seek(to: newTime) { [weak self] in
+			// Delay resetting isSeeking to allow the player to update
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+				self?.isSeeking = false
+			}
+		}
 	}
 }

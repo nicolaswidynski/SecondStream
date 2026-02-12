@@ -231,13 +231,25 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 		}
 	}
 
-	func seek(to time: Double) {
+	func seek(to time: Double, completion: (@Sendable () -> Void)? = nil) {
 		guard let player else {
+			completion?()
 			return
 		}
 		let cmTime = CMTime(seconds: time, preferredTimescale: 1000)
-		player.seek(to: cmTime)
-		updateNowPlayingInfo()
+		player.seek(to: cmTime) { [weak self] finished in
+			Task { @MainActor in
+				self?.updateNowPlayingInfo()
+				// If we were at the end and seek back, resume playing
+				if finished, case .paused = self?.state {
+					// Check if we seeked away from the end
+					if let duration = self?.totalDuration, duration > 0, time < duration - 1 {
+						self?.play()
+					}
+				}
+				completion?()
+			}
+		}
 	}
 
 	func skipForward(_ seconds: Double = 10) {

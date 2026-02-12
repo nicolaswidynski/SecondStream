@@ -45,7 +45,7 @@ enum FeedSectionIdentifier: String {
 		case .youtube:
 			return NSLocalizedString("My YouTube channels", comment: "My YouTube channels section")
 		case .news:
-			return NSLocalizedString("My News", comment: "My News section")
+			return NSLocalizedString("My Weekly News", comment: "My Weekly News section")
 		}
 	}
 }
