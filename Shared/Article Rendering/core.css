@@ -134,3 +134,74 @@ a.footnote {
 	position:relative;
 	top: -0.1em;
 }
+
+/* Collapsible sections */
+
+.nnw-collapsible {
+	margin-bottom: 0.5em;
+}
+
+.nnw-collapsible-header {
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	user-select: none;
+	-webkit-user-select: none;
+	padding: 0.3em 0;
+}
+
+.nnw-collapsible-header:active {
+	opacity: 0.7;
+}
+
+.nnw-collapsible-arrow {
+	display: inline-block;
+	width: 1.2em;
+	flex-shrink: 0;
+	font-size: 0.7em;
+	color: inherit;
+	opacity: 0.6;
+	transition: transform 0.15s ease;
+}
+
+.nnw-collapsible-content {
+	padding-left: 1.2em;
+}
+
+/* Metadata header - styled like a smaller, muted header */
+.nnw-collapsible-metadata {
+	font-weight: 600;
+	font-size: 0.9em;
+	opacity: 0.8;
+}
+
+/* Header-level collapsibles - inherit header styling */
+.nnw-collapsible-h1 {
+	font-size: 1.5em;
+	font-weight: bold;
+}
+
+.nnw-collapsible-h2 {
+	font-size: 1.3em;
+	font-weight: bold;
+}
+
+.nnw-collapsible-h3 {
+	font-size: 1.1em;
+	font-weight: bold;
+}
+
+.nnw-collapsible-h4 {
+	font-size: 1em;
+	font-weight: bold;
+}
+
+.nnw-collapsible-h5 {
+	font-size: 0.9em;
+	font-weight: bold;
+}
+
+.nnw-collapsible-h6 {
+	font-size: 0.85em;
+	font-weight: bold;
+}
