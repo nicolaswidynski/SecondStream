@@ -109,15 +109,15 @@ final class MiniPlayerView: UIView {
 		skipForwardButton.translatesAutoresizingMaskIntoConstraints = false
 
 		NSLayoutConstraint.activate([
-			// Title at top
-			titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-			titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 44),
+			// Title at top with more padding
+			titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 12),
+			titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
 			titleLabel.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
 
 			// Controls in center
 			controlsStack.centerXAnchor.constraint(equalTo: centerXAnchor),
-			controlsStack.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
-			controlsStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
+			controlsStack.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12),
+			controlsStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
 
 			// Button sizes
 			skipBackwardButton.widthAnchor.constraint(equalToConstant: 44),

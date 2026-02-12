@@ -43,7 +43,7 @@ final class RootSplitViewController: UISplitViewController {
 		NSLayoutConstraint.activate([
 			playerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
 			playerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-			playerView.heightAnchor.constraint(equalToConstant: 80),
+			playerView.heightAnchor.constraint(equalToConstant: 100),
 			bottomConstraint
 		])
 

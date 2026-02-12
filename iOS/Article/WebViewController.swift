@@ -26,6 +26,7 @@ final class WebViewController: UIViewController {
 		static let imageWasShown = "imageWasShown"
 		static let showFeedInspector = "showFeedInspector"
 		static let playAudio = "playAudio"
+		static let playVideo = "playVideo"
 	}
 
 	private var topShowBarsView: UIView!
@@ -44,6 +45,7 @@ final class WebViewController: UIViewController {
 	private lazy var articleIconSchemeHandler = ArticleIconSchemeHandler(coordinator: coordinator)
 	private lazy var transition = ImageTransition(controller: self)
 	private var clickedImageCompletion: (() -> Void)?
+	private var floatingVideoPlayer: FloatingVideoPlayerView?
 
 	private var articleExtractor: ArticleExtractor?
 	var extractedArticle: ExtractedArticle? {
@@ -123,6 +125,7 @@ final class WebViewController: UIViewController {
 
 	func setArticle(_ article: Article?, updateView: Bool = true) {
 		stopArticleExtractor()
+		hideFloatingVideoPlayer()
 
 		if article != self.article {
 			self.article = article
@@ -475,9 +478,45 @@ extension WebViewController: WKScriptMessageHandler {
 				let endTime = body["endTime"] as? Double
 				AudioPlayerManager.shared.loadAndPlay(url: url, title: title, startTime: startTime, endTime: endTime)
 			}
+		case MessageName.playVideo:
+			if let body = message.body as? [String: Any],
+			   let videoID = body["videoID"] as? String {
+				showFloatingVideoPlayer(videoID: videoID)
+			}
 		default:
 			return
 		}
+	}
+
+	// MARK: - Floating Video Player
+
+	private func showFloatingVideoPlayer(videoID: String) {
+		// Stop any playing audio
+		AudioPlayerManager.shared.stop()
+
+		// Create the floating player if needed
+		if floatingVideoPlayer == nil {
+			let playerView = FloatingVideoPlayerView()
+			playerView.translatesAutoresizingMaskIntoConstraints = false
+			playerView.isHidden = true
+			view.addSubview(playerView)
+
+			// Position at top with 16:9 aspect ratio
+			NSLayoutConstraint.activate([
+				playerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+				playerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+				playerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
+				playerView.heightAnchor.constraint(equalTo: playerView.widthAnchor, multiplier: 9.0/16.0)
+			])
+
+			floatingVideoPlayer = playerView
+		}
+
+		floatingVideoPlayer?.loadYouTubeVideo(videoID: videoID)
+	}
+
+	func hideFloatingVideoPlayer() {
+		floatingVideoPlayer?.stop()
 	}
 
 }
@@ -574,12 +613,14 @@ private extension WebViewController {
 				webView.configuration.userContentController.removeScriptMessageHandler(forName: MessageName.imageWasShown)
 				webView.configuration.userContentController.removeScriptMessageHandler(forName: MessageName.showFeedInspector)
 				webView.configuration.userContentController.removeScriptMessageHandler(forName: MessageName.playAudio)
+				webView.configuration.userContentController.removeScriptMessageHandler(forName: MessageName.playVideo)
 
 				// Add handlers
 				webView.configuration.userContentController.add(WrapperScriptMessageHandler(self), name: MessageName.imageWasClicked)
 				webView.configuration.userContentController.add(WrapperScriptMessageHandler(self), name: MessageName.imageWasShown)
 				webView.configuration.userContentController.add(WrapperScriptMessageHandler(self), name: MessageName.showFeedInspector)
 				webView.configuration.userContentController.add(WrapperScriptMessageHandler(self), name: MessageName.playAudio)
+				webView.configuration.userContentController.add(WrapperScriptMessageHandler(self), name: MessageName.playVideo)
 
 				self.renderPage(webView)
 			}

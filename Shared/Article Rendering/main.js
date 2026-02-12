@@ -278,6 +278,26 @@ function parseTimestamp(timestampStr) {
 	return 0;
 }
 
+// Check if URL is a YouTube video and extract video ID
+function getYouTubeVideoID(url) {
+	if (!url) return null;
+
+	// Match various YouTube URL formats
+	const patterns = [
+		/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+		/youtube\.com\/v\/([a-zA-Z0-9_-]{11})/,
+		/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/
+	];
+
+	for (const pattern of patterns) {
+		const match = url.match(pattern);
+		if (match) {
+			return match[1];
+		}
+	}
+	return null;
+}
+
 // Find the media URL from the metadata section (supports both old MP3: and new Media: format)
 function findMediaUrl() {
 	const listItems = document.querySelectorAll(".articleBody li");
@@ -324,7 +344,8 @@ function addMp3PlayButtons() {
 		if (strongText === "MP3:" || strongText === "Media:") {
 			const link = li.querySelector("a");
 			if (link && link.href) {
-				const audioUrl = link.href;
+				const mediaUrl = link.href;
+				const youtubeID = getYouTubeVideoID(mediaUrl);
 
 				// Change label to "Media:"
 				strong.textContent = "Media:";
@@ -333,19 +354,29 @@ function addMp3PlayButtons() {
 				const playButton = document.createElement("button");
 				playButton.className = "nnw-mp3-play-button";
 				playButton.innerHTML = "&#9654;"; // Play triangle
-				playButton.title = "Play media";
+				playButton.title = youtubeID ? "Play video" : "Play media";
 
 				playButton.addEventListener("click", function(e) {
 					e.preventDefault();
 					e.stopPropagation();
 
-					// Send message to native code
-					if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.playAudio) {
-						window.webkit.messageHandlers.playAudio.postMessage({
-							url: audioUrl,
-							title: articleTitle,
-							startTime: 0
-						});
+					if (youtubeID) {
+						// Send message to play YouTube video
+						if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.playVideo) {
+							window.webkit.messageHandlers.playVideo.postMessage({
+								videoID: youtubeID,
+								title: articleTitle
+							});
+						}
+					} else {
+						// Send message to play audio
+						if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.playAudio) {
+							window.webkit.messageHandlers.playAudio.postMessage({
+								url: mediaUrl,
+								title: articleTitle,
+								startTime: 0
+							});
+						}
 					}
 				});
 
