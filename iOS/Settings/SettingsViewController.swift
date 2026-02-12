@@ -135,7 +135,14 @@ final class SettingsViewController: UITableViewController {
 
 	// MARK: UITableView
 
+	// Hidden sections: 1 = Accounts, 2 = Feeds, 3 = Timeline, 4 = Articles
+	private let hiddenSections: Set<Int> = [1, 2, 3, 4]
+
 	override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+		// Hide specified sections
+		if hiddenSections.contains(section) {
+			return 0
+		}
 
 		switch section {
 		case 1:
@@ -145,6 +152,34 @@ final class SettingsViewController: UITableViewController {
 		default:
 			return super.tableView(tableView, numberOfRowsInSection: section)
 		}
+	}
+
+	override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+		if hiddenSections.contains(section) {
+			return nil
+		}
+		return super.tableView(tableView, titleForHeaderInSection: section)
+	}
+
+	override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
+		if hiddenSections.contains(section) {
+			return nil
+		}
+		return super.tableView(tableView, titleForFooterInSection: section)
+	}
+
+	override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+		if hiddenSections.contains(section) {
+			return CGFloat.leastNormalMagnitude
+		}
+		return super.tableView(tableView, heightForHeaderInSection: section)
+	}
+
+	override func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
+		if hiddenSections.contains(section) {
+			return CGFloat.leastNormalMagnitude
+		}
+		return super.tableView(tableView, heightForFooterInSection: section)
 	}
 
 	override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
