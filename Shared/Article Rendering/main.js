@@ -396,6 +396,9 @@ function addMp3PlayButtons() {
 		}
 	}
 
+	// Check if the media URL is a YouTube video
+	const youtubeVideoID = getYouTubeVideoID(mediaUrl);
+
 	// Now convert timestamps to clickable blue links
 	for (let i = 0; i < outlineItems.length; i++) {
 		const item = outlineItems[i];
@@ -416,7 +419,16 @@ function addMp3PlayButtons() {
 			e.preventDefault();
 			e.stopPropagation();
 
-			if (mediaUrl && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.playAudio) {
+			if (youtubeVideoID) {
+				// Play YouTube video at timestamp
+				if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.playVideo) {
+					window.webkit.messageHandlers.playVideo.postMessage({
+						videoID: youtubeVideoID,
+						title: articleTitle,
+						startTime: startSeconds
+					});
+				}
+			} else if (mediaUrl && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.playAudio) {
 				const message = {
 					url: mediaUrl,
 					title: articleTitle,

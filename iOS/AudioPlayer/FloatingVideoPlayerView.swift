@@ -80,33 +80,50 @@ final class FloatingVideoPlayerView: UIView {
 		webView.layer.masksToBounds = true
 	}
 
-	func loadYouTubeVideo(videoID: String) {
+	func loadYouTubeVideo(videoID: String, startTime: Int = 0) {
 		currentVideoID = videoID
 
-		// Use YouTube's embed URL with autoplay
+		// Use YouTube's nocookie embed URL for better privacy and compatibility
+		var embedURL = "https://www.youtube-nocookie.com/embed/\(videoID)?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1"
+		if startTime > 0 {
+			embedURL += "&start=\(startTime)"
+		}
+
 		let embedHTML = """
 		<!DOCTYPE html>
 		<html>
 		<head>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 			<style>
-				* { margin: 0; padding: 0; }
+				* { margin: 0; padding: 0; box-sizing: border-box; }
 				html, body { width: 100%; height: 100%; background: black; overflow: hidden; }
 				iframe { width: 100%; height: 100%; border: none; }
 			</style>
 		</head>
 		<body>
 			<iframe
-				src="https://www.youtube.com/embed/\(videoID)?autoplay=1&playsinline=1&rel=0&modestbranding=1"
-				allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+				id="player"
+				src="\(embedURL)"
+				frameborder="0"
+				allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+				referrerpolicy="strict-origin-when-cross-origin"
 				allowfullscreen>
 			</iframe>
 		</body>
 		</html>
 		"""
 
-		webView.loadHTMLString(embedHTML, baseURL: URL(string: "https://www.youtube.com"))
+		webView.loadHTMLString(embedHTML, baseURL: URL(string: "https://www.youtube-nocookie.com"))
 		isHidden = false
+	}
+
+	func seekTo(seconds: Int) {
+		guard currentVideoID != nil else {
+			return
+		}
+		// Use YouTube iframe API to seek
+		let js = "document.getElementById('player').contentWindow.postMessage('{\"event\":\"command\",\"func\":\"seekTo\",\"args\":[\(seconds), true]}', '*');"
+		webView.evaluateJavaScript(js, completionHandler: nil)
 	}
 
 	func stop() {

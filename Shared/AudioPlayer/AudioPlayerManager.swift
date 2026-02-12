@@ -29,10 +29,12 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 	@Published private(set) var state: AudioPlayerState = .idle
 	@Published private(set) var currentTitle: String?
 	@Published private(set) var currentMP3URL: String?
+	@Published private(set) var currentPlaybackTime: Double = 0
+	@Published private(set) var totalDuration: Double = 0
 
 	private var player: AVPlayer?
 	private var playerItem: AVPlayerItem?
-	private var timeObserver: Any?
+	private var periodicTimeObserver: Any?
 	private var boundaryObserver: Any?
 	private var pendingStartTime: Double?
 	private var endTime: Double?
@@ -155,6 +157,7 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 	func play() {
 		player?.play()
 		state = .playing
+		setupPeriodicTimeObserver()
 		updateNowPlayingInfo()
 	}
 
@@ -181,21 +184,60 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 
 	func stop() {
 		player?.pause()
-		if let boundaryObserver, let player {
-			player.removeTimeObserver(boundaryObserver)
-		}
-		boundaryObserver = nil
+		removeTimeObservers()
 		playerItem?.removeObserver(self, forKeyPath: "status")
 		NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: playerItem)
 		player = nil
 		playerItem = nil
 		pendingStartTime = nil
 		endTime = nil
+		currentPlaybackTime = 0
+		totalDuration = 0
 		state = .idle
 		MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
 
 		// Deactivate audio session to allow other apps to resume
 		deactivateAudioSession()
+	}
+
+	private func removeTimeObservers() {
+		if let periodicTimeObserver, let player {
+			player.removeTimeObserver(periodicTimeObserver)
+		}
+		periodicTimeObserver = nil
+		if let boundaryObserver, let player {
+			player.removeTimeObserver(boundaryObserver)
+		}
+		boundaryObserver = nil
+	}
+
+	private func setupPeriodicTimeObserver() {
+		guard let player else {
+			return
+		}
+
+		// Update every 0.5 seconds
+		let interval = CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
+		periodicTimeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
+			Task { @MainActor in
+				guard let self else {
+					return
+				}
+				self.currentPlaybackTime = CMTimeGetSeconds(time)
+				if let duration = self.playerItem?.duration, duration.isNumeric {
+					self.totalDuration = CMTimeGetSeconds(duration)
+				}
+			}
+		}
+	}
+
+	func seek(to time: Double) {
+		guard let player else {
+			return
+		}
+		let cmTime = CMTime(seconds: time, preferredTimescale: 1000)
+		player.seek(to: cmTime)
+		updateNowPlayingInfo()
 	}
 
 	func skipForward(_ seconds: Double = 10) {

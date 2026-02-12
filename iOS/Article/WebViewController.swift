@@ -481,7 +481,8 @@ extension WebViewController: WKScriptMessageHandler {
 		case MessageName.playVideo:
 			if let body = message.body as? [String: Any],
 			   let videoID = body["videoID"] as? String {
-				showFloatingVideoPlayer(videoID: videoID)
+				let startTime = body["startTime"] as? Int ?? 0
+				showFloatingVideoPlayer(videoID: videoID, startTime: startTime)
 			}
 		default:
 			return
@@ -490,7 +491,7 @@ extension WebViewController: WKScriptMessageHandler {
 
 	// MARK: - Floating Video Player
 
-	private func showFloatingVideoPlayer(videoID: String) {
+	private func showFloatingVideoPlayer(videoID: String, startTime: Int = 0) {
 		// Stop any playing audio
 		AudioPlayerManager.shared.stop()
 
@@ -512,7 +513,7 @@ extension WebViewController: WKScriptMessageHandler {
 			floatingVideoPlayer = playerView
 		}
 
-		floatingVideoPlayer?.loadYouTubeVideo(videoID: videoID)
+		floatingVideoPlayer?.loadYouTubeVideo(videoID: videoID, startTime: startTime)
 	}
 
 	func hideFloatingVideoPlayer() {
