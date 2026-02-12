@@ -84,6 +84,18 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 			self?.togglePlayPause()
 			return .success
 		}
+
+		commandCenter.skipForwardCommand.preferredIntervals = [10]
+		commandCenter.skipForwardCommand.addTarget { [weak self] _ in
+			self?.skipForward(10)
+			return .success
+		}
+
+		commandCenter.skipBackwardCommand.preferredIntervals = [10]
+		commandCenter.skipBackwardCommand.addTarget { [weak self] _ in
+			self?.skipBackward(10)
+			return .success
+		}
 	}
 
 	private func updateNowPlayingInfo() {
@@ -184,6 +196,42 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 
 		// Deactivate audio session to allow other apps to resume
 		deactivateAudioSession()
+	}
+
+	func skipForward(_ seconds: Double = 10) {
+		guard let player else {
+			return
+		}
+		let currentTime = CMTimeGetSeconds(player.currentTime())
+		let newTime = currentTime + seconds
+		let time = CMTime(seconds: newTime, preferredTimescale: 1000)
+		player.seek(to: time)
+		updateNowPlayingInfo()
+	}
+
+	func skipBackward(_ seconds: Double = 10) {
+		guard let player else {
+			return
+		}
+		let currentTime = CMTimeGetSeconds(player.currentTime())
+		let newTime = max(0, currentTime - seconds)
+		let time = CMTime(seconds: newTime, preferredTimescale: 1000)
+		player.seek(to: time)
+		updateNowPlayingInfo()
+	}
+
+	var currentTime: Double {
+		guard let player else {
+			return 0
+		}
+		return CMTimeGetSeconds(player.currentTime())
+	}
+
+	var duration: Double {
+		guard let playerItem, playerItem.duration.isNumeric else {
+			return 0
+		}
+		return CMTimeGetSeconds(playerItem.duration)
 	}
 
 	var isPlaying: Bool {

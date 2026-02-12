@@ -278,24 +278,28 @@ function parseTimestamp(timestampStr) {
 	return 0;
 }
 
-// Find the MP3 URL from the metadata section
-function findMp3Url() {
+// Find the media URL from the metadata section (supports both old MP3: and new Media: format)
+function findMediaUrl() {
 	const listItems = document.querySelectorAll(".articleBody li");
 	for (const li of listItems) {
 		const strong = li.querySelector("strong");
-		if (strong && strong.textContent.trim() === "MP3:") {
-			const link = li.querySelector("a");
-			if (link && link.href) {
-				return link.href;
+		if (strong) {
+			const label = strong.textContent.trim();
+			// Support both "MP3:" and "Media:" labels
+			if (label === "MP3:" || label === "Media:") {
+				const link = li.querySelector("a");
+				if (link && link.href) {
+					return link.href;
+				}
 			}
 		}
 	}
 	return null;
 }
 
-// Add play buttons next to MP3 links in metadata and outline timestamps
+// Add play buttons next to media links in metadata and outline timestamps
 function addMp3PlayButtons() {
-	const mp3Url = findMp3Url();
+	const mediaUrl = findMediaUrl();
 	const titleElement = document.querySelector(".articleTitle h1 a, .articleTitle h1");
 	const articleTitle = titleElement ? titleElement.textContent : "Podcast";
 
@@ -316,20 +320,20 @@ function addMp3PlayButtons() {
 
 		const strongText = strong.textContent.trim();
 
-		// Check for MP3: label - replace with "Podcast: triangle"
-		if (strongText === "MP3:") {
+		// Check for MP3: or Media: label - replace with play button
+		if (strongText === "MP3:" || strongText === "Media:") {
 			const link = li.querySelector("a");
 			if (link && link.href) {
 				const audioUrl = link.href;
 
-				// Change label from "MP3:" to "Podcast:"
-				strong.textContent = "Podcast:";
+				// Change label to "Media:"
+				strong.textContent = "Media:";
 
 				// Create play button
 				const playButton = document.createElement("button");
 				playButton.className = "nnw-mp3-play-button";
 				playButton.innerHTML = "&#9654;"; // Play triangle
-				playButton.title = "Play podcast";
+				playButton.title = "Play media";
 
 				playButton.addEventListener("click", function(e) {
 					e.preventDefault();
@@ -381,9 +385,9 @@ function addMp3PlayButtons() {
 			e.preventDefault();
 			e.stopPropagation();
 
-			if (mp3Url && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.playAudio) {
+			if (mediaUrl && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.playAudio) {
 				const message = {
-					url: mp3Url,
+					url: mediaUrl,
 					title: articleTitle,
 					startTime: startSeconds
 				};

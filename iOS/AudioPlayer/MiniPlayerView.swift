@@ -17,11 +17,28 @@ final class MiniPlayerView: UIView {
 		label.textColor = .label
 		label.numberOfLines = 1
 		label.lineBreakMode = .byTruncatingTail
+		label.textAlignment = .center
 		return label
+	}()
+
+	private let skipBackwardButton: UIButton = {
+		let button = UIButton(type: .system)
+		let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+		button.setImage(UIImage(systemName: "gobackward.10", withConfiguration: config), for: .normal)
+		button.tintColor = Assets.Colors.primaryAccent
+		return button
 	}()
 
 	private let playPauseButton: UIButton = {
 		let button = UIButton(type: .system)
+		button.tintColor = Assets.Colors.primaryAccent
+		return button
+	}()
+
+	private let skipForwardButton: UIButton = {
+		let button = UIButton(type: .system)
+		let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+		button.setImage(UIImage(systemName: "goforward.10", withConfiguration: config), for: .normal)
 		button.tintColor = Assets.Colors.primaryAccent
 		return button
 	}()
@@ -37,6 +54,15 @@ final class MiniPlayerView: UIView {
 		let indicator = UIActivityIndicatorView(style: .medium)
 		indicator.hidesWhenStopped = true
 		return indicator
+	}()
+
+	private let controlsStack: UIStackView = {
+		let stack = UIStackView()
+		stack.axis = .horizontal
+		stack.alignment = .center
+		stack.distribution = .equalSpacing
+		stack.spacing = 16
+		return stack
 	}()
 
 	private var cancellables = Set<AnyCancellable>()
@@ -62,39 +88,60 @@ final class MiniPlayerView: UIView {
 		layer.shadowOpacity = 0.1
 		layer.shadowRadius = 4
 
+		// Setup controls stack
+		controlsStack.addArrangedSubview(skipBackwardButton)
+		controlsStack.addArrangedSubview(playPauseButton)
+		controlsStack.addArrangedSubview(skipForwardButton)
+
 		// Add subviews
-		addSubview(playPauseButton)
 		addSubview(titleLabel)
+		addSubview(controlsStack)
 		addSubview(closeButton)
 		addSubview(activityIndicator)
 
 		// Layout
-		playPauseButton.translatesAutoresizingMaskIntoConstraints = false
 		titleLabel.translatesAutoresizingMaskIntoConstraints = false
+		controlsStack.translatesAutoresizingMaskIntoConstraints = false
 		closeButton.translatesAutoresizingMaskIntoConstraints = false
 		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+		skipBackwardButton.translatesAutoresizingMaskIntoConstraints = false
+		playPauseButton.translatesAutoresizingMaskIntoConstraints = false
+		skipForwardButton.translatesAutoresizingMaskIntoConstraints = false
 
 		NSLayoutConstraint.activate([
-			playPauseButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-			playPauseButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+			// Title at top
+			titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+			titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 44),
+			titleLabel.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
+
+			// Controls in center
+			controlsStack.centerXAnchor.constraint(equalTo: centerXAnchor),
+			controlsStack.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
+			controlsStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
+
+			// Button sizes
+			skipBackwardButton.widthAnchor.constraint(equalToConstant: 44),
+			skipBackwardButton.heightAnchor.constraint(equalToConstant: 44),
 			playPauseButton.widthAnchor.constraint(equalToConstant: 44),
 			playPauseButton.heightAnchor.constraint(equalToConstant: 44),
+			skipForwardButton.widthAnchor.constraint(equalToConstant: 44),
+			skipForwardButton.heightAnchor.constraint(equalToConstant: 44),
 
+			// Activity indicator
 			activityIndicator.centerXAnchor.constraint(equalTo: playPauseButton.centerXAnchor),
 			activityIndicator.centerYAnchor.constraint(equalTo: playPauseButton.centerYAnchor),
 
-			titleLabel.leadingAnchor.constraint(equalTo: playPauseButton.trailingAnchor, constant: 12),
-			titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-			titleLabel.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -12),
-
-			closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-			closeButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-			closeButton.widthAnchor.constraint(equalToConstant: 44),
-			closeButton.heightAnchor.constraint(equalToConstant: 44),
+			// Close button at top right
+			closeButton.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+			closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+			closeButton.widthAnchor.constraint(equalToConstant: 36),
+			closeButton.heightAnchor.constraint(equalToConstant: 36),
 		])
 
 		// Actions
 		playPauseButton.addTarget(self, action: #selector(playPauseTapped), for: .touchUpInside)
+		skipBackwardButton.addTarget(self, action: #selector(skipBackwardTapped), for: .touchUpInside)
+		skipForwardButton.addTarget(self, action: #selector(skipForwardTapped), for: .touchUpInside)
 		closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
 
 		updatePlayPauseButton(isPlaying: false)
@@ -123,15 +170,21 @@ final class MiniPlayerView: UIView {
 		case .loading:
 			isHidden = false
 			playPauseButton.isHidden = true
+			skipBackwardButton.isEnabled = false
+			skipForwardButton.isEnabled = false
 			activityIndicator.startAnimating()
 		case .playing:
 			isHidden = false
 			playPauseButton.isHidden = false
+			skipBackwardButton.isEnabled = true
+			skipForwardButton.isEnabled = true
 			activityIndicator.stopAnimating()
 			updatePlayPauseButton(isPlaying: true)
 		case .paused:
 			isHidden = false
 			playPauseButton.isHidden = false
+			skipBackwardButton.isEnabled = true
+			skipForwardButton.isEnabled = true
 			activityIndicator.stopAnimating()
 			updatePlayPauseButton(isPlaying: false)
 		case .error:
@@ -141,12 +194,20 @@ final class MiniPlayerView: UIView {
 
 	private func updatePlayPauseButton(isPlaying: Bool) {
 		let imageName = isPlaying ? "pause.fill" : "play.fill"
-		let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .medium)
+		let config = UIImage.SymbolConfiguration(pointSize: 28, weight: .medium)
 		playPauseButton.setImage(UIImage(systemName: imageName, withConfiguration: config), for: .normal)
 	}
 
 	@objc private func playPauseTapped() {
 		AudioPlayerManager.shared.togglePlayPause()
+	}
+
+	@objc private func skipBackwardTapped() {
+		AudioPlayerManager.shared.skipBackward(10)
+	}
+
+	@objc private func skipForwardTapped() {
+		AudioPlayerManager.shared.skipForward(10)
 	}
 
 	@objc private func closeTapped() {
