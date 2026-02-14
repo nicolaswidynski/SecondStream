@@ -15,7 +15,7 @@ struct AboutWPodView: View {
 				Text("Legal")
 			}
 		}
-		.navigationTitle("About wPod")
+		.navigationTitle("About Second Stream")
 	}
 }
 

@@ -9,9 +9,10 @@
 import Foundation
 import os.log
 
-struct YoutubeSource: Codable {
+struct YoutubeSource: Codable, Hashable {
 	let name: String
 	let url: String
+	let imageURL: String?
 }
 
 enum AddYoutubeResult {
@@ -144,10 +145,13 @@ enum AddYoutubeResult {
 				   let names = firstItem["name"] as? [String],
 				   let urls = firstItem["url"] as? [String] {
 
+					let imageRefs = firstItem["image"] as? [String]
+
 					var sources: [YoutubeSource] = []
 					for (index, name) in names.enumerated() {
 						if index < urls.count {
-							sources.append(YoutubeSource(name: name, url: urls[index]))
+							let imageURL = (imageRefs != nil && index < imageRefs!.count) ? imageRefs![index] : nil
+							sources.append(YoutubeSource(name: name, url: urls[index], imageURL: imageURL))
 						}
 					}
 

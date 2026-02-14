@@ -9,9 +9,10 @@
 import Foundation
 import os.log
 
-struct NewsSource: Codable {
+struct NewsSource: Codable, Hashable {
 	let name: String
 	let url: String
+	let imageURL: String?
 }
 
 enum AddNewsResult {
@@ -142,10 +143,13 @@ enum AddNewsResult {
 				   let names = firstItem["name"] as? [String],
 				   let urls = firstItem["url"] as? [String] {
 
+					let imageRefs = firstItem["image"] as? [String]
+
 					var sources: [NewsSource] = []
 					for (index, name) in names.enumerated() {
 						if index < urls.count {
-							sources.append(NewsSource(name: name, url: urls[index]))
+							let imageURL = (imageRefs != nil && index < imageRefs!.count) ? imageRefs![index] : nil
+							sources.append(NewsSource(name: name, url: urls[index], imageURL: imageURL))
 						}
 					}
 

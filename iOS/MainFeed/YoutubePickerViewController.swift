@@ -15,19 +15,22 @@ import UIKit
 	func youtubePickerDidCancel(_ picker: YoutubePickerViewController)
 }
 
-final class YoutubePickerViewController: UITableViewController {
+final class YoutubePickerViewController: UIViewController, UISearchResultsUpdating {
 
 	weak var delegate: YoutubePickerDelegate?
 
-	private var sections: [(letter: String, sources: [YoutubeSource])] = []
-	private var sectionIndexTitles: [String] = []
-
-	private let customURLSection = 0
+	private var allSources: [YoutubeSource] = []
+	private var collectionView: UICollectionView!
+	private var dataSource: UICollectionViewDiffableDataSource<SourcePickerSection, SourcePickerItem>!
+	private var sectionIndexView = SectionIndexView()
+	private let searchController = UISearchController(searchResultsController: nil)
+	private var currentSearchText: String = ""
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
 
 		title = NSLocalizedString("Add YouTube Channel", comment: "Add YouTube Channel")
+		view.backgroundColor = .systemBackground
 
 		navigationItem.leftBarButtonItem = UIBarButtonItem(
 			barButtonSystemItem: .cancel,
@@ -35,14 +38,157 @@ final class YoutubePickerViewController: UITableViewController {
 			action: #selector(cancelTapped)
 		)
 
-		tableView.register(UITableViewCell.self, forCellReuseIdentifier: "YouTubeCell")
-		tableView.sectionIndexColor = Assets.Colors.primaryAccent
+		configureSearchController()
+		configureCollectionView()
+		configureDataSource()
+		configureSectionIndex()
 
-		loadYoutubeSources()
+		allSources = YoutubeSourcesManager.shared.youtubeSources.sorted {
+			$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+		}
+
+		applySnapshot()
+
+		NotificationCenter.default.addObserver(
+			self,
+			selector: #selector(sourceImageDidBecomeAvailable(_:)),
+			name: .sourceImageDidBecomeAvailable,
+			object: SourceImageCache.shared
+		)
 	}
 
-	private func loadYoutubeSources() {
-		let sources = YoutubeSourcesManager.shared.youtubeSources.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+	// MARK: - Configuration
+
+	private func configureSearchController() {
+		searchController.searchResultsUpdater = self
+		searchController.obscuresBackgroundDuringPresentation = false
+		searchController.searchBar.placeholder = NSLocalizedString("Search Channels", comment: "Search Channels")
+		navigationItem.searchController = searchController
+		navigationItem.hidesSearchBarWhenScrolling = false
+		definesPresentationContext = true
+	}
+
+	private func configureCollectionView() {
+		let layout = createLayout()
+		collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
+		collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+		collectionView.backgroundColor = .systemBackground
+		collectionView.delegate = self
+		collectionView.register(SourcePickerCell.self, forCellWithReuseIdentifier: SourcePickerCell.reuseIdentifier)
+		collectionView.register(
+			SourcePickerHeaderView.self,
+			forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
+			withReuseIdentifier: SourcePickerHeaderView.reuseIdentifier
+		)
+		view.addSubview(collectionView)
+	}
+
+	private func createLayout() -> UICollectionViewCompositionalLayout {
+		let layout = UICollectionViewCompositionalLayout { sectionIndex, environment in
+			let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0 / 3.0), heightDimension: .estimated(120))
+			let item = NSCollectionLayoutItem(layoutSize: itemSize)
+
+			let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0), heightDimension: .estimated(120))
+			let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+
+			let section = NSCollectionLayoutSection(group: group)
+			section.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 8, bottom: 16, trailing: 28)
+
+			let headerSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0), heightDimension: .estimated(32))
+			let header = NSCollectionLayoutBoundarySupplementaryItem(
+				layoutSize: headerSize,
+				elementKind: UICollectionView.elementKindSectionHeader,
+				alignment: .top
+			)
+			section.boundarySupplementaryItems = [header]
+
+			return section
+		}
+		return layout
+	}
+
+	private func configureDataSource() {
+		dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { collectionView, indexPath, item in
+			guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: SourcePickerCell.reuseIdentifier, for: indexPath) as? SourcePickerCell else {
+				fatalError("Cannot dequeue SourcePickerCell")
+			}
+
+			switch item {
+			case .customEntryName:
+				cell.configure(name: NSLocalizedString("Add via Name", comment: "Add via Name"), imageURL: nil, isCustomEntry: true)
+			case .customEntryURL:
+				cell.configure(name: NSLocalizedString("Add via URL", comment: "Add via URL"), imageURL: nil, isCustomEntry: true)
+			case .youtubeSource(let source):
+				cell.configure(name: source.name, imageURL: source.imageURL)
+			default:
+				break
+			}
+
+			return cell
+		}
+
+		dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
+			guard let header = collectionView.dequeueReusableSupplementaryView(
+				ofKind: kind,
+				withReuseIdentifier: SourcePickerHeaderView.reuseIdentifier,
+				for: indexPath
+			) as? SourcePickerHeaderView else {
+				fatalError("Cannot dequeue SourcePickerHeaderView")
+			}
+
+			let section = self.dataSource.snapshot().sectionIdentifiers[indexPath.section]
+			switch section {
+			case .customEntry:
+				header.configure(letter: "")
+			case .alphabetical(let letter):
+				header.configure(letter: letter)
+			}
+
+			return header
+		}
+	}
+
+	private func configureSectionIndex() {
+		sectionIndexView.translatesAutoresizingMaskIntoConstraints = false
+		view.addSubview(sectionIndexView)
+		NSLayoutConstraint.activate([
+			sectionIndexView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -2),
+			sectionIndexView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 60),
+			sectionIndexView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+			sectionIndexView.widthAnchor.constraint(equalToConstant: 20),
+		])
+
+		sectionIndexView.onSelectLetter = { [weak self] letter in
+			guard let self else {
+				return
+			}
+			let snapshot = self.dataSource.snapshot()
+			let targetSection = SourcePickerSection.alphabetical(letter)
+			guard snapshot.sectionIdentifiers.contains(targetSection),
+				  let sectionIndex = snapshot.sectionIdentifiers.firstIndex(of: targetSection) else {
+				return
+			}
+			let indexPath = IndexPath(item: 0, section: sectionIndex)
+			self.collectionView.scrollToItem(at: indexPath, at: .top, animated: false)
+		}
+	}
+
+	// MARK: - Snapshot
+
+	private func applySnapshot() {
+		var snapshot = NSDiffableDataSourceSnapshot<SourcePickerSection, SourcePickerItem>()
+
+		let isSearching = !currentSearchText.isEmpty
+		let sources: [YoutubeSource]
+
+		if isSearching {
+			let query = currentSearchText.lowercased()
+			sources = allSources.filter { $0.name.lowercased().contains(query) }
+		} else {
+			snapshot.appendSections([.customEntry])
+			snapshot.appendItems([.customEntryName, .customEntryURL], toSection: .customEntry)
+			sources = allSources
+		}
 
 		// Group by first letter
 		var grouped: [String: [YoutubeSource]] = [:]
@@ -52,88 +198,61 @@ final class YoutubePickerViewController: UITableViewController {
 			grouped[letter, default: []].append(source)
 		}
 
-		// Sort sections alphabetically
-		sections = grouped.map { (letter: $0.key, sources: $0.value) }
-			.sorted { $0.letter < $1.letter }
+		let sortedLetters = grouped.keys.sorted()
+		for letter in sortedLetters {
+			let section = SourcePickerSection.alphabetical(letter)
+			snapshot.appendSections([section])
+			let items = grouped[letter]!.map { SourcePickerItem.youtubeSource($0) }
+			snapshot.appendItems(items, toSection: section)
+		}
 
-		// Build section index titles
-		sectionIndexTitles = sections.map { $0.letter }
+		dataSource.apply(snapshot, animatingDifferences: true)
 
-		tableView.reloadData()
+		sectionIndexView.configure(letters: sortedLetters)
+		sectionIndexView.isHidden = sortedLetters.count < 3
 	}
+
+	// MARK: - Actions
 
 	@objc private func cancelTapped() {
 		delegate?.youtubePickerDidCancel(self)
 	}
 
-	// MARK: - Table View Data Source
-
-	override func numberOfSections(in tableView: UITableView) -> Int {
-		// +1 for the "Enter Channel Name/URL" section at the top
-		return sections.count + 1
-	}
-
-	override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-		if section == customURLSection {
-			return 2  // "Enter Channel Name (@...)..." and "Enter YouTube URL..."
+	@objc private func sourceImageDidBecomeAvailable(_ notification: Notification) {
+		guard let url = notification.userInfo?["url"] as? String else {
+			return
 		}
-		return sections[section - 1].sources.count
-	}
-
-	override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-		if section == customURLSection {
-			return nil
+		for cell in collectionView.visibleCells {
+			(cell as? SourcePickerCell)?.updateImageIfNeeded(for: url)
 		}
-		return sections[section - 1].letter
 	}
 
-	override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-		let cell = tableView.dequeueReusableCell(withIdentifier: "YouTubeCell", for: indexPath)
+	// MARK: - UISearchResultsUpdating
 
-		if indexPath.section == customURLSection {
-			if indexPath.row == 0 {
-				cell.textLabel?.text = NSLocalizedString("Enter Channel Name (@...)...", comment: "Enter Channel Name (@...)...")
-			} else {
-				cell.textLabel?.text = NSLocalizedString("Enter YouTube URL...", comment: "Enter YouTube URL...")
-			}
-			cell.textLabel?.textColor = Assets.Colors.primaryAccent
-			cell.accessoryType = .disclosureIndicator
-		} else {
-			let source = sections[indexPath.section - 1].sources[indexPath.row]
-			cell.textLabel?.text = source.name
-			cell.textLabel?.textColor = .label
-			cell.accessoryType = .none
+	func updateSearchResults(for searchController: UISearchController) {
+		currentSearchText = searchController.searchBar.text ?? ""
+		applySnapshot()
+	}
+}
+
+// MARK: - UICollectionViewDelegate
+
+extension YoutubePickerViewController: UICollectionViewDelegate {
+
+	func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+		guard let item = dataSource.itemIdentifier(for: indexPath) else {
+			return
 		}
 
-		return cell
-	}
-
-	override func sectionIndexTitles(for tableView: UITableView) -> [String]? {
-		guard !sectionIndexTitles.isEmpty else {
-			return nil
-		}
-		return sectionIndexTitles
-	}
-
-	override func tableView(_ tableView: UITableView, sectionForSectionIndexTitle title: String, at index: Int) -> Int {
-		// +1 to account for the custom URL section at the top
-		return index + 1
-	}
-
-	// MARK: - Table View Delegate
-
-	override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-		tableView.deselectRow(at: indexPath, animated: true)
-
-		if indexPath.section == customURLSection {
-			if indexPath.row == 0 {
-				delegate?.youtubePickerDidSelectChannelName(self)
-			} else {
-				delegate?.youtubePickerDidSelectChannelURL(self)
-			}
-		} else {
-			let source = sections[indexPath.section - 1].sources[indexPath.row]
+		switch item {
+		case .customEntryName:
+			delegate?.youtubePickerDidSelectChannelName(self)
+		case .customEntryURL:
+			delegate?.youtubePickerDidSelectChannelURL(self)
+		case .youtubeSource(let source):
 			delegate?.youtubePicker(self, didSelectChannel: source)
+		default:
+			break
 		}
 	}
 }

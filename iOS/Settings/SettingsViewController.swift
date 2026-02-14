@@ -277,6 +277,10 @@ final class SettingsViewController: UITableViewController {
 			}
 			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
 		case 8:
+			// Storage section - Clean Temporary Files
+			cleanTemporaryFiles()
+			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
+		case 9:
 			let hosting = UIHostingController(rootView: AboutWPodView())
 			self.navigationController?.pushViewController(hosting, animated: true)
 		default:
@@ -558,6 +562,21 @@ private extension SettingsViewController {
 		}
 	}
 
+
+	func cleanTemporaryFiles() {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Clean Temporary Files", comment: "Clean Temporary Files"),
+			message: NSLocalizedString("This will remove cached source images. They will be re-downloaded when needed.", comment: "Clean temp files message"),
+			preferredStyle: .alert
+		)
+
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Clean", comment: "Clean"), style: .destructive) { _ in
+			SourceImageCache.shared.clearCache()
+		})
+
+		present(alert, animated: true)
+	}
 
 	func updateObsidianVaultLabel() {
 		if let displayPath = ObsidianFileManager.vaultDisplayPath() {

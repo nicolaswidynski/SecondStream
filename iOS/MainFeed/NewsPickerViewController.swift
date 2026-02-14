@@ -13,17 +13,22 @@ import UIKit
 	func newsPicker(_ picker: NewsPickerViewController, didSelectSource source: NewsSource)
 }
 
-final class NewsPickerViewController: UITableViewController {
+final class NewsPickerViewController: UIViewController, UISearchResultsUpdating {
 
 	weak var delegate: NewsPickerDelegate?
 
-	private var sections: [(letter: String, sources: [NewsSource])] = []
-	private var sectionIndexTitles: [String] = []
+	private var allSources: [NewsSource] = []
+	private var collectionView: UICollectionView!
+	private var dataSource: UICollectionViewDiffableDataSource<SourcePickerSection, SourcePickerItem>!
+	private var sectionIndexView = SectionIndexView()
+	private let searchController = UISearchController(searchResultsController: nil)
+	private var currentSearchText: String = ""
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
 
 		title = NSLocalizedString("Add Topic", comment: "Add Topic")
+		view.backgroundColor = .systemBackground
 
 		navigationItem.leftBarButtonItem = UIBarButtonItem(
 			barButtonSystemItem: .cancel,
@@ -31,14 +36,150 @@ final class NewsPickerViewController: UITableViewController {
 			action: #selector(cancelTapped)
 		)
 
-		tableView.register(UITableViewCell.self, forCellReuseIdentifier: "TopicCell")
-		tableView.sectionIndexColor = Assets.Colors.primaryAccent
+		configureSearchController()
+		configureCollectionView()
+		configureDataSource()
+		configureSectionIndex()
 
-		loadSources()
+		allSources = NewsSourcesManager.shared.newsSources.sorted {
+			$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+		}
+
+		applySnapshot()
+
+		NotificationCenter.default.addObserver(
+			self,
+			selector: #selector(sourceImageDidBecomeAvailable(_:)),
+			name: .sourceImageDidBecomeAvailable,
+			object: SourceImageCache.shared
+		)
 	}
 
-	private func loadSources() {
-		let sources = NewsSourcesManager.shared.newsSources.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+	// MARK: - Configuration
+
+	private func configureSearchController() {
+		searchController.searchResultsUpdater = self
+		searchController.obscuresBackgroundDuringPresentation = false
+		searchController.searchBar.placeholder = NSLocalizedString("Search Topics", comment: "Search Topics")
+		navigationItem.searchController = searchController
+		navigationItem.hidesSearchBarWhenScrolling = false
+		definesPresentationContext = true
+	}
+
+	private func configureCollectionView() {
+		let layout = createLayout()
+		collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
+		collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+		collectionView.backgroundColor = .systemBackground
+		collectionView.delegate = self
+		collectionView.register(SourcePickerCell.self, forCellWithReuseIdentifier: SourcePickerCell.reuseIdentifier)
+		collectionView.register(
+			SourcePickerHeaderView.self,
+			forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
+			withReuseIdentifier: SourcePickerHeaderView.reuseIdentifier
+		)
+		view.addSubview(collectionView)
+	}
+
+	private func createLayout() -> UICollectionViewCompositionalLayout {
+		let layout = UICollectionViewCompositionalLayout { sectionIndex, environment in
+			let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0 / 3.0), heightDimension: .estimated(120))
+			let item = NSCollectionLayoutItem(layoutSize: itemSize)
+
+			let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0), heightDimension: .estimated(120))
+			let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+
+			let section = NSCollectionLayoutSection(group: group)
+			section.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 8, bottom: 16, trailing: 28)
+
+			let headerSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0), heightDimension: .estimated(32))
+			let header = NSCollectionLayoutBoundarySupplementaryItem(
+				layoutSize: headerSize,
+				elementKind: UICollectionView.elementKindSectionHeader,
+				alignment: .top
+			)
+			section.boundarySupplementaryItems = [header]
+
+			return section
+		}
+		return layout
+	}
+
+	private func configureDataSource() {
+		dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { collectionView, indexPath, item in
+			guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: SourcePickerCell.reuseIdentifier, for: indexPath) as? SourcePickerCell else {
+				fatalError("Cannot dequeue SourcePickerCell")
+			}
+
+			switch item {
+			case .newsSource(let source):
+				cell.configure(name: source.name, imageURL: source.imageURL)
+			default:
+				break
+			}
+
+			return cell
+		}
+
+		dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
+			guard let header = collectionView.dequeueReusableSupplementaryView(
+				ofKind: kind,
+				withReuseIdentifier: SourcePickerHeaderView.reuseIdentifier,
+				for: indexPath
+			) as? SourcePickerHeaderView else {
+				fatalError("Cannot dequeue SourcePickerHeaderView")
+			}
+
+			let section = self.dataSource.snapshot().sectionIdentifiers[indexPath.section]
+			switch section {
+			case .customEntry:
+				header.configure(letter: "")
+			case .alphabetical(let letter):
+				header.configure(letter: letter)
+			}
+
+			return header
+		}
+	}
+
+	private func configureSectionIndex() {
+		sectionIndexView.translatesAutoresizingMaskIntoConstraints = false
+		view.addSubview(sectionIndexView)
+		NSLayoutConstraint.activate([
+			sectionIndexView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -2),
+			sectionIndexView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 60),
+			sectionIndexView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+			sectionIndexView.widthAnchor.constraint(equalToConstant: 20),
+		])
+
+		sectionIndexView.onSelectLetter = { [weak self] letter in
+			guard let self else {
+				return
+			}
+			let snapshot = self.dataSource.snapshot()
+			let targetSection = SourcePickerSection.alphabetical(letter)
+			guard snapshot.sectionIdentifiers.contains(targetSection),
+				  let sectionIndex = snapshot.sectionIdentifiers.firstIndex(of: targetSection) else {
+				return
+			}
+			let indexPath = IndexPath(item: 0, section: sectionIndex)
+			self.collectionView.scrollToItem(at: indexPath, at: .top, animated: false)
+		}
+	}
+
+	// MARK: - Snapshot
+
+	private func applySnapshot() {
+		var snapshot = NSDiffableDataSourceSnapshot<SourcePickerSection, SourcePickerItem>()
+
+		let sources: [NewsSource]
+
+		if !currentSearchText.isEmpty {
+			let query = currentSearchText.lowercased()
+			sources = allSources.filter { $0.name.lowercased().contains(query) }
+		} else {
+			sources = allSources
+		}
 
 		// Group by first letter
 		var grouped: [String: [NewsSource]] = [:]
@@ -48,67 +189,57 @@ final class NewsPickerViewController: UITableViewController {
 			grouped[letter, default: []].append(source)
 		}
 
-		// Sort sections alphabetically
-		sections = grouped.map { (letter: $0.key, sources: $0.value) }
-			.sorted { $0.letter < $1.letter }
+		let sortedLetters = grouped.keys.sorted()
+		for letter in sortedLetters {
+			let section = SourcePickerSection.alphabetical(letter)
+			snapshot.appendSections([section])
+			let items = grouped[letter]!.map { SourcePickerItem.newsSource($0) }
+			snapshot.appendItems(items, toSection: section)
+		}
 
-		// Build section index titles
-		sectionIndexTitles = sections.map { $0.letter }
+		dataSource.apply(snapshot, animatingDifferences: true)
 
-		tableView.reloadData()
+		sectionIndexView.configure(letters: sortedLetters)
+		sectionIndexView.isHidden = sortedLetters.count < 3
 	}
+
+	// MARK: - Actions
 
 	@objc private func cancelTapped() {
 		delegate?.newsPickerDidCancel(self)
 	}
 
-	// MARK: - Table View Data Source
-
-	override func numberOfSections(in tableView: UITableView) -> Int {
-		return sections.count
-	}
-
-	override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-		return sections[section].sources.count
-	}
-
-	override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-		return sections[section].letter
-	}
-
-	override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-		let cell = tableView.dequeueReusableCell(withIdentifier: "TopicCell", for: indexPath)
-		let source = sections[indexPath.section].sources[indexPath.row]
-		cell.textLabel?.text = source.name
-		cell.textLabel?.textColor = .label
-		cell.accessoryType = .none
-		return cell
-	}
-
-	override func sectionIndexTitles(for tableView: UITableView) -> [String]? {
-		guard !sectionIndexTitles.isEmpty else {
-			return nil
+	@objc private func sourceImageDidBecomeAvailable(_ notification: Notification) {
+		guard let url = notification.userInfo?["url"] as? String else {
+			return
 		}
-		return sectionIndexTitles
-	}
-
-	override func tableView(_ tableView: UITableView, sectionForSectionIndexTitle title: String, at index: Int) -> Int {
-		return index
-	}
-
-	override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-		// Show footer only if there are no topics at all (last section check)
-		if sections.isEmpty {
-			return NSLocalizedString("No topics available. Topics are managed externally.", comment: "Empty topics footer")
+		for cell in collectionView.visibleCells {
+			(cell as? SourcePickerCell)?.updateImageIfNeeded(for: url)
 		}
-		return nil
 	}
 
-	// MARK: - Table View Delegate
+	// MARK: - UISearchResultsUpdating
 
-	override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-		tableView.deselectRow(at: indexPath, animated: true)
-		let source = sections[indexPath.section].sources[indexPath.row]
-		delegate?.newsPicker(self, didSelectSource: source)
+	func updateSearchResults(for searchController: UISearchController) {
+		currentSearchText = searchController.searchBar.text ?? ""
+		applySnapshot()
+	}
+}
+
+// MARK: - UICollectionViewDelegate
+
+extension NewsPickerViewController: UICollectionViewDelegate {
+
+	func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+		guard let item = dataSource.itemIdentifier(for: indexPath) else {
+			return
+		}
+
+		switch item {
+		case .newsSource(let source):
+			delegate?.newsPicker(self, didSelectSource: source)
+		default:
+			break
+		}
 	}
 }

@@ -102,10 +102,11 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		collectionView.dropDelegate = self
 		becomeFirstResponder()
 
-		// Start fetching podcast, YouTube, and news sources in background
-		PodcastSourcesManager.shared.startFetching()
-		YoutubeSourcesManager.shared.startFetching()
-		NewsSourcesManager.shared.startFetching()
+		// Fetch sources on launch
+		SourcesRefreshManager.shared.forceRefresh()
+
+		// Refresh sources when app comes to foreground
+		NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
     }
 
 	private func configureBottomActionBar() {
@@ -211,32 +212,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc private func addPodcast() {
-		// Always fetch fresh sources when opening the picker
-		let loadingAlert = UIAlertController(
-			title: nil,
-			message: NSLocalizedString("Loading podcasts...", comment: "Loading podcasts..."),
-			preferredStyle: .alert
-		)
-
-		let activityIndicator = UIActivityIndicatorView(style: .medium)
-		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
-		activityIndicator.startAnimating()
-		loadingAlert.view.addSubview(activityIndicator)
-
-		NSLayoutConstraint.activate([
-			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
-			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
-		])
-
-		present(loadingAlert, animated: true)
-
-		Task {
-			// Always fetch fresh sources
-			await PodcastSourcesManager.shared.fetchFresh()
-			loadingAlert.dismiss(animated: true) {
-				self.presentPodcastPicker()
-			}
-		}
+		presentPodcastPicker()
 	}
 
 	private func presentPodcastPicker() {
@@ -247,32 +223,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc private func addYoutube() {
-		// Always fetch fresh sources when opening the picker
-		let loadingAlert = UIAlertController(
-			title: nil,
-			message: NSLocalizedString("Loading channels...", comment: "Loading channels..."),
-			preferredStyle: .alert
-		)
-
-		let activityIndicator = UIActivityIndicatorView(style: .medium)
-		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
-		activityIndicator.startAnimating()
-		loadingAlert.view.addSubview(activityIndicator)
-
-		NSLayoutConstraint.activate([
-			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
-			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
-		])
-
-		present(loadingAlert, animated: true)
-
-		Task {
-			// Always fetch fresh sources
-			await YoutubeSourcesManager.shared.fetchFresh()
-			loadingAlert.dismiss(animated: true) {
-				self.presentYoutubePicker()
-			}
-		}
+		presentYoutubePicker()
 	}
 
 	private func presentYoutubePicker() {
@@ -283,32 +234,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc private func addNews() {
-		// Always fetch fresh sources when opening the picker
-		let loadingAlert = UIAlertController(
-			title: nil,
-			message: NSLocalizedString("Loading topics...", comment: "Loading topics..."),
-			preferredStyle: .alert
-		)
-
-		let activityIndicator = UIActivityIndicatorView(style: .medium)
-		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
-		activityIndicator.startAnimating()
-		loadingAlert.view.addSubview(activityIndicator)
-
-		NSLayoutConstraint.activate([
-			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
-			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
-		])
-
-		present(loadingAlert, animated: true)
-
-		Task {
-			// Always fetch fresh sources
-			await NewsSourcesManager.shared.fetchFresh()
-			loadingAlert.dismiss(animated: true) {
-				self.presentNewsPicker()
-			}
-		}
+		presentNewsPicker()
 	}
 
 	private func presentNewsPicker() {
@@ -1067,6 +993,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
 			appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
 		}
+
+		// Also refresh sources (throttled to every 5 minutes)
+		SourcesRefreshManager.shared.refreshIfNeeded()
+	}
+
+	@objc private func appWillEnterForeground() {
+		SourcesRefreshManager.shared.refreshIfNeeded()
 	}
 
 	private func showEnterPodcastNameDialog() {
@@ -1146,6 +1079,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		Task {
 			let result = await PodcastSourcesManager.shared.addPodcastSource(rssURL: rssURL)
+
+			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
+			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
 
 			loadingAlert.dismiss(animated: true) {
 				switch result {
@@ -1232,6 +1168,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		Task {
 			let result = await PodcastSourcesManager.shared.addPodcastByName(podcastName)
+
+			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
+			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
 
 			loadingAlert.dismiss(animated: true) {
 				switch result {
@@ -2046,6 +1985,9 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 		Task {
 			let result = await YoutubeSourcesManager.shared.addYoutubeByChannelName(channelName)
 
+			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
+			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
+
 			loadingAlert.dismiss(animated: true) {
 				self.handleYoutubeResult(result)
 			}
@@ -2074,6 +2016,9 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 
 		Task {
 			let result = await YoutubeSourcesManager.shared.addYoutubeByURL(youtubeURL)
+
+			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
+			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
 
 			loadingAlert.dismiss(animated: true) {
 				self.handleYoutubeResult(result)
