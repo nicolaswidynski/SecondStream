@@ -15,16 +15,12 @@ import UIKit
 	func podcastPickerDidCancel(_ picker: PodcastPickerViewController)
 }
 
-final class PodcastPickerViewController: UIViewController, UISearchResultsUpdating {
+final class PodcastPickerViewController: UIViewController {
 
 	weak var delegate: PodcastPickerDelegate?
 
-	private var allSources: [PodcastSource] = []
 	private var collectionView: UICollectionView!
 	private var dataSource: UICollectionViewDiffableDataSource<SourcePickerSection, SourcePickerItem>!
-	private var sectionIndexView = SectionIndexView()
-	private let searchController = UISearchController(searchResultsController: nil)
-	private var currentSearchText: String = ""
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -38,15 +34,8 @@ final class PodcastPickerViewController: UIViewController, UISearchResultsUpdati
 			action: #selector(cancelTapped)
 		)
 
-		configureSearchController()
 		configureCollectionView()
 		configureDataSource()
-		configureSectionIndex()
-
-		allSources = PodcastSourcesManager.shared.podcastSources.sorted {
-			$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-		}
-
 		applySnapshot()
 
 		NotificationCenter.default.addObserver(
@@ -58,15 +47,6 @@ final class PodcastPickerViewController: UIViewController, UISearchResultsUpdati
 	}
 
 	// MARK: - Configuration
-
-	private func configureSearchController() {
-		searchController.searchResultsUpdater = self
-		searchController.obscuresBackgroundDuringPresentation = false
-		searchController.searchBar.placeholder = NSLocalizedString("Search Podcasts", comment: "Search Podcasts")
-		navigationItem.searchController = searchController
-		navigationItem.hidesSearchBarWhenScrolling = false
-		definesPresentationContext = true
-	}
 
 	private func configureCollectionView() {
 		let layout = createLayout()
@@ -92,7 +72,7 @@ final class PodcastPickerViewController: UIViewController, UISearchResultsUpdati
 			let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
 
 			let section = NSCollectionLayoutSection(group: group)
-			section.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 8, bottom: 16, trailing: 28)
+			section.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 8, bottom: 16, trailing: 8)
 
 			let headerSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0), heightDimension: .estimated(32))
 			let header = NSCollectionLayoutBoundarySupplementaryItem(
@@ -140,36 +120,11 @@ final class PodcastPickerViewController: UIViewController, UISearchResultsUpdati
 			switch section {
 			case .customEntry:
 				header.configure(letter: "")
-			case .alphabetical(let letter):
-				header.configure(letter: letter)
+			case .sources(let title):
+				header.configure(letter: title)
 			}
 
 			return header
-		}
-	}
-
-	private func configureSectionIndex() {
-		sectionIndexView.translatesAutoresizingMaskIntoConstraints = false
-		view.addSubview(sectionIndexView)
-		NSLayoutConstraint.activate([
-			sectionIndexView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -2),
-			sectionIndexView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 60),
-			sectionIndexView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
-			sectionIndexView.widthAnchor.constraint(equalToConstant: 20),
-		])
-
-		sectionIndexView.onSelectLetter = { [weak self] letter in
-			guard let self else {
-				return
-			}
-			let snapshot = self.dataSource.snapshot()
-			let targetSection = SourcePickerSection.alphabetical(letter)
-			guard snapshot.sectionIdentifiers.contains(targetSection),
-				  let sectionIndex = snapshot.sectionIdentifiers.firstIndex(of: targetSection) else {
-				return
-			}
-			let indexPath = IndexPath(item: 0, section: sectionIndex)
-			self.collectionView.scrollToItem(at: indexPath, at: .top, animated: false)
 		}
 	}
 
@@ -178,40 +133,23 @@ final class PodcastPickerViewController: UIViewController, UISearchResultsUpdati
 	private func applySnapshot() {
 		var snapshot = NSDiffableDataSourceSnapshot<SourcePickerSection, SourcePickerItem>()
 
-		let isSearching = !currentSearchText.isEmpty
-		let sources: [PodcastSource]
+		// Custom entry section
+		snapshot.appendSections([.customEntry])
+		snapshot.appendItems([.customEntryName, .customEntryURL], toSection: .customEntry)
 
-		if isSearching {
-			let query = currentSearchText.lowercased()
-			sources = allSources.filter { $0.name.lowercased().contains(query) }
-		} else {
-			// Show custom entry section when not searching
-			snapshot.appendSections([.customEntry])
-			snapshot.appendItems([.customEntryName, .customEntryURL], toSection: .customEntry)
-			sources = allSources
+		// All sources alphabetically in a single "Top Picks" section
+		let sources = PodcastSourcesManager.shared.podcastSources.sorted {
+			$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
 		}
 
-		// Group by first letter
-		var grouped: [String: [PodcastSource]] = [:]
-		for source in sources {
-			let firstChar = source.name.first.map { String($0).uppercased() } ?? "#"
-			let letter = firstChar.first?.isLetter == true ? firstChar : "#"
-			grouped[letter, default: []].append(source)
+		if !sources.isEmpty {
+			let topPicks = SourcePickerSection.sources(NSLocalizedString("Top Picks", comment: "Top Picks"))
+			snapshot.appendSections([topPicks])
+			let items = sources.map { SourcePickerItem.podcastSource($0) }
+			snapshot.appendItems(items, toSection: topPicks)
 		}
 
-		let sortedLetters = grouped.keys.sorted()
-		for letter in sortedLetters {
-			let section = SourcePickerSection.alphabetical(letter)
-			snapshot.appendSections([section])
-			let items = grouped[letter]!.map { SourcePickerItem.podcastSource($0) }
-			snapshot.appendItems(items, toSection: section)
-		}
-
-		dataSource.apply(snapshot, animatingDifferences: true)
-
-		// Update section index
-		sectionIndexView.configure(letters: sortedLetters)
-		sectionIndexView.isHidden = sortedLetters.count < 3
+		dataSource.apply(snapshot, animatingDifferences: false)
 	}
 
 	// MARK: - Actions
@@ -227,13 +165,6 @@ final class PodcastPickerViewController: UIViewController, UISearchResultsUpdati
 		for cell in collectionView.visibleCells {
 			(cell as? SourcePickerCell)?.updateImageIfNeeded(for: url)
 		}
-	}
-
-	// MARK: - UISearchResultsUpdating
-
-	func updateSearchResults(for searchController: UISearchController) {
-		currentSearchText = searchController.searchBar.text ?? ""
-		applySnapshot()
 	}
 }
 

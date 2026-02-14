@@ -10,7 +10,7 @@ import Foundation
 
 enum SourcePickerSection: Hashable {
 	case customEntry
-	case alphabetical(String)
+	case sources(String) // section title
 }
 
 enum SourcePickerItem: Hashable {
