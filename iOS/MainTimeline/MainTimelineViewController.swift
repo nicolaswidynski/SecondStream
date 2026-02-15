@@ -189,6 +189,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		refreshControl = UIRefreshControl()
 		refreshControl!.addTarget(self, action: #selector(refreshAccounts(_:)), for: .valueChanged)
 
+		// Custom pan gesture for swipe-left to toggle read/unread with lower threshold
+		let pan = UIPanGestureRecognizer(target: self, action: #selector(handleSwipeLeftPan(_:)))
+		pan.delegate = self
+		tableView.addGestureRecognizer(pan)
+
 		configureToolbar()
 		resetUI(resetScroll: true)
 
@@ -398,23 +403,109 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-		guard let article = dataSource.itemIdentifier(for: indexPath) else { return nil }
-
-		let action = UIContextualAction(style: .normal, title: nil) { [weak self] _, _, completion in
-			self?.coordinator?.toggleRead(article)
-			completion(true)
-		}
-
-		action.image = article.status.read ? Assets.Images.circleClosed : Assets.Images.circleOpen
-		action.backgroundColor = Assets.Colors.primaryAccent
-
-		let config = UISwipeActionsConfiguration(actions: [action])
-		config.performsFirstActionWithFullSwipe = true
-		return config
+		return UISwipeActionsConfiguration(actions: [])
 	}
 
 	override func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
 		return nil
+	}
+
+	// MARK: - Swipe left pan gesture
+
+	private var swipePanCell: UITableViewCell?
+	private var swipePanIndexPath: IndexPath?
+	private var swipePanTriggered = false
+	private var swipeActionView: UIView?
+
+	@objc private func handleSwipeLeftPan(_ gesture: UIPanGestureRecognizer) {
+		let translation = gesture.translation(in: tableView)
+		let velocity = gesture.velocity(in: tableView)
+
+		switch gesture.state {
+		case .began:
+			let point = gesture.location(in: tableView)
+			guard let indexPath = tableView.indexPathForRow(at: point),
+				  let cell = tableView.cellForRow(at: indexPath) else {
+				gesture.state = .cancelled
+				return
+			}
+			swipePanCell = cell
+			swipePanIndexPath = indexPath
+			swipePanTriggered = false
+
+			// Create the accent-colored action indicator behind the cell
+			let actionView = UIView(frame: cell.frame)
+			actionView.backgroundColor = Assets.Colors.primaryAccent
+			actionView.clipsToBounds = true
+
+			if let article = dataSource.itemIdentifier(for: indexPath) {
+				let image = article.status.read ? Assets.Images.circleClosed : Assets.Images.circleOpen
+				let imageView = UIImageView(image: image)
+				imageView.tintColor = .white
+				imageView.tag = 100
+				imageView.frame = CGRect(x: cell.bounds.width - 40, y: (cell.bounds.height - 22) / 2, width: 22, height: 22)
+				actionView.addSubview(imageView)
+			}
+
+			tableView.insertSubview(actionView, belowSubview: cell)
+			swipeActionView = actionView
+
+		case .changed:
+			guard let cell = swipePanCell else { return }
+			// Only allow leftward drag
+			let offset = min(0, translation.x)
+			cell.transform = CGAffineTransform(translationX: offset, y: 0)
+
+			// Update icon position to stay near trailing edge of visible area
+			if let actionView = swipeActionView, let imageView = actionView.viewWithTag(100) {
+				let revealedWidth = -offset
+				imageView.frame.origin.x = cell.frame.maxX + offset + revealedWidth - 40
+			}
+
+			// Trigger at 25% of cell width
+			let threshold = cell.bounds.width * 0.25
+			if -offset >= threshold && !swipePanTriggered {
+				swipePanTriggered = true
+				let generator = UIImpactFeedbackGenerator(style: .light)
+				generator.impactOccurred()
+			}
+
+		case .ended, .cancelled:
+			guard let cell = swipePanCell, let indexPath = swipePanIndexPath else {
+				resetSwipePan()
+				return
+			}
+
+			let offset = translation.x
+			let threshold = cell.bounds.width * 0.25
+
+			if -offset >= threshold || (velocity.x < -500 && -offset > 30) {
+				// Trigger the action
+				if let article = dataSource.itemIdentifier(for: indexPath) {
+					coordinator?.toggleRead(article)
+				}
+			}
+
+			// Animate cell back
+			UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseOut) {
+				cell.transform = .identity
+			} completion: { _ in
+				self.swipeActionView?.removeFromSuperview()
+				self.resetSwipePan()
+			}
+
+		default:
+			resetSwipePan()
+		}
+	}
+
+	private func resetSwipePan() {
+		swipePanCell?.transform = .identity
+		swipeActionView?.removeFromSuperview()
+		swipePanCell = nil
+		swipePanIndexPath = nil
+		swipePanTriggered = false
+		swipeActionView = nil
 	}
 
 	override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -576,6 +667,21 @@ extension MainTimelineViewController: UISearchBarDelegate {
 	func searchBar(_ searchBar: UISearchBar, selectedScopeButtonIndexDidChange selectedScope: Int) {
 		let searchScope = SearchScope(rawValue: selectedScope)!
 		searchArticles(searchBar.text!, searchScope)
+	}
+}
+
+// MARK: UIGestureRecognizerDelegate
+
+extension MainTimelineViewController: UIGestureRecognizerDelegate {
+	func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+		guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+		let velocity = pan.velocity(in: tableView)
+		// Only begin for horizontal left swipes (negative X, dominant over Y)
+		return velocity.x < 0 && abs(velocity.x) > abs(velocity.y)
+	}
+
+	func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+		return false
 	}
 }
 

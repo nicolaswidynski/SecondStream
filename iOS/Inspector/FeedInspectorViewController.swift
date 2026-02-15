@@ -38,9 +38,13 @@ final class FeedInspectorViewController: UITableViewController {
 	}
 
 	override func viewDidLoad() {
-		tableView.register(InspectorIconHeaderView.self, forHeaderFooterViewReuseIdentifier: "SectionHeader")
-
 		navigationItem.title = feed.nameForDisplay
+
+		// Show the feed icon as a table header view above all sections
+		let iconHeader = InspectorIconHeaderView(frame: CGRect(x: 0, y: 0, width: tableView.bounds.width, height: ImageHeaderView.rowHeight))
+		iconHeader.iconView.iconImage = iconImage
+		tableView.tableHeaderView = iconHeader
+		headerView = iconHeader
 
 		homePageLabel.text = feed.homePageURL
 
@@ -106,7 +110,7 @@ extension FeedInspectorViewController {
 	}
 
 	override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-		return section == 0 ? ImageHeaderView.rowHeight : super.tableView(tableView, heightForHeaderInSection: shift(section))
+		return super.tableView(tableView, heightForHeaderInSection: shift(section))
 	}
 
 	override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -118,13 +122,7 @@ extension FeedInspectorViewController {
 	}
 
 	override func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-		if section == 0 {
-			headerView = tableView.dequeueReusableHeaderFooterView(withIdentifier: "SectionHeader") as? InspectorIconHeaderView
-			headerView?.iconView.iconImage = iconImage
-			return headerView
-		} else {
-			return super.tableView(tableView, viewForHeaderInSection: shift(section))
-		}
+		return super.tableView(tableView, viewForHeaderInSection: shift(section))
 	}
 
 	override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
