@@ -555,9 +555,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			// Check if this is a feed type section
 			if let feedSection = FeedSectionIdentifier(rawValue: sectionID) {
 				headerView.delegate = self
+				headerView.sectionID = sectionID
 				headerView.headerTitle.text = feedSection.displayName
 				headerView.unreadCount = self.unreadCountForSection(feedSection)
-				headerView.tag = indexPath.section
 				headerView.disclosureExpanded = self.coordinator.isCategorySectionExpanded(feedSection)
 				// Don't add context menu to category headers (no account actions apply)
 				return headerView
@@ -581,7 +581,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				headerView.unreadCount = 0
 			}
 
-			headerView.tag = indexPath.section
+			headerView.sectionID = sectionID
 			headerView.disclosureExpanded = self.coordinator.isExpanded(sectionNode)
 
 			if indexPath.section != 0 {
@@ -1238,14 +1238,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	func toggle(_ headerView: MainFeedCollectionHeaderReusableView) {
-		// Get section identifier from snapshot
-		let snapshot = dataSource.snapshot()
-		let sectionIdentifiers = snapshot.sectionIdentifiers
-		guard headerView.tag < sectionIdentifiers.count else {
+		guard let sectionID = headerView.sectionID else {
 			return
 		}
-
-		let sectionID = sectionIdentifiers[headerView.tag]
 
 		// Check if this is a category section
 		if let feedSection = FeedSectionIdentifier(rawValue: sectionID) {
@@ -1259,7 +1254,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 
 		// Fallback for non-category sections (shouldn't happen with new structure)
-		guard let sectionNode = coordinator.rootNode.childAtIndex(headerView.tag) else {
+		let snapshot = dataSource.snapshot()
+		guard let sectionIndex = snapshot.sectionIdentifiers.firstIndex(of: sectionID),
+			  let sectionNode = coordinator.rootNode.childAtIndex(sectionIndex) else {
 			return
 		}
 
@@ -1306,23 +1303,15 @@ extension MainFeedCollectionViewController: MainFeedCollectionViewFolderCellDele
 extension MainFeedCollectionViewController: UIContextMenuInteractionDelegate {
 	func contextMenuInteraction(_ interaction: UIContextMenuInteraction, configurationForMenuAtLocation location: CGPoint) -> UIContextMenuConfiguration? {
 
-		guard let sectionIndex = interaction.view?.tag else {
+		guard let headerView = interaction.view as? MainFeedCollectionHeaderReusableView,
+			  let sectionID = headerView.sectionID else {
 			return nil
 		}
-
-		// Get section identifier from snapshot
-		let snapshot = dataSource.snapshot()
-		let sectionIdentifiers = snapshot.sectionIdentifiers
-		guard sectionIndex < sectionIdentifiers.count else {
-			return nil
-		}
-
-		let sectionID = sectionIdentifiers[sectionIndex]
 
 		// Check if this is a category section
 		if let feedSection = FeedSectionIdentifier(rawValue: sectionID) {
 			// Category sections can have Add Folder (adds to first active account)
-			return UIContextMenuConfiguration(identifier: sectionIndex as NSCopying, previewProvider: nil) { _ in
+			return UIContextMenuConfiguration(identifier: sectionID as NSCopying, previewProvider: nil) { _ in
 				var menuElements = [UIMenuElement]()
 
 				// Add Folder action for category sections
@@ -1342,13 +1331,15 @@ extension MainFeedCollectionViewController: UIContextMenuInteractionDelegate {
 		}
 
 		// Fallback for old account-based sections (should not happen with new structure)
-		guard let sectionNode = coordinator.rootNode.childAtIndex(sectionIndex),
+		let snapshot = dataSource.snapshot()
+		guard let sectionIndex = snapshot.sectionIdentifiers.firstIndex(of: sectionID),
+			let sectionNode = coordinator.rootNode.childAtIndex(sectionIndex),
 			let account = sectionNode.representedObject as? Account
 				else {
 					return nil
 		}
 
-		return UIContextMenuConfiguration(identifier: sectionIndex as NSCopying, previewProvider: nil) { _ in
+		return UIContextMenuConfiguration(identifier: sectionID as NSCopying, previewProvider: nil) { _ in
 
 			var menuElements = [UIMenuElement]()
 			menuElements.append(UIMenu(title: "", options: .displayInline, children: [self.getAccountInfoAction(account: account)]))

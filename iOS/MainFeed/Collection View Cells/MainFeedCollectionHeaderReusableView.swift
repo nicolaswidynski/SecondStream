@@ -14,6 +14,7 @@ import UIKit
 
 final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 	var delegate: MainFeedCollectionHeaderReusableViewDelegate?
+	var sectionID: String?
 
 	@IBOutlet var headerTitle: UILabel!
 	@IBOutlet var disclosureIndicator: UIImageView!
@@ -83,6 +84,7 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 		disclosureExpanded = true
 		unreadCountLabel.alpha = 0
 		hasBeenConfigured = false
+		sectionID = nil
 	}
 
 	func configureUI() {
