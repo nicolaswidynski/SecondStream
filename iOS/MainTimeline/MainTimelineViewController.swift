@@ -189,11 +189,6 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		refreshControl = UIRefreshControl()
 		refreshControl!.addTarget(self, action: #selector(refreshAccounts(_:)), for: .valueChanged)
 
-		// Swipe left on a row toggles read/unread instantly
-		let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeLeft(_:)))
-		swipeLeft.direction = .left
-		tableView.addGestureRecognizer(swipeLeft)
-
 		configureToolbar()
 		resetUI(resetScroll: true)
 
@@ -403,7 +398,19 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-		return UISwipeActionsConfiguration(actions: [])
+		guard let article = dataSource.itemIdentifier(for: indexPath) else { return nil }
+
+		let action = UIContextualAction(style: .normal, title: nil) { [weak self] _, _, completion in
+			self?.coordinator?.toggleRead(article)
+			completion(true)
+		}
+
+		action.image = article.status.read ? Assets.Images.circleClosed : Assets.Images.circleOpen
+		action.backgroundColor = Assets.Colors.primaryAccent
+
+		let config = UISwipeActionsConfiguration(actions: [action])
+		config.performsFirstActionWithFullSwipe = true
+		return config
 	}
 
 	override func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
@@ -418,17 +425,6 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	override func scrollViewDidScroll(_ scrollView: UIScrollView) {
 		scrollPositionQueue.add(self, #selector(scrollPositionDidChange))
-	}
-
-	// MARK: Gestures
-
-	@objc func handleSwipeLeft(_ gesture: UISwipeGestureRecognizer) {
-		let point = gesture.location(in: tableView)
-		guard let indexPath = tableView.indexPathForRow(at: point),
-			  let article = dataSource.itemIdentifier(for: indexPath) else {
-			return
-		}
-		coordinator?.toggleRead(article)
 	}
 
 	// MARK: Notifications

@@ -638,18 +638,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
     }
 
 	override func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
-		guard let sidebarItem = coordinator.nodeFor(indexPath)?.representedObject as? SidebarItem else {
-			return nil
-		}
-		if sidebarItem is Feed {
-			return makeFeedContextMenu(indexPath: indexPath, includeDeleteRename: true)
-		} else if sidebarItem is Folder {
-			return makeFolderContextMenu(indexPath: indexPath)
-		} else if sidebarItem is PseudoFeed {
-			return makePseudoFeedContextMenu(indexPath: indexPath)
-		} else {
-			return nil
-		}
+		return nil
 	}
 
 	// MARK: - Key Commands
