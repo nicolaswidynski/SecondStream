@@ -125,40 +125,52 @@ enum ObsidianFileManagerError: LocalizedError {
 		}
 	}
 
-	/// Get the custom subfolder path for a feed (supports nested paths like a/b/c)
-	/// If no custom subfolder is set, returns the default category prefix
-	static func getCustomSubfolderPath(for feed: Feed) -> [String] {
-		guard let customSubfolder = feed.obsidianSubfolder, !customSubfolder.isEmpty else {
-			// Return default category prefix when no custom subfolder is set
-			return [getDefaultSubfolderPrefix(for: feed)]
+	/// Build subfolder path components based on global settings
+	static func getSubfolderPath(for feed: Feed) -> [String] {
+		var components = [String]()
+
+		if AppDefaults.shared.obsidianSubfolderFeedType {
+			components.append(getDefaultSubfolderPrefix(for: feed))
 		}
-		// Split by "/" to support nested folders, sanitize each component
-		return customSubfolder
-			.components(separatedBy: "/")
-			.map { $0.trimmingCharacters(in: .whitespaces) }
-			.filter { !$0.isEmpty }
-			.map { sanitizePathComponent($0) }
+
+		if AppDefaults.shared.obsidianSubfolderFeedName {
+			components.append(sanitizePathComponent(feed.nameForDisplay))
+		}
+
+		return components
 	}
 
 	/// Get the full file path for an article within the vault
-	/// Structure: vault / customSubfolder (if any) / feedName / filename.md
 	static func getFilePath(for article: Article, feed: Feed, vaultURL: URL) -> URL {
 		var url = vaultURL
 
-		// Add custom subfolder path components (supports nested folders)
-		for component in getCustomSubfolderPath(for: feed) {
+		for component in getSubfolderPath(for: feed) {
 			url = url.appendingPathComponent(component)
 		}
 
-		// Always add feed name as the final folder
-		let feedFolder = sanitizePathComponent(feed.nameForDisplay)
-		url = url.appendingPathComponent(feedFolder)
-
-		// Add the filename
 		let filename = generateFilename(for: article)
 		url = url.appendingPathComponent(filename)
 
 		return url
+	}
+
+	/// Get a display-friendly preview of the subfolder path based on current settings
+	static func subfolderPreview(for feedName: String = "FeedName", feedType: String = "FeedType") -> String {
+		var components = [String]()
+
+		if AppDefaults.shared.obsidianSubfolderFeedType {
+			components.append(feedType)
+		}
+
+		if AppDefaults.shared.obsidianSubfolderFeedName {
+			components.append(feedName)
+		}
+
+		if components.isEmpty {
+			return "(vault root)"
+		}
+
+		return components.joined(separator: "/") + "/"
 	}
 
 	// MARK: - Security-Scoped Bookmark Handling

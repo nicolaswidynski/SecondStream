@@ -4,6 +4,8 @@
 <dict>
 	<key>UIApplicationIconHueEffect</key>
 	<false/>
+	<key>Icon already includes gloss effects</key>
+	<true/>
 	<key>AppGroup</key>
 	<string>$(APP_GROUP_ID)</string>
 	<key>AppIdentifierPrefix</key>

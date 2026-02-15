@@ -143,6 +143,9 @@ static const NSInteger kUpdatedLength = 8;
 static const char *kModified = "modified";
 static const NSInteger kModifiedLength = 9;
 
+static const char *kPubDate = "pub_date";
+static const NSInteger kPubDateLength = 9;
+
 static const char *kMp3URL = "mp3_url";
 static const NSInteger kMp3URLLength = 8;
 
@@ -488,6 +491,12 @@ static NSString *httpURLPrefix = @"http://";
 	else if (RSSAXEqualTags(localName, kModified, kModifiedLength)) {
 		if (!self.currentArticle.dateModified) {
 			self.currentArticle.dateModified = self.currentDate;
+		}
+	}
+	// Non-standard pub_date element used by some feed generators
+	else if (RSSAXEqualTags(localName, kPubDate, kPubDateLength)) {
+		if (!self.currentArticle.datePublished) {
+			self.currentArticle.datePublished = self.currentDate;
 		}
 	}
 	else if (RSSAXEqualTags(localName, kMp3URL, kMp3URLLength)) {

@@ -467,8 +467,10 @@ extension WebViewController: WKScriptMessageHandler {
 		case MessageName.imageWasClicked:
 			imageWasClicked(body: message.body as? String)
 		case MessageName.showFeedInspector:
-			if let feed = article?.feed {
-				coordinator.showFeedInspector(for: feed)
+			if let feed = article?.feed,
+			   let homePageURL = feed.homePageURL,
+			   let url = URL(string: homePageURL) {
+				UIApplication.shared.open(url, options: [:])
 			}
 		case MessageName.playAudio:
 			if let body = message.body as? [String: Any],

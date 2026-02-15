@@ -44,8 +44,24 @@ import UserNotifications
 
 		for article in articles {
 			if !article.status.read, let feed = article.feed, feed.isNotifyAboutNewArticles ?? false {
+				guard isCategoryNotificationEnabled(for: feed) else {
+					continue
+				}
 				sendNotification(feed: feed, article: article)
 			}
+		}
+	}
+
+	private func isCategoryNotificationEnabled(for feed: Feed) -> Bool {
+		switch feed.feedCategory {
+		case .rss:
+			return AppDefaults.shared.notifyFeeds
+		case .podcast:
+			return AppDefaults.shared.notifyPodcasts
+		case .youtube:
+			return AppDefaults.shared.notifyYouTube
+		case .news:
+			return AppDefaults.shared.notifyWeeklyNews
 		}
 	}
 

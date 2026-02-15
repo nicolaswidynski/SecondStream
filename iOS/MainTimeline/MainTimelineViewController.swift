@@ -106,17 +106,36 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		return keyboardManager.keyCommands
 	}
 
-	private var navigationBarTitleLabel: UILabel {
+	private var navigationBarTitleView: UIView {
+		let container = UIStackView()
+		container.axis = .horizontal
+		container.alignment = .center
+		container.spacing = 6
+
+		let imageView = UIImageView()
+		imageView.contentMode = .scaleAspectFit
+		imageView.clipsToBounds = true
+		imageView.layer.cornerRadius = 4
+		imageView.tag = 100
+		NSLayoutConstraint.activate([
+			imageView.widthAnchor.constraint(equalToConstant: 20),
+			imageView.heightAnchor.constraint(equalToConstant: 20)
+		])
+		container.addArrangedSubview(imageView)
+
 		let label = UILabel()
 		label.font = UIFont.preferredFont(forTextStyle: .subheadline).bold()
-		label.isUserInteractionEnabled = true
 		label.numberOfLines = 1
 		label.textAlignment = .center
+		label.tag = 200
+		container.addArrangedSubview(label)
+
+		container.isUserInteractionEnabled = true
 		let tap = UITapGestureRecognizer(target: self, action: #selector(showFeedInspector(_:)))
-		label.addGestureRecognizer(tap)
+		container.addGestureRecognizer(tap)
 		let pointerInteraction = UIPointerInteraction(delegate: nil)
-		label.addInteraction(pointerInteraction)
-		return label
+		container.addInteraction(pointerInteraction)
+		return container
 	}
 
 	private var navigationBarSubtitleTitleLabel: UILabel {
@@ -210,7 +229,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		}
 		gesture.allowedScrollTypesMask = []
 
-		navigationItem.titleView = navigationBarTitleLabel
+		navigationItem.titleView = navigationBarTitleView
 		navigationItem.subtitleView = navigationBarSubtitleTitleLabel
 	}
 
@@ -326,7 +345,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	@objc func showFeedInspector(_ sender: Any?) {
 		assert(coordinator != nil)
-		coordinator?.showFeedInspector()
+		coordinator?.showBrowserForCurrentFeed()
 	}
 
 	// MARK: API
@@ -342,10 +361,24 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	func updateNavigationBarTitle(_ text: String) {
-		if let label = navigationItem.titleView as? UILabel {
-			label.text = text
-			label.isUserInteractionEnabled = ((coordinator?.timelineFeed as? PseudoFeed) == nil)
-			label.sizeToFit()
+		if let stackView = navigationItem.titleView as? UIStackView {
+			let isPseudoFeed = (coordinator?.timelineFeed as? PseudoFeed) != nil
+			stackView.isUserInteractionEnabled = !isPseudoFeed
+
+			if let imageView = stackView.viewWithTag(100) as? UIImageView {
+				if let feed = coordinator?.timelineFeed as? Feed,
+				   let iconImage = IconImageCache.shared.imageForFeed(feed) {
+					imageView.image = iconImage.image
+					imageView.isHidden = false
+				} else {
+					imageView.isHidden = true
+				}
+			}
+
+			if let label = stackView.viewWithTag(200) as? UILabel {
+				label.text = text
+				label.sizeToFit()
+			}
 		}
 	}
 
@@ -433,8 +466,9 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 			swipePanIndexPath = indexPath
 			swipePanTriggered = false
 
-			// Create the accent-colored action indicator behind the cell
-			let actionView = UIView(frame: cell.frame)
+			// Create the accent-colored action indicator behind the cell (right 85%)
+			let leftInset = cell.bounds.width * 0.15
+			let actionView = UIView(frame: CGRect(x: cell.frame.origin.x + leftInset, y: cell.frame.origin.y, width: cell.bounds.width - leftInset, height: cell.bounds.height))
 			actionView.backgroundColor = Assets.Colors.primaryAccent
 			actionView.clipsToBounds = true
 

@@ -78,7 +78,13 @@ final class AppDefaults: Sendable {
 		static let splitViewPreferredDisplayMode = "splitViewPreferredDisplayMode"
 		static let obsidianSyncEnabled = "obsidianSyncEnabled"
 		static let obsidianVaultBookmark = "obsidianVaultBookmark"
+		static let obsidianSubfolderFeedType = "obsidianSubfolderFeedType"
+		static let obsidianSubfolderFeedName = "obsidianSubfolderFeedName"
 		static let ttsVoiceIdentifier = "ttsVoiceIdentifier"
+		static let notifyFeeds = "notifyFeeds"
+		static let notifyPodcasts = "notifyPodcasts"
+		static let notifyYouTube = "notifyYouTube"
+		static let notifyWeeklyNews = "notifyWeeklyNews"
 	}
 
 	let isDeveloperBuild: Bool = {
@@ -405,12 +411,66 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	var obsidianSubfolderFeedType: Bool {
+		get {
+			AppDefaults.bool(for: Key.obsidianSubfolderFeedType)
+		}
+		set {
+			AppDefaults.setBool(for: Key.obsidianSubfolderFeedType, newValue)
+		}
+	}
+
+	var obsidianSubfolderFeedName: Bool {
+		get {
+			AppDefaults.bool(for: Key.obsidianSubfolderFeedName)
+		}
+		set {
+			AppDefaults.setBool(for: Key.obsidianSubfolderFeedName, newValue)
+		}
+	}
+
 	var ttsVoiceIdentifier: String? {
 		get {
 			return AppDefaults.string(for: Key.ttsVoiceIdentifier)
 		}
 		set {
 			AppDefaults.setString(for: Key.ttsVoiceIdentifier, newValue)
+		}
+	}
+
+	var notifyFeeds: Bool {
+		get {
+			AppDefaults.bool(for: Key.notifyFeeds)
+		}
+		set {
+			AppDefaults.setBool(for: Key.notifyFeeds, newValue)
+		}
+	}
+
+	var notifyPodcasts: Bool {
+		get {
+			AppDefaults.bool(for: Key.notifyPodcasts)
+		}
+		set {
+			AppDefaults.setBool(for: Key.notifyPodcasts, newValue)
+		}
+	}
+
+	var notifyYouTube: Bool {
+		get {
+			AppDefaults.bool(for: Key.notifyYouTube)
+		}
+		set {
+			AppDefaults.setBool(for: Key.notifyYouTube, newValue)
+		}
+	}
+
+	var notifyWeeklyNews: Bool {
+		get {
+			AppDefaults.bool(for: Key.notifyWeeklyNews)
+		}
+		set {
+			AppDefaults.setBool(for: Key.notifyWeeklyNews, newValue)
 		}
 	}
 
@@ -426,7 +486,9 @@ final class AppDefaults: Sendable {
 										Key.confirmMarkAllAsRead: true,
 										Key.articleContentJavascriptEnabled: true,
 										Key.currentThemeName: Self.defaultThemeName,
-										Key.splitViewPreferredDisplayMode: UISplitViewController.DisplayMode.oneBesideSecondary.rawValue]
+										Key.splitViewPreferredDisplayMode: UISplitViewController.DisplayMode.oneBesideSecondary.rawValue,
+									Key.obsidianSubfolderFeedType: true,
+									Key.obsidianSubfolderFeedName: true]
 		AppDefaults.store.register(defaults: defaults)
 	}
 }

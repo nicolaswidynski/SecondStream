@@ -24,7 +24,7 @@ enum AddYoutubeResult {
 	case maxChannels                          // 553
 	case badMessage                           // 554 - Neither channel nor url set
 	case badChannel                           // 555 - Channel not found
-	case youtubeRSSNotFound                   // 556 - Youtube channel RSS not found
+	case youtubeRSSNotFound                   // 556 - YouTube channel RSS not found
 	case error(String)
 }
 
@@ -43,7 +43,7 @@ enum AddYoutubeResult {
 	private(set) var isFetching = false
 	private var fetchTask: Task<Void, Never>?
 
-	// MARK: - Stored Youtube Sources
+	// MARK: - Stored YouTube Sources
 
 	private let youtubeSourcesKey = "youtubeSources"
 
@@ -156,7 +156,7 @@ enum AddYoutubeResult {
 					}
 
 					self.youtubeSources = sources
-					Self.logger.info("Fetched \(sources.count) youtube sources")
+					Self.logger.info("Fetched \(sources.count) YouTube sources")
 				} else {
 					Self.logger.error("Failed to parse success response")
 				}
@@ -164,7 +164,7 @@ enum AddYoutubeResult {
 				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
 			}
 		} catch {
-			Self.logger.error("Failed to fetch youtube sources: \(error.localizedDescription)")
+			Self.logger.error("Failed to fetch YouTube sources: \(error.localizedDescription)")
 		}
 	}
 

@@ -111,16 +111,18 @@ final class ArticleViewController: UIViewController {
 		pageViewController.delegate = self
 		pageViewController.dataSource = self
 
-		// This code is to disallow paging if we scroll from the left edge.  If this code is removed
-		// PoppableGestureRecognizerDelegate will allow us to both navigate back and page back at the
-		// same time. That is really weird when it happens.
-		let panGestureRecognizer = UIPanGestureRecognizer()
-		panGestureRecognizer.delegate = self
-		pageViewController.scrollViewInsidePageControl?.addGestureRecognizer(panGestureRecognizer)
-
 		pageViewController.view.translatesAutoresizingMaskIntoConstraints = false
 		view.addSubview(pageViewController.view)
 		addChild(pageViewController!)
+
+		let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeRight(_:)))
+		swipeRight.direction = .right
+		pageViewController.view.addGestureRecognizer(swipeRight)
+
+		// Disable the page view controller's internal scroll view so it doesn't consume swipes
+		if let scrollView = pageViewController.scrollViewInsidePageControl {
+			scrollView.isScrollEnabled = false
+		}
 		NSLayoutConstraint.activate([
 			view.leadingAnchor.constraint(equalTo: pageViewController.view.leadingAnchor),
 			view.trailingAnchor.constraint(equalTo: pageViewController.view.trailingAnchor),
@@ -339,6 +341,10 @@ final class ArticleViewController: UIViewController {
 
 	// MARK: Keyboard Shortcuts
 
+	@objc func handleSwipeRight(_ sender: UISwipeGestureRecognizer) {
+		coordinator.selectArticle(nil, animations: [.navigation])
+	}
+
 	@objc func navigateToTimeline(_ sender: Any?) {
 		coordinator.navigateToTimeline()
 	}
@@ -465,21 +471,11 @@ extension ArticleViewController: WebViewControllerDelegate {
 extension ArticleViewController: UIPageViewControllerDataSource {
 
 	func pageViewController(_ pageViewController: UIPageViewController, viewControllerBefore viewController: UIViewController) -> UIViewController? {
-		guard let webViewController = viewController as? WebViewController,
-			let currentArticle = webViewController.article,
-			let article = coordinator.findPrevArticle(currentArticle) else {
-			return nil
-		}
-		return createWebViewController(article)
+		return nil
 	}
 
 	func pageViewController(_ pageViewController: UIPageViewController, viewControllerAfter viewController: UIViewController) -> UIViewController? {
-		guard let webViewController = viewController as? WebViewController,
-			let currentArticle = webViewController.article,
-			let article = coordinator.findNextArticle(currentArticle) else {
-			return nil
-		}
-		return createWebViewController(article)
+		return nil
 	}
 
 }

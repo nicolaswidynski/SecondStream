@@ -14,6 +14,7 @@ import UniformTypeIdentifiers
 import AVFoundation
 import RSCore
 import Account
+import UserNotifications
 
 final class SettingsViewController: UITableViewController {
 
@@ -34,9 +35,16 @@ final class SettingsViewController: UITableViewController {
 	@IBOutlet var colorPaletteDetailLabel: UILabel!
 	@IBOutlet var openLinksInNetNewsWire: UISwitch!
 	@IBOutlet var enableJavaScriptSwitch: UISwitch!
+	@IBOutlet var notifyFeedsSwitch: UISwitch!
+	@IBOutlet var notifyPodcastsSwitch: UISwitch!
+	@IBOutlet var notifyYouTubeSwitch: UISwitch!
+	@IBOutlet var notifyWeeklyNewsSwitch: UISwitch!
 	@IBOutlet var obsidianSyncSwitch: UISwitch!
 	@IBOutlet var obsidianVaultLabel: UILabel!
 	@IBOutlet var obsidianVaultCell: UITableViewCell!
+	@IBOutlet var obsidianSubfolderFeedTypeSwitch: UISwitch!
+	@IBOutlet var obsidianSubfolderFeedNameSwitch: UISwitch!
+	@IBOutlet var obsidianSubfolderPreviewLabel: UILabel!
 	@IBOutlet var ttsVoiceDetailLabel: UILabel!
 
 	var scrollToArticlesSection = false
@@ -103,8 +111,13 @@ final class SettingsViewController: UITableViewController {
 
 		openLinksInNetNewsWire.isOn = !AppDefaults.shared.useSystemBrowser
 
+		updateNotificationSwitches()
+
 		obsidianSyncSwitch.isOn = AppDefaults.shared.isObsidianSyncEnabled
+		obsidianSubfolderFeedTypeSwitch.isOn = AppDefaults.shared.obsidianSubfolderFeedType
+		obsidianSubfolderFeedNameSwitch.isOn = AppDefaults.shared.obsidianSubfolderFeedName
 		updateObsidianVaultLabel()
+		updateObsidianSubfolderPreview()
 
 		updateTTSVoiceLabel()
 
@@ -371,6 +384,32 @@ final class SettingsViewController: UITableViewController {
 		updateObsidianVaultLabel()
 	}
 
+	@IBAction func switchObsidianSubfolderFeedType(_ sender: Any) {
+		AppDefaults.shared.obsidianSubfolderFeedType = obsidianSubfolderFeedTypeSwitch.isOn
+		updateObsidianSubfolderPreview()
+	}
+
+	@IBAction func switchObsidianSubfolderFeedName(_ sender: Any) {
+		AppDefaults.shared.obsidianSubfolderFeedName = obsidianSubfolderFeedNameSwitch.isOn
+		updateObsidianSubfolderPreview()
+	}
+
+	@IBAction func switchNotifyFeeds(_ sender: Any) {
+		AppDefaults.shared.notifyFeeds = notifyFeedsSwitch.isOn
+	}
+
+	@IBAction func switchNotifyPodcasts(_ sender: Any) {
+		AppDefaults.shared.notifyPodcasts = notifyPodcastsSwitch.isOn
+	}
+
+	@IBAction func switchNotifyYouTube(_ sender: Any) {
+		AppDefaults.shared.notifyYouTube = notifyYouTubeSwitch.isOn
+	}
+
+	@IBAction func switchNotifyWeeklyNews(_ sender: Any) {
+		AppDefaults.shared.notifyWeeklyNews = notifyWeeklyNewsSwitch.isOn
+	}
+
 	// MARK: - Notifications
 
 	@objc func contentSizeCategoryDidChange() {
@@ -576,6 +615,55 @@ private extension SettingsViewController {
 		})
 
 		present(alert, animated: true)
+	}
+
+	func updateNotificationSwitches() {
+		UNUserNotificationCenter.current().getNotificationSettings { settings in
+			let authorized = settings.authorizationStatus == .authorized
+			DispatchQueue.main.async {
+
+				// Initialize defaults on first check if notifications are authorized
+				if authorized {
+					let store = AppDefaults.store
+					if store.object(forKey: AppDefaults.Key.notifyFeeds) == nil {
+						AppDefaults.shared.notifyFeeds = true
+					}
+					if store.object(forKey: AppDefaults.Key.notifyPodcasts) == nil {
+						AppDefaults.shared.notifyPodcasts = true
+					}
+					if store.object(forKey: AppDefaults.Key.notifyYouTube) == nil {
+						AppDefaults.shared.notifyYouTube = true
+					}
+					if store.object(forKey: AppDefaults.Key.notifyWeeklyNews) == nil {
+						AppDefaults.shared.notifyWeeklyNews = true
+					}
+				}
+
+				let switches = [
+					self.notifyFeedsSwitch,
+					self.notifyPodcastsSwitch,
+					self.notifyYouTubeSwitch,
+					self.notifyWeeklyNewsSwitch
+				]
+
+				let values = [
+					AppDefaults.shared.notifyFeeds,
+					AppDefaults.shared.notifyPodcasts,
+					AppDefaults.shared.notifyYouTube,
+					AppDefaults.shared.notifyWeeklyNews
+				]
+
+				for (toggle, value) in zip(switches, values) {
+					toggle?.isOn = authorized && value
+					toggle?.isEnabled = authorized
+					toggle?.alpha = authorized ? 1.0 : 0.5
+				}
+			}
+		}
+	}
+
+	func updateObsidianSubfolderPreview() {
+		obsidianSubfolderPreviewLabel.text = ObsidianFileManager.subfolderPreview()
 	}
 
 	func updateObsidianVaultLabel() {
