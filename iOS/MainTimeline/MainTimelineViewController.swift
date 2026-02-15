@@ -189,6 +189,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		refreshControl = UIRefreshControl()
 		refreshControl!.addTarget(self, action: #selector(refreshAccounts(_:)), for: .valueChanged)
 
+		// Swipe left on a row toggles read/unread instantly
+		let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeLeft(_:)))
+		swipeLeft.direction = .left
+		tableView.addGestureRecognizer(swipeLeft)
+
 		configureToolbar()
 		resetUI(resetScroll: true)
 
@@ -394,116 +399,15 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	// MARK: - Table view
 
 	override func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-		// No leading swipe action — let the default iOS back gesture work
-		return nil
+		return UISwipeActionsConfiguration(actions: [])
 	}
 
 	override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-		guard let article = dataSource.itemIdentifier(for: indexPath) else { return nil }
-
-		let action = UIContextualAction(style: .normal, title: nil) { [weak self] _, _, completion in
-			self?.coordinator?.toggleRead(article)
-			completion(true)
-		}
-
-		action.image = article.status.read ? Assets.Images.circleClosed : Assets.Images.circleOpen
-		action.backgroundColor = Assets.Colors.primaryAccent
-
-		let config = UISwipeActionsConfiguration(actions: [action])
-		config.performsFirstActionWithFullSwipe = true
-		return config
+		return UISwipeActionsConfiguration(actions: [])
 	}
 
 	override func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
-
-		guard let article = dataSource.itemIdentifier(for: indexPath) else { return nil }
-
-		return UIContextMenuConfiguration(identifier: indexPath.row as NSCopying, previewProvider: nil, actionProvider: { [weak self] _ in
-
-			guard let self = self else { return nil }
-
-			var menuElements = [UIMenuElement]()
-
-			var markActions = [UIAction]()
-			if let action = self.toggleArticleReadStatusAction(article) {
-				markActions.append(action)
-			}
-			markActions.append(self.toggleArticleStarStatusAction(article))
-			if let action = self.markAboveAsReadAction(article, indexPath: indexPath) {
-				markActions.append(action)
-			}
-			if let action = self.markBelowAsReadAction(article, indexPath: indexPath) {
-				markActions.append(action)
-			}
-			menuElements.append(UIMenu(title: "", options: .displayInline, children: markActions))
-
-			var secondaryActions = [UIAction]()
-			if let action = self.discloseFeedAction(article) {
-				secondaryActions.append(action)
-			}
-			if let action = self.markAllInFeedAsReadAction(article, indexPath: indexPath) {
-				secondaryActions.append(action)
-			}
-			if !secondaryActions.isEmpty {
-				menuElements.append(UIMenu(title: "", options: .displayInline, children: secondaryActions))
-			}
-
-			var copyActions = [UIAction]()
-			if let action = self.copyArticleURLAction(article) {
-				copyActions.append(action)
-			}
-			if let action = self.copyExternalURLAction(article) {
-				copyActions.append(action)
-			}
-			if !copyActions.isEmpty {
-				menuElements.append(UIMenu(title: "", options: .displayInline, children: copyActions))
-			}
-
-			if let action = self.openInBrowserAction(article) {
-				menuElements.append(UIMenu(title: "", options: .displayInline, children: [action]))
-			}
-
-			if let action = self.shareAction(article, indexPath: indexPath) {
-				menuElements.append(UIMenu(title: "", options: .displayInline, children: [action]))
-			}
-
-			return UIMenu(title: "", children: menuElements)
-
-		})
-
-	}
-
-	override func tableView(_ tableView: UITableView, previewForHighlightingContextMenuWithConfiguration configuration: UIContextMenuConfiguration) -> UITargetedPreview? {
-		guard let row = configuration.identifier as? Int,
-			let cell = tableView.cellForRow(at: IndexPath(row: row, section: 0)) else {
-				return nil
-		}
-
-		let previewView = cell.contentView
-		let inset: CGFloat = 12
-		let visibleBounds = previewView.bounds.insetBy(dx: inset, dy: 2)
-		let parameters = UIPreviewParameters()
-		parameters.backgroundColor = .clear
-		parameters.visiblePath = UIBezierPath(roundedRect: visibleBounds,
-											  cornerRadius: 20)
-		return UITargetedPreview(view: previewView, parameters: parameters)
-	}
-
-	override func tableView(_ tableView: UITableView, previewForDismissingContextMenuWithConfiguration configuration: UIContextMenuConfiguration) -> UITargetedPreview? {
-		guard let row = configuration.identifier as? Int,
-			  let cell = tableView.cellForRow(at: IndexPath(row: row, section: 0)), let _ = view.window else {
-				return nil
-		}
-
-		let previewView = cell.contentView
-		let inset: CGFloat = 0
-		let visibleBounds = previewView.bounds.insetBy(dx: inset, dy: 2)
-		let parameters = UIPreviewParameters()
-		parameters.backgroundColor = .clear
-		parameters.visiblePath = UIBezierPath(roundedRect: visibleBounds,
-											  cornerRadius: 20)
-
-		return UITargetedPreview(view: previewView, parameters: parameters)
+		return nil
 	}
 
 	override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -514,6 +418,17 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	override func scrollViewDidScroll(_ scrollView: UIScrollView) {
 		scrollPositionQueue.add(self, #selector(scrollPositionDidChange))
+	}
+
+	// MARK: Gestures
+
+	@objc func handleSwipeLeft(_ gesture: UISwipeGestureRecognizer) {
+		let point = gesture.location(in: tableView)
+		guard let indexPath = tableView.indexPathForRow(at: point),
+			  let article = dataSource.itemIdentifier(for: indexPath) else {
+			return
+		}
+		coordinator?.toggleRead(article)
 	}
 
 	// MARK: Notifications

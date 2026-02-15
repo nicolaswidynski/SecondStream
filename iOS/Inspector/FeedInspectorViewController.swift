@@ -31,7 +31,7 @@ final class FeedInspectorViewController: UITableViewController {
 	}
 
 	private let homePageIndexPath = IndexPath(row: 0, section: 1)
-	private let feedURLSectionIndex = 5
+	private let feedURLSectionIndex = 2
 
 	private var shouldHideHomePageSection: Bool {
 		return feed.homePageURL == nil

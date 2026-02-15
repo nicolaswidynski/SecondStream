@@ -586,7 +586,8 @@ static NSString *httpURLPrefix = @"http://";
 
 	if (!self.parsingArticle && RSSAXEqualTags(localName, kLink, kLinkLength)) {
 		[self addHomePageLink];
-		return;
+		// Don't return — fall through to beginStoringCharacters so that
+		// <link>text</link> content is captured for the end-element handler.
 	}
 
 	if (RSSAXEqualTags(localName, kFeed, kFeedLength)) {
