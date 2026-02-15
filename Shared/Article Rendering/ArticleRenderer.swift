@@ -254,13 +254,22 @@ private extension ArticleRenderer {
 			d["dateline_style"] = "articleDateline"
 		}
 
-		d["feed_link_title"] = article.feed?.nameForDisplay ?? ""
+		let feedName = article.feed?.nameForDisplay ?? ""
+		let feedLink = article.feed?.homePageURL ?? ""
+		d["feed_link_title"] = feedName
 
 		// News feeds: no clickable link on the feed title
-		if article.feed?.feedCategory == .news {
+		if article.feed?.feedCategory == .news || feedLink.isEmpty {
 			d["feed_link"] = ""
 		} else {
-			d["feed_link"] = article.feed?.homePageURL ?? ""
+			d["feed_link"] = feedLink
+		}
+
+		// Provide pre-rendered feed link HTML: linked or plain text
+		if !feedLink.isEmpty && article.feed?.feedCategory != .news {
+			d["feed_link_html"] = "<a class=\"feedlink\" href=\"\(feedLink.escapingSpecialXMLCharacters)\">\(feedName.escapingSpecialXMLCharacters)</a>"
+		} else {
+			d["feed_link_html"] = "<span class=\"feedlink\">\(feedName.escapingSpecialXMLCharacters)</span>"
 		}
 
 		d["byline"] = byline()

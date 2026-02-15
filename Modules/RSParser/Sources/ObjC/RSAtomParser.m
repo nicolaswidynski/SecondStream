@@ -686,6 +686,16 @@ static NSString *httpURLPrefix = @"http://";
 		}
 	}
 
+	else if (!self.parsingArticle && !self.parsingSource && RSSAXEqualTags(localName, kLink, kLinkLength)) {
+		// Handle <link>text</link> (text content) in addition to <link href="..." /> (attribute)
+		if (RSParserStringIsEmpty(self.homepageURLString)) {
+			NSString *linkText = [self currentString];
+			if (!RSParserStringIsEmpty(linkText)) {
+				self.homepageURLString = [self resolvedURLString:linkText];
+			}
+		}
+	}
+
 	else if (!self.parsingArticle && !self.parsingSource && RSSAXEqualTags(localName, kFeedURL, kFeedURLLength)) {
 		NSString *feedURL = [self currentString];
 		if (!RSParserStringIsEmpty(feedURL)) {

@@ -394,33 +394,24 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	// MARK: - Table view
 
 	override func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-		guard let article = dataSource.itemIdentifier(for: indexPath) else { return nil }
-		guard article.status.read, article.isAvailableToMarkUnread else { return nil }
-
-		let unreadAction = UIContextualAction(style: .normal, title: NSLocalizedString("Mark as Unread", comment: "Mark as Unread")) { [weak self] _, _, completion in
-			self?.coordinator?.toggleRead(article)
-			completion(true)
-		}
-
-		unreadAction.image = Assets.Images.circleClosed
-		unreadAction.backgroundColor = Assets.Colors.primaryAccent
-
-		return UISwipeActionsConfiguration(actions: [unreadAction])
+		// No leading swipe action — let the default iOS back gesture work
+		return nil
 	}
 
 	override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
 		guard let article = dataSource.itemIdentifier(for: indexPath) else { return nil }
-		guard !article.status.read else { return nil }
 
-		let readAction = UIContextualAction(style: .normal, title: NSLocalizedString("Mark as Read", comment: "Mark as Read")) { [weak self] _, _, completion in
-			self?.coordinator?.markAllAsRead([article])
+		let action = UIContextualAction(style: .normal, title: nil) { [weak self] _, _, completion in
+			self?.coordinator?.toggleRead(article)
 			completion(true)
 		}
 
-		readAction.image = Assets.Images.circleOpen
-		readAction.backgroundColor = Assets.Colors.primaryAccent
+		action.image = article.status.read ? Assets.Images.circleClosed : Assets.Images.circleOpen
+		action.backgroundColor = Assets.Colors.primaryAccent
 
-		return UISwipeActionsConfiguration(actions: [readAction])
+		let config = UISwipeActionsConfiguration(actions: [action])
+		config.performsFirstActionWithFullSwipe = true
+		return config
 	}
 
 	override func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
