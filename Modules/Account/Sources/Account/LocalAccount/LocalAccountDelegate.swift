@@ -90,6 +90,12 @@ import Secrets
 	}
 
 	@MainActor func removeFeed(account: Account, feed: Feed, container: Container) async throws {
+		if let feedURL = URL(string: feed.url) {
+			Downloader.shared.removeCache(for: feedURL)
+		}
+		if let homePageURL = feed.homePageURL, let url = URL(string: homePageURL) {
+			Downloader.shared.removeCache(for: url)
+		}
 		container.removeFeedFromTreeAtTopLevel(feed)
 	}
 

@@ -37,4 +37,8 @@ nonisolated final class DownloadCache: Sendable {
 		let cacheRecord = DownloadCacheRecord(data: data, response: response)
 		cache[urlString] = cacheRecord
 	}
+
+	public func remove(_ urlString: String) {
+		cache[urlString] = nil
+	}
 }

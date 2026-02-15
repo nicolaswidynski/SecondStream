@@ -42,6 +42,10 @@ public typealias DownloadCallback = @MainActor (Data?, URLResponse?, Error?) -> 
 		urlSession.invalidateAndCancel()
 	}
 
+	public func removeCache(for url: URL) {
+		cache.remove(url.absoluteString)
+	}
+
 	public func download(_ url: URL) async throws -> (Data?, URLResponse?) {
 		try await withCheckedThrowingContinuation { continuation in
 			download(url) { data, response, error in
