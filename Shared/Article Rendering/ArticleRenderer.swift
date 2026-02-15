@@ -255,7 +255,13 @@ private extension ArticleRenderer {
 		}
 
 		d["feed_link_title"] = article.feed?.nameForDisplay ?? ""
-		d["feed_link"] = article.feed?.homePageURL ?? ""
+
+		// News feeds: no clickable link on the feed title
+		if article.feed?.feedCategory == .news {
+			d["feed_link"] = ""
+		} else {
+			d["feed_link"] = article.feed?.homePageURL ?? ""
+		}
 
 		d["byline"] = byline()
 

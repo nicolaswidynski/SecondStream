@@ -317,7 +317,7 @@
                                     </tableViewCell>
                                 </cells>
                             </tableViewSection>
-                            <tableViewSection headerTitle="Feed URL" id="MtQ-oG-lrU">
+                            <tableViewSection headerTitle="URL" id="MtQ-oG-lrU">
                                 <cells>
                                     <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="none" indentationWidth="10" id="fKD-Vi-B8O">
                                         <rect key="frame" x="20" y="314" width="374" height="31"/>

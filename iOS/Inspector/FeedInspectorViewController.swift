@@ -31,9 +31,14 @@ final class FeedInspectorViewController: UITableViewController {
 	}
 
 	private let homePageIndexPath = IndexPath(row: 0, section: 1)
+	private let feedURLSectionIndex = 5
 
 	private var shouldHideHomePageSection: Bool {
 		return feed.homePageURL == nil
+	}
+
+	private var shouldHideFeedURLSection: Bool {
+		return feed.feedCategory == .news
 	}
 
 	private var authorizationStatus: UNAuthorizationStatus?
@@ -49,8 +54,13 @@ final class FeedInspectorViewController: UITableViewController {
 		alwaysShowReaderViewSwitch.setOn(feed.isArticleExtractorAlwaysOn ?? false, animated: false)
 
 		homePageLabel.text = feed.homePageURL
-		// Show the display feed URL (from <feed_url> tag) if available, otherwise the subscription URL
-		feedURLLabel.text = feed.displayFeedURL ?? feed.url
+
+		// For podcast/youtube, show the homePageURL (channel/show link); for RSS, show feed URL
+		if feed.feedCategory == .podcast || feed.feedCategory == .youtube {
+			feedURLLabel.text = feed.homePageURL ?? feed.url
+		} else {
+			feedURLLabel.text = feed.displayFeedURL ?? feed.url
+		}
 
 		obsidianSubfolderTextField.text = feed.obsidianSubfolder ?? ""
 		// Show the default subfolder path as placeholder (CategoryPrefix/FeedName)
@@ -130,10 +140,14 @@ final class FeedInspectorViewController: UITableViewController {
 	/// conditions that may require the tableView to be
 	/// displayed differently than what is setup in the storyboard.
 	private func shift(_ section: Int) -> Int {
-		if section >= homePageIndexPath.section && shouldHideHomePageSection {
-			return section + 1
+		var shifted = section
+		if shifted >= homePageIndexPath.section && shouldHideHomePageSection {
+			shifted += 1
 		}
-		return section
+		if shouldHideFeedURLSection && shifted >= feedURLSectionIndex {
+			shifted += 1
+		}
+		return shifted
 	}
 }
 
@@ -142,8 +156,10 @@ final class FeedInspectorViewController: UITableViewController {
 extension FeedInspectorViewController {
 
 	override func numberOfSections(in tableView: UITableView) -> Int {
-		let numberOfSections = super.numberOfSections(in: tableView)
-		return shouldHideHomePageSection ? numberOfSections - 1 : numberOfSections
+		var numberOfSections = super.numberOfSections(in: tableView)
+		if shouldHideHomePageSection { numberOfSections -= 1 }
+		if shouldHideFeedURLSection { numberOfSections -= 1 }
+		return numberOfSections
 	}
 
 	override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {

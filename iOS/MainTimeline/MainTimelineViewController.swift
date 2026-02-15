@@ -395,93 +395,32 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	override func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
 		guard let article = dataSource.itemIdentifier(for: indexPath) else { return nil }
-		guard !article.status.read || article.isAvailableToMarkUnread else { return nil }
+		guard article.status.read, article.isAvailableToMarkUnread else { return nil }
 
-		// Set up the read action
-		let readTitle = article.status.read ?
-			NSLocalizedString("Mark as Unread", comment: "Mark as Unread") :
-			NSLocalizedString("Mark as Read", comment: "Mark as Read")
-
-		let readAction = UIContextualAction(style: .normal, title: readTitle) { [weak self] _, _, completion in
-			self?.toggleRead(article)
+		let unreadAction = UIContextualAction(style: .normal, title: NSLocalizedString("Mark as Unread", comment: "Mark as Unread")) { [weak self] _, _, completion in
+			self?.coordinator?.toggleRead(article)
 			completion(true)
 		}
 
-		readAction.image = article.status.read ? Assets.Images.circleClosed : Assets.Images.circleOpen
-		readAction.backgroundColor = Assets.Colors.primaryAccent
+		unreadAction.image = Assets.Images.circleClosed
+		unreadAction.backgroundColor = Assets.Colors.primaryAccent
 
-		return UISwipeActionsConfiguration(actions: [readAction])
+		return UISwipeActionsConfiguration(actions: [unreadAction])
 	}
 
 	override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-
 		guard let article = dataSource.itemIdentifier(for: indexPath) else { return nil }
+		guard !article.status.read else { return nil }
 
-		// Set up the star action
-		let starTitle = article.status.starred ?
-			NSLocalizedString("Unstar", comment: "Unstar") :
-			NSLocalizedString("Star", comment: "Star")
-
-		let starAction = UIContextualAction(style: .normal, title: starTitle) { [weak self] _, _, completion in
-			self?.toggleStar(article)
+		let readAction = UIContextualAction(style: .normal, title: NSLocalizedString("Mark as Read", comment: "Mark as Read")) { [weak self] _, _, completion in
+			self?.coordinator?.markAllAsRead([article])
 			completion(true)
 		}
 
-		starAction.image = article.status.starred ? Assets.Images.starOpen : Assets.Images.starClosed
-		starAction.backgroundColor = Assets.Colors.star
+		readAction.image = Assets.Images.circleOpen
+		readAction.backgroundColor = Assets.Colors.primaryAccent
 
-		// Set up the read action
-		let moreTitle = NSLocalizedString("More", comment: "More")
-		let moreAction = UIContextualAction(style: .normal, title: moreTitle) { [weak self] (action, view, completion) in
-
-			if let self = self {
-
-				let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-				if let popoverController = alert.popoverPresentationController {
-					popoverController.sourceView = view
-					popoverController.sourceRect = CGRect(x: view.frame.size.width/2, y: view.frame.size.height/2, width: 1, height: 1)
-				}
-
-				if let action = self.markAboveAsReadAlertAction(article, indexPath: indexPath, completion: completion) {
-					alert.addAction(action)
-				}
-
-				if let action = self.markBelowAsReadAlertAction(article, indexPath: indexPath, completion: completion) {
-					alert.addAction(action)
-				}
-
-				if let action = self.discloseFeedAlertAction(article, completion: completion) {
-					alert.addAction(action)
-				}
-
-				if let action = self.markAllInFeedAsReadAlertAction(article, indexPath: indexPath, completion: completion) {
-					alert.addAction(action)
-				}
-
-				if let action = self.openInBrowserAlertAction(article, completion: completion) {
-					alert.addAction(action)
-				}
-
-				if let action = self.shareAlertAction(article, indexPath: indexPath, completion: completion) {
-					alert.addAction(action)
-				}
-
-				let cancelTitle = NSLocalizedString("Cancel", comment: "Cancel")
-				alert.addAction(UIAlertAction(title: cancelTitle, style: .cancel) { _ in
-					completion(true)
-				})
-
-				self.present(alert, animated: true)
-
-			}
-
-		}
-
-		moreAction.image = Assets.Images.more
-		moreAction.backgroundColor = UIColor.systemGray
-
-		return UISwipeActionsConfiguration(actions: [starAction, moreAction])
-
+		return UISwipeActionsConfiguration(actions: [readAction])
 	}
 
 	override func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
