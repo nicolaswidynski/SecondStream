@@ -23,7 +23,7 @@ final class NewsPickerViewController: UIViewController {
 	override func viewDidLoad() {
 		super.viewDidLoad()
 
-		title = NSLocalizedString("Add Topic", comment: "Add Topic")
+		title = NSLocalizedString("Add Weekly News", comment: "Add Weekly News")
 		view.backgroundColor = .systemBackground
 
 		navigationItem.leftBarButtonItem = UIBarButtonItem(

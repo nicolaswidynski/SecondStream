@@ -287,23 +287,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	@IBAction func markAllAsRead(_ sender: Any?) {
-		let title = NSLocalizedString("Mark All as Read", comment: "Mark All as Read")
-
-		if let source = sender as? UIBarButtonItem {
-			MarkAsReadAlertController.confirm(self, coordinator: coordinator, confirmTitle: title, sourceType: source) { [weak self] in
-				self?.markAllAsReadInTimeline()
-			}
-		}
-
-		if sender is UIKeyCommand {
-			guard let indexPath = tableView.indexPathForSelectedRow, let contentView = tableView.cellForRow(at: indexPath)?.contentView else {
-				return
-			}
-
-			MarkAsReadAlertController.confirm(self, coordinator: coordinator, confirmTitle: title, sourceType: contentView) { [weak self] in
-				self?.markAllAsReadInTimeline()
-			}
-		}
+		markAllAsReadInTimeline()
 	}
 
 	@IBAction func firstUnread(_ sender: Any) {
@@ -497,7 +481,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 			}
 
 			// Trigger at 25% of cell width
-			let threshold = cell.bounds.width * 0.25
+			let threshold = cell.bounds.width * 0.35
 			if -offset >= threshold && !swipePanTriggered {
 				swipePanTriggered = true
 				let generator = UIImpactFeedbackGenerator(style: .light)
@@ -511,7 +495,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 			}
 
 			let offset = translation.x
-			let threshold = cell.bounds.width * 0.25
+			let threshold = cell.bounds.width * 0.35
 
 			if -offset >= threshold || (velocity.x < -500 && -offset > 30) {
 				// Trigger the action
@@ -736,18 +720,8 @@ private extension MainTimelineViewController {
 	}
 
 	func resetUI(resetScroll: Bool) {
-		let shouldShowFilterButton = coordinator?.shouldShowFilterButton() ?? false
-		navigationItem.rightBarButtonItem = shouldShowFilterButton ? filterButton : nil
-
-		if isReadArticlesFiltered {
-			filterButton.style = .prominent
-			filterButton.tintColor = Assets.Colors.primaryAccent
-			filterButton.accLabelText = NSLocalizedString("Selected - Filter Read Articles", comment: "Selected - Filter Read Articles")
-		} else {
-			filterButton.style = .plain
-			filterButton.tintColor = nil
-			filterButton.accLabelText = NSLocalizedString("Filter Read Articles", comment: "Filter Read Articles")
-		}
+		navigationItem.hidesBackButton = true
+		navigationItem.rightBarButtonItem = nil
 
 		tableView.selectRow(at: nil, animated: false, scrollPosition: .top)
 

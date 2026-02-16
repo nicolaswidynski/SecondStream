@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import RSCore
 import Account
 import Articles
 
@@ -95,7 +96,23 @@ private extension IconImageCache {
 			faviconImageCache[feedID] = faviconImage
 			return faviconImage
 		}
-		return nil
+		return fallbackIconForCategory(feed.feedCategory)
+	}
+
+	func fallbackIconForCategory(_ category: FeedCategory) -> IconImage? {
+		let symbolName: String
+		switch category {
+		case .podcast:
+			symbolName = "podcast-symbol"
+		case .rss:
+			symbolName = "rss-symbol"
+		default:
+			return nil
+		}
+		guard let image = RSImage(named: symbolName) else {
+			return nil
+		}
+		return IconImage(image)
 	}
 
 	func imageForSmallIconProvider(_ provider: SmallIconProvider, _ feedID: SidebarItemIdentifier) -> IconImage? {

@@ -412,9 +412,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		config.trailingSwipeActionsConfigurationProvider = { [unowned self] indexPath in
 			if indexPath.section == 0 { return UISwipeActionsConfiguration(actions: []) }
-			var actions = [UIContextualAction]()
 
-			// Set up the delete action
 			let deleteTitle = NSLocalizedString("Delete", comment: "Delete")
 			let deleteAction = UIContextualAction(style: .destructive, title: nil) { [weak self] _, _, completion in
 				self?.delete(indexPath: indexPath)
@@ -423,69 +421,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			deleteAction.image = UIImage(systemName: "trash")
 			deleteAction.accessibilityLabel = deleteTitle
 			deleteAction.backgroundColor = UIColor.systemRed
-			actions.append(deleteAction)
 
-			// Set up the rename action
-			let renameTitle = NSLocalizedString("Rename", comment: "Rename")
-			let renameAction = UIContextualAction(style: .normal, title: nil) { [weak self] _, _, completion in
-				self?.rename(indexPath: indexPath)
-				completion(true)
-			}
-			renameAction.backgroundColor = UIColor.systemOrange
-			renameAction.image = UIImage(systemName: "pencil")
-			renameAction.accessibilityLabel = renameTitle
-			actions.append(renameAction)
-
-			if let feed = coordinator.nodeFor(indexPath)?.representedObject as? Feed {
-				let moreTitle = NSLocalizedString("More", comment: "More")
-				let moreAction = UIContextualAction(style: .normal, title: nil) { [weak self] (action, view, completion) in
-
-					if let self = self {
-
-						let alert = UIAlertController(title: feed.nameForDisplay, message: nil, preferredStyle: .actionSheet)
-						if let popoverController = alert.popoverPresentationController {
-							popoverController.sourceView = view
-							popoverController.sourceRect = CGRect(x: view.frame.size.width/2, y: view.frame.size.height/2, width: 1, height: 1)
-						}
-
-						if let action = self.getInfoAlertAction(indexPath: indexPath, completion: completion) {
-							alert.addAction(action)
-						}
-
-						if let action = self.homePageAlertAction(indexPath: indexPath, completion: completion) {
-							alert.addAction(action)
-						}
-
-						if let action = self.copyFeedPageAlertAction(indexPath: indexPath, completion: completion) {
-							alert.addAction(action)
-						}
-
-						if let action = self.copyHomePageAlertAction(indexPath: indexPath, completion: completion) {
-							alert.addAction(action)
-						}
-
-						if let action = self.markAllAsReadAlertAction(indexPath: indexPath, completion: completion) {
-							alert.addAction(action)
-						}
-
-						let cancelTitle = NSLocalizedString("Cancel", comment: "Cancel")
-						alert.addAction(UIAlertAction(title: cancelTitle, style: .cancel) { _ in
-							completion(true)
-						})
-
-						self.present(alert, animated: true)
-
-					}
-
-				}
-
-				moreAction.backgroundColor = UIColor.systemGray
-				moreAction.image = UIImage(systemName: "ellipsis")
-				moreAction.accessibilityLabel = moreTitle
-				actions.append(moreAction)
-			}
-
-			let config = UISwipeActionsConfiguration(actions: actions)
+			let config = UISwipeActionsConfiguration(actions: [deleteAction])
 			config.performsFirstActionWithFullSwipe = false
 
 			return config
@@ -2072,10 +2009,10 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 				message: NSLocalizedString("The specified topic could not be found.", comment: "Unknown topic message")
 			)
 
-		case .missingInput:
+		case .badParameters:
 			self.showYoutubeError(
-				title: NSLocalizedString("Missing Input", comment: "Missing Input"),
-				message: NSLocalizedString("Please provide a channel name or URL.", comment: "Missing input message")
+				title: NSLocalizedString("Bad Parameters", comment: "Bad Parameters"),
+				message: NSLocalizedString("The request contained invalid parameters.", comment: "Bad parameters message")
 			)
 
 		case .error(let message):
