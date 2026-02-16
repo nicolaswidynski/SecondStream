@@ -47,6 +47,8 @@ final class SettingsViewController: UITableViewController {
 	@IBOutlet var obsidianSubfolderPreviewLabel: UILabel!
 	@IBOutlet var ttsVoiceDetailLabel: UILabel!
 
+	private var notificationsAuthorized = false
+
 	var scrollToArticlesSection = false
 	weak var presentingParentController: UIViewController?
 
@@ -218,6 +220,13 @@ final class SettingsViewController: UITableViewController {
 
 		}
 
+		// Hide content of rows with 0 height
+		let isHiddenRow =
+			(indexPath.section == 0 && indexPath.row >= 1 && !notificationsAuthorized) ||
+			(indexPath.section == 7 && indexPath.row >= 1 && !obsidianSyncSwitch.isOn)
+		cell.clipsToBounds = isHiddenRow
+		cell.isHidden = isHiddenRow
+
 		return cell
 	}
 
@@ -314,6 +323,16 @@ final class SettingsViewController: UITableViewController {
 	}
 
 	override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+		// Section 0 (Notifications): hide rows 1-4 (notify toggles) when not authorized
+		if indexPath.section == 0 && indexPath.row >= 1 && !notificationsAuthorized {
+			return 0
+		}
+
+		// Section 7 (Obsidian): hide rows 1-4 (vault, subfolders, preview) when sync is off
+		if indexPath.section == 7 && indexPath.row >= 1 && !obsidianSyncSwitch.isOn {
+			return 0
+		}
+
 		return UITableView.automaticDimension
 	}
 
@@ -382,6 +401,8 @@ final class SettingsViewController: UITableViewController {
 	@IBAction func switchObsidianSync(_ sender: Any) {
 		AppDefaults.shared.isObsidianSyncEnabled = obsidianSyncSwitch.isOn
 		updateObsidianVaultLabel()
+		tableView.beginUpdates()
+		tableView.endUpdates()
 	}
 
 	@IBAction func switchObsidianSubfolderFeedType(_ sender: Any) {
@@ -621,6 +642,8 @@ private extension SettingsViewController {
 		UNUserNotificationCenter.current().getNotificationSettings { settings in
 			let authorized = settings.authorizationStatus == .authorized
 			DispatchQueue.main.async {
+				let previouslyAuthorized = self.notificationsAuthorized
+				self.notificationsAuthorized = authorized
 
 				// Initialize defaults on first check if notifications are authorized
 				if authorized {
@@ -657,6 +680,10 @@ private extension SettingsViewController {
 					toggle?.isOn = authorized && value
 					toggle?.isEnabled = authorized
 					toggle?.alpha = authorized ? 1.0 : 0.5
+				}
+
+				if previouslyAuthorized != authorized {
+					self.tableView.reloadData()
 				}
 			}
 		}
