@@ -415,7 +415,11 @@ a.footnote:hover,
 
 /* iOS Specific */
 @supports (-webkit-touch-callout: none) {
-	
+
+	.headerContainer {
+		display: none;
+	}
+
 	body {
 		margin-top: 3px;
 		margin-bottom: 20px;

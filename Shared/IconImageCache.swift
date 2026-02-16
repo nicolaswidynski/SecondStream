@@ -89,6 +89,9 @@ private extension IconImageCache {
 			feedIconImageCache[feedID] = iconImage
 			return iconImage
 		}
+		if let categoryIcon = fallbackIconForCategory(feed.feedCategory) {
+			return categoryIcon
+		}
 		if let faviconImage = faviconImageCache[feedID] {
 			return faviconImage
 		}
@@ -96,7 +99,7 @@ private extension IconImageCache {
 			faviconImageCache[feedID] = faviconImage
 			return faviconImage
 		}
-		return fallbackIconForCategory(feed.feedCategory)
+		return nil
 	}
 
 	func fallbackIconForCategory(_ category: FeedCategory) -> IconImage? {

@@ -20,7 +20,6 @@ final class ArticleViewController: UIViewController {
 		articleExtractorButtonState: ArticleExtractorButtonState,
 		windowScrollY: Int)
 
-	@IBOutlet private weak var nextUnreadBarButtonItem: UIBarButtonItem!
 	@IBOutlet private weak var prevArticleBarButtonItem: UIBarButtonItem!
 	@IBOutlet private weak var nextArticleBarButtonItem: UIBarButtonItem!
 	@IBOutlet private weak var readBarButtonItem: UIBarButtonItem!
@@ -32,6 +31,9 @@ final class ArticleViewController: UIViewController {
 	private var defaultControls: [UIBarButtonItem]?
 
 	private var pageViewController: UIPageViewController!
+	private var floatingHeaderView: UIView!
+	private var headerFeedNameLabel: UILabel!
+	private var headerFeedIconView: UIImageView!
 
 	private var currentWebViewController: WebViewController? {
 		return pageViewController?.viewControllers?.first as? WebViewController
@@ -88,18 +90,13 @@ final class ArticleViewController: UIViewController {
 		NotificationCenter.default.addObserver(self, selector: #selector(contentSizeCategoryDidChange(_:)), name: UIContentSizeCategory.didChangeNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground(_:)), name: UIApplication.willEnterForegroundNotification, object: nil)
 
-		let fullScreenTapZone = UIView()
-		NSLayoutConstraint.activate([
-			fullScreenTapZone.widthAnchor.constraint(equalToConstant: 150),
-			fullScreenTapZone.heightAnchor.constraint(equalToConstant: 44)
-		])
-		fullScreenTapZone.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(didTapNavigationBar)))
-		navigationItem.titleView = fullScreenTapZone
+		// Hide the navigation bar - we use a floating header instead
+		navigationController?.setNavigationBarHidden(true, animated: false)
 
-		// Add TTS button
+		// Add TTS button after share
 		ttsBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "speaker.wave.2"), style: .plain, target: self, action: #selector(ttsTapped))
 		if let ttsButton = ttsBarButtonItem {
-			toolbarItems?.insert(ttsButton, at: 6)
+			toolbarItems?.append(ttsButton)
 		}
 
 		if let parentNavController = navigationController?.parent as? UINavigationController {
@@ -110,6 +107,9 @@ final class ArticleViewController: UIViewController {
 		pageViewController = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal, options: [:])
 		pageViewController.delegate = self
 		pageViewController.dataSource = self
+
+		// Floating feed header
+		configureFloatingHeader()
 
 		pageViewController.view.translatesAutoresizingMaskIntoConstraints = false
 		view.addSubview(pageViewController.view)
@@ -126,9 +126,11 @@ final class ArticleViewController: UIViewController {
 		NSLayoutConstraint.activate([
 			view.leadingAnchor.constraint(equalTo: pageViewController.view.leadingAnchor),
 			view.trailingAnchor.constraint(equalTo: pageViewController.view.trailingAnchor),
-			view.topAnchor.constraint(equalTo: pageViewController.view.topAnchor),
+			floatingHeaderView.bottomAnchor.constraint(equalTo: pageViewController.view.topAnchor),
 			view.bottomAnchor.constraint(equalTo: pageViewController.view.bottomAnchor)
 		])
+
+		view.bringSubviewToFront(floatingHeaderView)
 
 		let controller: WebViewController
 		if let state = restoreState {
@@ -162,18 +164,12 @@ final class ArticleViewController: UIViewController {
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
-		let hideToolbars = AppDefaults.shared.logicalArticleFullscreenEnabled
-		if hideToolbars {
-			currentWebViewController?.hideBars()
-		} else {
-			currentWebViewController?.showBars()
-		}
 		super.viewWillAppear(animated)
+		navigationController?.setNavigationBarHidden(true, animated: false)
 	}
 
 	override func viewDidAppear(_ animated: Bool) {
 		super.viewDidAppear(true)
-		navigationController?.navigationBar.topItem?.subtitle = nil
 		coordinator.isArticleViewControllerPending = false
 		searchBar.shouldBeginEditing = true
 	}
@@ -200,9 +196,9 @@ final class ArticleViewController: UIViewController {
 	}
 
 	func updateUI() {
+		updateFloatingHeader()
 
 		guard let article = article else {
-			nextUnreadBarButtonItem.isEnabled = false
 			prevArticleBarButtonItem.isEnabled = false
 			nextArticleBarButtonItem.isEnabled = false
 			readBarButtonItem.isEnabled = false
@@ -212,7 +208,6 @@ final class ArticleViewController: UIViewController {
 			return
 		}
 
-		nextUnreadBarButtonItem.isEnabled = coordinator.isAnyUnreadAvailable
 		prevArticleBarButtonItem.isEnabled = coordinator.isPrevArticleAvailable
 		nextArticleBarButtonItem.isEnabled = coordinator.isNextArticleAvailable
 		readBarButtonItem.isEnabled = true
@@ -281,20 +276,12 @@ final class ArticleViewController: UIViewController {
 
 	// MARK: Actions
 
-	@objc func didTapNavigationBar() {
-		currentWebViewController?.hideBars()
-	}
-
 	@objc func showBars(_ sender: Any) {
 		currentWebViewController?.showBars()
 	}
 
 	@IBAction func toggleArticleExtractor(_ sender: Any) {
 		currentWebViewController?.toggleArticleExtractor()
-	}
-
-	@IBAction func nextUnread(_ sender: Any) {
-		coordinator.selectNextUnread()
 	}
 
 	@IBAction func prevArticle(_ sender: Any) {
@@ -528,4 +515,68 @@ private extension ArticleViewController {
 		return controller
 	}
 
+	func configureFloatingHeader() {
+		floatingHeaderView = UIView()
+		floatingHeaderView.translatesAutoresizingMaskIntoConstraints = false
+		floatingHeaderView.backgroundColor = .systemBackground
+
+		let separator = UIView()
+		separator.translatesAutoresizingMaskIntoConstraints = false
+		separator.backgroundColor = .separator
+		floatingHeaderView.addSubview(separator)
+
+		headerFeedNameLabel = UILabel()
+		headerFeedNameLabel.translatesAutoresizingMaskIntoConstraints = false
+		headerFeedNameLabel.font = UIFont.preferredFont(forTextStyle: .subheadline).bold()
+		headerFeedNameLabel.numberOfLines = 1
+		headerFeedNameLabel.lineBreakMode = .byTruncatingTail
+		floatingHeaderView.addSubview(headerFeedNameLabel)
+
+		headerFeedIconView = UIImageView()
+		headerFeedIconView.translatesAutoresizingMaskIntoConstraints = false
+		headerFeedIconView.contentMode = .scaleAspectFit
+		headerFeedIconView.clipsToBounds = true
+		headerFeedIconView.layer.cornerRadius = 4
+		floatingHeaderView.addSubview(headerFeedIconView)
+
+		view.addSubview(floatingHeaderView)
+
+		NSLayoutConstraint.activate([
+			floatingHeaderView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+			floatingHeaderView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+			floatingHeaderView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+			floatingHeaderView.heightAnchor.constraint(equalToConstant: 44),
+
+			headerFeedNameLabel.leadingAnchor.constraint(equalTo: floatingHeaderView.leadingAnchor, constant: 16),
+			headerFeedNameLabel.centerYAnchor.constraint(equalTo: floatingHeaderView.centerYAnchor),
+			headerFeedNameLabel.trailingAnchor.constraint(lessThanOrEqualTo: headerFeedIconView.leadingAnchor, constant: -8),
+
+			headerFeedIconView.trailingAnchor.constraint(equalTo: floatingHeaderView.trailingAnchor, constant: -16),
+			headerFeedIconView.centerYAnchor.constraint(equalTo: floatingHeaderView.centerYAnchor),
+			headerFeedIconView.widthAnchor.constraint(equalToConstant: 20),
+			headerFeedIconView.heightAnchor.constraint(equalToConstant: 20),
+
+			separator.leadingAnchor.constraint(equalTo: floatingHeaderView.leadingAnchor),
+			separator.trailingAnchor.constraint(equalTo: floatingHeaderView.trailingAnchor),
+			separator.bottomAnchor.constraint(equalTo: floatingHeaderView.bottomAnchor),
+			separator.heightAnchor.constraint(equalToConstant: 0.5),
+		])
+	}
+
+	func updateFloatingHeader() {
+		guard let feed = article?.feed else {
+			headerFeedNameLabel.text = nil
+			headerFeedIconView.image = nil
+			return
+		}
+
+		headerFeedNameLabel.text = feed.nameForDisplay
+
+		if let iconImage = IconImageCache.shared.imageForFeed(feed) {
+			headerFeedIconView.image = iconImage.image
+			headerFeedIconView.isHidden = false
+		} else {
+			headerFeedIconView.isHidden = true
+		}
+	}
 }

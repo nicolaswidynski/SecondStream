@@ -107,46 +107,59 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	private var navigationBarTitleView: UIView {
-		let container = UIStackView()
-		container.axis = .horizontal
-		container.alignment = .center
-		container.spacing = 6
+		let container = UIView()
+
+		let nameLabel = UILabel()
+		nameLabel.translatesAutoresizingMaskIntoConstraints = false
+		nameLabel.font = UIFont.preferredFont(forTextStyle: .subheadline).bold()
+		nameLabel.numberOfLines = 1
+		nameLabel.lineBreakMode = .byTruncatingTail
+		nameLabel.tag = 200
+		container.addSubview(nameLabel)
+
+		let updatedLabel = UILabel()
+		updatedLabel.translatesAutoresizingMaskIntoConstraints = false
+		updatedLabel.font = UIFont.preferredFont(forTextStyle: .caption1)
+		updatedLabel.textColor = .secondaryLabel
+		updatedLabel.numberOfLines = 1
+		updatedLabel.textAlignment = .center
+		updatedLabel.tag = 300
+		container.addSubview(updatedLabel)
 
 		let imageView = UIImageView()
+		imageView.translatesAutoresizingMaskIntoConstraints = false
 		imageView.contentMode = .scaleAspectFit
 		imageView.clipsToBounds = true
 		imageView.layer.cornerRadius = 4
 		imageView.tag = 100
-		NSLayoutConstraint.activate([
-			imageView.widthAnchor.constraint(equalToConstant: 20),
-			imageView.heightAnchor.constraint(equalToConstant: 20)
-		])
-		container.addArrangedSubview(imageView)
+		container.addSubview(imageView)
 
-		let label = UILabel()
-		label.font = UIFont.preferredFont(forTextStyle: .subheadline).bold()
-		label.numberOfLines = 1
-		label.textAlignment = .center
-		label.tag = 200
-		container.addArrangedSubview(label)
+		NSLayoutConstraint.activate([
+			nameLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+			nameLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+			nameLabel.trailingAnchor.constraint(lessThanOrEqualTo: updatedLabel.leadingAnchor, constant: -8),
+
+			updatedLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+			updatedLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+
+			imageView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+			imageView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+			imageView.widthAnchor.constraint(equalToConstant: 20),
+			imageView.heightAnchor.constraint(equalToConstant: 20),
+			imageView.leadingAnchor.constraint(greaterThanOrEqualTo: updatedLabel.trailingAnchor, constant: 8),
+		])
+
+		// Allow nameLabel to compress, let container expand to fill available space
+		nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+		updatedLabel.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+		imageView.setContentCompressionResistancePriority(.required, for: .horizontal)
+		container.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
 		container.isUserInteractionEnabled = true
 		let tap = UITapGestureRecognizer(target: self, action: #selector(showFeedInspector(_:)))
 		container.addGestureRecognizer(tap)
-		let pointerInteraction = UIPointerInteraction(delegate: nil)
-		container.addInteraction(pointerInteraction)
-		return container
-	}
 
-	private var navigationBarSubtitleTitleLabel: UILabel {
-		let label = UILabel()
-		label.font = UIFont(name: "Helvetica", size: 12)
-		label.textColor = .systemGray
-		label.textAlignment = .center
-		label.isUserInteractionEnabled = true
-		let tap = UITapGestureRecognizer(target: self, action: #selector(showFeedInspector(_:)))
-		label.addGestureRecognizer(tap)
-		return label
+		return container
 	}
 
 	override var canBecomeFirstResponder: Bool {
@@ -213,6 +226,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		pan.delegate = self
 		tableView.addGestureRecognizer(pan)
 
+		// Swipe right to go back to sidebar
+		let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeRight(_:)))
+		swipeRight.direction = .right
+		tableView.addGestureRecognizer(swipeRight)
+
 		configureToolbar()
 		resetUI(resetScroll: true)
 
@@ -230,7 +248,6 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		gesture.allowedScrollTypesMask = []
 
 		navigationItem.titleView = navigationBarTitleView
-		navigationItem.subtitleView = navigationBarSubtitleTitleLabel
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
@@ -332,6 +349,10 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		coordinator?.showBrowserForCurrentFeed()
 	}
 
+	@objc func handleSwipeRight(_ sender: UISwipeGestureRecognizer) {
+		coordinator?.navigateToFeeds()
+	}
+
 	// MARK: API
 
 	func restoreSelectionIfNecessary(adjustScroll: Bool) {
@@ -345,32 +366,33 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	func updateNavigationBarTitle(_ text: String) {
-		if let stackView = navigationItem.titleView as? UIStackView {
-			let isPseudoFeed = (coordinator?.timelineFeed as? PseudoFeed) != nil
-			stackView.isUserInteractionEnabled = !isPseudoFeed
+		guard let titleView = navigationItem.titleView else {
+			return
+		}
+		let isPseudoFeed = (coordinator?.timelineFeed as? PseudoFeed) != nil
+		titleView.isUserInteractionEnabled = !isPseudoFeed
 
-			if let imageView = stackView.viewWithTag(100) as? UIImageView {
-				if let feed = coordinator?.timelineFeed as? Feed,
-				   let iconImage = IconImageCache.shared.imageForFeed(feed) {
-					imageView.image = iconImage.image
-					imageView.isHidden = false
-				} else {
-					imageView.isHidden = true
-				}
+		if let imageView = titleView.viewWithTag(100) as? UIImageView {
+			if let feed = coordinator?.timelineFeed as? Feed,
+			   let iconImage = IconImageCache.shared.imageForFeed(feed) {
+				imageView.image = iconImage.image
+				imageView.isHidden = false
+			} else {
+				imageView.isHidden = true
 			}
+		}
 
-			if let label = stackView.viewWithTag(200) as? UILabel {
-				label.text = text
-				label.sizeToFit()
-			}
+		if let label = titleView.viewWithTag(200) as? UILabel {
+			label.text = text
 		}
 	}
 
 	func updateNavigationBarSubtitle(_ text: String) {
-		if let label = navigationItem.subtitleView as? UILabel {
+		guard let titleView = navigationItem.titleView else {
+			return
+		}
+		if let label = titleView.viewWithTag(300) as? UILabel {
 			label.text = text
-			label.isUserInteractionEnabled = ((coordinator?.timelineFeed as? PseudoFeed) == nil)
-			label.sizeToFit()
 		}
 	}
 
