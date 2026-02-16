@@ -2060,6 +2060,24 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 				message: NSLocalizedString("The YouTube channel RSS feed could not be found.", comment: "YouTube RSS not found message")
 			)
 
+		case .illegalName:
+			self.showYoutubeError(
+				title: NSLocalizedString("Invalid Name", comment: "Invalid Name"),
+				message: NSLocalizedString("The channel name is not valid.", comment: "Illegal name message")
+			)
+
+		case .unknownTopic:
+			self.showYoutubeError(
+				title: NSLocalizedString("Unknown Topic", comment: "Unknown Topic"),
+				message: NSLocalizedString("The specified topic could not be found.", comment: "Unknown topic message")
+			)
+
+		case .missingInput:
+			self.showYoutubeError(
+				title: NSLocalizedString("Missing Input", comment: "Missing Input"),
+				message: NSLocalizedString("Please provide a channel name or URL.", comment: "Missing input message")
+			)
+
 		case .error(let message):
 			self.showYoutubeError(
 				title: NSLocalizedString("Error", comment: "Error"),

@@ -25,6 +25,9 @@ enum AddYoutubeResult {
 	case badMessage                           // 554 - Neither channel nor url set
 	case badChannel                           // 555 - Channel not found
 	case youtubeRSSNotFound                   // 556 - YouTube channel RSS not found
+	case illegalName                          // 557 - Illegal show name
+	case unknownTopic                         // 558 - Unknown topic
+	case missingInput                         // 559 - No name or URL provided
 	case error(String)
 }
 
@@ -278,6 +281,18 @@ enum AddYoutubeResult {
 			case 556:
 				Self.logger.error("YouTube channel RSS not found")
 				return .youtubeRSSNotFound
+
+			case 557:
+				Self.logger.error("Illegal show name")
+				return .illegalName
+
+			case 558:
+				Self.logger.error("Unknown topic")
+				return .unknownTopic
+
+			case 559:
+				Self.logger.error("No name or URL provided")
+				return .missingInput
 
 			default:
 				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
