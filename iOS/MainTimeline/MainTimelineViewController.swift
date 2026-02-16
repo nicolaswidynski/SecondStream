@@ -298,13 +298,28 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		coordinator?.toggleReadArticlesFilter()
 	}
 
-	private func markAllAsReadInTimeline() {
-		assert(coordinator != nil)
-		coordinator?.markAllAsReadInTimeline()
-	}
-
 	@IBAction func markAllAsRead(_ sender: Any?) {
-		markAllAsReadInTimeline()
+		let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+
+		if let popoverController = alert.popoverPresentationController,
+		   let barButtonItem = sender as? UIBarButtonItem {
+			popoverController.barButtonItem = barButtonItem
+		}
+
+		let markReadTitle = NSLocalizedString("Mark All as Read", comment: "Mark All as Read")
+		alert.addAction(UIAlertAction(title: markReadTitle, style: .default) { [weak self] _ in
+			self?.coordinator?.markAllAsReadInTimeline()
+		})
+
+		let markUnreadTitle = NSLocalizedString("Mark All as Unread", comment: "Mark All as Unread")
+		alert.addAction(UIAlertAction(title: markUnreadTitle, style: .default) { [weak self] _ in
+			self?.coordinator?.markAllAsUnreadInTimeline()
+		})
+
+		let cancelTitle = NSLocalizedString("Cancel", comment: "Cancel")
+		alert.addAction(UIAlertAction(title: cancelTitle, style: .cancel))
+
+		present(alert, animated: true)
 	}
 
 	@IBAction func firstUnread(_ sender: Any) {
