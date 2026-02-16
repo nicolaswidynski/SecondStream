@@ -168,21 +168,31 @@ enum AddYoutubeResult {
 		}
 	}
 
-	/// Adds a YouTube channel by sending the channel URL to the webhook.
+	/// Adds a YouTube channel by extracting the channel name from a URL.
 	/// Returns the summary feed URL on success.
 	func addYoutubeByURL(_ youtubeURL: String) async -> AddYoutubeResult {
-		return await sendAddYoutubeRequest(link: youtubeURL, show: nil)
+		let channelName = extractChannelName(from: youtubeURL)
+		return await sendAddYoutubeRequest(show: channelName)
 	}
 
-	/// Adds a YouTube channel by sending the channel name (must start with @) to the webhook.
+	/// Adds a YouTube channel by sending the channel name to the webhook.
 	/// Returns the summary feed URL on success.
 	func addYoutubeByChannelName(_ channelName: String) async -> AddYoutubeResult {
-		// Ensure channel name starts with @
-		let normalizedName = channelName.hasPrefix("@") ? channelName : "@\(channelName)"
-		return await sendAddYoutubeRequest(link: nil, show: normalizedName)
+		let name = channelName.replacingOccurrences(of: "@", with: "")
+		return await sendAddYoutubeRequest(show: name)
 	}
 
-	private func sendAddYoutubeRequest(link: String?, show: String?) async -> AddYoutubeResult {
+	/// Extracts the channel name from a YouTube URL, stripping any leading @.
+	private func extractChannelName(from urlString: String) -> String {
+		guard let url = URL(string: urlString),
+			  let lastComponent = url.pathComponents.last,
+			  lastComponent != "/" else {
+			return urlString.replacingOccurrences(of: "@", with: "")
+		}
+		return lastComponent.replacingOccurrences(of: "@", with: "")
+	}
+
+	private func sendAddYoutubeRequest(show: String) async -> AddYoutubeResult {
 		guard let token = bearerToken else {
 			Self.logger.error("No bearer token available")
 			return .error("No authentication token")
@@ -193,11 +203,10 @@ enum AddYoutubeResult {
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-		// Build body with type, show, and link (use empty strings for nil values)
 		let body: [String: String] = [
 			"type": "yt",
-			"show": show ?? "",
-			"link": link ?? ""
+			"show": show,
+			"link": ""
 		]
 
 		do {
