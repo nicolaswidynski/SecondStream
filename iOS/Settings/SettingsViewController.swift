@@ -153,6 +153,18 @@ final class SettingsViewController: UITableViewController {
 	// Hidden sections: 1 = Accounts, 2 = Feeds, 3 = Timeline, 4 = Articles
 	private let hiddenSections: Set<Int> = [1, 2, 3, 4]
 
+	/// Returns whether sub-options should be hidden for a section
+	private func shouldHideSubOptions(for section: Int) -> Bool {
+		switch section {
+		case 0:
+			return !notificationsAuthorized
+		case 7:
+			return !obsidianSyncSwitch.isOn
+		default:
+			return false
+		}
+	}
+
 	override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
 		// Hide specified sections
 		if hiddenSections.contains(section) {
@@ -160,10 +172,16 @@ final class SettingsViewController: UITableViewController {
 		}
 
 		switch section {
+		case 0:
+			// Section 0: row 0 = Open System Settings, rows 1-4 = notify toggles
+			return shouldHideSubOptions(for: 0) ? 1 : super.tableView(tableView, numberOfRowsInSection: section)
 		case 1:
 			return AccountManager.shared.accounts.count + 1
 		case 4:
 			return traitCollection.userInterfaceIdiom == .phone ? 5 : 4
+		case 7:
+			// Section 7: row 0 = sync toggle, rows 1-4 = vault/subfolder/preview
+			return shouldHideSubOptions(for: 7) ? 1 : super.tableView(tableView, numberOfRowsInSection: section)
 		default:
 			return super.tableView(tableView, numberOfRowsInSection: section)
 		}
@@ -219,13 +237,6 @@ final class SettingsViewController: UITableViewController {
 			cell = super.tableView(tableView, cellForRowAt: indexPath)
 
 		}
-
-		// Hide content of rows with 0 height
-		let isHiddenRow =
-			(indexPath.section == 0 && indexPath.row >= 1 && !notificationsAuthorized) ||
-			(indexPath.section == 7 && indexPath.row >= 1 && !obsidianSyncSwitch.isOn)
-		cell.clipsToBounds = isHiddenRow
-		cell.isHidden = isHiddenRow
 
 		return cell
 	}
@@ -323,16 +334,6 @@ final class SettingsViewController: UITableViewController {
 	}
 
 	override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-		// Section 0 (Notifications): hide rows 1-4 (notify toggles) when not authorized
-		if indexPath.section == 0 && indexPath.row >= 1 && !notificationsAuthorized {
-			return 0
-		}
-
-		// Section 7 (Obsidian): hide rows 1-4 (vault, subfolders, preview) when sync is off
-		if indexPath.section == 7 && indexPath.row >= 1 && !obsidianSyncSwitch.isOn {
-			return 0
-		}
-
 		return UITableView.automaticDimension
 	}
 
@@ -401,8 +402,7 @@ final class SettingsViewController: UITableViewController {
 	@IBAction func switchObsidianSync(_ sender: Any) {
 		AppDefaults.shared.isObsidianSyncEnabled = obsidianSyncSwitch.isOn
 		updateObsidianVaultLabel()
-		tableView.beginUpdates()
-		tableView.endUpdates()
+		tableView.reloadSections(IndexSet(integer: 7), with: .automatic)
 	}
 
 	@IBAction func switchObsidianSubfolderFeedType(_ sender: Any) {
