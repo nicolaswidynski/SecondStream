@@ -114,34 +114,36 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		// Create action buttons
 		let rssButton = createActionButton(
-			systemName: "dot.radiowaves.left.and.right",
+			iconName: "rss-symbol",
 			accessibilityLabel: NSLocalizedString("Add RSS Feed", comment: "Add RSS Feed"),
+			fallbackSystemName: "dot.radiowaves.left.and.right",
 			action: #selector(addRSSFeed)
 		)
 
 		let podcastButton = createActionButton(
-			systemName: "mic.fill",
+			iconName: "podcast-symbol",
 			accessibilityLabel: NSLocalizedString("Add Podcast", comment: "Add Podcast"),
+			fallbackSystemName: "mic.fill",
 			action: #selector(addPodcast)
 		)
 
 		let youtubeButton = createActionButton(
-			systemName: "play.rectangle",
+			iconName: "play.rectangle",
 			accessibilityLabel: NSLocalizedString("Add YouTube Channel", comment: "Add YouTube Channel"),
 			action: #selector(addYoutube)
 		)
 
 		let newsButton = createActionButton(
-			systemName: "newspaper",
+			iconName: "newspaper",
 			accessibilityLabel: NSLocalizedString("Add News", comment: "Add News"),
 			action: #selector(addNews)
 		)
 
 		// Add buttons to stack
-		actionButtonsStack.addArrangedSubview(rssButton)
 		actionButtonsStack.addArrangedSubview(podcastButton)
 		actionButtonsStack.addArrangedSubview(youtubeButton)
 		actionButtonsStack.addArrangedSubview(newsButton)
+		actionButtonsStack.addArrangedSubview(rssButton)
 
 		// Add stack to the content view of the visual effect view
 		bottomActionBar.contentView.addSubview(actionButtonsStack)
@@ -163,10 +165,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		collectionView.contentInset.bottom = 80
 	}
 
-	private func createActionButton(systemName: String, accessibilityLabel: String, action: Selector) -> UIButton {
+	private func createActionButton(iconName: String, accessibilityLabel: String, fallbackSystemName: String? = nil, action: Selector) -> UIButton {
 		let button = UIButton(type: .system)
 		let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
-		button.setImage(UIImage(systemName: systemName, withConfiguration: config), for: .normal)
+		let image = RSImage(named: iconName)?
+			.applyingSymbolConfiguration(config)
+			?? UIImage(systemName: fallbackSystemName ?? iconName, withConfiguration: config)
+		button.setImage(image, for: .normal)
 		button.tintColor = .label
 		button.accessibilityLabel = accessibilityLabel
 		button.addTarget(self, action: action, for: .touchUpInside)
@@ -1804,8 +1809,13 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 
 	func youtubePicker(_ picker: YoutubePickerViewController, didSelectChannel source: YoutubeSource) {
 		picker.dismiss(animated: true) {
-			// Call the add-source webhook like podcasts do
-			self.addYoutubeByURL(source.url)
+			let channelName = source.name.trimmingCharacters(in: .whitespacesAndNewlines)
+			if !channelName.isEmpty {
+				// Top picks should send the channel name in the webhook "show" field.
+				self.addYoutubeByChannelName(channelName)
+			} else {
+				self.addYoutubeByURL(source.url)
+			}
 		}
 	}
 
@@ -2149,4 +2159,3 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 		present(alert, animated: true)
 	}
 }
-

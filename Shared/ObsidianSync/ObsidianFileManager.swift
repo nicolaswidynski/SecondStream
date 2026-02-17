@@ -115,7 +115,7 @@ enum ObsidianFileManagerError: LocalizedError {
 	static func getDefaultSubfolderPrefix(for feed: Feed) -> String {
 		switch feed.feedCategory {
 		case .rss:
-			return "Feeds"
+			return "RSS Feeds"
 		case .podcast:
 			return "Podcasts"
 		case .youtube:

@@ -39,7 +39,7 @@ enum FeedSectionIdentifier: String {
 		case .smartFeeds:
 			return NSLocalizedString("Smart Feeds", comment: "Smart Feeds section")
 		case .rssFeeds:
-			return NSLocalizedString("My Feeds", comment: "My Feeds section")
+			return NSLocalizedString("My RSS Feeds", comment: "My RSS Feeds section")
 		case .podcasts:
 			return NSLocalizedString("My Podcasts", comment: "My Podcasts section")
 		case .youtube:
@@ -1516,7 +1516,7 @@ struct SidebarItemNode: Hashable, Sendable {
 
 	func navigateToFeeds() {
 		mainFeedCollectionViewController?.focus()
-		selectArticle(nil)
+		selectFeed(nil, animations: [.navigation], deselectArticle: true)
 	}
 
 	func navigateToTimeline() {
@@ -1813,13 +1813,6 @@ private extension SceneCoordinator {
 		}
 
 		// Add category sections only if they have content
-		if !rssFeedNodes.isEmpty {
-			snapshot.appendSections([FeedSectionIdentifier.rssFeeds.rawValue])
-			if isCategorySectionExpanded(.rssFeeds) {
-				snapshot.appendItems(rssFeedNodes, toSection: FeedSectionIdentifier.rssFeeds.rawValue)
-			}
-		}
-
 		if !podcastNodes.isEmpty {
 			snapshot.appendSections([FeedSectionIdentifier.podcasts.rawValue])
 			if isCategorySectionExpanded(.podcasts) {
@@ -1838,6 +1831,13 @@ private extension SceneCoordinator {
 			snapshot.appendSections([FeedSectionIdentifier.news.rawValue])
 			if isCategorySectionExpanded(.news) {
 				snapshot.appendItems(newsNodes, toSection: FeedSectionIdentifier.news.rawValue)
+			}
+		}
+
+		if !rssFeedNodes.isEmpty {
+			snapshot.appendSections([FeedSectionIdentifier.rssFeeds.rawValue])
+			if isCategorySectionExpanded(.rssFeeds) {
+				snapshot.appendItems(rssFeedNodes, toSection: FeedSectionIdentifier.rssFeeds.rawValue)
 			}
 		}
 

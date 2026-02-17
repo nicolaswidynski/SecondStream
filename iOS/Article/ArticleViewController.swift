@@ -31,9 +31,8 @@ final class ArticleViewController: UIViewController {
 	private var defaultControls: [UIBarButtonItem]?
 
 	private var pageViewController: UIPageViewController!
-	private var floatingHeaderView: UIView!
-	private var headerFeedNameLabel: UILabel!
-	private var headerFeedIconView: UIImageView!
+	private var previousBackIndicatorImage: UIImage?
+	private var previousBackIndicatorTransitionMaskImage: UIImage?
 
 	private var currentWebViewController: WebViewController? {
 		return pageViewController?.viewControllers?.first as? WebViewController
@@ -42,8 +41,6 @@ final class ArticleViewController: UIViewController {
 	private var ttsBarButtonItem: UIBarButtonItem?
 
 	weak var coordinator: SceneCoordinator!
-
-	private let poppableDelegate = PoppableGestureRecognizerDelegate()
 
 	var article: Article? {
 		didSet {
@@ -90,47 +87,33 @@ final class ArticleViewController: UIViewController {
 		NotificationCenter.default.addObserver(self, selector: #selector(contentSizeCategoryDidChange(_:)), name: UIContentSizeCategory.didChangeNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground(_:)), name: UIApplication.willEnterForegroundNotification, object: nil)
 
-		// Hide the navigation bar - we use a floating header instead
-		navigationController?.setNavigationBarHidden(true, animated: false)
+		navigationItem.titleView = FeedNavigationChrome.makeTitleView(target: self, action: #selector(showCurrentFeedHomepage(_:)))
+		navigationItem.rightBarButtonItems = nil
 
 		// Add TTS button after share
 		ttsBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "speaker.wave.2"), style: .plain, target: self, action: #selector(ttsTapped))
 		if let ttsButton = ttsBarButtonItem {
 			toolbarItems?.append(ttsButton)
 		}
-
-		if let parentNavController = navigationController?.parent as? UINavigationController {
-			poppableDelegate.navigationController = parentNavController
-			parentNavController.interactivePopGestureRecognizer?.delegate = poppableDelegate
-		}
+		configureToolbarAsSingleBlock()
 
 		pageViewController = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal, options: [:])
 		pageViewController.delegate = self
 		pageViewController.dataSource = self
 
-		// Floating feed header
-		configureFloatingHeader()
-
 		pageViewController.view.translatesAutoresizingMaskIntoConstraints = false
 		view.addSubview(pageViewController.view)
 		addChild(pageViewController!)
 
-		let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeRight(_:)))
-		swipeRight.direction = .right
-		pageViewController.view.addGestureRecognizer(swipeRight)
+		// Article paging is disabled; avoid horizontal pan conflicts with native back-swipe.
+		pageViewController.scrollViewInsidePageControl?.isScrollEnabled = false
 
-		// Disable the page view controller's internal scroll view so it doesn't consume swipes
-		if let scrollView = pageViewController.scrollViewInsidePageControl {
-			scrollView.isScrollEnabled = false
-		}
 		NSLayoutConstraint.activate([
 			view.leadingAnchor.constraint(equalTo: pageViewController.view.leadingAnchor),
 			view.trailingAnchor.constraint(equalTo: pageViewController.view.trailingAnchor),
-			floatingHeaderView.bottomAnchor.constraint(equalTo: pageViewController.view.topAnchor),
+			view.topAnchor.constraint(equalTo: pageViewController.view.topAnchor),
 			view.bottomAnchor.constraint(equalTo: pageViewController.view.bottomAnchor)
 		])
-
-		view.bringSubviewToFront(floatingHeaderView)
 
 		let controller: WebViewController
 		if let state = restoreState {
@@ -164,18 +147,28 @@ final class ArticleViewController: UIViewController {
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
+		let hideToolbars = AppDefaults.shared.logicalArticleFullscreenEnabled
+		if hideToolbars {
+			currentWebViewController?.hideBars()
+		} else {
+			currentWebViewController?.showBars()
+		}
+		navigationController?.setNavigationBarHidden(false, animated: false)
+		navigationItem.rightBarButtonItems = nil
+		applyFeedBackIndicatorImage()
 		super.viewWillAppear(animated)
-		navigationController?.setNavigationBarHidden(true, animated: false)
 	}
 
 	override func viewDidAppear(_ animated: Bool) {
 		super.viewDidAppear(true)
+		navigationController?.navigationBar.topItem?.subtitle = nil
 		coordinator.isArticleViewControllerPending = false
 		searchBar.shouldBeginEditing = true
 	}
 
 	override func viewWillDisappear(_ animated: Bool) {
 		super.viewWillDisappear(animated)
+		restoreBackIndicatorImage()
 		if searchBar != nil && !searchBar.isHidden {
 			endFind()
 			searchBar.shouldBeginEditing = false
@@ -196,7 +189,7 @@ final class ArticleViewController: UIViewController {
 	}
 
 	func updateUI() {
-		updateFloatingHeader()
+		updateNavigationHeader()
 
 		guard let article = article else {
 			prevArticleBarButtonItem.isEnabled = false
@@ -280,6 +273,10 @@ final class ArticleViewController: UIViewController {
 		currentWebViewController?.showBars()
 	}
 
+	@objc func showCurrentFeedHomepage(_ sender: Any?) {
+		coordinator?.showBrowserForCurrentFeed()
+	}
+
 	@IBAction func toggleArticleExtractor(_ sender: Any) {
 		currentWebViewController?.toggleArticleExtractor()
 	}
@@ -327,10 +324,6 @@ final class ArticleViewController: UIViewController {
 	}
 
 	// MARK: Keyboard Shortcuts
-
-	@objc func handleSwipeRight(_ sender: UISwipeGestureRecognizer) {
-		coordinator.selectArticle(nil, animations: [.navigation])
-	}
 
 	@objc func navigateToTimeline(_ sender: Any?) {
 		coordinator.navigateToTimeline()
@@ -485,27 +478,28 @@ extension ArticleViewController: UIPageViewControllerDelegate {
 	}
 }
 
-// MARK: UIGestureRecognizerDelegate
-
-extension ArticleViewController: UIGestureRecognizerDelegate {
-
-    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        return true
-    }
-
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-		let point = gestureRecognizer.location(in: nil)
-		if point.x > 40 {
-			return true
-		}
-		return false
-    }
-
-}
-
 // MARK: Private
 
 private extension ArticleViewController {
+
+	func configureToolbarAsSingleBlock() {
+		guard let ttsBarButtonItem else {
+			return
+		}
+
+		let items: [UIBarButtonItem] = [
+			.flexibleSpace(),
+			readBarButtonItem,
+			starBarButtonItem,
+			prevArticleBarButtonItem,
+			nextArticleBarButtonItem,
+			actionBarButtonItem,
+			ttsBarButtonItem,
+			.flexibleSpace()
+		]
+
+		setToolbarItems(items, animated: false)
+	}
 
 	func createWebViewController(_ article: Article?, updateView: Bool = true) -> WebViewController {
 		let controller = WebViewController()
@@ -515,68 +509,38 @@ private extension ArticleViewController {
 		return controller
 	}
 
-	func configureFloatingHeader() {
-		floatingHeaderView = UIView()
-		floatingHeaderView.translatesAutoresizingMaskIntoConstraints = false
-		floatingHeaderView.backgroundColor = .systemBackground
-
-		let separator = UIView()
-		separator.translatesAutoresizingMaskIntoConstraints = false
-		separator.backgroundColor = .separator
-		floatingHeaderView.addSubview(separator)
-
-		headerFeedNameLabel = UILabel()
-		headerFeedNameLabel.translatesAutoresizingMaskIntoConstraints = false
-		headerFeedNameLabel.font = UIFont.preferredFont(forTextStyle: .subheadline).bold()
-		headerFeedNameLabel.numberOfLines = 1
-		headerFeedNameLabel.lineBreakMode = .byTruncatingTail
-		floatingHeaderView.addSubview(headerFeedNameLabel)
-
-		headerFeedIconView = UIImageView()
-		headerFeedIconView.translatesAutoresizingMaskIntoConstraints = false
-		headerFeedIconView.contentMode = .scaleAspectFit
-		headerFeedIconView.clipsToBounds = true
-		headerFeedIconView.layer.cornerRadius = 4
-		floatingHeaderView.addSubview(headerFeedIconView)
-
-		view.addSubview(floatingHeaderView)
-
-		NSLayoutConstraint.activate([
-			floatingHeaderView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-			floatingHeaderView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-			floatingHeaderView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-			floatingHeaderView.heightAnchor.constraint(equalToConstant: 44),
-
-			headerFeedNameLabel.leadingAnchor.constraint(equalTo: floatingHeaderView.leadingAnchor, constant: 16),
-			headerFeedNameLabel.centerYAnchor.constraint(equalTo: floatingHeaderView.centerYAnchor),
-			headerFeedNameLabel.trailingAnchor.constraint(lessThanOrEqualTo: headerFeedIconView.leadingAnchor, constant: -8),
-
-			headerFeedIconView.trailingAnchor.constraint(equalTo: floatingHeaderView.trailingAnchor, constant: -16),
-			headerFeedIconView.centerYAnchor.constraint(equalTo: floatingHeaderView.centerYAnchor),
-			headerFeedIconView.widthAnchor.constraint(equalToConstant: 20),
-			headerFeedIconView.heightAnchor.constraint(equalToConstant: 20),
-
-			separator.leadingAnchor.constraint(equalTo: floatingHeaderView.leadingAnchor),
-			separator.trailingAnchor.constraint(equalTo: floatingHeaderView.trailingAnchor),
-			separator.bottomAnchor.constraint(equalTo: floatingHeaderView.bottomAnchor),
-			separator.heightAnchor.constraint(equalToConstant: 0.5),
-		])
+	func updateNavigationHeader() {
+		let feed = article?.feed
+		let title = feed?.nameForDisplay
+		FeedNavigationChrome.setTitle(title, in: navigationItem.titleView)
+		FeedNavigationChrome.setSubtitle(nil, in: navigationItem.titleView)
 	}
 
-	func updateFloatingHeader() {
-		guard let feed = article?.feed else {
-			headerFeedNameLabel.text = nil
-			headerFeedIconView.image = nil
+	func applyFeedBackIndicatorImage() {
+		guard let navigationBar = activeNavigationController()?.navigationBar else {
 			return
 		}
-
-		headerFeedNameLabel.text = feed.nameForDisplay
-
-		if let iconImage = IconImageCache.shared.imageForFeed(feed) {
-			headerFeedIconView.image = iconImage.image
-			headerFeedIconView.isHidden = false
-		} else {
-			headerFeedIconView.isHidden = true
+		if previousBackIndicatorImage == nil {
+			previousBackIndicatorImage = navigationBar.backIndicatorImage
 		}
+		if previousBackIndicatorTransitionMaskImage == nil {
+			previousBackIndicatorTransitionMaskImage = navigationBar.backIndicatorTransitionMaskImage
+		}
+		let icon = article?.feed.flatMap { IconImageCache.shared.imageForFeed($0)?.image }
+		let backImage = FeedNavigationChrome.makeBackIndicatorImage(from: icon)
+		navigationBar.backIndicatorImage = backImage
+		navigationBar.backIndicatorTransitionMaskImage = backImage
+	}
+
+	func restoreBackIndicatorImage() {
+		guard let navigationBar = activeNavigationController()?.navigationBar else {
+			return
+		}
+		navigationBar.backIndicatorImage = previousBackIndicatorImage
+		navigationBar.backIndicatorTransitionMaskImage = previousBackIndicatorTransitionMaskImage
+	}
+
+	func activeNavigationController() -> UINavigationController? {
+		return (navigationController?.parent as? UINavigationController) ?? navigationController
 	}
 }

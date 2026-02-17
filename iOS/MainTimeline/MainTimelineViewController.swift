@@ -13,6 +13,76 @@ import RSWeb
 import Account
 import Articles
 
+@MainActor enum FeedNavigationChrome {
+	private enum Tags {
+		static let title = 200
+		static let subtitle = 300
+	}
+
+	static func makeTitleView(target: Any?, action: Selector) -> UIView {
+		let container = UIView()
+
+		let nameLabel = UILabel()
+		nameLabel.translatesAutoresizingMaskIntoConstraints = false
+		nameLabel.font = UIFont.preferredFont(forTextStyle: .subheadline).bold()
+		nameLabel.numberOfLines = 1
+		nameLabel.lineBreakMode = .byTruncatingTail
+		nameLabel.tag = Tags.title
+		container.addSubview(nameLabel)
+
+		let subtitleLabel = UILabel()
+		subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+		subtitleLabel.font = UIFont.preferredFont(forTextStyle: .caption1)
+		subtitleLabel.textColor = .secondaryLabel
+		subtitleLabel.numberOfLines = 1
+		subtitleLabel.textAlignment = .right
+		subtitleLabel.tag = Tags.subtitle
+		container.addSubview(subtitleLabel)
+
+		NSLayoutConstraint.activate([
+			nameLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+			nameLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+			nameLabel.trailingAnchor.constraint(lessThanOrEqualTo: subtitleLabel.leadingAnchor, constant: -8),
+
+			subtitleLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+			subtitleLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+		])
+
+		nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+		subtitleLabel.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+		container.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+		container.isUserInteractionEnabled = true
+		let tap = UITapGestureRecognizer(target: target, action: action)
+		container.addGestureRecognizer(tap)
+		return container
+	}
+
+	static func setTitle(_ text: String?, in titleView: UIView?) {
+		(titleView?.viewWithTag(Tags.title) as? UILabel)?.text = text
+	}
+
+	static func setSubtitle(_ text: String?, in titleView: UIView?) {
+		guard let subtitleLabel = titleView?.viewWithTag(Tags.subtitle) as? UILabel else {
+			return
+		}
+		subtitleLabel.text = text
+		subtitleLabel.isHidden = text?.isEmpty ?? true
+	}
+
+	static func makeBackIndicatorImage(from image: UIImage?) -> UIImage {
+		guard let image else {
+			return UIImage()
+		}
+
+		let targetSize = CGSize(width: 31, height: 31)
+		let rendered = UIGraphicsImageRenderer(size: targetSize).image { _ in
+			image.draw(in: CGRect(origin: .zero, size: targetSize))
+		}
+		return rendered.withRenderingMode(.alwaysOriginal)
+	}
+}
+
 final class MainTimelineViewController: UITableViewController, UndoableCommandRunner {
 
 	private var numberOfTextLines = 0
@@ -32,6 +102,8 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	weak var coordinator: SceneCoordinator?
 	var undoableCommands = [UndoableCommand]()
 	let scrollPositionQueue = CoalescingQueue(name: "Timeline Scroll Position", interval: 0.3, maxInterval: 1.0)
+	private var previousBackIndicatorImage: UIImage?
+	private var previousBackIndicatorTransitionMaskImage: UIImage?
 
 	private var timelineFeed: SidebarItem? {
 		assert(coordinator != nil)
@@ -107,59 +179,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	private var navigationBarTitleView: UIView {
-		let container = UIView()
-
-		let nameLabel = UILabel()
-		nameLabel.translatesAutoresizingMaskIntoConstraints = false
-		nameLabel.font = UIFont.preferredFont(forTextStyle: .subheadline).bold()
-		nameLabel.numberOfLines = 1
-		nameLabel.lineBreakMode = .byTruncatingTail
-		nameLabel.tag = 200
-		container.addSubview(nameLabel)
-
-		let updatedLabel = UILabel()
-		updatedLabel.translatesAutoresizingMaskIntoConstraints = false
-		updatedLabel.font = UIFont.preferredFont(forTextStyle: .caption1)
-		updatedLabel.textColor = .secondaryLabel
-		updatedLabel.numberOfLines = 1
-		updatedLabel.textAlignment = .center
-		updatedLabel.tag = 300
-		container.addSubview(updatedLabel)
-
-		let imageView = UIImageView()
-		imageView.translatesAutoresizingMaskIntoConstraints = false
-		imageView.contentMode = .scaleAspectFit
-		imageView.clipsToBounds = true
-		imageView.layer.cornerRadius = 4
-		imageView.tag = 100
-		container.addSubview(imageView)
-
-		NSLayoutConstraint.activate([
-			nameLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-			nameLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-			nameLabel.trailingAnchor.constraint(lessThanOrEqualTo: updatedLabel.leadingAnchor, constant: -8),
-
-			updatedLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-			updatedLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-
-			imageView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-			imageView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-			imageView.widthAnchor.constraint(equalToConstant: 20),
-			imageView.heightAnchor.constraint(equalToConstant: 20),
-			imageView.leadingAnchor.constraint(greaterThanOrEqualTo: updatedLabel.trailingAnchor, constant: 8),
-		])
-
-		// Allow nameLabel to compress, let container expand to fill available space
-		nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-		updatedLabel.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
-		imageView.setContentCompressionResistancePriority(.required, for: .horizontal)
-		container.setContentHuggingPriority(.defaultLow, for: .horizontal)
-
-		container.isUserInteractionEnabled = true
-		let tap = UITapGestureRecognizer(target: self, action: #selector(showFeedInspector(_:)))
-		container.addGestureRecognizer(tap)
-
-		return container
+		FeedNavigationChrome.makeTitleView(target: self, action: #selector(showFeedInspector(_:)))
 	}
 
 	override var canBecomeFirstResponder: Bool {
@@ -226,11 +246,6 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		pan.delegate = self
 		tableView.addGestureRecognizer(pan)
 
-		// Swipe right to go back to sidebar
-		let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeRight(_:)))
-		swipeRight.direction = .right
-		tableView.addGestureRecognizer(swipeRight)
-
 		configureToolbar()
 		resetUI(resetScroll: true)
 
@@ -241,18 +256,20 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 			}
 		}
 
-		// Disable swipe back on iPad Mice
-		guard let gesture = self.navigationController?.interactivePopGestureRecognizer as? UIPanGestureRecognizer else {
-			return
+		// Disable swipe back on iPad mice.
+		if let gesture = self.navigationController?.interactivePopGestureRecognizer as? UIPanGestureRecognizer {
+			gesture.allowedScrollTypesMask = []
 		}
-		gesture.allowedScrollTypesMask = []
 
 		navigationItem.titleView = navigationBarTitleView
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
 		super.viewWillAppear(animated)
+		navigationController?.setNavigationBarHidden(false, animated: false)
+		navigationItem.rightBarButtonItem = nil
 		self.navigationController?.isToolbarHidden = false
+		hideBackIconVisualOnly()
 
 		// If the nav bar is hidden, fade it in to avoid it showing stuff as it is getting laid out
 		if navigationController?.navigationBar.isHidden ?? false {
@@ -261,6 +278,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 		updateNavigationBarTitle(coordinator?.timelineFeed?.nameForDisplay ?? "")
 		coordinator?.updateNavigationBarSubtitles(nil)
+	}
+
+	override func viewWillDisappear(_ animated: Bool) {
+		super.viewWillDisappear(animated)
+		restoreBackIconAppearance()
 	}
 
 	override func viewDidAppear(_ animated: Bool) {
@@ -364,10 +386,6 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		coordinator?.showBrowserForCurrentFeed()
 	}
 
-	@objc func handleSwipeRight(_ sender: UISwipeGestureRecognizer) {
-		coordinator?.navigateToFeeds()
-	}
-
 	// MARK: API
 
 	func restoreSelectionIfNecessary(adjustScroll: Bool) {
@@ -387,28 +405,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		let isPseudoFeed = (coordinator?.timelineFeed as? PseudoFeed) != nil
 		titleView.isUserInteractionEnabled = !isPseudoFeed
 
-		if let imageView = titleView.viewWithTag(100) as? UIImageView {
-			if let feed = coordinator?.timelineFeed as? Feed,
-			   let iconImage = IconImageCache.shared.imageForFeed(feed) {
-				imageView.image = iconImage.image
-				imageView.isHidden = false
-			} else {
-				imageView.isHidden = true
-			}
-		}
-
-		if let label = titleView.viewWithTag(200) as? UILabel {
-			label.text = text
-		}
+		FeedNavigationChrome.setTitle(text, in: titleView)
 	}
 
 	func updateNavigationBarSubtitle(_ text: String) {
-		guard let titleView = navigationItem.titleView else {
-			return
-		}
-		if let label = titleView.viewWithTag(300) as? UILabel {
-			label.text = text
-		}
+		FeedNavigationChrome.setSubtitle(text, in: navigationItem.titleView)
 	}
 
 	func reinitializeArticles(resetScroll: Bool) {
@@ -744,6 +745,36 @@ extension MainTimelineViewController: UIGestureRecognizerDelegate {
 
 private extension MainTimelineViewController {
 
+	func hideBackIconVisualOnly() {
+		guard let navigationBar = activeNavigationController()?.navigationBar else {
+			return
+		}
+
+		if previousBackIndicatorImage == nil {
+			previousBackIndicatorImage = navigationBar.backIndicatorImage
+		}
+		if previousBackIndicatorTransitionMaskImage == nil {
+			previousBackIndicatorTransitionMaskImage = navigationBar.backIndicatorTransitionMaskImage
+		}
+
+		let feedIcon = (coordinator?.timelineFeed as? Feed).flatMap { IconImageCache.shared.imageForFeed($0)?.image }
+		let backImage = FeedNavigationChrome.makeBackIndicatorImage(from: feedIcon)
+		navigationBar.backIndicatorImage = backImage
+		navigationBar.backIndicatorTransitionMaskImage = backImage
+	}
+
+	func restoreBackIconAppearance() {
+		guard let navigationBar = activeNavigationController()?.navigationBar else {
+			return
+		}
+		navigationBar.backIndicatorImage = previousBackIndicatorImage
+		navigationBar.backIndicatorTransitionMaskImage = previousBackIndicatorTransitionMaskImage
+	}
+
+	func activeNavigationController() -> UINavigationController? {
+		return (navigationController?.parent as? UINavigationController) ?? navigationController
+	}
+
 	func searchArticles(_ searchString: String, _ searchScope: SearchScope) {
 		assert(coordinator != nil)
 		coordinator?.searchArticles(searchString, searchScope)
@@ -757,7 +788,6 @@ private extension MainTimelineViewController {
 	}
 
 	func resetUI(resetScroll: Bool) {
-		navigationItem.hidesBackButton = true
 		navigationItem.rightBarButtonItem = nil
 
 		tableView.selectRow(at: nil, animated: false, scrollPosition: .top)
