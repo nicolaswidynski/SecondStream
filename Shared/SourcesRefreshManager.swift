@@ -46,8 +46,9 @@ import os.log
 			async let podcastFetch: () = PodcastSourcesManager.shared.fetchFresh()
 			async let youtubeFetch: () = YoutubeSourcesManager.shared.fetchFresh()
 			async let newsFetch: () = NewsSourcesManager.shared.fetchFresh()
+			async let rssFetch: () = RSSSourcesManager.shared.fetchFresh()
 
-			_ = await (podcastFetch, youtubeFetch, newsFetch)
+			_ = await (podcastFetch, youtubeFetch, newsFetch, rssFetch)
 
 			lastRefreshDate = Date()
 			refreshTask = nil

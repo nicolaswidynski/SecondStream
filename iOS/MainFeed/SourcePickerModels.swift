@@ -19,4 +19,5 @@ enum SourcePickerItem: Hashable {
 	case podcastSource(PodcastSource)
 	case youtubeSource(YoutubeSource)
 	case newsSource(NewsSource)
+	case rssSource(RSSSource)
 }

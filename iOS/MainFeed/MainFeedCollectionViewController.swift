@@ -213,7 +213,14 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc private func addRSSFeed() {
-		showAddURLDialog(category: .rss, title: "Add RSS Feed", placeholder: "https://example.com/feed.xml")
+		presentRSSPicker()
+	}
+
+	private func presentRSSPicker() {
+		let picker = RSSPickerViewController()
+		picker.delegate = self
+		let navController = UINavigationController(rootViewController: picker)
+		present(navController, animated: true)
 	}
 
 	@objc private func addPodcast() {
@@ -248,39 +255,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let navController = UINavigationController(rootViewController: picker)
 		navController.modalPresentationStyle = .formSheet
 		present(navController, animated: true)
-	}
-
-	private func showAddURLDialog(category: FeedCategory, title: String, placeholder: String) {
-		let alert = UIAlertController(
-			title: NSLocalizedString(title, comment: title),
-			message: nil,
-			preferredStyle: .alert
-		)
-
-		alert.addTextField { textField in
-			textField.placeholder = placeholder
-			textField.autocapitalizationType = .none
-			textField.autocorrectionType = .no
-			textField.keyboardType = .URL
-
-			// Check clipboard for URL
-			if let clipboardString = UIPasteboard.general.string, clipboardString.mayBeURL {
-				textField.text = clipboardString.normalizedURL
-			}
-		}
-
-		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
-			if let urlString = alert.textFields?.first?.text, !urlString.isEmpty {
-				self.addFeedDirectly(urlString: urlString, category: category)
-			}
-		}
-
-		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
-
-		alert.addAction(addAction)
-		alert.addAction(cancelAction)
-
-		present(alert, animated: true)
 	}
 
 	private func addFeedDirectly(urlString: String, category: FeedCategory) {
@@ -931,6 +905,35 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	@objc private func appWillEnterForeground() {
 		SourcesRefreshManager.shared.refreshIfNeeded()
+	}
+
+	private func showEnterRSSURLDialog() {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Enter RSS URL", comment: "Enter RSS URL"),
+			message: nil,
+			preferredStyle: .alert
+		)
+
+		alert.addTextField { textField in
+			textField.placeholder = "https://example.com/feed.xml"
+			textField.keyboardType = .URL
+			textField.autocapitalizationType = .none
+			textField.autocorrectionType = .no
+			if let clipboardString = UIPasteboard.general.string, clipboardString.mayBeURL {
+				textField.text = clipboardString.normalizedURL
+			}
+		}
+
+		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
+			if let urlText = alert.textFields?.first?.text, !urlText.isEmpty {
+				self.addFeedDirectly(urlString: urlText, category: .rss)
+			}
+		}
+
+		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
+		alert.addAction(addAction)
+		alert.addAction(cancelAction)
+		present(alert, animated: true)
 	}
 
 	private func showEnterPodcastNameDialog() {
@@ -1757,6 +1760,29 @@ extension MainFeedCollectionViewController {
 
 		pushUndoableCommand(deleteCommand)
 		deleteCommand.perform()
+	}
+}
+
+// MARK: - RSSPickerDelegate
+
+extension MainFeedCollectionViewController: RSSPickerDelegate {
+
+	func rssPickerDidSelectCustomURL(_ picker: RSSPickerViewController) {
+		picker.dismiss(animated: true) {
+			self.showEnterRSSURLDialog()
+		}
+	}
+
+	func rssPicker(_ picker: RSSPickerViewController, didSelectFeed source: RSSSource) {
+		picker.dismiss(animated: true) {
+			// RSS top picks already include a concrete RSS URL from the listing webhook,
+			// so we can subscribe directly without going through add-show-source.
+			self.addFeedDirectly(urlString: source.url, category: .rss)
+		}
+	}
+
+	func rssPickerDidCancel(_ picker: RSSPickerViewController) {
+		picker.dismiss(animated: true)
 	}
 }
 

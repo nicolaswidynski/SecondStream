@@ -13,14 +13,35 @@ import RSWeb
 import Account
 import Articles
 
+@MainActor private final class FeedNavigationTitleContainerView: UIView {
+	private let fixedSize: CGSize
+
+	init(size: CGSize) {
+		self.fixedSize = size
+		super.init(frame: CGRect(origin: .zero, size: size))
+	}
+
+	@available(*, unavailable)
+	required init?(coder: NSCoder) {
+		fatalError("init(coder:) has not been implemented")
+	}
+
+	override var intrinsicContentSize: CGSize {
+		fixedSize
+	}
+}
+
 @MainActor enum FeedNavigationChrome {
 	private enum Tags {
 		static let title = 200
 		static let subtitle = 300
 	}
 
+	private static let titleContainerWidth: CGFloat = 260
+	private static let titleContainerHeight: CGFloat = 34
+
 	static func makeTitleView(target: Any?, action: Selector) -> UIView {
-		let container = UIView()
+		let container = FeedNavigationTitleContainerView(size: CGSize(width: titleContainerWidth, height: titleContainerHeight))
 
 		let nameLabel = UILabel()
 		nameLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -50,7 +71,8 @@ import Articles
 
 		nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 		subtitleLabel.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
-		container.setContentHuggingPriority(.defaultLow, for: .horizontal)
+		container.setContentHuggingPriority(.required, for: .horizontal)
+		container.setContentCompressionResistancePriority(.required, for: .horizontal)
 
 		container.isUserInteractionEnabled = true
 		let tap = UITapGestureRecognizer(target: target, action: action)
@@ -70,12 +92,20 @@ import Articles
 		subtitleLabel.isHidden = text?.isEmpty ?? true
 	}
 
+	static func subtitleText(in titleView: UIView?) -> String? {
+		(titleView?.viewWithTag(Tags.subtitle) as? UILabel)?.text
+	}
+
+	static func setSubtitleAlpha(_ alpha: CGFloat, in titleView: UIView?) {
+		(titleView?.viewWithTag(Tags.subtitle) as? UILabel)?.alpha = alpha
+	}
+
 	static func makeBackIndicatorImage(from image: UIImage?) -> UIImage {
 		guard let image else {
 			return UIImage()
 		}
 
-		let targetSize = CGSize(width: 31, height: 31)
+		let targetSize = CGSize(width: 47, height: 47)
 		let rendered = UIGraphicsImageRenderer(size: targetSize).image { _ in
 			image.draw(in: CGRect(origin: .zero, size: targetSize))
 		}
@@ -104,6 +134,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	let scrollPositionQueue = CoalescingQueue(name: "Timeline Scroll Position", interval: 0.3, maxInterval: 1.0)
 	private var previousBackIndicatorImage: UIImage?
 	private var previousBackIndicatorTransitionMaskImage: UIImage?
+	private var shouldFadeInNavigationSubtitle = false
 
 	private var timelineFeed: SidebarItem? {
 		assert(coordinator != nil)
@@ -269,6 +300,10 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		navigationController?.setNavigationBarHidden(false, animated: false)
 		navigationItem.rightBarButtonItem = nil
 		self.navigationController?.isToolbarHidden = false
+		shouldFadeInNavigationSubtitle = true
+		if let subtitleText = FeedNavigationChrome.subtitleText(in: navigationItem.titleView), !subtitleText.isEmpty {
+			FeedNavigationChrome.setSubtitleAlpha(0, in: navigationItem.titleView)
+		}
 		hideBackIconVisualOnly()
 
 		// If the nav bar is hidden, fade it in to avoid it showing stuff as it is getting laid out
@@ -287,6 +322,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	override func viewDidAppear(_ animated: Bool) {
 		super.viewDidAppear(true)
+		animateNavigationSubtitleIfNeeded()
 		isTimelineViewControllerPending = false
 		if navigationController?.navigationBar.alpha == 0 {
 			UIView.animate(withDuration: 0.5) {
@@ -410,6 +446,9 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	func updateNavigationBarSubtitle(_ text: String) {
 		FeedNavigationChrome.setSubtitle(text, in: navigationItem.titleView)
+		let hasSubtitleText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+		let alpha: CGFloat = (shouldFadeInNavigationSubtitle && hasSubtitleText) ? 0 : 1
+		FeedNavigationChrome.setSubtitleAlpha(alpha, in: navigationItem.titleView)
 	}
 
 	func reinitializeArticles(resetScroll: Bool) {
@@ -773,6 +812,23 @@ private extension MainTimelineViewController {
 
 	func activeNavigationController() -> UINavigationController? {
 		return (navigationController?.parent as? UINavigationController) ?? navigationController
+	}
+
+	func animateNavigationSubtitleIfNeeded() {
+		guard shouldFadeInNavigationSubtitle else {
+			return
+		}
+		shouldFadeInNavigationSubtitle = false
+
+		guard let subtitleText = FeedNavigationChrome.subtitleText(in: navigationItem.titleView),
+			  !subtitleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+			return
+		}
+
+		FeedNavigationChrome.setSubtitleAlpha(0, in: navigationItem.titleView)
+		UIView.animate(withDuration: 0.36, delay: 0.08, options: [.curveEaseOut]) {
+			FeedNavigationChrome.setSubtitleAlpha(1, in: self.navigationItem.titleView)
+		}
 	}
 
 	func searchArticles(_ searchString: String, _ searchScope: SearchScope) {
