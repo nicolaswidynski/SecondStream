@@ -18,13 +18,7 @@ struct NewsSource: Codable, Hashable {
 enum AddNewsResult {
 	case successExisting(summaryURL: String)  // 201 - Topic already exists, no wait
 	case successNew(summaryURL: String)       // 202 - New topic, wait for processing
-	case unauthorized                         // 401
-	case badRSS                               // 551
-	case wrongFormat                          // 552
-	case maxTopics                            // 553
-	case badMessage                           // 554 - Neither topic nor url set
-	case badTopic                             // 555 - Topic not found
-	case error(String)
+	case failure(message: String)             // Any error - uses server message
 }
 
 @MainActor final class NewsSourcesManager {
@@ -185,7 +179,7 @@ enum AddNewsResult {
 	private func sendAddNewsRequest(link: String?, show: String?) async -> AddNewsResult {
 		guard let token = bearerToken else {
 			Self.logger.error("No bearer token available")
-			return .error("No authentication token")
+			return .failure(message: "No authentication token")
 		}
 
 		var request = URLRequest(url: addSourceURL)
@@ -204,7 +198,7 @@ enum AddNewsResult {
 			request.httpBody = try JSONSerialization.data(withJSONObject: body)
 		} catch {
 			Self.logger.error("Failed to encode request body")
-			return .error("Failed to encode request")
+			return .failure(message: "Failed to encode request")
 		}
 
 		do {
@@ -212,15 +206,16 @@ enum AddNewsResult {
 
 			guard let httpResponse = response as? HTTPURLResponse else {
 				Self.logger.error("Invalid response type")
-				return .error("Invalid response")
+				return .failure(message: "Invalid response")
 			}
 
 			let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-			lastServerMessage = json?["message"] as? String
+			let serverMessage = json?["message"] as? String
+			lastServerMessage = serverMessage
+			let statusCode = httpResponse.statusCode
 
-			switch httpResponse.statusCode {
+			switch statusCode {
 			case 201:
-				// Success - topic already exists, no wait needed
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
@@ -229,10 +224,9 @@ enum AddNewsResult {
 					return .successExisting(summaryURL: summaryURL)
 				}
 				Self.logger.error("Failed to parse 201 response")
-				return .error("Failed to parse response")
+				return .failure(message: "Failed to parse response")
 
 			case 202:
-				// Success - new topic, wait for processing
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
@@ -241,39 +235,16 @@ enum AddNewsResult {
 					return .successNew(summaryURL: summaryURL)
 				}
 				Self.logger.error("Failed to parse 202 response")
-				return .error("Failed to parse response")
-
-			case 401:
-				Self.logger.error("Unauthorized - wrong credentials")
-				return .unauthorized
-
-			case 551:
-				Self.logger.error("RSS not found")
-				return .badRSS
-
-			case 552:
-				Self.logger.error("RSS format not supported")
-				return .wrongFormat
-
-			case 553:
-				Self.logger.error("Maximum number of topics reached")
-				return .maxTopics
-
-			case 554:
-				Self.logger.error("Bad request - neither topic nor url set")
-				return .badMessage
-
-			case 555:
-				Self.logger.error("Topic not found")
-				return .badTopic
+				return .failure(message: "Failed to parse response")
 
 			default:
-				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
-				return .error("Unexpected error")
+				let message = serverMessage ?? "Unknown error"
+				Self.logger.error("[\(statusCode)] \(message)")
+				return .failure(message: "[\(statusCode)] \(message)")
 			}
 		} catch {
 			Self.logger.error("Failed to add news topic: \(error.localizedDescription)")
-			return .error(error.localizedDescription)
+			return .failure(message: error.localizedDescription)
 		}
 	}
 }

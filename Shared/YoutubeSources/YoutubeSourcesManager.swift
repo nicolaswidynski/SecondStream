@@ -18,17 +18,7 @@ struct YoutubeSource: Codable, Hashable {
 enum AddYoutubeResult {
 	case successExisting(summaryURL: String)  // 201 - Channel already exists, no wait
 	case successNew(summaryURL: String)       // 202 - New channel, wait for processing
-	case unauthorized                         // 401
-	case badRSS                               // 551
-	case wrongFormat                          // 552
-	case maxChannels                          // 553
-	case badMessage                           // 554 - Neither channel nor url set
-	case badChannel                           // 555 - Channel not found
-	case youtubeRSSNotFound                   // 556 - YouTube channel RSS not found
-	case illegalName                          // 557 - Illegal show name
-	case unknownTopic                         // 558 - Unknown topic
-	case badParameters                        // 559 - Bad parameters
-	case error(String)
+	case failure(message: String)             // Any error - uses server message
 }
 
 @MainActor final class YoutubeSourcesManager {
@@ -202,7 +192,7 @@ enum AddYoutubeResult {
 	private func sendAddYoutubeRequest(show: String) async -> AddYoutubeResult {
 		guard let token = bearerToken else {
 			Self.logger.error("No bearer token available")
-			return .error("No authentication token")
+			return .failure(message: "No authentication token")
 		}
 
 		var request = URLRequest(url: addSourceURL)
@@ -220,7 +210,7 @@ enum AddYoutubeResult {
 			request.httpBody = try JSONSerialization.data(withJSONObject: body)
 		} catch {
 			Self.logger.error("Failed to encode request body")
-			return .error("Failed to encode request")
+			return .failure(message: "Failed to encode request")
 		}
 
 		do {
@@ -228,15 +218,16 @@ enum AddYoutubeResult {
 
 			guard let httpResponse = response as? HTTPURLResponse else {
 				Self.logger.error("Invalid response type")
-				return .error("Invalid response")
+				return .failure(message: "Invalid response")
 			}
 
 			let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-			lastServerMessage = json?["message"] as? String
+			let serverMessage = json?["message"] as? String
+			lastServerMessage = serverMessage
+			let statusCode = httpResponse.statusCode
 
-			switch httpResponse.statusCode {
+			switch statusCode {
 			case 201:
-				// Success - channel already exists, no wait needed
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
@@ -245,10 +236,9 @@ enum AddYoutubeResult {
 					return .successExisting(summaryURL: summaryURL)
 				}
 				Self.logger.error("Failed to parse 201 response")
-				return .error("Failed to parse response")
+				return .failure(message: "Failed to parse response")
 
 			case 202:
-				// Success - new channel, wait for processing
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
@@ -257,55 +247,16 @@ enum AddYoutubeResult {
 					return .successNew(summaryURL: summaryURL)
 				}
 				Self.logger.error("Failed to parse 202 response")
-				return .error("Failed to parse response")
-
-			case 401:
-				Self.logger.error("Unauthorized - wrong credentials")
-				return .unauthorized
-
-			case 551:
-				Self.logger.error("RSS not found")
-				return .badRSS
-
-			case 552:
-				Self.logger.error("RSS format not supported")
-				return .wrongFormat
-
-			case 553:
-				Self.logger.error("Maximum number of channels reached")
-				return .maxChannels
-
-			case 554:
-				Self.logger.error("Bad request - neither channel nor url set")
-				return .badMessage
-
-			case 555:
-				Self.logger.error("Channel not found")
-				return .badChannel
-
-			case 556:
-				Self.logger.error("YouTube channel RSS not found")
-				return .youtubeRSSNotFound
-
-			case 557:
-				Self.logger.error("Illegal show name")
-				return .illegalName
-
-			case 558:
-				Self.logger.error("Unknown topic")
-				return .unknownTopic
-
-			case 559:
-				Self.logger.error("Bad parameters")
-				return .badParameters
+				return .failure(message: "Failed to parse response")
 
 			default:
-				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
-				return .error("Unexpected error")
+				let message = serverMessage ?? "Unknown error"
+				Self.logger.error("[\(statusCode)] \(message)")
+				return .failure(message: "[\(statusCode)] \(message)")
 			}
 		} catch {
 			Self.logger.error("Failed to add YouTube channel: \(error.localizedDescription)")
-			return .error(error.localizedDescription)
+			return .failure(message: error.localizedDescription)
 		}
 	}
 }

@@ -1034,47 +1034,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 						self.addFeedDirectly(urlString: summaryURL, category: .podcast)
 					}
 
-				case .unauthorized:
-					self.showPodcastError(
-						title: NSLocalizedString("Unauthorized", comment: "Unauthorized"),
-						message: NSLocalizedString("Authentication failed. Please check your credentials.", comment: "Authentication failed message")
-					)
-
-				case .badRSS:
-					self.showPodcastError(
-						title: NSLocalizedString("RSS Not Found", comment: "RSS Not Found"),
-						message: NSLocalizedString("The RSS feed could not be found at the specified URL.", comment: "RSS not found message")
-					)
-
-				case .wrongFormat:
-					self.showPodcastError(
-						title: NSLocalizedString("Unsupported Format", comment: "Unsupported Format"),
-						message: NSLocalizedString("The RSS feed format is not supported.", comment: "Unsupported format message")
-					)
-
-				case .maxPodcasts:
-					self.showPodcastError(
-						title: NSLocalizedString("Limit Reached", comment: "Limit Reached"),
-						message: NSLocalizedString("Maximum number of supported podcasts reached.", comment: "Max podcasts message")
-					)
-
-				case .badMessage:
-					self.showPodcastError(
-						title: NSLocalizedString("Bad Request", comment: "Bad Request"),
-						message: NSLocalizedString("Invalid request format.", comment: "Bad request message")
-					)
-
-				case .badPodcast:
-					self.showPodcastError(
-						title: NSLocalizedString("Podcast Not Found", comment: "Podcast Not Found"),
-						message: NSLocalizedString("The podcast could not be found.", comment: "Podcast not found message")
-					)
-
-				case .error(let message):
-					self.showPodcastError(
-						title: NSLocalizedString("Error", comment: "Error"),
-						message: message
-					)
+				case .failure(let message):
+					self.showPodcastError(message: message)
 				}
 			}
 		}
@@ -1118,47 +1079,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 						self.addFeedDirectly(urlString: summaryURL, category: .podcast)
 					}
 
-				case .unauthorized:
-					self.showPodcastError(
-						title: NSLocalizedString("Unauthorized", comment: "Unauthorized"),
-						message: NSLocalizedString("Authentication failed. Please check your credentials.", comment: "Authentication failed message")
-					)
-
-				case .badRSS:
-					self.showPodcastError(
-						title: NSLocalizedString("RSS Not Found", comment: "RSS Not Found"),
-						message: NSLocalizedString("The RSS feed could not be found.", comment: "RSS not found message")
-					)
-
-				case .wrongFormat:
-					self.showPodcastError(
-						title: NSLocalizedString("Unsupported Format", comment: "Unsupported Format"),
-						message: NSLocalizedString("The RSS feed format is not supported.", comment: "Unsupported format message")
-					)
-
-				case .maxPodcasts:
-					self.showPodcastError(
-						title: NSLocalizedString("Limit Reached", comment: "Limit Reached"),
-						message: NSLocalizedString("Maximum number of supported podcasts reached.", comment: "Max podcasts message")
-					)
-
-				case .badMessage:
-					self.showPodcastError(
-						title: NSLocalizedString("Bad Request", comment: "Bad Request"),
-						message: NSLocalizedString("Invalid request format.", comment: "Bad request message")
-					)
-
-				case .badPodcast:
-					self.showPodcastError(
-						title: NSLocalizedString("Podcast Not Found", comment: "Podcast Not Found"),
-						message: NSLocalizedString("The podcast could not be found.", comment: "Podcast not found message")
-					)
-
-				case .error(let message):
-					self.showPodcastError(
-						title: NSLocalizedString("Error", comment: "Error"),
-						message: message
-					)
+				case .failure(let message):
+					self.showPodcastError(message: message)
 				}
 			}
 		}
@@ -1176,13 +1098,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		present(alert, animated: true)
 	}
 
-	private func showPodcastError(title: String, message: String) {
-		var displayMessage = message
-		if AppDefaults.shared.showAddShowSourceFailureDialog,
-		   let serverMessage = PodcastSourcesManager.shared.lastServerMessage {
-			displayMessage += "\n\nServer: \(serverMessage)"
-		}
-		let alert = UIAlertController(title: title, message: displayMessage, preferredStyle: .alert)
+	private func showPodcastError(message: String) {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Error", comment: "Error"),
+			message: message,
+			preferredStyle: .alert
+		)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
 		present(alert, animated: true)
 	}
@@ -1996,71 +1917,8 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 				self.addFeedDirectly(urlString: summaryURL, category: .youtube)
 			}
 
-		case .unauthorized:
-			self.showYoutubeError(
-				title: NSLocalizedString("Unauthorized", comment: "Unauthorized"),
-				message: NSLocalizedString("Authentication failed. Please check your credentials.", comment: "Authentication failed message")
-			)
-
-		case .badRSS:
-			self.showYoutubeError(
-				title: NSLocalizedString("RSS Not Found", comment: "RSS Not Found"),
-				message: NSLocalizedString("The RSS feed could not be found at the specified URL.", comment: "RSS not found message")
-			)
-
-		case .wrongFormat:
-			self.showYoutubeError(
-				title: NSLocalizedString("Unsupported Format", comment: "Unsupported Format"),
-				message: NSLocalizedString("The RSS feed format is not supported.", comment: "Unsupported format message")
-			)
-
-		case .maxChannels:
-			self.showYoutubeError(
-				title: NSLocalizedString("Limit Reached", comment: "Limit Reached"),
-				message: NSLocalizedString("Maximum number of supported channels reached.", comment: "Max channels message")
-			)
-
-		case .badMessage:
-			self.showYoutubeError(
-				title: NSLocalizedString("Bad Request", comment: "Bad Request"),
-				message: NSLocalizedString("Invalid request format.", comment: "Bad request message")
-			)
-
-		case .badChannel:
-			self.showYoutubeError(
-				title: NSLocalizedString("Channel Not Found", comment: "Channel Not Found"),
-				message: NSLocalizedString("The YouTube channel could not be found.", comment: "Channel not found message")
-			)
-
-		case .youtubeRSSNotFound:
-			self.showYoutubeError(
-				title: NSLocalizedString("YouTube RSS Not Found", comment: "YouTube RSS Not Found"),
-				message: NSLocalizedString("The YouTube channel RSS feed could not be found.", comment: "YouTube RSS not found message")
-			)
-
-		case .illegalName:
-			self.showYoutubeError(
-				title: NSLocalizedString("Invalid Name", comment: "Invalid Name"),
-				message: NSLocalizedString("The channel name is not valid.", comment: "Illegal name message")
-			)
-
-		case .unknownTopic:
-			self.showYoutubeError(
-				title: NSLocalizedString("Unknown Topic", comment: "Unknown Topic"),
-				message: NSLocalizedString("The specified topic could not be found.", comment: "Unknown topic message")
-			)
-
-		case .badParameters:
-			self.showYoutubeError(
-				title: NSLocalizedString("Bad Parameters", comment: "Bad Parameters"),
-				message: NSLocalizedString("The request contained invalid parameters.", comment: "Bad parameters message")
-			)
-
-		case .error(let message):
-			self.showYoutubeError(
-				title: NSLocalizedString("Error", comment: "Error"),
-				message: message
-			)
+		case .failure(let message):
+			self.showYoutubeError(message: message)
 		}
 	}
 
@@ -2079,13 +1937,12 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 		present(alert, animated: true)
 	}
 
-	private func showYoutubeError(title: String, message: String) {
-		var displayMessage = message
-		if AppDefaults.shared.showAddShowSourceFailureDialog,
-		   let serverMessage = YoutubeSourcesManager.shared.lastServerMessage {
-			displayMessage += "\n\nServer: \(serverMessage)"
-		}
-		let alert = UIAlertController(title: title, message: displayMessage, preferredStyle: .alert)
+	private func showYoutubeError(message: String) {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Error", comment: "Error"),
+			message: message,
+			preferredStyle: .alert
+		)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
 		present(alert, animated: true)
 	}
@@ -2145,57 +2002,17 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 			// Topic is new, add the feed directly (processing happens server-side)
 			self.addFeedDirectly(urlString: summaryURL, category: .news)
 
-		case .unauthorized:
-			self.showTopicError(
-				title: NSLocalizedString("Unauthorized", comment: "Unauthorized"),
-				message: NSLocalizedString("Authentication failed. Please check your credentials.", comment: "Authentication failed message")
-			)
-
-		case .badRSS:
-			self.showTopicError(
-				title: NSLocalizedString("RSS Not Found", comment: "RSS Not Found"),
-				message: NSLocalizedString("The RSS feed could not be found.", comment: "RSS not found message")
-			)
-
-		case .wrongFormat:
-			self.showTopicError(
-				title: NSLocalizedString("Unsupported Format", comment: "Unsupported Format"),
-				message: NSLocalizedString("The RSS feed format is not supported.", comment: "Unsupported format message")
-			)
-
-		case .maxTopics:
-			self.showTopicError(
-				title: NSLocalizedString("Limit Reached", comment: "Limit Reached"),
-				message: NSLocalizedString("Maximum number of topics reached.", comment: "Max topics message")
-			)
-
-		case .badMessage:
-			self.showTopicError(
-				title: NSLocalizedString("Bad Request", comment: "Bad Request"),
-				message: NSLocalizedString("Invalid request format.", comment: "Bad request message")
-			)
-
-		case .badTopic:
-			self.showTopicError(
-				title: NSLocalizedString("Topic Not Found", comment: "Topic Not Found"),
-				message: NSLocalizedString("The topic could not be found.", comment: "Topic not found message")
-			)
-
-		case .error(let message):
-			self.showTopicError(
-				title: NSLocalizedString("Error", comment: "Error"),
-				message: message
-			)
+		case .failure(let message):
+			self.showTopicError(message: message)
 		}
 	}
 
-	private func showTopicError(title: String, message: String) {
-		var displayMessage = message
-		if AppDefaults.shared.showAddShowSourceFailureDialog,
-		   let serverMessage = NewsSourcesManager.shared.lastServerMessage {
-			displayMessage += "\n\nServer: \(serverMessage)"
-		}
-		let alert = UIAlertController(title: title, message: displayMessage, preferredStyle: .alert)
+	private func showTopicError(message: String) {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Error", comment: "Error"),
+			message: message,
+			preferredStyle: .alert
+		)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
 		present(alert, animated: true)
 	}
