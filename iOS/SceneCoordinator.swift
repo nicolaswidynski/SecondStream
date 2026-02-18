@@ -20,6 +20,41 @@ enum SearchScope: Int {
 	case global = 1
 }
 
+private final class TimelineToArticlePushAnimator: NSObject, UIViewControllerAnimatedTransitioning {
+
+	func transitionDuration(using transitionContext: (any UIViewControllerContextTransitioning)?) -> TimeInterval {
+		0.32
+	}
+
+	func animateTransition(using transitionContext: any UIViewControllerContextTransitioning) {
+		guard let fromView = transitionContext.view(forKey: .from),
+			  let toView = transitionContext.view(forKey: .to) else {
+			transitionContext.completeTransition(false)
+			return
+		}
+
+		let container = transitionContext.containerView
+		let width = container.bounds.width
+
+		toView.frame = transitionContext.finalFrame(for: transitionContext.viewController(forKey: .to)!)
+		toView.transform = CGAffineTransform(translationX: width, y: 0)
+		container.addSubview(toView)
+
+		let duration = transitionDuration(using: transitionContext)
+		UIView.animate(withDuration: duration, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
+			fromView.transform = CGAffineTransform(translationX: -width * 0.28, y: 0)
+			toView.transform = .identity
+		} completion: { _ in
+			let wasCancelled = transitionContext.transitionWasCancelled
+			fromView.transform = .identity
+			if wasCancelled {
+				toView.removeFromSuperview()
+			}
+			transitionContext.completeTransition(!wasCancelled)
+		}
+	}
+}
+
 enum ShowFeedName {
 	case none
 	case byline
@@ -111,6 +146,10 @@ struct SidebarItemNode: Hashable, Sendable {
 
 	var isTimelineViewControllerPending = false
 	var isArticleViewControllerPending = false
+	private var interactiveArticleOpenTransition: UIPercentDrivenInteractiveTransition?
+	private var isInteractiveArticleOpenTransitionActive = false
+	private var deferredReadMarkArticle: Article?
+	private let interactiveTimelineToArticleAnimator = TimelineToArticlePushAnimator()
 
 	/// `Bool` to track whether a refresh is scheduled.
 	private var isNavigationBarSubtitleRefreshScheduled: Bool = false
@@ -1091,14 +1130,71 @@ struct SidebarItemNode: Hashable, Sendable {
 
 		rootSplitViewController.show(.secondary)
 
-		// Mark article as read before navigating to it, so the read status does not flash unread/read on display
-		markArticles(Set([article!]), statusKey: .read, flag: true)
+		// For interactive swipe-open, defer marking read until finish to avoid side effects on cancel.
+		if isInteractiveArticleOpenTransitionActive {
+			deferredReadMarkArticle = article
+		} else {
+			// Mark article as read before navigating to it, so the read status does not flash unread/read on display
+			markArticles(Set([article!]), statusKey: .read, flag: true)
+		}
 
 		mainTimelineViewController?.updateArticleSelection(animations: animations)
 		articleViewController?.article = article
 		if let isShowingExtractedArticle = isShowingExtractedArticle, let articleWindowScrollY = articleWindowScrollY {
 			articleViewController?.restoreScrollPosition = (isShowingExtractedArticle, articleWindowScrollY)
 		}
+	}
+
+	func beginInteractiveArticleOpen(_ article: Article) -> Bool {
+		guard rootSplitViewController.isCollapsed,
+			  !isNavigationDisabled,
+			  interactiveArticleOpenTransition == nil,
+			  let navigationController = mainTimelineViewController?.navigationController,
+			  navigationController.topViewController === mainTimelineViewController else {
+			return false
+		}
+
+		let transition = UIPercentDrivenInteractiveTransition()
+		transition.completionCurve = .easeOut
+		interactiveArticleOpenTransition = transition
+		isInteractiveArticleOpenTransitionActive = true
+		deferredReadMarkArticle = nil
+
+		selectArticle(article, animations: [.scroll, .select, .navigation])
+		return true
+	}
+
+	func updateInteractiveArticleOpen(_ progress: CGFloat) {
+		guard let transition = interactiveArticleOpenTransition else {
+			return
+		}
+		transition.update(min(max(progress, 0), 1))
+	}
+
+	func finishInteractiveArticleOpen() {
+		guard let transition = interactiveArticleOpenTransition else {
+			return
+		}
+
+		transition.finish()
+		interactiveArticleOpenTransition = nil
+		isInteractiveArticleOpenTransitionActive = false
+
+		if let article = deferredReadMarkArticle {
+			markArticles(Set([article]), statusKey: .read, flag: true)
+		}
+		deferredReadMarkArticle = nil
+	}
+
+	func cancelInteractiveArticleOpen() {
+		guard let transition = interactiveArticleOpenTransition else {
+			return
+		}
+
+		transition.cancel()
+		interactiveArticleOpenTransition = nil
+		isInteractiveArticleOpenTransitionActive = false
+		deferredReadMarkArticle = nil
 	}
 
 	func beginSearching() {
@@ -1604,6 +1700,26 @@ extension SceneCoordinator: UISplitViewControllerDelegate {
 // MARK: UINavigationControllerDelegate
 
 extension SceneCoordinator: UINavigationControllerDelegate {
+
+	func navigationController(_ navigationController: UINavigationController, animationControllerFor operation: UINavigationController.Operation, from fromVC: UIViewController, to toVC: UIViewController) -> (any UIViewControllerAnimatedTransitioning)? {
+		guard operation == .push,
+			  isInteractiveArticleOpenTransitionActive,
+			  fromVC === mainTimelineViewController,
+			  toVC === articleViewController else {
+			return nil
+		}
+
+		return interactiveTimelineToArticleAnimator
+	}
+
+	func navigationController(_ navigationController: UINavigationController, interactionControllerFor animationController: any UIViewControllerAnimatedTransitioning) -> (any UIViewControllerInteractiveTransitioning)? {
+		guard isInteractiveArticleOpenTransitionActive,
+			  animationController is TimelineToArticlePushAnimator else {
+			return nil
+		}
+
+		return interactiveArticleOpenTransition
+	}
 
 	func navigationController(_ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool) {
 		guard UIApplication.shared.applicationState != .background else {

@@ -114,14 +114,14 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		// Create action buttons
 		let rssButton = createActionButton(
-			iconName: "rss-symbol",
+			iconName: "rss_thin-symbol",
 			accessibilityLabel: NSLocalizedString("Add RSS Feed", comment: "Add RSS Feed"),
 			fallbackSystemName: "dot.radiowaves.left.and.right",
 			action: #selector(addRSSFeed)
 		)
 
 		let podcastButton = createActionButton(
-			iconName: "podcast-symbol",
+			iconName: "podcast_thin-symbol",
 			accessibilityLabel: NSLocalizedString("Add Podcast", comment: "Add Podcast"),
 			fallbackSystemName: "mic.fill",
 			action: #selector(addPodcast)

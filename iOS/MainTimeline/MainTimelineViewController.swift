@@ -125,6 +125,12 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	private lazy var filterButton = UIBarButtonItem(image: Assets.Images.filter, style: .plain, target: self, action: #selector(toggleFilter(_:)))
 	private lazy var firstUnreadButton = UIBarButtonItem(image: Assets.Images.nextUnread, style: .plain, target: self, action: #selector(firstUnread(_:)))
+	private lazy var longPressReadToggleGestureRecognizer: UILongPressGestureRecognizer = {
+		let gesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPressToggleRead(_:)))
+		gesture.minimumPressDuration = 0.45
+		gesture.allowableMovement = 14
+		return gesture
+	}()
 
 	private lazy var dataSource = makeDataSource()
 	private let searchController = UISearchController(searchResultsController: nil)
@@ -272,10 +278,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		refreshControl = UIRefreshControl()
 		refreshControl!.addTarget(self, action: #selector(refreshAccounts(_:)), for: .valueChanged)
 
-		// Custom pan gesture for swipe-left to toggle read/unread with lower threshold
+		// Custom pan gesture for swipe-left to open article with lower threshold
 		let pan = UIPanGestureRecognizer(target: self, action: #selector(handleSwipeLeftPan(_:)))
 		pan.delegate = self
 		tableView.addGestureRecognizer(pan)
+		tableView.addGestureRecognizer(longPressReadToggleGestureRecognizer)
 
 		configureToolbar()
 		resetUI(resetScroll: true)
@@ -297,6 +304,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	override func viewWillAppear(_ animated: Bool) {
 		super.viewWillAppear(animated)
+		tableView.transform = .identity
 		navigationController?.setNavigationBarHidden(false, animated: false)
 		navigationItem.rightBarButtonItem = nil
 		self.navigationController?.isToolbarHidden = false
@@ -506,10 +514,8 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	// MARK: - Swipe left pan gesture
 
-	private var swipePanCell: UITableViewCell?
 	private var swipePanIndexPath: IndexPath?
 	private var swipePanTriggered = false
-	private var swipeActionView: UIView?
 
 	@objc private func handleSwipeLeftPan(_ gesture: UIPanGestureRecognizer) {
 		let translation = gesture.translation(in: tableView)
@@ -519,88 +525,96 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		case .began:
 			let point = gesture.location(in: tableView)
 			guard let indexPath = tableView.indexPathForRow(at: point),
-				  let cell = tableView.cellForRow(at: indexPath) else {
+				  let article = dataSource.itemIdentifier(for: indexPath),
+				  coordinator?.beginInteractiveArticleOpen(article) == true else {
 				gesture.state = .cancelled
 				return
 			}
-			swipePanCell = cell
 			swipePanIndexPath = indexPath
 			swipePanTriggered = false
-
-			// Create the accent-colored action indicator behind the cell (right 85%)
-			let leftInset = cell.bounds.width * 0.15
-			let actionView = UIView(frame: CGRect(x: cell.frame.origin.x + leftInset, y: cell.frame.origin.y, width: cell.bounds.width - leftInset, height: cell.bounds.height))
-			actionView.backgroundColor = Assets.Colors.primaryAccent
-			actionView.clipsToBounds = true
-
-			if let article = dataSource.itemIdentifier(for: indexPath) {
-				let image = article.status.read ? Assets.Images.circleClosed : Assets.Images.circleOpen
-				let imageView = UIImageView(image: image)
-				imageView.tintColor = .white
-				imageView.tag = 100
-				imageView.frame = CGRect(x: cell.bounds.width - 40, y: (cell.bounds.height - 22) / 2, width: 22, height: 22)
-				actionView.addSubview(imageView)
-			}
-
-			tableView.insertSubview(actionView, belowSubview: cell)
-			swipeActionView = actionView
+			tableView.selectRow(at: indexPath, animated: false, scrollPosition: .none)
 
 		case .changed:
-			guard let cell = swipePanCell else { return }
-			// Only allow leftward drag
-			let offset = min(0, translation.x)
-			cell.transform = CGAffineTransform(translationX: offset, y: 0)
+			guard swipePanIndexPath != nil else { return }
+			let progress = min(max(-translation.x / tableView.bounds.width, 0), 1)
+			coordinator?.updateInteractiveArticleOpen(progress)
 
-			// Update icon position to stay near trailing edge of visible area
-			if let actionView = swipeActionView, let imageView = actionView.viewWithTag(100) {
-				let revealedWidth = -offset
-				imageView.frame.origin.x = cell.frame.maxX + offset + revealedWidth - 40
-			}
-
-			// Trigger at 25% of cell width
-			let threshold = cell.bounds.width * 0.35
-			if -offset >= threshold && !swipePanTriggered {
+			if progress >= 0.25 && !swipePanTriggered {
 				swipePanTriggered = true
 				let generator = UIImpactFeedbackGenerator(style: .light)
 				generator.impactOccurred()
 			}
 
 		case .ended, .cancelled:
-			guard let cell = swipePanCell, let indexPath = swipePanIndexPath else {
+			guard let indexPath = swipePanIndexPath else {
 				resetSwipePan()
 				return
 			}
 
-			let offset = translation.x
-			let threshold = cell.bounds.width * 0.35
+			let progress = min(max(-translation.x / tableView.bounds.width, 0), 1)
+			let shouldOpenArticle = progress > 0.28 || velocity.x < -700
 
-			if -offset >= threshold || (velocity.x < -500 && -offset > 30) {
-				// Trigger the action
-				if let article = dataSource.itemIdentifier(for: indexPath) {
-					coordinator?.toggleRead(article)
+			if shouldOpenArticle {
+				coordinator?.finishInteractiveArticleOpen()
+			} else {
+				coordinator?.cancelInteractiveArticleOpen()
+				if tableView.indexPathForSelectedRow == indexPath {
+					tableView.deselectRow(at: indexPath, animated: true)
 				}
 			}
-
-			// Animate cell back
-			UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseOut) {
-				cell.transform = .identity
-			} completion: { _ in
-				self.swipeActionView?.removeFromSuperview()
-				self.resetSwipePan()
-			}
+			resetSwipePan()
 
 		default:
+			coordinator?.cancelInteractiveArticleOpen()
 			resetSwipePan()
 		}
 	}
 
+	@objc private func handleLongPressToggleRead(_ gesture: UILongPressGestureRecognizer) {
+		guard gesture.state == .began else {
+			return
+		}
+
+		let point = gesture.location(in: tableView)
+		guard let indexPath = tableView.indexPathForRow(at: point),
+			  let article = dataSource.itemIdentifier(for: indexPath) else {
+			return
+		}
+
+		if let cell = tableView.cellForRow(at: indexPath) {
+			animateDoubleFlash(on: cell)
+		}
+
+		let generator = UIImpactFeedbackGenerator(style: .light)
+		generator.impactOccurred()
+		coordinator?.toggleRead(article)
+	}
+
 	private func resetSwipePan() {
-		swipePanCell?.transform = .identity
-		swipeActionView?.removeFromSuperview()
-		swipePanCell = nil
 		swipePanIndexPath = nil
 		swipePanTriggered = false
-		swipeActionView = nil
+	}
+
+	private func animateDoubleFlash(on cell: UITableViewCell) {
+		let flashView = UIView(frame: cell.bounds)
+		flashView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+		flashView.backgroundColor = .white
+		flashView.alpha = 0
+		flashView.isUserInteractionEnabled = false
+		cell.contentView.addSubview(flashView)
+
+		UIView.animateKeyframes(withDuration: 0.56, delay: 0, options: [.allowUserInteraction, .calculationModeLinear]) {
+			UIView.addKeyframe(withRelativeStartTime: 0.00, relativeDuration: 0.16) {
+				flashView.alpha = 0.32
+			}
+			UIView.addKeyframe(withRelativeStartTime: 0.16, relativeDuration: 0.34) {
+				flashView.alpha = 0
+			}
+		} completion: { _ in
+			Task { @MainActor in
+				flashView.removeFromSuperview()
+			}
+		}
 	}
 
 	override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
