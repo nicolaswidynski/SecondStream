@@ -36,6 +36,10 @@ enum AddNewsResult {
 	private let getSourcesURL = URL(string: "https://n8n.nwidynski.com/webhook/get-show-sources")!
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
 
+	// MARK: - Server Error
+
+	private(set) var lastServerMessage: String?
+
 	// MARK: - Fetch State
 
 	private(set) var isFetching = false
@@ -212,6 +216,7 @@ enum AddNewsResult {
 			}
 
 			let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+			lastServerMessage = json?["message"] as? String
 
 			switch httpResponse.statusCode {
 			case 201:

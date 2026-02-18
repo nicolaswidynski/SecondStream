@@ -1177,7 +1177,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func showPodcastError(title: String, message: String) {
-		let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+		var displayMessage = message
+		if AppDefaults.shared.showAddShowSourceFailureDialog,
+		   let serverMessage = PodcastSourcesManager.shared.lastServerMessage {
+			displayMessage += "\n\nServer: \(serverMessage)"
+		}
+		let alert = UIAlertController(title: title, message: displayMessage, preferredStyle: .alert)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
 		present(alert, animated: true)
 	}
@@ -2075,7 +2080,12 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 	}
 
 	private func showYoutubeError(title: String, message: String) {
-		let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+		var displayMessage = message
+		if AppDefaults.shared.showAddShowSourceFailureDialog,
+		   let serverMessage = YoutubeSourcesManager.shared.lastServerMessage {
+			displayMessage += "\n\nServer: \(serverMessage)"
+		}
+		let alert = UIAlertController(title: title, message: displayMessage, preferredStyle: .alert)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
 		present(alert, animated: true)
 	}
@@ -2180,7 +2190,12 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 	}
 
 	private func showTopicError(title: String, message: String) {
-		let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+		var displayMessage = message
+		if AppDefaults.shared.showAddShowSourceFailureDialog,
+		   let serverMessage = NewsSourcesManager.shared.lastServerMessage {
+			displayMessage += "\n\nServer: \(serverMessage)"
+		}
+		let alert = UIAlertController(title: title, message: displayMessage, preferredStyle: .alert)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
 		present(alert, animated: true)
 	}
