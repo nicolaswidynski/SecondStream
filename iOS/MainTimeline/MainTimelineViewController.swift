@@ -873,7 +873,6 @@ private extension MainTimelineViewController {
 	}
 
 	func updateToolbar() {
-		markAllAsReadButton?.isEnabled = isTimelineUnreadAvailable
 		firstUnreadButton.isEnabled = isTimelineUnreadAvailable
 
 		if isRootSplitCollapsed {

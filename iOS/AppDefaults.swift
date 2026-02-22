@@ -85,6 +85,7 @@ final class AppDefaults: Sendable {
 		static let notifyPodcasts = "notifyPodcasts"
 		static let notifyYouTube = "notifyYouTube"
 		static let notifyWeeklyNews = "notifyWeeklyNews"
+		static let showAddShowSourceFailureDialog = "showAddShowSourceFailureDialog"
 	}
 
 	let isDeveloperBuild: Bool = {
@@ -474,6 +475,17 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	/// Global toggle for add-show-source failures:
+	/// when enabled, dialogs show the raw webhook failure message.
+	var showAddShowSourceFailureDialog: Bool {
+		get {
+			AppDefaults.bool(for: Key.showAddShowSourceFailureDialog)
+		}
+		set {
+			AppDefaults.setBool(for: Key.showAddShowSourceFailureDialog, newValue)
+		}
+	}
+
 	@MainActor static func registerDefaults() {
 		let defaults: [String: Any] = [Key.userInterfaceColorPalette: UserInterfaceColorPalette.automatic.rawValue,
 										Key.timelineGroupByFeed: false,
@@ -488,7 +500,8 @@ final class AppDefaults: Sendable {
 										Key.currentThemeName: Self.defaultThemeName,
 										Key.splitViewPreferredDisplayMode: UISplitViewController.DisplayMode.oneBesideSecondary.rawValue,
 									Key.obsidianSubfolderFeedType: true,
-									Key.obsidianSubfolderFeedName: true]
+									Key.obsidianSubfolderFeedName: true,
+									Key.showAddShowSourceFailureDialog: false]
 		AppDefaults.store.register(defaults: defaults)
 	}
 }

@@ -633,6 +633,8 @@ private extension SettingsViewController {
 		alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
 		alert.addAction(UIAlertAction(title: NSLocalizedString("Clean", comment: "Clean"), style: .destructive) { _ in
 			SourceImageCache.shared.clearCache()
+			FaviconDownloader.shared.resetCache()
+			IconImageCache.shared.emptyCache()
 		})
 
 		present(alert, animated: true)
