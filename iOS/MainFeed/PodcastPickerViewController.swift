@@ -10,7 +10,6 @@ import UIKit
 
 @MainActor protocol PodcastPickerDelegate: AnyObject {
 	func podcastPickerDidSelectPodcastName(_ picker: PodcastPickerViewController)
-	func podcastPickerDidSelectCustomURL(_ picker: PodcastPickerViewController)
 	func podcastPicker(_ picker: PodcastPickerViewController, didSelectPodcast source: PodcastSource)
 	func podcastPickerDidCancel(_ picker: PodcastPickerViewController)
 }
@@ -95,9 +94,7 @@ final class PodcastPickerViewController: UIViewController {
 
 			switch item {
 			case .customEntryName:
-				cell.configure(name: NSLocalizedString("Add via Name", comment: "Add via Name"), imageURL: nil, isCustomEntry: true)
-			case .customEntryURL:
-				cell.configure(name: NSLocalizedString("Add via RSS URL", comment: "Add via RSS URL"), imageURL: nil, isCustomEntry: true)
+				cell.configure(name: NSLocalizedString("Add Podcast", comment: "Add Podcast"), imageURL: nil, isCustomEntry: true)
 			case .podcastSource(let source):
 				cell.configure(name: source.name, imageURL: source.imageURL)
 			default:
@@ -135,18 +132,31 @@ final class PodcastPickerViewController: UIViewController {
 
 		// Custom entry section
 		snapshot.appendSections([.customEntry])
-		snapshot.appendItems([.customEntryName, .customEntryURL], toSection: .customEntry)
+		snapshot.appendItems([.customEntryName], toSection: .customEntry)
 
-		// All sources alphabetically in a single "Top Picks" section
-		let sources = PodcastSourcesManager.shared.podcastSources.sorted {
+		// Top Picks section
+		let topSources = PodcastSourcesManager.shared.podcastSources.sorted {
 			$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
 		}
 
-		if !sources.isEmpty {
+		if !topSources.isEmpty {
 			let topPicks = SourcePickerSection.sources(NSLocalizedString("Top Picks", comment: "Top Picks"))
 			snapshot.appendSections([topPicks])
-			let items = sources.map { SourcePickerItem.podcastSource($0) }
+			let items = topSources.map { SourcePickerItem.podcastSource($0) }
 			snapshot.appendItems(items, toSection: topPicks)
+		}
+
+		// Library section (exclude sources already in top picks)
+		let topNames = Set(topSources.map { $0.name.lowercased() })
+		let librarySources = PodcastSourcesManager.shared.podcastLibrarySources
+			.filter { !topNames.contains($0.name.lowercased()) }
+			.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+		if !librarySources.isEmpty {
+			let otherSection = SourcePickerSection.sources(NSLocalizedString("Other Podcasts", comment: "Other Podcasts"))
+			snapshot.appendSections([otherSection])
+			let items = librarySources.map { SourcePickerItem.podcastSource($0) }
+			snapshot.appendItems(items, toSection: otherSection)
 		}
 
 		dataSource.apply(snapshot, animatingDifferences: false)
@@ -180,8 +190,6 @@ extension PodcastPickerViewController: UICollectionViewDelegate {
 		switch item {
 		case .customEntryName:
 			delegate?.podcastPickerDidSelectPodcastName(self)
-		case .customEntryURL:
-			delegate?.podcastPickerDidSelectCustomURL(self)
 		case .podcastSource(let source):
 			delegate?.podcastPicker(self, didSelectPodcast: source)
 		default:

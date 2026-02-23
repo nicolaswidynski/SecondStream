@@ -11,7 +11,9 @@ import os.log
 
 struct NewsSource: Codable, Hashable {
 	let name: String
+	let author: String?
 	let url: String
+	let myFeedURL: String?
 	let imageURL: String?
 }
 
@@ -27,8 +29,10 @@ enum AddNewsResult {
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "NewsSources")
 
-	private let getSourcesURL = URL(string: "https://n8n.nwidynski.com/webhook/get-show-sources")!
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
+
+	private static let topFileName = "topics_top.txt"
+	private static let libraryFileName = "topics.txt"
 
 	// MARK: - Server Error
 
@@ -41,11 +45,13 @@ enum AddNewsResult {
 
 	// MARK: - Stored News Sources
 
-	private let newsSourcesKey = "newsSources"
+	private let newsTopSourcesKey = "newsTopSources"
+	private let newsLibrarySourcesKey = "newsLibrarySources"
 
+	/// Top Picks sources, used by pickers.
 	var newsSources: [NewsSource] {
 		get {
-			guard let data = UserDefaults.standard.data(forKey: newsSourcesKey),
+			guard let data = UserDefaults.standard.data(forKey: newsTopSourcesKey),
 				  let sources = try? JSONDecoder().decode([NewsSource].self, from: data) else {
 				return []
 			}
@@ -53,7 +59,23 @@ enum AddNewsResult {
 		}
 		set {
 			if let data = try? JSONEncoder().encode(newValue) {
-				UserDefaults.standard.set(data, forKey: newsSourcesKey)
+				UserDefaults.standard.set(data, forKey: newsTopSourcesKey)
+			}
+		}
+	}
+
+	/// Library (non-Top Picks) sources.
+	var newsLibrarySources: [NewsSource] {
+		get {
+			guard let data = UserDefaults.standard.data(forKey: newsLibrarySourcesKey),
+				  let sources = try? JSONDecoder().decode([NewsSource].self, from: data) else {
+				return []
+			}
+			return sources
+		}
+		set {
+			if let data = try? JSONEncoder().encode(newValue) {
+				UserDefaults.standard.set(data, forKey: newsLibrarySourcesKey)
 			}
 		}
 	}
@@ -61,7 +83,6 @@ enum AddNewsResult {
 	// MARK: - Token
 
 	private var bearerToken: String? {
-		// Use the same token as podcasts
 		guard let tokenURL = Bundle.main.url(forResource: "podcast_token", withExtension: "txt"),
 			  let token = try? String(contentsOf: tokenURL, encoding: .utf8) else {
 			Self.logger.error("Failed to load token from file")
@@ -107,76 +128,43 @@ enum AddNewsResult {
 			fetchTask = nil
 		}
 
-		guard let token = bearerToken else {
-			Self.logger.error("No bearer token available")
-			return
+		async let topEntries = SourceFileFetcher.fetchIfModified(fileName: Self.topFileName)
+		async let libraryEntries = SourceFileFetcher.fetchIfModified(fileName: Self.libraryFileName)
+
+		if let entries = await topEntries {
+			let sources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let oldURLs = Set(self.newsSources.compactMap(\.imageURL))
+			let newURLs = Set(sources.compactMap(\.imageURL))
+			let libraryURLs = Set(self.newsLibrarySources.compactMap(\.imageURL))
+			let removed = Array(oldURLs.subtracting(newURLs).subtracting(libraryURLs))
+			let added = Array(newURLs.subtracting(oldURLs))
+			SourceImageCache.shared.removeImages(for: removed)
+			SourceImageCache.shared.prefetchImages(for: added)
+			self.newsSources = sources
+			Self.logger.info("Fetched \(sources.count) top news sources")
 		}
 
-		var request = URLRequest(url: getSourcesURL)
-		request.httpMethod = "POST"
-		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-		// Use type "topics" for news
-		let body: [String: String] = [
-			"type": "topics"
-		]
-		request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-		do {
-			let (data, response) = try await URLSession.shared.data(for: request)
-
-			guard let httpResponse = response as? HTTPURLResponse else {
-				Self.logger.error("Invalid response type")
-				return
-			}
-
-			if httpResponse.statusCode == 200 {
-				// Success
-				if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-				   let status = json["status"] as? String,
-				   status == "success",
-				   let dataArray = json["data"] as? [[String: Any]],
-				   let firstItem = dataArray.first,
-				   let names = firstItem["name"] as? [String],
-				   let urls = firstItem["url"] as? [String] {
-
-					let imageRefs = firstItem["image"] as? [String]
-
-					var sources: [NewsSource] = []
-					for (index, name) in names.enumerated() {
-						if index < urls.count {
-							let imageURL = (imageRefs != nil && index < imageRefs!.count) ? imageRefs![index] : nil
-							sources.append(NewsSource(name: name, url: urls[index], imageURL: imageURL))
-						}
-					}
-
-					self.newsSources = sources
-					Self.logger.info("Fetched \(sources.count) news sources")
-				} else {
-					Self.logger.error("Failed to parse success response")
-				}
-			} else {
-				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
-			}
-		} catch {
-			Self.logger.error("Failed to fetch news sources: \(error.localizedDescription)")
+		if let entries = await libraryEntries {
+			let sources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let oldURLs = Set(self.newsLibrarySources.compactMap(\.imageURL))
+			let newURLs = Set(sources.compactMap(\.imageURL))
+			let topURLs = Set(self.newsSources.compactMap(\.imageURL))
+			let removed = Array(oldURLs.subtracting(newURLs).subtracting(topURLs))
+			let added = Array(newURLs.subtracting(oldURLs))
+			SourceImageCache.shared.removeImages(for: removed)
+			SourceImageCache.shared.prefetchImages(for: added)
+			self.newsLibrarySources = sources
+			Self.logger.info("Fetched \(sources.count) library news sources")
 		}
 	}
 
-	/// Adds a news topic by sending the topic name to the webhook.
+	/// Adds a news source by sending the name and author to the webhook.
 	/// Returns the summary feed URL on success.
-	func addNewsByTopicName(_ topicName: String) async -> AddNewsResult {
-		return await sendAddNewsRequest(link: nil, show: topicName)
+	func addNews(name: String, author: String? = nil) async -> AddNewsResult {
+		return await sendAddNewsRequest(show: name, author: author ?? "")
 	}
 
-	/// Adds a news source by sending the URL to the webhook.
-	/// Returns the summary feed URL on success.
-	func addNewsByURL(_ newsURL: String) async -> AddNewsResult {
-		return await sendAddNewsRequest(link: newsURL, show: nil)
-	}
-
-	private func sendAddNewsRequest(link: String?, show: String?) async -> AddNewsResult {
+	private func sendAddNewsRequest(show: String, author: String) async -> AddNewsResult {
 		guard let token = bearerToken else {
 			Self.logger.error("No bearer token available")
 			return .failure(message: "No authentication token")
@@ -187,11 +175,11 @@ enum AddNewsResult {
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-		// Build body with type "topics", show, and link (use empty strings for nil values)
 		let body: [String: String] = [
 			"type": "topics",
-			"show": show ?? "",
-			"link": link ?? ""
+			"show": show,
+			"author": author,
+			"authorize_unknown_sources": "YES"
 		]
 
 		do {

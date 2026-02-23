@@ -93,7 +93,7 @@ final class RSSPickerViewController: UIViewController {
 
 			switch item {
 			case .customEntryURL:
-				cell.configure(name: NSLocalizedString("Add via RSS URL", comment: "Add via RSS URL"), imageURL: nil, isCustomEntry: true)
+				cell.configure(name: NSLocalizedString("Add RSS URL", comment: "Add RSS URL"), imageURL: nil, isCustomEntry: true)
 			case .rssSource(let source):
 				cell.configure(name: source.name, imageURL: source.imageURL)
 			default:
@@ -132,15 +132,29 @@ final class RSSPickerViewController: UIViewController {
 		snapshot.appendSections([.customEntry])
 		snapshot.appendItems([.customEntryURL], toSection: .customEntry)
 
-		let sources = RSSSourcesManager.shared.rssSources.sorted {
+		// Top Picks section
+		let topSources = RSSSourcesManager.shared.rssSources.sorted {
 			$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
 		}
 
-		if !sources.isEmpty {
+		if !topSources.isEmpty {
 			let topPicks = SourcePickerSection.sources(NSLocalizedString("Top Picks", comment: "Top Picks"))
 			snapshot.appendSections([topPicks])
-			let items = sources.map { SourcePickerItem.rssSource($0) }
+			let items = topSources.map { SourcePickerItem.rssSource($0) }
 			snapshot.appendItems(items, toSection: topPicks)
+		}
+
+		// Library section (exclude sources already in top picks)
+		let topNames = Set(topSources.map { $0.name.lowercased() })
+		let librarySources = RSSSourcesManager.shared.rssLibrarySources
+			.filter { !topNames.contains($0.name.lowercased()) }
+			.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+		if !librarySources.isEmpty {
+			let otherSection = SourcePickerSection.sources(NSLocalizedString("Other RSS Feeds", comment: "Other RSS Feeds"))
+			snapshot.appendSections([otherSection])
+			let items = librarySources.map { SourcePickerItem.rssSource($0) }
+			snapshot.appendItems(items, toSection: otherSection)
 		}
 
 		dataSource.apply(snapshot, animatingDifferences: false)

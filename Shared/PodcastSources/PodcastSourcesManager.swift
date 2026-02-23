@@ -11,7 +11,9 @@ import os.log
 
 struct PodcastSource: Codable, Hashable {
 	let name: String
+	let author: String?
 	let rssURL: String
+	let myFeedURL: String?
 	let imageURL: String?
 }
 
@@ -27,8 +29,10 @@ enum AddPodcastResult {
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "PodcastSources")
 
-	private let getSourcesURL = URL(string: "https://n8n.nwidynski.com/webhook/get-show-sources")!
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
+
+	private static let topFileName = "pod_top.txt"
+	private static let libraryFileName = "pod.txt"
 
 	// MARK: - Server Error
 
@@ -41,11 +45,13 @@ enum AddPodcastResult {
 
 	// MARK: - Stored Podcast Sources
 
-	private let podcastSourcesKey = "podcastSources"
+	private let podcastTopSourcesKey = "podcastTopSources"
+	private let podcastLibrarySourcesKey = "podcastLibrarySources"
 
+	/// Top Picks sources, used by pickers.
 	var podcastSources: [PodcastSource] {
 		get {
-			guard let data = UserDefaults.standard.data(forKey: podcastSourcesKey),
+			guard let data = UserDefaults.standard.data(forKey: podcastTopSourcesKey),
 				  let sources = try? JSONDecoder().decode([PodcastSource].self, from: data) else {
 				return []
 			}
@@ -53,7 +59,23 @@ enum AddPodcastResult {
 		}
 		set {
 			if let data = try? JSONEncoder().encode(newValue) {
-				UserDefaults.standard.set(data, forKey: podcastSourcesKey)
+				UserDefaults.standard.set(data, forKey: podcastTopSourcesKey)
+			}
+		}
+	}
+
+	/// Library (non-Top Picks) sources.
+	var podcastLibrarySources: [PodcastSource] {
+		get {
+			guard let data = UserDefaults.standard.data(forKey: podcastLibrarySourcesKey),
+				  let sources = try? JSONDecoder().decode([PodcastSource].self, from: data) else {
+				return []
+			}
+			return sources
+		}
+		set {
+			if let data = try? JSONEncoder().encode(newValue) {
+				UserDefaults.standard.set(data, forKey: podcastLibrarySourcesKey)
 			}
 		}
 	}
@@ -106,85 +128,43 @@ enum AddPodcastResult {
 			fetchTask = nil
 		}
 
-		guard let token = bearerToken else {
-			Self.logger.error("No bearer token available")
-			return
+		async let topEntries = SourceFileFetcher.fetchIfModified(fileName: Self.topFileName)
+		async let libraryEntries = SourceFileFetcher.fetchIfModified(fileName: Self.libraryFileName)
+
+		if let entries = await topEntries {
+			let sources = entries.map { PodcastSource(name: $0.name, author: $0.author, rssURL: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let oldURLs = Set(self.podcastSources.compactMap(\.imageURL))
+			let newURLs = Set(sources.compactMap(\.imageURL))
+			let libraryURLs = Set(self.podcastLibrarySources.compactMap(\.imageURL))
+			let removed = Array(oldURLs.subtracting(newURLs).subtracting(libraryURLs))
+			let added = Array(newURLs.subtracting(oldURLs))
+			SourceImageCache.shared.removeImages(for: removed)
+			SourceImageCache.shared.prefetchImages(for: added)
+			self.podcastSources = sources
+			Self.logger.info("Fetched \(sources.count) top podcast sources")
 		}
 
-		var request = URLRequest(url: getSourcesURL)
-		request.httpMethod = "POST"
-		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-		// Add type in body
-		let body: [String: String] = [
-			"type": "pod"
-		]
-		request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-		do {
-			let (data, response) = try await URLSession.shared.data(for: request)
-
-			guard let httpResponse = response as? HTTPURLResponse else {
-				Self.logger.error("Invalid response type")
-				return
-			}
-
-			if httpResponse.statusCode == 200 {
-				// Success
-				if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-				   let status = json["status"] as? String,
-				   status == "success",
-				   let dataArray = json["data"] as? [[String: Any]],
-				   let firstItem = dataArray.first,
-				   let names = firstItem["name"] as? [String],
-				   let urls = firstItem["url"] as? [String] {
-
-					let imageRefs = firstItem["image"] as? [String]
-
-					var sources: [PodcastSource] = []
-					for (index, name) in names.enumerated() {
-						if index < urls.count {
-							let imageURL = (imageRefs != nil && index < imageRefs!.count) ? imageRefs![index] : nil
-							sources.append(PodcastSource(name: name, rssURL: urls[index], imageURL: imageURL))
-						}
-					}
-
-					self.podcastSources = sources
-					Self.logger.info("Fetched \(sources.count) podcast sources")
-				} else {
-					Self.logger.error("Failed to parse success response")
-				}
-			} else if httpResponse.statusCode == 422 {
-				// Bad RSS error
-				if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-				   let status = json["status"] as? String,
-				   let message = json["message"] as? String {
-					Self.logger.error("API error: status=\(status), message=\(message)")
-				} else {
-					Self.logger.error("API returned 422 but could not parse error response")
-				}
-			} else {
-				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
-			}
-		} catch {
-			Self.logger.error("Failed to fetch podcast sources: \(error.localizedDescription)")
+		if let entries = await libraryEntries {
+			let sources = entries.map { PodcastSource(name: $0.name, author: $0.author, rssURL: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let oldURLs = Set(self.podcastLibrarySources.compactMap(\.imageURL))
+			let newURLs = Set(sources.compactMap(\.imageURL))
+			let topURLs = Set(self.podcastSources.compactMap(\.imageURL))
+			let removed = Array(oldURLs.subtracting(newURLs).subtracting(topURLs))
+			let added = Array(newURLs.subtracting(oldURLs))
+			SourceImageCache.shared.removeImages(for: removed)
+			SourceImageCache.shared.prefetchImages(for: added)
+			self.podcastLibrarySources = sources
+			Self.logger.info("Fetched \(sources.count) library podcast sources")
 		}
 	}
 
-	/// Adds a podcast source by sending the RSS URL to the webhook.
+	/// Adds a podcast source by sending the podcast name and author to the webhook.
 	/// Returns the summary feed URL on success.
-	func addPodcastSource(rssURL: String) async -> AddPodcastResult {
-		return await sendAddPodcastRequest(link: rssURL, show: nil)
+	func addPodcast(name: String, author: String? = nil) async -> AddPodcastResult {
+		return await sendAddPodcastRequest(show: name, author: author ?? "")
 	}
 
-	/// Adds a podcast source by sending the podcast name to the webhook.
-	/// Returns the summary feed URL on success.
-	func addPodcastByName(_ podcastName: String) async -> AddPodcastResult {
-		return await sendAddPodcastRequest(link: nil, show: podcastName)
-	}
-
-	private func sendAddPodcastRequest(link: String?, show: String?) async -> AddPodcastResult {
+	private func sendAddPodcastRequest(show: String, author: String) async -> AddPodcastResult {
 		guard let token = bearerToken else {
 			Self.logger.error("No bearer token available")
 			return .failure(message: "No authentication token")
@@ -195,11 +175,11 @@ enum AddPodcastResult {
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-		// Build body with type, show, and link (use empty strings for nil values)
 		let body: [String: String] = [
 			"type": "pod",
-			"show": show ?? "",
-			"link": link ?? ""
+			"show": show,
+			"author": author,
+			"authorize_unknown_sources": "YES"
 		]
 
 		do {

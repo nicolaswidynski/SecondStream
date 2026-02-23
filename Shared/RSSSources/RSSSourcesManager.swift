@@ -11,20 +11,16 @@ import os.log
 
 struct RSSSource: Codable, Hashable {
 	let name: String
+	let author: String?
 	let url: String
+	let myFeedURL: String?
 	let imageURL: String?
 }
 
 enum AddRSSResult {
 	case successExisting(summaryURL: String)  // 201 - Feed already exists
 	case successNew(summaryURL: String)       // 202 - Feed accepted for processing
-	case unauthorized                         // 401
-	case badRSS                               // 551
-	case wrongFormat                          // 552
-	case maxFeeds                             // 553
-	case badMessage                           // 554
-	case badFeed                              // 555
-	case error(String)
+	case failure(message: String)             // Any error - uses server message
 }
 
 @MainActor final class RSSSourcesManager {
@@ -33,8 +29,14 @@ enum AddRSSResult {
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "RSSSources")
 
-	private let getSourcesURL = URL(string: "https://n8n.nwidynski.com/webhook/get-show-sources")!
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
+
+	private static let topFileName = "rss_top.txt"
+	private static let libraryFileName = "rss.txt"
+
+	// MARK: - Server Error
+
+	private(set) var lastServerMessage: String?
 
 	// MARK: - Fetch State
 
@@ -43,11 +45,13 @@ enum AddRSSResult {
 
 	// MARK: - Stored RSS Sources
 
-	private let rssSourcesKey = "rssSources"
+	private let rssTopSourcesKey = "rssTopSources"
+	private let rssLibrarySourcesKey = "rssLibrarySources"
 
+	/// Top Picks sources, used by pickers.
 	var rssSources: [RSSSource] {
 		get {
-			guard let data = UserDefaults.standard.data(forKey: rssSourcesKey),
+			guard let data = UserDefaults.standard.data(forKey: rssTopSourcesKey),
 				  let sources = try? JSONDecoder().decode([RSSSource].self, from: data) else {
 				return []
 			}
@@ -55,7 +59,23 @@ enum AddRSSResult {
 		}
 		set {
 			if let data = try? JSONEncoder().encode(newValue) {
-				UserDefaults.standard.set(data, forKey: rssSourcesKey)
+				UserDefaults.standard.set(data, forKey: rssTopSourcesKey)
+			}
+		}
+	}
+
+	/// Library (non-Top Picks) sources.
+	var rssLibrarySources: [RSSSource] {
+		get {
+			guard let data = UserDefaults.standard.data(forKey: rssLibrarySourcesKey),
+				  let sources = try? JSONDecoder().decode([RSSSource].self, from: data) else {
+				return []
+			}
+			return sources
+		}
+		set {
+			if let data = try? JSONEncoder().encode(newValue) {
+				UserDefaults.standard.set(data, forKey: rssLibrarySourcesKey)
 			}
 		}
 	}
@@ -103,67 +123,45 @@ enum AddRSSResult {
 			fetchTask = nil
 		}
 
-		guard let token = bearerToken else {
-			Self.logger.error("No bearer token available")
-			return
-		}
+		async let topEntries = SourceFileFetcher.fetchIfModified(fileName: Self.topFileName)
+		async let libraryEntries = SourceFileFetcher.fetchIfModified(fileName: Self.libraryFileName)
 
-		var request = URLRequest(url: getSourcesURL)
-		request.httpMethod = "POST"
-		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-		request.httpBody = try? JSONSerialization.data(withJSONObject: ["type": "rss"])
-
-		do {
-			let (data, response) = try await URLSession.shared.data(for: request)
-
-			guard let httpResponse = response as? HTTPURLResponse else {
-				Self.logger.error("Invalid response type")
-				return
-			}
-
-			guard httpResponse.statusCode == 200 else {
-				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
-				return
-			}
-
-			guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-				  let status = json["status"] as? String,
-				  status == "success",
-				  let dataArray = json["data"] as? [[String: Any]],
-				  let firstItem = dataArray.first,
-				  let names = firstItem["name"] as? [String],
-				  let urls = firstItem["url"] as? [String] else {
-				Self.logger.error("Failed to parse success response")
-				return
-			}
-
-			let imageRefs = firstItem["image"] as? [String]
-			var sources: [RSSSource] = []
-			for (index, name) in names.enumerated() where index < urls.count {
-				let imageURL = (imageRefs != nil && index < imageRefs!.count) ? imageRefs![index] : nil
-				sources.append(RSSSource(name: name, url: urls[index], imageURL: imageURL))
-			}
-
+		if let entries = await topEntries {
+			let sources = entries.map { RSSSource(name: $0.name, author: $0.author, url: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let oldURLs = Set(self.rssSources.compactMap(\.imageURL))
+			let newURLs = Set(sources.compactMap(\.imageURL))
+			let libraryURLs = Set(self.rssLibrarySources.compactMap(\.imageURL))
+			let removed = Array(oldURLs.subtracting(newURLs).subtracting(libraryURLs))
+			let added = Array(newURLs.subtracting(oldURLs))
+			SourceImageCache.shared.removeImages(for: removed)
+			SourceImageCache.shared.prefetchImages(for: added)
 			self.rssSources = sources
-			Self.logger.info("Fetched \(sources.count) RSS sources")
-		} catch {
-			Self.logger.error("Failed to fetch RSS sources: \(error.localizedDescription)")
+			Self.logger.info("Fetched \(sources.count) top RSS sources")
+		}
+
+		if let entries = await libraryEntries {
+			let sources = entries.map { RSSSource(name: $0.name, author: $0.author, url: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let oldURLs = Set(self.rssLibrarySources.compactMap(\.imageURL))
+			let newURLs = Set(sources.compactMap(\.imageURL))
+			let topURLs = Set(self.rssSources.compactMap(\.imageURL))
+			let removed = Array(oldURLs.subtracting(newURLs).subtracting(topURLs))
+			let added = Array(newURLs.subtracting(oldURLs))
+			SourceImageCache.shared.removeImages(for: removed)
+			SourceImageCache.shared.prefetchImages(for: added)
+			self.rssLibrarySources = sources
+			Self.logger.info("Fetched \(sources.count) library RSS sources")
 		}
 	}
 
-	func addRSSByName(_ feedName: String) async -> AddRSSResult {
-		return await sendAddRSSRequest(link: nil, show: feedName)
+	/// Adds an RSS source by sending the name and author to the webhook.
+	func addRSS(name: String, author: String? = nil) async -> AddRSSResult {
+		return await sendAddRSSRequest(show: name, author: author ?? "")
 	}
 
-	func addRSSByURL(_ rssURL: String) async -> AddRSSResult {
-		return await sendAddRSSRequest(link: rssURL, show: nil)
-	}
-
-	private func sendAddRSSRequest(link: String?, show: String?) async -> AddRSSResult {
+	private func sendAddRSSRequest(show: String, author: String) async -> AddRSSResult {
 		guard let token = bearerToken else {
 			Self.logger.error("No bearer token available")
-			return .error("No authentication token")
+			return .failure(message: "No authentication token")
 		}
 
 		var request = URLRequest(url: addSourceURL)
@@ -173,15 +171,16 @@ enum AddRSSResult {
 
 		let body: [String: String] = [
 			"type": "rss",
-			"show": show ?? "",
-			"link": link ?? ""
+			"show": show,
+			"author": author,
+			"authorize_unknown_sources": "YES"
 		]
 
 		do {
 			request.httpBody = try JSONSerialization.data(withJSONObject: body)
 		} catch {
 			Self.logger.error("Failed to encode request body")
-			return .error("Failed to encode request")
+			return .failure(message: "Failed to encode request")
 		}
 
 		do {
@@ -189,49 +188,45 @@ enum AddRSSResult {
 
 			guard let httpResponse = response as? HTTPURLResponse else {
 				Self.logger.error("Invalid response type")
-				return .error("Invalid response")
+				return .failure(message: "Invalid response")
 			}
 
 			let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+			let serverMessage = json?["message"] as? String
+			lastServerMessage = serverMessage
+			let statusCode = httpResponse.statusCode
 
-			switch httpResponse.statusCode {
+			switch statusCode {
 			case 201:
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
 				   let summaryURL = json["summary_url"] as? String {
+					Self.logger.info("RSS feed already exists")
 					return .successExisting(summaryURL: summaryURL)
 				}
-				return .error("Failed to parse response")
+				Self.logger.error("Failed to parse 201 response")
+				return .failure(message: "Failed to parse response")
 
 			case 202:
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
 				   let summaryURL = json["summary_url"] as? String {
+					Self.logger.info("New RSS feed added, processing required")
 					return .successNew(summaryURL: summaryURL)
 				}
-				return .error("Failed to parse response")
+				Self.logger.error("Failed to parse 202 response")
+				return .failure(message: "Failed to parse response")
 
-			case 401:
-				return .unauthorized
-			case 551:
-				return .badRSS
-			case 552:
-				return .wrongFormat
-			case 553:
-				return .maxFeeds
-			case 554:
-				return .badMessage
-			case 555:
-				return .badFeed
 			default:
-				Self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
-				return .error("Unexpected error")
+				let message = serverMessage ?? "Unknown error"
+				Self.logger.error("[\(statusCode)] \(message)")
+				return .failure(message: "[\(statusCode)] \(message)")
 			}
 		} catch {
 			Self.logger.error("Failed to add RSS source: \(error.localizedDescription)")
-			return .error(error.localizedDescription)
+			return .failure(message: error.localizedDescription)
 		}
 	}
 }

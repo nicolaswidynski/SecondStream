@@ -10,7 +10,6 @@ import UIKit
 
 @MainActor protocol YoutubePickerDelegate: AnyObject {
 	func youtubePickerDidSelectChannelName(_ picker: YoutubePickerViewController)
-	func youtubePickerDidSelectChannelURL(_ picker: YoutubePickerViewController)
 	func youtubePicker(_ picker: YoutubePickerViewController, didSelectChannel source: YoutubeSource)
 	func youtubePickerDidCancel(_ picker: YoutubePickerViewController)
 }
@@ -95,9 +94,7 @@ final class YoutubePickerViewController: UIViewController {
 
 			switch item {
 			case .customEntryName:
-				cell.configure(name: NSLocalizedString("Add via Name", comment: "Add via Name"), imageURL: nil, isCustomEntry: true)
-			case .customEntryURL:
-				cell.configure(name: NSLocalizedString("Add via URL", comment: "Add via URL"), imageURL: nil, isCustomEntry: true)
+				cell.configure(name: NSLocalizedString("Add Channel", comment: "Add Channel"), imageURL: nil, isCustomEntry: true)
 			case .youtubeSource(let source):
 				cell.configure(name: source.name, imageURL: source.imageURL)
 			default:
@@ -135,18 +132,31 @@ final class YoutubePickerViewController: UIViewController {
 
 		// Custom entry section
 		snapshot.appendSections([.customEntry])
-		snapshot.appendItems([.customEntryName, .customEntryURL], toSection: .customEntry)
+		snapshot.appendItems([.customEntryName], toSection: .customEntry)
 
-		// All sources alphabetically in a single "Top Picks" section
-		let sources = YoutubeSourcesManager.shared.youtubeSources.sorted {
+		// Top Picks section
+		let topSources = YoutubeSourcesManager.shared.youtubeSources.sorted {
 			$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
 		}
 
-		if !sources.isEmpty {
+		if !topSources.isEmpty {
 			let topPicks = SourcePickerSection.sources(NSLocalizedString("Top Picks", comment: "Top Picks"))
 			snapshot.appendSections([topPicks])
-			let items = sources.map { SourcePickerItem.youtubeSource($0) }
+			let items = topSources.map { SourcePickerItem.youtubeSource($0) }
 			snapshot.appendItems(items, toSection: topPicks)
+		}
+
+		// Library section (exclude sources already in top picks)
+		let topNames = Set(topSources.map { $0.name.lowercased() })
+		let librarySources = YoutubeSourcesManager.shared.youtubeLibrarySources
+			.filter { !topNames.contains($0.name.lowercased()) }
+			.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+		if !librarySources.isEmpty {
+			let otherSection = SourcePickerSection.sources(NSLocalizedString("Other YouTube Channels", comment: "Other YouTube Channels"))
+			snapshot.appendSections([otherSection])
+			let items = librarySources.map { SourcePickerItem.youtubeSource($0) }
+			snapshot.appendItems(items, toSection: otherSection)
 		}
 
 		dataSource.apply(snapshot, animatingDifferences: false)
@@ -180,8 +190,6 @@ extension YoutubePickerViewController: UICollectionViewDelegate {
 		switch item {
 		case .customEntryName:
 			delegate?.youtubePickerDidSelectChannelName(self)
-		case .customEntryURL:
-			delegate?.youtubePickerDidSelectChannelURL(self)
 		case .youtubeSource(let source):
 			delegate?.youtubePicker(self, didSelectChannel: source)
 		default:

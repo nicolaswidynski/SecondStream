@@ -67,15 +67,19 @@ extension Notification.Name {
 
 				guard let httpResponse = response as? HTTPURLResponse,
 					  (200...299).contains(httpResponse.statusCode),
-					  let image = UIImage(data: data) else {
+					  let original = UIImage(data: data) else {
 					Self.logger.error("Failed to download source image: \(urlString)")
 					urlsInProgress.remove(urlString)
 					return
 				}
 
-				// Save to disk
+				let image = resizedImage(original, to: CGSize(width: 400, height: 400))
+
+				// Save resized JPEG to disk
 				let fileURL = diskURL(for: urlString)
-				try? data.write(to: fileURL)
+				if let jpegData = image.jpegData(compressionQuality: 0.8) {
+					try? jpegData.write(to: fileURL)
+				}
 
 				// Save to memory
 				memoryCache[urlString] = image
@@ -90,6 +94,35 @@ extension Notification.Name {
 				Self.logger.error("Error downloading source image: \(error.localizedDescription)")
 				urlsInProgress.remove(urlString)
 			}
+		}
+	}
+
+	/// Removes cached images (memory + disk) for the given URLs.
+	func removeImages(for urlStrings: [String]) {
+		for urlString in urlStrings {
+			memoryCache.removeValue(forKey: urlString)
+			let fileURL = diskURL(for: urlString)
+			try? FileManager.default.removeItem(at: fileURL)
+		}
+		if !urlStrings.isEmpty {
+			Self.logger.info("Removed \(urlStrings.count) stale source images")
+		}
+	}
+
+	/// Starts downloads for image URLs not already cached on disk.
+	func prefetchImages(for urlStrings: [String]) {
+		for urlString in urlStrings {
+			let fileURL = diskURL(for: urlString)
+			if !FileManager.default.fileExists(atPath: fileURL.path) {
+				startDownload(urlString)
+			}
+		}
+	}
+
+	private func resizedImage(_ image: UIImage, to targetSize: CGSize) -> UIImage {
+		let renderer = UIGraphicsImageRenderer(size: targetSize)
+		return renderer.image { _ in
+			image.draw(in: CGRect(origin: .zero, size: targetSize))
 		}
 	}
 

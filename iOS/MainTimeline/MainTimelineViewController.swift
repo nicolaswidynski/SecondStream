@@ -810,7 +810,14 @@ private extension MainTimelineViewController {
 			previousBackIndicatorTransitionMaskImage = navigationBar.backIndicatorTransitionMaskImage
 		}
 
-		let feedIcon = (coordinator?.timelineFeed as? Feed).flatMap { IconImageCache.shared.imageForFeed($0)?.image }
+		let feedIcon: UIImage?
+		if let feed = coordinator?.timelineFeed as? Feed {
+			feedIcon = IconImageCache.shared.imageForFeed(feed)?.image
+		} else if let pseudoFeed = coordinator?.timelineFeed as? PseudoFeed {
+			feedIcon = pseudoFeed.smallIcon?.image
+		} else {
+			feedIcon = nil
+		}
 		let backImage = FeedNavigationChrome.makeBackIndicatorImage(from: feedIcon)
 		navigationBar.backIndicatorImage = backImage
 		navigationBar.backIndicatorTransitionMaskImage = backImage

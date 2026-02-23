@@ -937,111 +937,30 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func showEnterPodcastNameDialog() {
-		let alert = UIAlertController(
-			title: NSLocalizedString("Enter Podcast Name", comment: "Enter Podcast Name"),
-			message: nil,
-			preferredStyle: .alert
-		)
-
-		alert.addTextField { textField in
-			textField.placeholder = NSLocalizedString("Podcast name", comment: "Podcast name placeholder")
-			textField.autocapitalizationType = .words
-			textField.autocorrectionType = .default
-		}
-
-		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
-			if let podcastName = alert.textFields?.first?.text, !podcastName.isEmpty {
-				self.addPodcastByName(podcastName)
+		var seen = Set<String>()
+		var items = [SourceSearchItem]()
+		for source in PodcastSourcesManager.shared.podcastSources + PodcastSourcesManager.shared.podcastLibrarySources {
+			let key = source.name.lowercased()
+			if seen.insert(key).inserted {
+				items.append(SourceSearchItem(name: source.name, author: source.author))
 			}
 		}
-
-		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
-
-		alert.addAction(addAction)
-		alert.addAction(cancelAction)
-
-		present(alert, animated: true)
-	}
-
-	private func showEnterPodcastURLDialog() {
-		let alert = UIAlertController(
-			title: NSLocalizedString("Enter Podcast RSS URL", comment: "Enter Podcast RSS URL"),
-			message: nil,
-			preferredStyle: .alert
-		)
-
-		alert.addTextField { textField in
-			textField.placeholder = "https://example.com/feed.rss"
-			textField.keyboardType = .URL
-			textField.autocapitalizationType = .none
-			textField.autocorrectionType = .no
-		}
-
-		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
-			if let urlText = alert.textFields?.first?.text, !urlText.isEmpty {
-				self.addPodcastSummary(rssURL: urlText, isCustomURL: true)
+		let searchVC = SourceSearchViewController(
+			placeholder: NSLocalizedString("Podcast name", comment: "Podcast name placeholder"),
+			items: items,
+			onSelect: { [weak self] item in
+				self?.addPodcastWithWebhook(name: item.name, author: item.author)
+			},
+			onManualAdd: { [weak self] name in
+				self?.addPodcastWithWebhook(name: name, author: nil)
 			}
-		}
-
-		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
-
-		alert.addAction(addAction)
-		alert.addAction(cancelAction)
-
-		present(alert, animated: true)
-	}
-
-	private func addPodcastSummary(rssURL: String, isCustomURL: Bool = false) {
-		// Show loading indicator
-		let loadingAlert = UIAlertController(
-			title: nil,
-			message: NSLocalizedString("Adding podcast...", comment: "Adding podcast..."),
-			preferredStyle: .alert
 		)
-
-		let activityIndicator = UIActivityIndicatorView(style: .medium)
-		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
-		activityIndicator.startAnimating()
-		loadingAlert.view.addSubview(activityIndicator)
-
-		NSLayoutConstraint.activate([
-			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
-			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
-		])
-
-		present(loadingAlert, animated: true)
-
-		Task {
-			let result = await PodcastSourcesManager.shared.addPodcastSource(rssURL: rssURL)
-
-			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
-			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
-
-			loadingAlert.dismiss(animated: true) {
-				switch result {
-				case .successExisting(let summaryURL):
-					// Podcast already exists, no wait needed - add the feed directly
-					self.addFeedDirectly(urlString: summaryURL, category: .podcast)
-
-				case .successNew(let summaryURL):
-					if isCustomURL {
-						// Show success message for custom URL entries (new podcasts need processing)
-						self.showPodcastSuccessMessage {
-							self.addFeedDirectly(urlString: summaryURL, category: .podcast)
-						}
-					} else {
-						// Automatically add the feed directly
-						self.addFeedDirectly(urlString: summaryURL, category: .podcast)
-					}
-
-				case .failure(let message):
-					self.showPodcastError(message: message)
-				}
-			}
-		}
+		searchVC.title = NSLocalizedString("Add Podcast", comment: "Add Podcast")
+		let nav = UINavigationController(rootViewController: searchVC)
+		present(nav, animated: true)
 	}
 
-	private func addPodcastByName(_ podcastName: String) {
+	private func addPodcastWithWebhook(name: String, author: String?) {
 		// Show loading indicator
 		let loadingAlert = UIAlertController(
 			title: nil,
@@ -1062,7 +981,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		present(loadingAlert, animated: true)
 
 		Task {
-			let result = await PodcastSourcesManager.shared.addPodcastByName(podcastName)
+			let result = await PodcastSourcesManager.shared.addPodcast(name: name, author: author)
 
 			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
 			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
@@ -1722,15 +1641,9 @@ extension MainFeedCollectionViewController: PodcastPickerDelegate {
 		}
 	}
 
-	func podcastPickerDidSelectCustomURL(_ picker: PodcastPickerViewController) {
-		picker.dismiss(animated: true) {
-			self.showEnterPodcastURLDialog()
-		}
-	}
-
 	func podcastPicker(_ picker: PodcastPickerViewController, didSelectPodcast source: PodcastSource) {
 		picker.dismiss(animated: true) {
-			self.addPodcastSummary(rssURL: source.rssURL)
+			self.addPodcastWithWebhook(name: source.name, author: source.author)
 		}
 	}
 
@@ -1749,99 +1662,44 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 		}
 	}
 
-	func youtubePickerDidSelectChannelURL(_ picker: YoutubePickerViewController) {
-		picker.dismiss(animated: true) {
-			self.showEnterYoutubeURLDialog()
-		}
-	}
-
 	func youtubePickerDidCancel(_ picker: YoutubePickerViewController) {
 		picker.dismiss(animated: true)
 	}
 
 	func youtubePicker(_ picker: YoutubePickerViewController, didSelectChannel source: YoutubeSource) {
 		picker.dismiss(animated: true) {
-			let channelName = source.name.trimmingCharacters(in: .whitespacesAndNewlines)
-			if !channelName.isEmpty {
-				// Top picks should send the channel name in the webhook "show" field.
-				self.addYoutubeByChannelName(channelName)
-			} else {
-				self.addYoutubeByURL(source.url)
-			}
+			self.addYoutubeWithWebhook(name: source.name, author: source.author)
 		}
 	}
 
 	private func showEnterYoutubeChannelNameDialog() {
-		let alert = UIAlertController(
-			title: NSLocalizedString("Enter Channel Name", comment: "Enter Channel Name"),
-			message: NSLocalizedString("Enter the YouTube channel name.", comment: "YouTube channel name dialog message"),
-			preferredStyle: .alert
+		var seen = Set<String>()
+		var items = [SourceSearchItem]()
+		for source in YoutubeSourcesManager.shared.youtubeSources + YoutubeSourcesManager.shared.youtubeLibrarySources {
+			let key = (source.author ?? source.name).lowercased()
+			if seen.insert(key).inserted {
+				items.append(SourceSearchItem(name: source.name, author: source.author))
+			}
+		}
+		let searchVC = SourceSearchViewController(
+			placeholder: NSLocalizedString("@channel", comment: "YouTube channel handle placeholder"),
+			items: items,
+			matchesQuery: { item, query in
+				item.author?.localizedCaseInsensitiveContains(query) ?? false
+			},
+			onSelect: { [weak self] item in
+				self?.addYoutubeWithWebhook(name: item.name, author: item.author)
+			},
+			onManualAdd: { [weak self] name in
+				self?.addYoutubeWithWebhook(name: name, author: nil)
+			}
 		)
-
-		alert.addTextField { textField in
-			textField.text = "@"
-			textField.placeholder = "@channelname"
-			textField.autocapitalizationType = .none
-			textField.autocorrectionType = .no
-
-			// Add target to ensure @ prefix is always present
-			textField.addTarget(self, action: #selector(self.youtubeChannelNameTextFieldDidChange(_:)), for: .editingChanged)
-		}
-
-		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
-			if let channelName = alert.textFields?.first?.text, channelName.count > 1 {
-				self.addYoutubeByChannelName(channelName)
-			}
-		}
-
-		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
-
-		alert.addAction(addAction)
-		alert.addAction(cancelAction)
-
-		present(alert, animated: true)
+		searchVC.title = NSLocalizedString("Add Channel", comment: "Add Channel")
+		let nav = UINavigationController(rootViewController: searchVC)
+		present(nav, animated: true)
 	}
 
-	@objc private func youtubeChannelNameTextFieldDidChange(_ textField: UITextField) {
-		// Ensure the text always starts with @
-		if let text = textField.text {
-			if !text.hasPrefix("@") {
-				textField.text = "@" + text
-			}
-		} else {
-			textField.text = "@"
-		}
-	}
-
-	private func showEnterYoutubeURLDialog() {
-		let alert = UIAlertController(
-			title: NSLocalizedString("Enter YouTube URL", comment: "Enter YouTube URL"),
-			message: NSLocalizedString("Enter the URL of a YouTube channel or video.", comment: "YouTube URL dialog message"),
-			preferredStyle: .alert
-		)
-
-		alert.addTextField { textField in
-			textField.placeholder = "https://www.youtube.com/@channelname"
-			textField.keyboardType = .URL
-			textField.autocapitalizationType = .none
-			textField.autocorrectionType = .no
-		}
-
-		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
-			if let urlText = alert.textFields?.first?.text, !urlText.isEmpty {
-				self.addYoutubeByURL(urlText)
-			}
-		}
-
-		let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel)
-
-		alert.addAction(addAction)
-		alert.addAction(cancelAction)
-
-		present(alert, animated: true)
-	}
-
-	private func addYoutubeByChannelName(_ channelName: String) {
+	private func addYoutubeWithWebhook(name: String, author: String?) {
 		// Show loading indicator
 		let loadingAlert = UIAlertController(
 			title: nil,
@@ -1862,39 +1720,7 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 		present(loadingAlert, animated: true)
 
 		Task {
-			let result = await YoutubeSourcesManager.shared.addYoutubeByChannelName(channelName)
-
-			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
-			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
-
-			loadingAlert.dismiss(animated: true) {
-				self.handleYoutubeResult(result)
-			}
-		}
-	}
-
-	private func addYoutubeByURL(_ youtubeURL: String) {
-		// Show loading indicator
-		let loadingAlert = UIAlertController(
-			title: nil,
-			message: NSLocalizedString("Adding YouTube channel...", comment: "Adding YouTube channel..."),
-			preferredStyle: .alert
-		)
-
-		let activityIndicator = UIActivityIndicatorView(style: .medium)
-		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
-		activityIndicator.startAnimating()
-		loadingAlert.view.addSubview(activityIndicator)
-
-		NSLayoutConstraint.activate([
-			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
-			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
-		])
-
-		present(loadingAlert, animated: true)
-
-		Task {
-			let result = await YoutubeSourcesManager.shared.addYoutubeByURL(youtubeURL)
+			let result = await YoutubeSourcesManager.shared.addYoutube(name: name, author: author)
 
 			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
 			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
@@ -1958,12 +1784,11 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 
 	func newsPicker(_ picker: NewsPickerViewController, didSelectSource source: NewsSource) {
 		picker.dismiss(animated: true) {
-			// Call the webhook with the topic name, just like podcasts/youtube
-			self.addTopicSummary(topicName: source.name)
+			self.addTopicWithWebhook(name: source.name, author: source.author)
 		}
 	}
 
-	private func addTopicSummary(topicName: String) {
+	private func addTopicWithWebhook(name: String, author: String?) {
 		// Show loading indicator
 		let loadingAlert = UIAlertController(
 			title: nil,
@@ -1984,7 +1809,7 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 		present(loadingAlert, animated: true)
 
 		Task {
-			let result = await NewsSourcesManager.shared.addNewsByTopicName(topicName)
+			let result = await NewsSourcesManager.shared.addNews(name: name, author: author)
 
 			loadingAlert.dismiss(animated: true) {
 				self.handleTopicResult(result)

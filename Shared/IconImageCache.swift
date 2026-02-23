@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import RSCore
 import Account
 import Articles
 
@@ -95,7 +96,35 @@ private extension IconImageCache {
 			faviconImageCache[feedID] = faviconImage
 			return faviconImage
 		}
-		return nil
+		return categoryIcon(for: feed.feedCategory)
+	}
+
+	func categoryIcon(for category: FeedCategory) -> IconImage? {
+		let symbolName: String
+		switch category {
+		case .podcast:
+			symbolName = "mic.fill"
+		case .youtube:
+			symbolName = "play.rectangle.fill"
+		case .news:
+			symbolName = "newspaper.fill"
+		case .rss:
+			return nil
+		}
+		let config = RSImage.SymbolConfiguration(pointSize: 24, weight: .medium)
+		guard let symbol = RSImage(systemName: symbolName, withConfiguration: config) else {
+			return nil
+		}
+		// Render symbol into a square bitmap so IconView sizes it correctly
+		let size = CGSize(width: 36, height: 36)
+		let renderer = UIGraphicsImageRenderer(size: size)
+		let image = renderer.image { _ in
+			let symbolSize = symbol.size
+			let x = (size.width - symbolSize.width) / 2
+			let y = (size.height - symbolSize.height) / 2
+			symbol.draw(at: CGPoint(x: x, y: y))
+		}.withRenderingMode(.alwaysTemplate)
+		return IconImage(image, isSymbol: true, isBackgroundSuppressed: true)
 	}
 
 	func imageForSmallIconProvider(_ provider: SmallIconProvider, _ feedID: SidebarItemIdentifier) -> IconImage? {
