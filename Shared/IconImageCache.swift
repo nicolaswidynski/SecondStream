@@ -101,13 +101,17 @@ private extension IconImageCache {
 
 	func categoryIcon(for category: FeedCategory) -> IconImage? {
 		let symbolName: String
+		let color: RSColor
 		switch category {
 		case .podcast:
 			symbolName = "mic.fill"
+			color = .systemPurple
 		case .youtube:
 			symbolName = "play.rectangle.fill"
+			color = .systemRed
 		case .news:
 			symbolName = "newspaper.fill"
+			color = .systemBlue
 		case .rss:
 			return nil
 		}
@@ -115,16 +119,16 @@ private extension IconImageCache {
 		guard let symbol = RSImage(systemName: symbolName, withConfiguration: config) else {
 			return nil
 		}
-		// Render symbol into a square bitmap so IconView sizes it correctly
 		let size = CGSize(width: 36, height: 36)
 		let renderer = UIGraphicsImageRenderer(size: size)
 		let image = renderer.image { _ in
+			color.set()
 			let symbolSize = symbol.size
 			let x = (size.width - symbolSize.width) / 2
 			let y = (size.height - symbolSize.height) / 2
 			symbol.draw(at: CGPoint(x: x, y: y))
-		}.withRenderingMode(.alwaysTemplate)
-		return IconImage(image, isSymbol: true, isBackgroundSuppressed: true)
+		}.withRenderingMode(.alwaysOriginal)
+		return IconImage(image, isSymbol: false, isBackgroundSuppressed: true)
 	}
 
 	func imageForSmallIconProvider(_ provider: SmallIconProvider, _ feedID: SidebarItemIdentifier) -> IconImage? {
