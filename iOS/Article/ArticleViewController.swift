@@ -29,10 +29,9 @@ final class ArticleViewController: UIViewController {
 	@IBOutlet private var searchBar: ArticleSearchBar!
 	@IBOutlet private var searchBarBottomConstraint: NSLayoutConstraint!
 	private var defaultControls: [UIBarButtonItem]?
+	private var lastNavigationIconKey: String?
 
 	private var pageViewController: UIPageViewController!
-	private var previousBackIndicatorImage: UIImage?
-	private var previousBackIndicatorTransitionMaskImage: UIImage?
 
 	private var currentWebViewController: WebViewController? {
 		return pageViewController?.viewControllers?.first as? WebViewController
@@ -86,6 +85,7 @@ final class ArticleViewController: UIViewController {
 		NotificationCenter.default.addObserver(self, selector: #selector(statusesDidChange(_:)), name: .StatusesDidChange, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(contentSizeCategoryDidChange(_:)), name: UIContentSizeCategory.didChangeNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground(_:)), name: UIApplication.willEnterForegroundNotification, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(feedIconDidBecomeAvailable(_:)), name: .feedIconDidBecomeAvailable, object: nil)
 
 		navigationItem.titleView = FeedNavigationChrome.makeTitleView(target: self, action: #selector(showCurrentFeedHomepage(_:)))
 		navigationItem.rightBarButtonItems = nil
@@ -153,9 +153,8 @@ final class ArticleViewController: UIViewController {
 		} else {
 			currentWebViewController?.showBars()
 		}
+		updateNavigationHeader()
 		navigationController?.setNavigationBarHidden(false, animated: false)
-		navigationItem.rightBarButtonItems = nil
-		applyFeedBackIndicatorImage()
 		super.viewWillAppear(animated)
 	}
 
@@ -168,7 +167,6 @@ final class ArticleViewController: UIViewController {
 
 	override func viewWillDisappear(_ animated: Bool) {
 		super.viewWillDisappear(animated)
-		restoreBackIndicatorImage()
 		if searchBar != nil && !searchBar.isHidden {
 			endFind()
 			searchBar.shouldBeginEditing = false
@@ -260,6 +258,26 @@ final class ArticleViewController: UIViewController {
 		currentWebViewController?.fullReload()
 	}
 
+	@objc func feedIconDidBecomeAvailable(_ note: Notification) {
+		guard let feed = note.userInfo?[UserInfoKey.feed] as? Feed else {
+			return
+		}
+		if let timelineFeed = coordinator?.timelineFeed as? Feed, timelineFeed == feed {
+			let iconKey = String(describing: timelineFeed.sidebarItemID)
+			FeedNavigationChrome.clearTopBarFeedIcon(cacheKey: iconKey)
+			lastNavigationIconKey = nil
+			updateNavigationHeader()
+			return
+		}
+		guard article?.feed == feed else {
+			return
+		}
+		let iconKey = String(describing: feed.sidebarItemID)
+		FeedNavigationChrome.clearTopBarFeedIcon(cacheKey: iconKey)
+		lastNavigationIconKey = nil
+		updateNavigationHeader()
+	}
+
 	@objc func willEnterForeground(_ note: Notification) {
 		// The toolbar will come back on you if you don't hide it again
 		if AppDefaults.shared.logicalArticleFullscreenEnabled {
@@ -274,6 +292,12 @@ final class ArticleViewController: UIViewController {
 	}
 
 	@objc func showCurrentFeedHomepage(_ sender: Any?) {
+		if coordinator?.timelineFeed is PseudoFeed,
+		   let homePageURLString = article?.feed?.homePageURL,
+		   let url = URL(string: homePageURLString) {
+			UIApplication.shared.open(url, options: [:])
+			return
+		}
 		coordinator?.showBrowserForCurrentFeed()
 	}
 
@@ -510,37 +534,49 @@ private extension ArticleViewController {
 	}
 
 	func updateNavigationHeader() {
-		let feed = article?.feed
-		let title = feed?.nameForDisplay
+		let timelineItem = coordinator?.timelineFeed
+		let title = timelineItem?.nameForDisplay ?? article?.feed?.nameForDisplay
 		FeedNavigationChrome.setTitle(title, in: navigationItem.titleView)
 		FeedNavigationChrome.setSubtitle(nil, in: navigationItem.titleView)
-	}
 
-	func applyFeedBackIndicatorImage() {
-		guard let navigationBar = activeNavigationController()?.navigationBar else {
+		let iconSource: SidebarItem?
+		if timelineItem is PseudoFeed {
+			// On smart timelines, article view should display the actual article feed icon.
+			iconSource = article?.feed
+		} else {
+			iconSource = timelineItem ?? article?.feed
+		}
+
+		guard let iconSource else {
 			return
 		}
-		if previousBackIndicatorImage == nil {
-			previousBackIndicatorImage = navigationBar.backIndicatorImage
-		}
-		if previousBackIndicatorTransitionMaskImage == nil {
-			previousBackIndicatorTransitionMaskImage = navigationBar.backIndicatorTransitionMaskImage
-		}
-		let icon = article?.feed.flatMap { IconImageCache.shared.imageForFeed($0)?.image }
-		let backImage = FeedNavigationChrome.makeBackIndicatorImage(from: icon)
-		navigationBar.backIndicatorImage = backImage
-		navigationBar.backIndicatorTransitionMaskImage = backImage
-	}
 
-	func restoreBackIndicatorImage() {
-		guard let navigationBar = activeNavigationController()?.navigationBar else {
+		let iconKey = String(describing: iconSource.sidebarItemID)
+		if iconKey == lastNavigationIconKey, navigationItem.rightBarButtonItem != nil {
 			return
 		}
-		navigationBar.backIndicatorImage = previousBackIndicatorImage
-		navigationBar.backIndicatorTransitionMaskImage = previousBackIndicatorTransitionMaskImage
-	}
+		if let timelineFeed = timelineItem as? Feed,
+		   iconSource.sidebarItemID == timelineFeed.sidebarItemID,
+		   lastNavigationIconKey == nil,
+		   navigationItem.rightBarButtonItem?.image != nil {
+			// Keep the pre-seeded timeline icon so it stays visually stable during the push/pop animation.
+			lastNavigationIconKey = iconKey
+			return
+		}
 
-	func activeNavigationController() -> UINavigationController? {
-		return (navigationController?.parent as? UINavigationController) ?? navigationController
+		guard let iconImage = IconImageCache.shared.imageForFeed(iconSource) else {
+			// Keep the previous icon to avoid blink/disappear while icon download/cache updates.
+			return
+		}
+
+		let isPseudoFeedIcon = iconSource is PseudoFeed
+		navigationItem.rightBarButtonItem = FeedNavigationChrome.makeTopBarFeedBarButton(
+			iconImage: iconImage,
+			isPseudoFeedIcon: isPseudoFeedIcon,
+			cacheKey: iconKey,
+			target: self,
+			action: #selector(showCurrentFeedHomepage(_:))
+		)
+		lastNavigationIconKey = iconKey
 	}
 }

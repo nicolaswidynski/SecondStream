@@ -56,6 +56,12 @@ final class AtomParserTests: XCTestCase {
 		XCTAssertTrue(parsedFeed.homePageURL == "https://neverworkintheory.org/")
 	}
 
+	func testPodcastHomePageLinkFallbacks() {
+		let d = parserData("podcast-homepage", "atom", "https://feeds.example.com/podcast.xml")
+		let parsedFeed = try! FeedParser.parse(d)!
+		XCTAssertEqual(parsedFeed.homePageURL, "https://www.bigtechnology.com/")
+	}
+
 	func testArticlePermalinks() {
 
 		var d = parserData("qemu", "atom", "https://www.qemu.org/feed.xml")

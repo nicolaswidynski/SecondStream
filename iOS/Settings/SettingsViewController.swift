@@ -48,6 +48,9 @@ final class SettingsViewController: UITableViewController {
 	@IBOutlet var ttsVoiceDetailLabel: UILabel!
 
 	private var notificationsAuthorized = false
+	private let displaySection = 5
+	private let timelineUnreadFirstRow = 1
+	private let timelineReadStylingRow = 2
 
 	var scrollToArticlesSection = false
 	weak var presentingParentController: UIViewController?
@@ -182,6 +185,8 @@ final class SettingsViewController: UITableViewController {
 		case 7:
 			// Section 7: row 0 = sync toggle, rows 1-4 = vault/subfolder/preview
 			return shouldHideSubOptions(for: 7) ? 1 : super.tableView(tableView, numberOfRowsInSection: section)
+		case displaySection:
+			return super.tableView(tableView, numberOfRowsInSection: section) + 2
 		default:
 			return super.tableView(tableView, numberOfRowsInSection: section)
 		}
@@ -233,6 +238,10 @@ final class SettingsViewController: UITableViewController {
 				acctCell.comboNameLabel?.text = account.nameForDisplay
 				cell = acctCell
 			}
+		case displaySection where indexPath.row == timelineReadStylingRow:
+			cell = makeTimelineReadStylingCell(tableView)
+		case displaySection where indexPath.row == timelineUnreadFirstRow:
+			cell = makeTimelineUnreadFirstCell(tableView)
 		default:
 			cell = super.tableView(tableView, cellForRowAt: indexPath)
 
@@ -291,8 +300,12 @@ final class SettingsViewController: UITableViewController {
 				break
 			}
 		case 5:
-			let colorPalette = UIStoryboard.settings.instantiateController(ofType: ColorPaletteTableViewController.self)
-			self.navigationController?.pushViewController(colorPalette, animated: true)
+			if indexPath.row == 0 {
+				let colorPalette = UIStoryboard.settings.instantiateController(ofType: ColorPaletteTableViewController.self)
+				self.navigationController?.pushViewController(colorPalette, animated: true)
+			} else {
+				tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
+			}
 		case 6:
 			// Text-to-Speech section
 			presentTTSVoicePicker()
@@ -431,6 +444,14 @@ final class SettingsViewController: UITableViewController {
 		AppDefaults.shared.notifyWeeklyNews = notifyWeeklyNewsSwitch.isOn
 	}
 
+	@objc func switchTimelineReadStyling(_ sender: UISwitch) {
+		AppDefaults.shared.timelineDimReadArticles = sender.isOn
+	}
+
+	@objc func switchTimelineUnreadFirst(_ sender: UISwitch) {
+		AppDefaults.shared.timelineUnreadFirst = sender.isOn
+	}
+
 	// MARK: - Notifications
 
 	@objc func contentSizeCategoryDidChange() {
@@ -491,6 +512,36 @@ extension SettingsViewController: UIDocumentPickerDelegate {
 // MARK: - Private
 
 private extension SettingsViewController {
+
+	func makeTimelineUnreadFirstCell(_ tableView: UITableView) -> UITableViewCell {
+		let cell = tableView.dequeueReusableCell(withIdentifier: "TimelineUnreadFirstCell") ??
+			UITableViewCell(style: .default, reuseIdentifier: "TimelineUnreadFirstCell")
+		var content = cell.defaultContentConfiguration()
+		content.text = NSLocalizedString("Unread First", comment: "Timeline ordering toggle")
+		cell.contentConfiguration = content
+		cell.selectionStyle = .none
+		let toggle = (cell.accessoryView as? UISwitch) ?? UISwitch(frame: .zero)
+		toggle.removeTarget(self, action: #selector(switchTimelineUnreadFirst(_:)), for: .valueChanged)
+		toggle.addTarget(self, action: #selector(switchTimelineUnreadFirst(_:)), for: .valueChanged)
+		toggle.isOn = AppDefaults.shared.timelineUnreadFirst
+		cell.accessoryView = toggle
+		return cell
+	}
+
+	func makeTimelineReadStylingCell(_ tableView: UITableView) -> UITableViewCell {
+		let cell = tableView.dequeueReusableCell(withIdentifier: "TimelineReadStylingCell") ??
+			UITableViewCell(style: .default, reuseIdentifier: "TimelineReadStylingCell")
+		var content = cell.defaultContentConfiguration()
+		content.text = NSLocalizedString("Gray Read Articles", comment: "Timeline styling toggle")
+		cell.contentConfiguration = content
+		cell.selectionStyle = .none
+		let toggle = (cell.accessoryView as? UISwitch) ?? UISwitch(frame: .zero)
+		toggle.removeTarget(self, action: #selector(switchTimelineReadStyling(_:)), for: .valueChanged)
+		toggle.addTarget(self, action: #selector(switchTimelineReadStyling(_:)), for: .valueChanged)
+		toggle.isOn = AppDefaults.shared.timelineDimReadArticles
+		cell.accessoryView = toggle
+		return cell
+	}
 
 	func importOPML(sourceView: UIView, sourceRect: CGRect) {
 		switch AccountManager.shared.activeAccounts.count {

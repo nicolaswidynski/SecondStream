@@ -170,6 +170,14 @@ struct SidebarItemNode: Hashable, Sendable {
 		}
 	}
 
+	private(set) var timelineUnreadFirst = AppDefaults.shared.timelineUnreadFirst {
+		didSet {
+			if timelineUnreadFirst != oldValue {
+				sortParametersDidChange()
+			}
+		}
+	}
+
 	var prefersStatusBarHidden = false
 
 	private let treeControllerDelegate = SidebarTreeControllerDelegate()
@@ -544,6 +552,10 @@ struct SidebarItemNode: Hashable, Sendable {
 
 	@objc func statusesDidChange(_ note: Notification) {
 		updateUnreadCount()
+		guard timelineUnreadFirst else {
+			return
+		}
+		replaceArticles(with: Set(articles), animated: true)
 	}
 
 	@objc func containerChildrenDidChange(_ note: Notification) {
@@ -621,6 +633,7 @@ struct SidebarItemNode: Hashable, Sendable {
 	func userDefaultsDidChange() {
 		sortDirection = AppDefaults.shared.timelineSortDirection
 		groupByFeed = AppDefaults.shared.timelineGroupByFeed
+		timelineUnreadFirst = AppDefaults.shared.timelineUnreadFirst
 	}
 
 	@objc func accountDidDownloadArticles(_ note: Notification) {
@@ -1128,6 +1141,20 @@ struct SidebarItemNode: Hashable, Sendable {
 			return
 		}
 
+		// Set article before transition so article nav chrome (including top-right icon) is ready at push start.
+		if let timelineIcon = mainTimelineViewController?.navigationItem.rightBarButtonItem?.image {
+			articleViewController?.navigationItem.rightBarButtonItem = UIBarButtonItem(
+				image: timelineIcon.withRenderingMode(.alwaysOriginal),
+				style: .plain,
+				target: articleViewController,
+				action: #selector(ArticleViewController.showCurrentFeedHomepage(_:))
+			)
+		}
+		articleViewController?.article = article
+		if let isShowingExtractedArticle = isShowingExtractedArticle, let articleWindowScrollY = articleWindowScrollY {
+			articleViewController?.restoreScrollPosition = (isShowingExtractedArticle, articleWindowScrollY)
+		}
+
 		rootSplitViewController.show(.secondary)
 
 		// For interactive swipe-open, defer marking read until finish to avoid side effects on cancel.
@@ -1139,10 +1166,6 @@ struct SidebarItemNode: Hashable, Sendable {
 		}
 
 		mainTimelineViewController?.updateArticleSelection(animations: animations)
-		articleViewController?.article = article
-		if let isShowingExtractedArticle = isShowingExtractedArticle, let articleWindowScrollY = articleWindowScrollY {
-			articleViewController?.restoreScrollPosition = (isShowingExtractedArticle, articleWindowScrollY)
-		}
 	}
 
 	func beginInteractiveArticleOpen(_ article: Article) -> Bool {
@@ -2327,8 +2350,14 @@ private extension SceneCoordinator {
 	}
 
 	func replaceArticles(with unsortedArticles: Set<Article>, animated: Bool) {
-		let sortedArticles = Array(unsortedArticles).sortedByDate(sortDirection, groupByFeed: groupByFeed)
-		replaceArticles(with: sortedArticles, animated: animated)
+		let sortedByDateArticles = Array(unsortedArticles).sortedByDate(sortDirection, groupByFeed: groupByFeed)
+		if timelineUnreadFirst {
+			let unreadArticles = sortedByDateArticles.filter { !$0.status.read }
+			let readArticles = sortedByDateArticles.filter { $0.status.read }
+			replaceArticles(with: unreadArticles + readArticles, animated: animated)
+		} else {
+			replaceArticles(with: sortedByDateArticles, animated: animated)
+		}
 	}
 
 	func replaceArticles(with sortedArticles: ArticleArray, animated: Bool) {

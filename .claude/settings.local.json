@@ -73,7 +73,8 @@
       "Bash(git merge:*)",
       "Bash(git push:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "WebFetch(domain:files.nwidynski.com)"
     ],
     "deny": [],
     "ask": []

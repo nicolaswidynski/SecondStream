@@ -10,6 +10,7 @@ import UIKit
 
 @MainActor protocol RSSPickerDelegate: AnyObject {
 	func rssPickerDidSelectCustomURL(_ picker: RSSPickerViewController)
+	func rssPicker(_ picker: RSSPickerViewController, didEnterFeedURL url: String)
 	func rssPicker(_ picker: RSSPickerViewController, didSelectFeed source: RSSSource)
 	func rssPickerDidCancel(_ picker: RSSPickerViewController)
 }
@@ -20,6 +21,7 @@ final class RSSPickerViewController: UIViewController {
 
 	private var collectionView: UICollectionView!
 	private var dataSource: UICollectionViewDiffableDataSource<SourcePickerSection, SourcePickerItem>!
+	private let searchController = UISearchController(searchResultsController: nil)
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -33,6 +35,7 @@ final class RSSPickerViewController: UIViewController {
 			action: #selector(cancelTapped)
 		)
 
+		configureSearch()
 		configureCollectionView()
 		configureDataSource()
 		applySnapshot()
@@ -46,6 +49,21 @@ final class RSSPickerViewController: UIViewController {
 	}
 
 	// MARK: - Configuration
+
+	private func configureSearch() {
+		searchController.obscuresBackgroundDuringPresentation = false
+		searchController.searchResultsUpdater = self
+		searchController.searchBar.delegate = self
+		searchController.searchBar.placeholder = NSLocalizedString("Search or add", comment: "Search or add")
+		searchController.searchBar.autocapitalizationType = .none
+		searchController.searchBar.autocorrectionType = .no
+		searchController.searchBar.searchBarStyle = .minimal
+		searchController.searchBar.showsBookmarkButton = true
+		searchController.searchBar.setImage(UIImage(systemName: "plus.circle"), for: .bookmark, state: .normal)
+		navigationItem.searchController = searchController
+		navigationItem.hidesSearchBarWhenScrolling = false
+		definesPresentationContext = true
+	}
 
 	private func configureCollectionView() {
 		let layout = createLayout()
@@ -127,34 +145,39 @@ final class RSSPickerViewController: UIViewController {
 	// MARK: - Snapshot
 
 	private func applySnapshot() {
+		let query = (searchController.searchBar.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 		var snapshot = NSDiffableDataSourceSnapshot<SourcePickerSection, SourcePickerItem>()
 
-		snapshot.appendSections([.customEntry])
-		snapshot.appendItems([.customEntryURL], toSection: .customEntry)
-
-		// Top Picks section
 		let topSources = RSSSourcesManager.shared.rssSources.sorted {
 			$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
 		}
-
-		if !topSources.isEmpty {
-			let topPicks = SourcePickerSection.sources(NSLocalizedString("Top Picks", comment: "Top Picks"))
-			snapshot.appendSections([topPicks])
-			let items = topSources.map { SourcePickerItem.rssSource($0) }
-			snapshot.appendItems(items, toSection: topPicks)
-		}
-
-		// Library section (exclude sources already in top picks)
 		let topNames = Set(topSources.map { $0.name.lowercased() })
 		let librarySources = RSSSourcesManager.shared.rssLibrarySources
 			.filter { !topNames.contains($0.name.lowercased()) }
 			.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 
-		if !librarySources.isEmpty {
-			let otherSection = SourcePickerSection.sources(NSLocalizedString("Other RSS Feeds", comment: "Other RSS Feeds"))
-			snapshot.appendSections([otherSection])
-			let items = librarySources.map { SourcePickerItem.rssSource($0) }
-			snapshot.appendItems(items, toSection: otherSection)
+		if query.isEmpty {
+			if !topSources.isEmpty {
+				let topPicks = SourcePickerSection.sources(NSLocalizedString("Top Picks", comment: "Top Picks"))
+				snapshot.appendSections([topPicks])
+				let items = topSources.map { SourcePickerItem.rssSource($0) }
+				snapshot.appendItems(items, toSection: topPicks)
+			}
+			if !librarySources.isEmpty {
+				let otherSection = SourcePickerSection.sources(NSLocalizedString("Other RSS Feeds", comment: "Other RSS Feeds"))
+				snapshot.appendSections([otherSection])
+				let items = librarySources.map { SourcePickerItem.rssSource($0) }
+				snapshot.appendItems(items, toSection: otherSection)
+			}
+		} else {
+			let allSources = topSources + librarySources
+			let matches = allSources.filter { source in
+				source.name.localizedCaseInsensitiveContains(query) ||
+				(source.author?.localizedCaseInsensitiveContains(query) ?? false)
+			}
+			let section = SourcePickerSection.sources(NSLocalizedString("Matches", comment: "Search matches"))
+			snapshot.appendSections([section])
+			snapshot.appendItems(matches.map { SourcePickerItem.rssSource($0) }, toSection: section)
 		}
 
 		dataSource.apply(snapshot, animatingDifferences: false)
@@ -186,12 +209,50 @@ extension RSSPickerViewController: UICollectionViewDelegate {
 		}
 
 		switch item {
-		case .customEntryURL:
-			delegate?.rssPickerDidSelectCustomURL(self)
 		case .rssSource(let source):
 			delegate?.rssPicker(self, didSelectFeed: source)
 		default:
 			break
 		}
+	}
+}
+
+// MARK: - UISearchResultsUpdating
+
+extension RSSPickerViewController: UISearchResultsUpdating {
+
+	func updateSearchResults(for searchController: UISearchController) {
+		applySnapshot()
+	}
+}
+
+// MARK: - UISearchBarDelegate
+
+extension RSSPickerViewController: UISearchBarDelegate {
+
+	func searchBarBookmarkButtonClicked(_ searchBar: UISearchBar) {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Add RSS Feed", comment: "Add RSS Feed"),
+			message: nil,
+			preferredStyle: .alert
+		)
+		alert.addTextField { textField in
+			textField.text = "https://"
+			textField.placeholder = "https://example.com/feed.xml"
+			textField.keyboardType = .URL
+			textField.autocapitalizationType = .none
+			textField.autocorrectionType = .no
+		}
+		let add = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { [weak self, weak alert] _ in
+			guard let self,
+				  let url = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+				  !url.isEmpty else {
+				return
+			}
+			self.delegate?.rssPicker(self, didEnterFeedURL: url)
+		}
+		alert.addAction(add)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
+		present(alert, animated: true)
 	}
 }

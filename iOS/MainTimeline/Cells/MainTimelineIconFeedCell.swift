@@ -89,22 +89,23 @@ class MainTimelineIconFeedCell: UITableViewCell {
 	}
 
 	private func updateIndicatorView(_ cellData: MainTimelineCellData) {
-		if cellData.read == false {
-			if indicatorView.alpha == 0.0 {
-				indicatorView.alpha = 1.0
-			}
-			UIView.animate(withDuration: 0.25) {
-				self.indicatorView.iconImage = Assets.Images.unreadCellIndicator
-				self.indicatorView.tintColor = Assets.Colors.secondaryAccent
-			}
-			return
-		} else if cellData.starred {
+		let dimReadArticles = AppDefaults.shared.timelineDimReadArticles
+		if cellData.starred {
 			if indicatorView.alpha == 0.0 {
 				indicatorView.alpha = 1.0
 			}
 			UIView.animate(withDuration: 0.25) {
 				self.indicatorView.iconImage = Assets.Images.starredFeed
 				self.indicatorView.tintColor = Assets.Colors.star
+			}
+			return
+		} else if cellData.read == false && !dimReadArticles {
+			if indicatorView.alpha == 0.0 {
+				indicatorView.alpha = 1.0
+			}
+			UIView.animate(withDuration: 0.25) {
+				self.indicatorView.iconImage = Assets.Images.unreadCellIndicator
+				self.indicatorView.tintColor = Assets.Colors.secondaryAccent
 			}
 			return
 		} else if indicatorView.alpha == 1.0 {
@@ -195,6 +196,8 @@ class MainTimelineIconFeedCell: UITableViewCell {
 		let isSelected = state.isSelected || state.isHighlighted || state.isFocused || state.isSwiped
 		if isSelected {
 			return .white
+		} else if AppDefaults.shared.timelineDimReadArticles, cellData?.read == true {
+			return traitCollection.userInterfaceStyle == .dark ? .tertiaryLabel : .quaternaryLabel
 		} else {
 			return .label
 		}

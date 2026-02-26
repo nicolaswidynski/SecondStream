@@ -282,6 +282,18 @@ static const NSInteger kFeedURLLength = 9;
 	}
 
 	NSString *rel = self.currentAttributes[kRelKey];
+	NSString *type = self.currentAttributes[kTypeKey];
+
+	// Never treat Atom self-link (or feed/XML typed links) as the feed homepage.
+	if ([rel isEqualToString:kSelfValue]) {
+		return;
+	}
+	if (type.length > 0) {
+		NSString *lowerType = type.lowercaseString;
+		if ([lowerType containsString:@"atom+xml"] || [lowerType containsString:@"rss+xml"] || [lowerType containsString:@"/xml"]) {
+			return;
+		}
+	}
 
 	// rel="alternate" == home page URL
 	// Also: spec says "alternate" is default value if not present
@@ -698,11 +710,10 @@ static NSString *httpURLPrefix = @"http://";
 
 	else if (!self.parsingArticle && !self.parsingSource && RSSAXEqualTags(localName, kLink, kLinkLength)) {
 		// Handle <link>text</link> (text content) in addition to <link href="..." /> (attribute)
-		if (RSParserStringIsEmpty(self.homepageURLString)) {
-			NSString *linkText = [self currentString];
-			if (!RSParserStringIsEmpty(linkText)) {
-				self.homepageURLString = [self resolvedURLString:linkText];
-			}
+		NSString *linkText = [self currentString];
+		if (!RSParserStringIsEmpty(linkText) && RSParserStringIsEmpty(self.currentAttributes[kHrefKey])) {
+			// Some podcast Atom feeds provide only text content in <link> at feed scope.
+			self.homepageURLString = [self resolvedURLString:linkText];
 		}
 	}
 

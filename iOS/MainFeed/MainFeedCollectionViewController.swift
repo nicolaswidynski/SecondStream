@@ -1618,6 +1618,12 @@ extension MainFeedCollectionViewController: RSSPickerDelegate {
 		}
 	}
 
+	func rssPicker(_ picker: RSSPickerViewController, didEnterFeedURL url: String) {
+		picker.dismiss(animated: true) {
+			self.addFeedDirectly(urlString: url, category: .rss)
+		}
+	}
+
 	func rssPicker(_ picker: RSSPickerViewController, didSelectFeed source: RSSSource) {
 		picker.dismiss(animated: true) {
 			// RSS top picks already include a concrete RSS URL from the listing webhook,
@@ -1641,6 +1647,12 @@ extension MainFeedCollectionViewController: PodcastPickerDelegate {
 		}
 	}
 
+	func podcastPicker(_ picker: PodcastPickerViewController, didEnterPodcastName name: String) {
+		picker.dismiss(animated: true) {
+			self.addPodcastWithWebhook(name: name, author: nil)
+		}
+	}
+
 	func podcastPicker(_ picker: PodcastPickerViewController, didSelectPodcast source: PodcastSource) {
 		picker.dismiss(animated: true) {
 			self.addPodcastWithWebhook(name: source.name, author: source.author)
@@ -1659,6 +1671,12 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 	func youtubePickerDidSelectChannelName(_ picker: YoutubePickerViewController) {
 		picker.dismiss(animated: true) {
 			self.showEnterYoutubeChannelNameDialog()
+		}
+	}
+
+	func youtubePicker(_ picker: YoutubePickerViewController, didEnterChannelHandle handle: String) {
+		picker.dismiss(animated: true) {
+			self.addYoutubeWithWebhook(name: handle, author: nil)
 		}
 	}
 

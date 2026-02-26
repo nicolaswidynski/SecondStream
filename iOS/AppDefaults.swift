@@ -86,6 +86,8 @@ final class AppDefaults: Sendable {
 		static let notifyYouTube = "notifyYouTube"
 		static let notifyWeeklyNews = "notifyWeeklyNews"
 		static let showAddShowSourceFailureDialog = "showAddShowSourceFailureDialog"
+		static let timelineDimReadArticles = "timelineDimReadArticles"
+		static let timelineUnreadFirst = "timelineUnreadFirst"
 	}
 
 	let isDeveloperBuild: Bool = {
@@ -486,22 +488,46 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	/// Timeline styling toggle:
+	/// when enabled, read article titles are grayed and unread blue-dot indicators are hidden.
+	var timelineDimReadArticles: Bool {
+		get {
+			AppDefaults.bool(for: Key.timelineDimReadArticles)
+		}
+		set {
+			AppDefaults.setBool(for: Key.timelineDimReadArticles, newValue)
+		}
+	}
+
+	/// Timeline ordering toggle:
+	/// when enabled, unread articles are listed first while preserving date ordering within each read state.
+	var timelineUnreadFirst: Bool {
+		get {
+			AppDefaults.bool(for: Key.timelineUnreadFirst)
+		}
+		set {
+			AppDefaults.setBool(for: Key.timelineUnreadFirst, newValue)
+		}
+	}
+
 	@MainActor static func registerDefaults() {
 		let defaults: [String: Any] = [Key.userInterfaceColorPalette: UserInterfaceColorPalette.automatic.rawValue,
-										Key.timelineGroupByFeed: false,
-										Key.refreshClearsReadArticles: false,
-										Key.timelineNumberOfLines: 2,
-										Key.timelineIconDimension: IconSize.medium.rawValue,
-										Key.timelineSortDirection: ComparisonResult.orderedDescending.rawValue,
-										Key.articleFullscreenAvailable: false,
-										Key.articleFullscreenEnabled: false,
-										Key.confirmMarkAllAsRead: true,
-										Key.articleContentJavascriptEnabled: true,
-										Key.currentThemeName: Self.defaultThemeName,
-										Key.splitViewPreferredDisplayMode: UISplitViewController.DisplayMode.oneBesideSecondary.rawValue,
-									Key.obsidianSubfolderFeedType: true,
-									Key.obsidianSubfolderFeedName: true,
-									Key.showAddShowSourceFailureDialog: false]
+									   Key.timelineGroupByFeed: false,
+									   Key.refreshClearsReadArticles: false,
+									   Key.timelineNumberOfLines: 2,
+									   Key.timelineIconDimension: IconSize.medium.rawValue,
+									   Key.timelineSortDirection: ComparisonResult.orderedDescending.rawValue,
+									   Key.articleFullscreenAvailable: false,
+									   Key.articleFullscreenEnabled: false,
+									   Key.confirmMarkAllAsRead: true,
+									   Key.articleContentJavascriptEnabled: true,
+									   Key.currentThemeName: Self.defaultThemeName,
+									   Key.splitViewPreferredDisplayMode: UISplitViewController.DisplayMode.oneBesideSecondary.rawValue,
+									   Key.obsidianSubfolderFeedType: true,
+									   Key.obsidianSubfolderFeedName: true,
+									   Key.showAddShowSourceFailureDialog: false,
+									   Key.timelineDimReadArticles: true,
+									   Key.timelineUnreadFirst: true]
 		AppDefaults.store.register(defaults: defaults)
 	}
 }

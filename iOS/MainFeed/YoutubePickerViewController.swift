@@ -10,6 +10,7 @@ import UIKit
 
 @MainActor protocol YoutubePickerDelegate: AnyObject {
 	func youtubePickerDidSelectChannelName(_ picker: YoutubePickerViewController)
+	func youtubePicker(_ picker: YoutubePickerViewController, didEnterChannelHandle handle: String)
 	func youtubePicker(_ picker: YoutubePickerViewController, didSelectChannel source: YoutubeSource)
 	func youtubePickerDidCancel(_ picker: YoutubePickerViewController)
 }
@@ -20,6 +21,7 @@ final class YoutubePickerViewController: UIViewController {
 
 	private var collectionView: UICollectionView!
 	private var dataSource: UICollectionViewDiffableDataSource<SourcePickerSection, SourcePickerItem>!
+	private let searchController = UISearchController(searchResultsController: nil)
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -33,6 +35,7 @@ final class YoutubePickerViewController: UIViewController {
 			action: #selector(cancelTapped)
 		)
 
+		configureSearch()
 		configureCollectionView()
 		configureDataSource()
 		applySnapshot()
@@ -46,6 +49,21 @@ final class YoutubePickerViewController: UIViewController {
 	}
 
 	// MARK: - Configuration
+
+	private func configureSearch() {
+		searchController.obscuresBackgroundDuringPresentation = false
+		searchController.searchResultsUpdater = self
+		searchController.searchBar.delegate = self
+		searchController.searchBar.placeholder = NSLocalizedString("Search or add", comment: "Search or add")
+		searchController.searchBar.autocapitalizationType = .none
+		searchController.searchBar.autocorrectionType = .no
+		searchController.searchBar.searchBarStyle = .minimal
+		searchController.searchBar.showsBookmarkButton = true
+		searchController.searchBar.setImage(UIImage(systemName: "plus.circle"), for: .bookmark, state: .normal)
+		navigationItem.searchController = searchController
+		navigationItem.hidesSearchBarWhenScrolling = false
+		definesPresentationContext = true
+	}
 
 	private func configureCollectionView() {
 		let layout = createLayout()
@@ -128,35 +146,39 @@ final class YoutubePickerViewController: UIViewController {
 	// MARK: - Snapshot
 
 	private func applySnapshot() {
+		let query = (searchController.searchBar.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 		var snapshot = NSDiffableDataSourceSnapshot<SourcePickerSection, SourcePickerItem>()
 
-		// Custom entry section
-		snapshot.appendSections([.customEntry])
-		snapshot.appendItems([.customEntryName], toSection: .customEntry)
-
-		// Top Picks section
 		let topSources = YoutubeSourcesManager.shared.youtubeSources.sorted {
 			$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
 		}
-
-		if !topSources.isEmpty {
-			let topPicks = SourcePickerSection.sources(NSLocalizedString("Top Picks", comment: "Top Picks"))
-			snapshot.appendSections([topPicks])
-			let items = topSources.map { SourcePickerItem.youtubeSource($0) }
-			snapshot.appendItems(items, toSection: topPicks)
-		}
-
-		// Library section (exclude sources already in top picks)
 		let topNames = Set(topSources.map { $0.name.lowercased() })
 		let librarySources = YoutubeSourcesManager.shared.youtubeLibrarySources
 			.filter { !topNames.contains($0.name.lowercased()) }
 			.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 
-		if !librarySources.isEmpty {
-			let otherSection = SourcePickerSection.sources(NSLocalizedString("Other YouTube Channels", comment: "Other YouTube Channels"))
-			snapshot.appendSections([otherSection])
-			let items = librarySources.map { SourcePickerItem.youtubeSource($0) }
-			snapshot.appendItems(items, toSection: otherSection)
+		if query.isEmpty {
+			if !topSources.isEmpty {
+				let topPicks = SourcePickerSection.sources(NSLocalizedString("Top Picks", comment: "Top Picks"))
+				snapshot.appendSections([topPicks])
+				let items = topSources.map { SourcePickerItem.youtubeSource($0) }
+				snapshot.appendItems(items, toSection: topPicks)
+			}
+			if !librarySources.isEmpty {
+				let otherSection = SourcePickerSection.sources(NSLocalizedString("Other YouTube Channels", comment: "Other YouTube Channels"))
+				snapshot.appendSections([otherSection])
+				let items = librarySources.map { SourcePickerItem.youtubeSource($0) }
+				snapshot.appendItems(items, toSection: otherSection)
+			}
+		} else {
+			let allSources = topSources + librarySources
+			let matches = allSources.filter { source in
+				source.name.localizedCaseInsensitiveContains(query) ||
+				(source.author?.localizedCaseInsensitiveContains(query) ?? false)
+			}
+			let section = SourcePickerSection.sources(NSLocalizedString("Matches", comment: "Search matches"))
+			snapshot.appendSections([section])
+			snapshot.appendItems(matches.map { SourcePickerItem.youtubeSource($0) }, toSection: section)
 		}
 
 		dataSource.apply(snapshot, animatingDifferences: false)
@@ -188,12 +210,55 @@ extension YoutubePickerViewController: UICollectionViewDelegate {
 		}
 
 		switch item {
-		case .customEntryName:
-			delegate?.youtubePickerDidSelectChannelName(self)
 		case .youtubeSource(let source):
 			delegate?.youtubePicker(self, didSelectChannel: source)
 		default:
 			break
 		}
+	}
+}
+
+// MARK: - UISearchResultsUpdating
+
+extension YoutubePickerViewController: UISearchResultsUpdating {
+
+	func updateSearchResults(for searchController: UISearchController) {
+		applySnapshot()
+	}
+}
+
+// MARK: - UISearchBarDelegate
+
+extension YoutubePickerViewController: UISearchBarDelegate {
+
+	func searchBarBookmarkButtonClicked(_ searchBar: UISearchBar) {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Add YouTube Channel", comment: "Add YouTube Channel"),
+			message: nil,
+			preferredStyle: .alert
+		)
+		alert.addTextField { textField in
+			textField.text = "@"
+			textField.placeholder = NSLocalizedString("@channel", comment: "YouTube channel handle placeholder")
+			textField.autocapitalizationType = .none
+			textField.autocorrectionType = .no
+			textField.keyboardType = .twitter
+			textField.addAction(UIAction { _ in
+				let raw = textField.text ?? ""
+				let noAt = raw.replacingOccurrences(of: "@", with: "")
+				textField.text = "@" + noAt
+			}, for: .editingChanged)
+		}
+		let add = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { [weak self, weak alert] _ in
+			guard let self,
+				  let handle = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+				  handle.count > 1 else {
+				return
+			}
+			self.delegate?.youtubePicker(self, didEnterChannelHandle: handle)
+		}
+		alert.addAction(add)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
+		present(alert, animated: true)
 	}
 }

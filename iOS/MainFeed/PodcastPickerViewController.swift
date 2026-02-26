@@ -10,6 +10,7 @@ import UIKit
 
 @MainActor protocol PodcastPickerDelegate: AnyObject {
 	func podcastPickerDidSelectPodcastName(_ picker: PodcastPickerViewController)
+	func podcastPicker(_ picker: PodcastPickerViewController, didEnterPodcastName name: String)
 	func podcastPicker(_ picker: PodcastPickerViewController, didSelectPodcast source: PodcastSource)
 	func podcastPickerDidCancel(_ picker: PodcastPickerViewController)
 }
@@ -20,6 +21,7 @@ final class PodcastPickerViewController: UIViewController {
 
 	private var collectionView: UICollectionView!
 	private var dataSource: UICollectionViewDiffableDataSource<SourcePickerSection, SourcePickerItem>!
+	private let searchController = UISearchController(searchResultsController: nil)
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -33,6 +35,7 @@ final class PodcastPickerViewController: UIViewController {
 			action: #selector(cancelTapped)
 		)
 
+		configureSearch()
 		configureCollectionView()
 		configureDataSource()
 		applySnapshot()
@@ -46,6 +49,20 @@ final class PodcastPickerViewController: UIViewController {
 	}
 
 	// MARK: - Configuration
+
+	private func configureSearch() {
+		searchController.obscuresBackgroundDuringPresentation = false
+		searchController.searchResultsUpdater = self
+		searchController.searchBar.delegate = self
+		searchController.searchBar.placeholder = NSLocalizedString("Search or add", comment: "Search or add")
+		searchController.searchBar.autocapitalizationType = .words
+		searchController.searchBar.searchBarStyle = .minimal
+		searchController.searchBar.showsBookmarkButton = true
+		searchController.searchBar.setImage(UIImage(systemName: "plus.circle"), for: .bookmark, state: .normal)
+		navigationItem.searchController = searchController
+		navigationItem.hidesSearchBarWhenScrolling = false
+		definesPresentationContext = true
+	}
 
 	private func configureCollectionView() {
 		let layout = createLayout()
@@ -128,35 +145,39 @@ final class PodcastPickerViewController: UIViewController {
 	// MARK: - Snapshot
 
 	private func applySnapshot() {
+		let query = (searchController.searchBar.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 		var snapshot = NSDiffableDataSourceSnapshot<SourcePickerSection, SourcePickerItem>()
 
-		// Custom entry section
-		snapshot.appendSections([.customEntry])
-		snapshot.appendItems([.customEntryName], toSection: .customEntry)
-
-		// Top Picks section
 		let topSources = PodcastSourcesManager.shared.podcastSources.sorted {
 			$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
 		}
-
-		if !topSources.isEmpty {
-			let topPicks = SourcePickerSection.sources(NSLocalizedString("Top Picks", comment: "Top Picks"))
-			snapshot.appendSections([topPicks])
-			let items = topSources.map { SourcePickerItem.podcastSource($0) }
-			snapshot.appendItems(items, toSection: topPicks)
-		}
-
-		// Library section (exclude sources already in top picks)
 		let topNames = Set(topSources.map { $0.name.lowercased() })
 		let librarySources = PodcastSourcesManager.shared.podcastLibrarySources
 			.filter { !topNames.contains($0.name.lowercased()) }
 			.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 
-		if !librarySources.isEmpty {
-			let otherSection = SourcePickerSection.sources(NSLocalizedString("Other Podcasts", comment: "Other Podcasts"))
-			snapshot.appendSections([otherSection])
-			let items = librarySources.map { SourcePickerItem.podcastSource($0) }
-			snapshot.appendItems(items, toSection: otherSection)
+		if query.isEmpty {
+			if !topSources.isEmpty {
+				let topPicks = SourcePickerSection.sources(NSLocalizedString("Top Picks", comment: "Top Picks"))
+				snapshot.appendSections([topPicks])
+				let items = topSources.map { SourcePickerItem.podcastSource($0) }
+				snapshot.appendItems(items, toSection: topPicks)
+			}
+			if !librarySources.isEmpty {
+				let otherSection = SourcePickerSection.sources(NSLocalizedString("Other Podcasts", comment: "Other Podcasts"))
+				snapshot.appendSections([otherSection])
+				let items = librarySources.map { SourcePickerItem.podcastSource($0) }
+				snapshot.appendItems(items, toSection: otherSection)
+			}
+		} else {
+			let allSources = topSources + librarySources
+			let matches = allSources.filter { source in
+				source.name.localizedCaseInsensitiveContains(query) ||
+				(source.author?.localizedCaseInsensitiveContains(query) ?? false)
+			}
+			let section = SourcePickerSection.sources(NSLocalizedString("Matches", comment: "Search matches"))
+			snapshot.appendSections([section])
+			snapshot.appendItems(matches.map { SourcePickerItem.podcastSource($0) }, toSection: section)
 		}
 
 		dataSource.apply(snapshot, animatingDifferences: false)
@@ -188,12 +209,48 @@ extension PodcastPickerViewController: UICollectionViewDelegate {
 		}
 
 		switch item {
-		case .customEntryName:
-			delegate?.podcastPickerDidSelectPodcastName(self)
 		case .podcastSource(let source):
 			delegate?.podcastPicker(self, didSelectPodcast: source)
 		default:
 			break
 		}
+	}
+}
+
+// MARK: - UISearchResultsUpdating
+
+extension PodcastPickerViewController: UISearchResultsUpdating {
+
+	func updateSearchResults(for searchController: UISearchController) {
+		applySnapshot()
+	}
+}
+
+// MARK: - UISearchBarDelegate
+
+extension PodcastPickerViewController: UISearchBarDelegate {
+
+	func searchBarBookmarkButtonClicked(_ searchBar: UISearchBar) {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Add Podcast", comment: "Add Podcast"),
+			message: nil,
+			preferredStyle: .alert
+		)
+		alert.addTextField { textField in
+			textField.placeholder = NSLocalizedString("Podcast name", comment: "Podcast name placeholder")
+			textField.autocapitalizationType = .words
+			textField.autocorrectionType = .default
+		}
+		let add = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { [weak self, weak alert] _ in
+			guard let self,
+				  let name = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+				  !name.isEmpty else {
+				return
+			}
+			self.delegate?.podcastPicker(self, didEnterPodcastName: name)
+		}
+		alert.addAction(add)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
+		present(alert, animated: true)
 	}
 }

@@ -36,9 +36,23 @@ import Articles
 		static let title = 200
 		static let subtitle = 300
 	}
+	private struct RGBA {
+		let r: UInt8
+		let g: UInt8
+		let b: UInt8
+		let a: UInt8
+	}
 
-	private static let titleContainerWidth: CGFloat = 260
+	private static let titleContainerWidth: CGFloat = 242
 	private static let titleContainerHeight: CGFloat = 34
+	private static let topBarIconCache = NSCache<NSString, UIImage>()
+
+	static func clearTopBarFeedIcon(cacheKey: String?) {
+		guard let cacheKey else {
+			return
+		}
+		topBarIconCache.removeObject(forKey: cacheKey as NSString)
+	}
 
 	static func makeTitleView(target: Any?, action: Selector) -> UIView {
 		let container = FeedNavigationTitleContainerView(size: CGSize(width: titleContainerWidth, height: titleContainerHeight))
@@ -63,9 +77,9 @@ import Articles
 		NSLayoutConstraint.activate([
 			nameLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
 			nameLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-			nameLabel.trailingAnchor.constraint(lessThanOrEqualTo: subtitleLabel.leadingAnchor, constant: -8),
+			nameLabel.trailingAnchor.constraint(lessThanOrEqualTo: subtitleLabel.leadingAnchor, constant: -10),
 
-			subtitleLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+			subtitleLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -6),
 			subtitleLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
 		])
 
@@ -111,6 +125,222 @@ import Articles
 		}
 		return rendered.withRenderingMode(.alwaysOriginal)
 	}
+
+	static func makeTopBarFeedIcon(from iconImage: IconImage, isPseudoFeedIcon: Bool, cacheKey: String? = nil) -> UIImage {
+		if let cacheKey, let cached = topBarIconCache.object(forKey: cacheKey as NSString) {
+			return cached
+		}
+
+		let canvasSize = isPseudoFeedIcon ? CGSize(width: 24, height: 24) : CGSize(width: 30, height: 30)
+
+		// Pseudo feeds (Today / Starred / All Unread) should stay at true 1x sizing.
+		if isPseudoFeedIcon {
+			let tintColor = iconImage.preferredColor.map(UIColor.init(cgColor:)) ?? Assets.Colors.secondaryAccent
+			let symbolConfig = UIImage.SymbolConfiguration(pointSize: 17, weight: .regular)
+			let configured = iconImage.image.applyingSymbolConfiguration(symbolConfig) ?? iconImage.image
+			let rendered = configured.withTintColor(tintColor, renderingMode: .alwaysOriginal)
+			if let cacheKey {
+				topBarIconCache.setObject(rendered, forKey: cacheKey as NSString)
+			}
+			return rendered
+		}
+
+		// Regular feeds: trim transparent/flat borders and overscan so the icon fills the circular affordance.
+		let sourceImage = trimmedIconImage(from: iconImage.image) ?? iconImage.image
+		let rendered = UIGraphicsImageRenderer(size: canvasSize).image { _ in
+			let sourceSize = sourceImage.size
+			guard sourceSize.width > 0, sourceSize.height > 0 else {
+				return
+			}
+
+			let scale = max(canvasSize.width / sourceSize.width, canvasSize.height / sourceSize.height) * 1.6
+			let drawSize = CGSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
+			let origin = CGPoint(x: (canvasSize.width - drawSize.width) / 2, y: (canvasSize.height - drawSize.height) / 2)
+			sourceImage.draw(in: CGRect(origin: origin, size: drawSize))
+		}
+		let result = rendered.withRenderingMode(.alwaysOriginal)
+		if let cacheKey {
+			topBarIconCache.setObject(result, forKey: cacheKey as NSString)
+		}
+		return result
+	}
+
+	private static func trimmedIconImage(from image: UIImage) -> UIImage? {
+		guard let alphaTrimmed = trimmedTransparentImage(from: image) else {
+			return nil
+		}
+		return trimmedFlatBorderImage(from: alphaTrimmed) ?? alphaTrimmed
+	}
+
+	private static func trimmedTransparentImage(from image: UIImage) -> UIImage? {
+		let normalized = UIGraphicsImageRenderer(size: image.size).image { _ in
+			image.draw(in: CGRect(origin: .zero, size: image.size))
+		}
+		guard let cgImage = normalized.cgImage else {
+			return nil
+		}
+
+		let width = cgImage.width
+		let height = cgImage.height
+		guard width > 0, height > 0 else {
+			return nil
+		}
+
+		let bytesPerPixel = 4
+		let bytesPerRow = width * bytesPerPixel
+		var pixels = [UInt8](repeating: 0, count: width * height * bytesPerPixel)
+		guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+			  let context = CGContext(data: &pixels,
+								 width: width,
+								 height: height,
+								 bitsPerComponent: 8,
+								 bytesPerRow: bytesPerRow,
+								 space: colorSpace,
+								 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+			return nil
+		}
+
+		context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+		var minX = width
+		var minY = height
+		var maxX = 0
+		var maxY = 0
+		var foundOpaque = false
+		let alphaThreshold: UInt8 = 8
+
+		for y in 0..<height {
+			for x in 0..<width {
+				let alpha = pixels[(y * bytesPerRow) + (x * bytesPerPixel) + 3]
+				if alpha > alphaThreshold {
+					foundOpaque = true
+					minX = min(minX, x)
+					minY = min(minY, y)
+					maxX = max(maxX, x)
+					maxY = max(maxY, y)
+				}
+			}
+		}
+
+		guard foundOpaque else {
+			return nil
+		}
+
+		let cropRect = CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
+		guard let cropped = cgImage.cropping(to: cropRect) else {
+			return nil
+		}
+
+		return UIImage(cgImage: cropped, scale: normalized.scale, orientation: .up)
+	}
+
+	private static func trimmedFlatBorderImage(from image: UIImage) -> UIImage? {
+		guard let cgImage = image.cgImage else {
+			return nil
+		}
+
+		let width = cgImage.width
+		let height = cgImage.height
+		guard width > 6, height > 6 else {
+			return image
+		}
+
+		let bytesPerPixel = 4
+		let bytesPerRow = width * bytesPerPixel
+		var pixels = [UInt8](repeating: 0, count: width * height * bytesPerPixel)
+		guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+			  let context = CGContext(data: &pixels,
+								 width: width,
+								 height: height,
+								 bitsPerComponent: 8,
+								 bytesPerRow: bytesPerRow,
+								 space: colorSpace,
+								 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+			return image
+		}
+
+		context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+		func pixel(atX x: Int, y: Int) -> RGBA {
+			let i = (y * bytesPerRow) + (x * bytesPerPixel)
+			return RGBA(r: pixels[i], g: pixels[i + 1], b: pixels[i + 2], a: pixels[i + 3])
+		}
+
+		let cornerColors = [
+			pixel(atX: 0, y: 0),
+			pixel(atX: width - 1, y: 0),
+			pixel(atX: 0, y: height - 1),
+			pixel(atX: width - 1, y: height - 1)
+		]
+
+		func isSimilar(_ p1: RGBA, _ p2: RGBA, tolerance: Int = 16) -> Bool {
+			let dr = abs(Int(p1.r) - Int(p2.r))
+			let dg = abs(Int(p1.g) - Int(p2.g))
+			let db = abs(Int(p1.b) - Int(p2.b))
+			let da = abs(Int(p1.a) - Int(p2.a))
+			return dr <= tolerance && dg <= tolerance && db <= tolerance && da <= tolerance
+		}
+
+		func looksLikeBorderPixel(_ pixel: RGBA) -> Bool {
+			guard pixel.a > 8 else {
+				return true
+			}
+			for corner in cornerColors where isSimilar(pixel, corner) {
+				return true
+			}
+			return false
+		}
+
+		func edgeLooksLikeBorder(minX: Int, maxX: Int, minY: Int, maxY: Int) -> Bool {
+			var borderPixels = 0
+			var total = 0
+			for y in minY...maxY {
+				for x in minX...maxX {
+					total += 1
+					if looksLikeBorderPixel(pixel(atX: x, y: y)) {
+						borderPixels += 1
+					}
+				}
+			}
+			guard total > 0 else {
+				return false
+			}
+			return CGFloat(borderPixels) / CGFloat(total) > 0.98
+		}
+
+		var minX = 0
+		var maxX = width - 1
+		var minY = 0
+		var maxY = height - 1
+
+		while minY < maxY - 2 && edgeLooksLikeBorder(minX: minX, maxX: maxX, minY: minY, maxY: minY) {
+			minY += 1
+		}
+		while maxY > minY + 2 && edgeLooksLikeBorder(minX: minX, maxX: maxX, minY: maxY, maxY: maxY) {
+			maxY -= 1
+		}
+		while minX < maxX - 2 && edgeLooksLikeBorder(minX: minX, maxX: minX, minY: minY, maxY: maxY) {
+			minX += 1
+		}
+		while maxX > minX + 2 && edgeLooksLikeBorder(minX: maxX, maxX: maxX, minY: minY, maxY: maxY) {
+			maxX -= 1
+		}
+
+		guard minX > 0 || minY > 0 || maxX < width - 1 || maxY < height - 1 else {
+			return image
+		}
+
+		let cropRect = CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
+		guard cropRect.width > 0, cropRect.height > 0, let cropped = cgImage.cropping(to: cropRect) else {
+			return image
+		}
+		return UIImage(cgImage: cropped, scale: image.scale, orientation: .up)
+	}
+
+	static func makeTopBarFeedBarButton(iconImage: IconImage, isPseudoFeedIcon: Bool, cacheKey: String? = nil, target: Any?, action: Selector) -> UIBarButtonItem {
+		let icon = makeTopBarFeedIcon(from: iconImage, isPseudoFeedIcon: isPseudoFeedIcon, cacheKey: cacheKey).withRenderingMode(.alwaysOriginal)
+		return UIBarButtonItem(image: icon, style: .plain, target: target, action: action)
+	}
 }
 
 final class MainTimelineViewController: UITableViewController, UndoableCommandRunner {
@@ -125,8 +355,8 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	private lazy var filterButton = UIBarButtonItem(image: Assets.Images.filter, style: .plain, target: self, action: #selector(toggleFilter(_:)))
 	private lazy var firstUnreadButton = UIBarButtonItem(image: Assets.Images.nextUnread, style: .plain, target: self, action: #selector(firstUnread(_:)))
-	private lazy var longPressReadToggleGestureRecognizer: UILongPressGestureRecognizer = {
-		let gesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPressToggleRead(_:)))
+	private lazy var longPressStarToggleGestureRecognizer: UILongPressGestureRecognizer = {
+		let gesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPressToggleStar(_:)))
 		gesture.minimumPressDuration = 0.45
 		gesture.allowableMovement = 14
 		return gesture
@@ -138,9 +368,8 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	weak var coordinator: SceneCoordinator?
 	var undoableCommands = [UndoableCommand]()
 	let scrollPositionQueue = CoalescingQueue(name: "Timeline Scroll Position", interval: 0.3, maxInterval: 1.0)
-	private var previousBackIndicatorImage: UIImage?
-	private var previousBackIndicatorTransitionMaskImage: UIImage?
 	private var shouldFadeInNavigationSubtitle = false
+	private var lastNavigationIconKey: String?
 
 	private var timelineFeed: SidebarItem? {
 		assert(coordinator != nil)
@@ -278,11 +507,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		refreshControl = UIRefreshControl()
 		refreshControl!.addTarget(self, action: #selector(refreshAccounts(_:)), for: .valueChanged)
 
-		// Custom pan gesture for swipe-left to open article with lower threshold
-		let pan = UIPanGestureRecognizer(target: self, action: #selector(handleSwipeLeftPan(_:)))
-		pan.delegate = self
-		tableView.addGestureRecognizer(pan)
-		tableView.addGestureRecognizer(longPressReadToggleGestureRecognizer)
+		tableView.addGestureRecognizer(longPressStarToggleGestureRecognizer)
 
 		configureToolbar()
 		resetUI(resetScroll: true)
@@ -300,19 +525,17 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		}
 
 		navigationItem.titleView = navigationBarTitleView
+		updateNavigationFeedIcon()
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
 		super.viewWillAppear(animated)
-		tableView.transform = .identity
 		navigationController?.setNavigationBarHidden(false, animated: false)
-		navigationItem.rightBarButtonItem = nil
 		self.navigationController?.isToolbarHidden = false
 		shouldFadeInNavigationSubtitle = true
 		if let subtitleText = FeedNavigationChrome.subtitleText(in: navigationItem.titleView), !subtitleText.isEmpty {
 			FeedNavigationChrome.setSubtitleAlpha(0, in: navigationItem.titleView)
 		}
-		hideBackIconVisualOnly()
 
 		// If the nav bar is hidden, fade it in to avoid it showing stuff as it is getting laid out
 		if navigationController?.navigationBar.isHidden ?? false {
@@ -321,11 +544,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 		updateNavigationBarTitle(coordinator?.timelineFeed?.nameForDisplay ?? "")
 		coordinator?.updateNavigationBarSubtitles(nil)
+		updateNavigationFeedIcon()
 	}
 
 	override func viewWillDisappear(_ animated: Bool) {
 		super.viewWillDisappear(animated)
-		restoreBackIconAppearance()
 	}
 
 	override func viewDidAppear(_ animated: Bool) {
@@ -501,76 +724,32 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	// MARK: - Table view
 
 	override func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-		return UISwipeActionsConfiguration(actions: [])
+		// Allow native iOS back-swipe from the leading edge.
+		return nil
 	}
 
 	override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-		return UISwipeActionsConfiguration(actions: [])
+		guard let article = dataSource.itemIdentifier(for: indexPath) else {
+			return nil
+		}
+
+		let readAction = UIContextualAction(style: .normal, title: nil) { [weak self] _, _, completion in
+			self?.coordinator?.toggleRead(article)
+			completion(true)
+		}
+		readAction.image = article.status.read ? Assets.Images.circleClosed : Assets.Images.circleOpen
+		readAction.backgroundColor = Assets.Colors.secondaryAccent
+
+		let config = UISwipeActionsConfiguration(actions: [readAction])
+		config.performsFirstActionWithFullSwipe = true
+		return config
 	}
 
 	override func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
 		return nil
 	}
 
-	// MARK: - Swipe left pan gesture
-
-	private var swipePanIndexPath: IndexPath?
-	private var swipePanTriggered = false
-
-	@objc private func handleSwipeLeftPan(_ gesture: UIPanGestureRecognizer) {
-		let translation = gesture.translation(in: tableView)
-		let velocity = gesture.velocity(in: tableView)
-
-		switch gesture.state {
-		case .began:
-			let point = gesture.location(in: tableView)
-			guard let indexPath = tableView.indexPathForRow(at: point),
-				  let article = dataSource.itemIdentifier(for: indexPath),
-				  coordinator?.beginInteractiveArticleOpen(article) == true else {
-				gesture.state = .cancelled
-				return
-			}
-			swipePanIndexPath = indexPath
-			swipePanTriggered = false
-			tableView.selectRow(at: indexPath, animated: false, scrollPosition: .none)
-
-		case .changed:
-			guard swipePanIndexPath != nil else { return }
-			let progress = min(max(-translation.x / tableView.bounds.width, 0), 1)
-			coordinator?.updateInteractiveArticleOpen(progress)
-
-			if progress >= 0.25 && !swipePanTriggered {
-				swipePanTriggered = true
-				let generator = UIImpactFeedbackGenerator(style: .light)
-				generator.impactOccurred()
-			}
-
-		case .ended, .cancelled:
-			guard let indexPath = swipePanIndexPath else {
-				resetSwipePan()
-				return
-			}
-
-			let progress = min(max(-translation.x / tableView.bounds.width, 0), 1)
-			let shouldOpenArticle = progress > 0.28 || velocity.x < -700
-
-			if shouldOpenArticle {
-				coordinator?.finishInteractiveArticleOpen()
-			} else {
-				coordinator?.cancelInteractiveArticleOpen()
-				if tableView.indexPathForSelectedRow == indexPath {
-					tableView.deselectRow(at: indexPath, animated: true)
-				}
-			}
-			resetSwipePan()
-
-		default:
-			coordinator?.cancelInteractiveArticleOpen()
-			resetSwipePan()
-		}
-	}
-
-	@objc private func handleLongPressToggleRead(_ gesture: UILongPressGestureRecognizer) {
+	@objc private func handleLongPressToggleStar(_ gesture: UILongPressGestureRecognizer) {
 		guard gesture.state == .began else {
 			return
 		}
@@ -587,15 +766,33 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 		let generator = UIImpactFeedbackGenerator(style: .light)
 		generator.impactOccurred()
-		coordinator?.toggleRead(article)
-	}
-
-	private func resetSwipePan() {
-		swipePanIndexPath = nil
-		swipePanTriggered = false
+		coordinator?.toggleStar(article)
 	}
 
 	private func animateDoubleFlash(on cell: UITableViewCell) {
+		if traitCollection.userInterfaceStyle == .dark {
+			let flashView = UIView(frame: cell.bounds)
+			flashView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+			flashView.backgroundColor = .white
+			flashView.alpha = 0
+			flashView.isUserInteractionEnabled = false
+			cell.contentView.addSubview(flashView)
+
+			UIView.animateKeyframes(withDuration: 0.56, delay: 0, options: [.allowUserInteraction, .calculationModeLinear]) {
+				UIView.addKeyframe(withRelativeStartTime: 0.00, relativeDuration: 0.16) {
+					flashView.alpha = 0.32
+				}
+				UIView.addKeyframe(withRelativeStartTime: 0.16, relativeDuration: 0.34) {
+					flashView.alpha = 0
+				}
+			} completion: { _ in
+				Task { @MainActor in
+					flashView.removeFromSuperview()
+				}
+			}
+			return
+		}
+
 		let flashView = UIView(frame: cell.bounds)
 		flashView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
 		flashView.backgroundColor = .white
@@ -603,16 +800,31 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		flashView.isUserInteractionEnabled = false
 		cell.contentView.addSubview(flashView)
 
-		UIView.animateKeyframes(withDuration: 0.56, delay: 0, options: [.allowUserInteraction, .calculationModeLinear]) {
+		let secondFlashView = UIView(frame: cell.bounds)
+		secondFlashView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+		secondFlashView.backgroundColor = .black
+		secondFlashView.alpha = 0
+		secondFlashView.isUserInteractionEnabled = false
+		cell.contentView.addSubview(secondFlashView)
+
+		UIView.animateKeyframes(withDuration: 0.72, delay: 0, options: [.allowUserInteraction, .calculationModeLinear]) {
 			UIView.addKeyframe(withRelativeStartTime: 0.00, relativeDuration: 0.16) {
 				flashView.alpha = 0.32
 			}
-			UIView.addKeyframe(withRelativeStartTime: 0.16, relativeDuration: 0.34) {
+			UIView.addKeyframe(withRelativeStartTime: 0.16, relativeDuration: 0.18) {
 				flashView.alpha = 0
+			}
+
+			UIView.addKeyframe(withRelativeStartTime: 0.42, relativeDuration: 0.14) {
+				secondFlashView.alpha = 0.22
+			}
+			UIView.addKeyframe(withRelativeStartTime: 0.56, relativeDuration: 0.20) {
+				secondFlashView.alpha = 0
 			}
 		} completion: { _ in
 			Task { @MainActor in
 				flashView.removeFromSuperview()
+				secondFlashView.removeFromSuperview()
 			}
 		}
 	}
@@ -658,6 +870,12 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	@objc func feedIconDidBecomeAvailable(_ note: Notification) {
 		guard let feed = note.userInfo?[UserInfoKey.feed] as? Feed else {
 			return
+		}
+		if (timelineFeed as? Feed) == feed {
+			let iconKey = String(describing: feed.sidebarItemID)
+			FeedNavigationChrome.clearTopBarFeedIcon(cacheKey: iconKey)
+			lastNavigationIconKey = nil
+			updateNavigationFeedIcon()
 		}
 		guard let indexPaths = tableView.indexPathsForVisibleRows else {
 			return
@@ -716,6 +934,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	@objc func displayNameDidChange(_ note: Notification) {
 		updateNavigationBarTitle(timelineFeed?.nameForDisplay ?? "")
+		updateNavigationFeedIcon()
 	}
 
 	@objc func willEnterForeground(_ note: Notification) {
@@ -779,60 +998,47 @@ extension MainTimelineViewController: UISearchBarDelegate {
 	}
 }
 
-// MARK: UIGestureRecognizerDelegate
-
-extension MainTimelineViewController: UIGestureRecognizerDelegate {
-	func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-		guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
-		let velocity = pan.velocity(in: tableView)
-		// Only begin for horizontal left swipes (negative X, dominant over Y)
-		return velocity.x < 0 && abs(velocity.x) > abs(velocity.y)
-	}
-
-	func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-		return false
-	}
-}
-
 // MARK: Private
 
 private extension MainTimelineViewController {
 
-	func hideBackIconVisualOnly() {
-		guard let navigationBar = activeNavigationController()?.navigationBar else {
-			return
-		}
-
-		if previousBackIndicatorImage == nil {
-			previousBackIndicatorImage = navigationBar.backIndicatorImage
-		}
-		if previousBackIndicatorTransitionMaskImage == nil {
-			previousBackIndicatorTransitionMaskImage = navigationBar.backIndicatorTransitionMaskImage
-		}
-
-		let feedIcon: UIImage?
-		if let feed = coordinator?.timelineFeed as? Feed {
-			feedIcon = IconImageCache.shared.imageForFeed(feed)?.image
-		} else if let pseudoFeed = coordinator?.timelineFeed as? PseudoFeed {
-			feedIcon = pseudoFeed.smallIcon?.image
+	func updateNavigationFeedIcon() {
+		let iconImage: IconImage?
+		let iconSource: SidebarItem?
+		if let feed = timelineFeed as? Feed {
+			iconImage = IconImageCache.shared.imageForFeed(feed)
+			iconSource = feed
+		} else if let pseudoFeed = timelineFeed as? PseudoFeed {
+			iconImage = pseudoFeed.smallIcon
+			iconSource = pseudoFeed
 		} else {
-			feedIcon = nil
+			iconImage = nil
+			iconSource = nil
 		}
-		let backImage = FeedNavigationChrome.makeBackIndicatorImage(from: feedIcon)
-		navigationBar.backIndicatorImage = backImage
-		navigationBar.backIndicatorTransitionMaskImage = backImage
-	}
 
-	func restoreBackIconAppearance() {
-		guard let navigationBar = activeNavigationController()?.navigationBar else {
+		guard let iconImage else {
+			// Avoid transient icon pop-out while data/icon caches settle during transitions.
+			if timelineFeed == nil {
+				navigationItem.rightBarButtonItem = nil
+				lastNavigationIconKey = nil
+			}
 			return
 		}
-		navigationBar.backIndicatorImage = previousBackIndicatorImage
-		navigationBar.backIndicatorTransitionMaskImage = previousBackIndicatorTransitionMaskImage
-	}
 
-	func activeNavigationController() -> UINavigationController? {
-		return (navigationController?.parent as? UINavigationController) ?? navigationController
+		let iconKey = String(describing: iconSource?.sidebarItemID)
+		if iconKey == lastNavigationIconKey, navigationItem.rightBarButtonItem != nil {
+			return
+		}
+
+		let isPseudoFeedIcon = timelineFeed is PseudoFeed
+		navigationItem.rightBarButtonItem = FeedNavigationChrome.makeTopBarFeedBarButton(
+			iconImage: iconImage,
+			isPseudoFeedIcon: isPseudoFeedIcon,
+			cacheKey: iconKey,
+			target: self,
+			action: #selector(showFeedInspector(_:))
+		)
+		lastNavigationIconKey = iconKey
 	}
 
 	func animateNavigationSubtitleIfNeeded() {
@@ -865,7 +1071,7 @@ private extension MainTimelineViewController {
 	}
 
 	func resetUI(resetScroll: Bool) {
-		navigationItem.rightBarButtonItem = nil
+		updateNavigationFeedIcon()
 
 		tableView.selectRow(at: nil, animated: false, scrollPosition: .top)
 
