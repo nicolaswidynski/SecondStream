@@ -728,6 +728,10 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		return nil
 	}
 
+	override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+		true
+	}
+
 	override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
 		guard let article = dataSource.itemIdentifier(for: indexPath) else {
 			return nil

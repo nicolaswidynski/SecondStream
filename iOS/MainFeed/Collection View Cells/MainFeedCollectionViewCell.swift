@@ -16,6 +16,7 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 	@IBOutlet var faviconView: IconView!
 	@IBOutlet var unreadCountLabel: UILabel!
 	private var faviconLeadingConstraint: NSLayoutConstraint?
+	var useWideUnreadChevronSpacing = false
 
 	var iconImage: IconImage? {
 		didSet {
@@ -36,12 +37,8 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 		}
 		set {
 			_unreadCount = newValue
-			if newValue == 0 {
-				unreadCountLabel.isHidden = true
-			} else {
-				unreadCountLabel.isHidden = false
-			}
-			unreadCountLabel.text = newValue.formatted()
+			unreadCountLabel.isHidden = false
+			updateUnreadDisclosureText()
 		}
 	}
 
@@ -93,7 +90,7 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 		case (true, .phone):
 			backgroundConfig.backgroundColor = Assets.Colors.primaryAccent
 			feedTitle.textColor = .white
-			unreadCountLabel.textColor = .secondaryLabel
+			unreadCountLabel.textColor = .white
 			if feedTitle.text == "All Unread" {
 				faviconView.tintColor = .white
 			}
@@ -112,6 +109,38 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 				}
 			}
 		}
+		updateUnreadDisclosureText()
 		self.backgroundConfiguration = backgroundConfig
+	}
+
+	private func updateUnreadDisclosureText() {
+		let textColor = unreadCountLabel.textColor ?? .secondaryLabel
+		let font = unreadCountLabel.font ?? UIFont.preferredFont(forTextStyle: .body)
+		let symbolConfig = UIImage.SymbolConfiguration(pointSize: max(10, font.pointSize * 0.68), weight: .semibold)
+		let symbolImage = UIImage(systemName: "chevron.right", withConfiguration: symbolConfig)?
+			.withTintColor(textColor, renderingMode: .alwaysOriginal)
+
+		let result = NSMutableAttributedString()
+		if _unreadCount > 0 {
+			result.append(NSAttributedString(string: _unreadCount.formatted(), attributes: [
+				.font: font,
+				.foregroundColor: textColor
+			]))
+			let spacer = useWideUnreadChevronSpacing ? "  " : ""
+			result.append(NSAttributedString(string: spacer, attributes: [
+				.font: font,
+				.foregroundColor: textColor
+			]))
+		}
+
+		if let symbolImage {
+			let attachment = NSTextAttachment()
+			attachment.image = symbolImage
+			let baselineOffset = (font.capHeight - symbolImage.size.height) / 2
+			attachment.bounds = CGRect(x: 0, y: baselineOffset, width: symbolImage.size.width, height: symbolImage.size.height)
+			result.append(NSAttributedString(attachment: attachment))
+		}
+
+		unreadCountLabel.attributedText = result
 	}
 }

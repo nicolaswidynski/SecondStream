@@ -734,6 +734,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		if let sidebarItem = node.representedObject as? SidebarItem {
 			cell.feedTitle.text = sidebarItem.nameForDisplay
 			cell.unreadCount = sidebarItem.unreadCount
+			// Feed rows (including Smart Feeds pseudo-feeds) use wider spacing between count and chevron.
+			cell.useWideUnreadChevronSpacing = true
 			cell.indentationLevel = indentationLevel
 			configureIcon(cell, sidebarItem: sidebarItem)
 		}
@@ -766,6 +768,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		if let sidebarItem = node.representedObject as? SidebarItem {
 			cell.feedTitle.text = sidebarItem.nameForDisplay
 			cell.unreadCount = sidebarItem.unreadCount
+			// Feed rows (including Smart Feeds pseudo-feeds) use wider spacing between count and chevron.
+			cell.useWideUnreadChevronSpacing = true
 			cell.indentationLevel = indentationLevel
 			configureIcon(cell, indexPath)
 		}

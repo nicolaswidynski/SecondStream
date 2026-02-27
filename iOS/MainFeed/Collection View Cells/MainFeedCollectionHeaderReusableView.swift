@@ -51,6 +51,7 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 		set {
 			_unreadCount = newValue
 			unreadCountLabel.text = newValue.formatted()
+			//			unreadCountLabel.textColor = .white
 			// Update visibility when count changes (for collapsed sections)
 			if hasBeenConfigured {
 				updateUnreadCount(animated: false)
@@ -72,6 +73,7 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 			super.awakeFromNib()
 			unreadLabelWidthConstraint = unreadCountLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 80)
 			unreadLabelWidthConstraint?.isActive = true
+			tightenUnreadChevronSpacing()
 			unreadCountLabel.alpha = 0  // Start hidden
 			configureUI()
 			addTapGesture()
@@ -89,6 +91,26 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 
 	func configureUI() {
 		headerTitle.textColor = traitCollection.userInterfaceIdiom == .pad ? .tertiaryLabel : .label
+	}
+
+	private func tightenUnreadChevronSpacing() {
+		// Keep category headers tight: "count >" should not have a large visual gap.
+		for constraint in constraints {
+			let isUnreadToDisclosure =
+				constraint.firstItem as AnyObject? === disclosureIndicator &&
+				constraint.firstAttribute == .leading &&
+				constraint.secondItem as AnyObject? === unreadCountLabel &&
+				constraint.secondAttribute == .trailing
+			if isUnreadToDisclosure {
+				constraint.constant = 2
+			}
+		}
+
+		for constraint in disclosureIndicator.constraints {
+			if constraint.firstAttribute == .width || constraint.firstAttribute == .height {
+				constraint.constant = 26
+			}
+		}
 	}
 
 	private func addTapGesture() {
