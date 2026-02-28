@@ -46,7 +46,7 @@ import Articles
 	private static let titleContainerWidth: CGFloat = 242
 	private static let titleContainerHeight: CGFloat = 34
 	private static let topBarIconCache = NSCache<NSString, UIImage>()
-	private static let topBarIconCacheVersion = "v7-plain-barbutton"
+	private static let topBarIconCacheVersion = "v10-nav-height-square"
 
 	static func clearTopBarFeedIcon(cacheKey: String?) {
 		guard let cacheKey else {
@@ -135,12 +135,10 @@ import Articles
 			return cached
 		}
 
-		let canvasSize = isPseudoFeedIcon ? CGSize(width: 24, height: 24) : CGSize(width: 30, height: 30)
-
 		// Pseudo feeds (Today / Starred / All Unread) should stay at true 1x sizing.
 		if isPseudoFeedIcon {
 			let tintColor = iconImage.preferredColor.map(UIColor.init(cgColor:)) ?? Assets.Colors.secondaryAccent
-			let symbolConfig = UIImage.SymbolConfiguration(pointSize: 17, weight: .regular)
+			let symbolConfig = UIImage.SymbolConfiguration(pointSize: 25, weight: .regular)
 			let configured = iconImage.image.applyingSymbolConfiguration(symbolConfig) ?? iconImage.image
 			let rendered = configured.withTintColor(tintColor, renderingMode: .alwaysOriginal)
 			if let namespacedCacheKey {
@@ -149,23 +147,21 @@ import Articles
 			return rendered
 		}
 
-		// Regular feeds: aggressively trim and draw with circular clipping so the icon
-		// visually fills the round top-right button.
-		let sourceImage = trimmedIconImage(from: iconImage.image) ?? iconImage.image
-
-		let rendered = UIGraphicsImageRenderer(size: canvasSize).image { _ in
+		// Render non-smart feed icons as full-bleed circular images.
+		// Match the actual compact nav-bar custom-view height to avoid 44x44->44x36 squeeze.
+		let canvasSize = CGSize(width: 36, height: 36)
+		let sourceImage = iconImage.image
+		let result = UIGraphicsImageRenderer(size: canvasSize).image { _ in
 			UIBezierPath(ovalIn: CGRect(origin: .zero, size: canvasSize)).addClip()
 			let sourceSize = sourceImage.size
 			guard sourceSize.width > 0, sourceSize.height > 0 else {
 				return
 			}
-
 			let scale = max(canvasSize.width / sourceSize.width, canvasSize.height / sourceSize.height)
 			let drawSize = CGSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
 			let origin = CGPoint(x: (canvasSize.width - drawSize.width) / 2, y: (canvasSize.height - drawSize.height) / 2)
 			sourceImage.draw(in: CGRect(origin: origin, size: drawSize))
-		}
-		let result = rendered.withRenderingMode(.alwaysOriginal)
+		}.withRenderingMode(.alwaysOriginal)
 		if let namespacedCacheKey {
 			topBarIconCache.setObject(result, forKey: namespacedCacheKey)
 		}
@@ -346,14 +342,38 @@ import Articles
 
 	static func makeTopBarFeedBarButton(iconImage: IconImage, isPseudoFeedIcon: Bool, cacheKey: String? = nil, target: Any?, action: Selector?) -> UIBarButtonItem {
 		let icon = makeTopBarFeedIcon(from: iconImage, isPseudoFeedIcon: isPseudoFeedIcon, cacheKey: cacheKey).withRenderingMode(.alwaysOriginal)
-		return makeTopBarFeedBarButton(image: icon, target: target, action: action)
+		return makeTopBarFeedBarButton(image: icon, fillsCircularButton: !isPseudoFeedIcon, target: target, action: action)
 	}
 
-	static func makeTopBarFeedBarButton(image: UIImage, target: Any?, action: Selector?) -> UIBarButtonItem {
-		return UIBarButtonItem(image: image.withRenderingMode(.alwaysOriginal),
-						   style: .plain,
-						   target: target,
-						   action: action)
+	static func makeTopBarFeedBarButton(image: UIImage, fillsCircularButton: Bool = true, target: Any?, action: Selector?) -> UIBarButtonItem {
+		// Keep custom icon buttons square to the real nav-bar slot height.
+		let size: CGFloat = fillsCircularButton ? 36 : 30
+		let iconButton = UIButton(type: .custom)
+		iconButton.frame = CGRect(x: 0, y: 0, width: size, height: size)
+		iconButton.translatesAutoresizingMaskIntoConstraints = false
+
+		if fillsCircularButton {
+			iconButton.setBackgroundImage(image.withRenderingMode(.alwaysOriginal), for: .normal)
+		} else {
+			iconButton.setImage(image.withRenderingMode(.alwaysOriginal), for: .normal)
+			iconButton.imageView?.contentMode = .scaleAspectFit
+		}
+
+		iconButton.layer.cornerRadius = size / 2
+		iconButton.layer.masksToBounds = true
+		iconButton.clipsToBounds = true
+		iconButton.backgroundColor = .clear
+
+		if let target = target, let action = action {
+			iconButton.addTarget(target, action: action, for: .touchUpInside)
+		}
+
+		NSLayoutConstraint.activate([
+			iconButton.widthAnchor.constraint(equalToConstant: size),
+			iconButton.heightAnchor.constraint(equalToConstant: size)
+		])
+
+		return UIBarButtonItem(customView: iconButton)
 	}
 }
 

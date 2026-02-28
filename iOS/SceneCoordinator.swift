@@ -1703,7 +1703,7 @@ struct SidebarItemNode: Hashable, Sendable {
 			"Resolved URL: \(resolvedURL?.absoluteString ?? "nil")",
 			"Resolution: \(resolution)",
 			"Note: \(note)"
-		]
+		] + navigationIconDebugLines(for: feed)
 		let message = lines.joined(separator: "\n")
 		let alert = UIAlertController(title: "Homepage Debug", message: message, preferredStyle: .alert)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .cancel))
@@ -1717,6 +1717,167 @@ struct SidebarItemNode: Hashable, Sendable {
 		}
 		let presenter = topMostPresentedViewController()
 		presenter.present(alert, animated: true)
+	}
+
+	private func navigationIconDebugLines(for feed: Feed) -> [String] {
+		var lines = [String]()
+		lines.append("--- Icon Debug ---")
+
+		let item: UIBarButtonItem? = {
+			if currentArticle != nil {
+				return articleViewController?.navigationItem.rightBarButtonItem
+			}
+			return mainTimelineViewController?.navigationItem.rightBarButtonItem
+		}()
+
+		guard let item else {
+			lines.append("rightBarButtonItem: nil")
+			return lines
+		}
+
+		if let image = item.image {
+			lines.append("barButton.image.size: \(image.size.width)x\(image.size.height)")
+		} else {
+			lines.append("barButton.image.size: nil")
+		}
+
+		guard let button = item.customView as? UIButton else {
+			if let customView = item.customView {
+				lines.append("customView: \(type(of: customView))")
+			} else {
+				lines.append("customView: nil (system UIBarButtonItem)")
+			}
+			if let navBar = rootSplitViewController.navigationController?.navigationBar {
+				lines.append("navBar.bounds: \(formatRect(navBar.bounds))")
+			}
+			return lines
+		}
+
+		lines.append("customView: UIButton")
+		lines.append("button.frame: \(formatRect(button.frame))")
+		lines.append("button.bounds: \(formatRect(button.bounds))")
+		lines.append("button.cornerRadius: \(button.layer.cornerRadius)")
+		lines.append("button.clipsToBounds: \(button.clipsToBounds)")
+		if #available(iOS 15.0, *) {
+			if let config = button.configuration {
+				lines.append("button.configuration: \(String(describing: type(of: config)))")
+				lines.append("button.config.contentInsets: {t:\(config.contentInsets.top) l:\(config.contentInsets.leading) b:\(config.contentInsets.bottom) r:\(config.contentInsets.trailing)}")
+			} else {
+				lines.append("button.configuration: nil")
+			}
+		} else {
+			lines.append("button.contentInsets: \(formatInsets(button.contentEdgeInsets))")
+			lines.append("button.imageInsets: \(formatInsets(button.imageEdgeInsets))")
+			lines.append("button.titleInsets: \(formatInsets(button.titleEdgeInsets))")
+		}
+		lines.append("button.hAlign: \(button.contentHorizontalAlignment.rawValue)")
+		lines.append("button.vAlign: \(button.contentVerticalAlignment.rawValue)")
+
+		if let bg = button.backgroundImage(for: .normal) {
+			lines.append("bgImage(normal).size: \(bg.size.width)x\(bg.size.height)")
+			lines.append("bgImage alphaBounds: \(alphaBoundsDescription(for: bg))")
+		} else {
+			lines.append("bgImage(normal).size: nil")
+		}
+		if let img = button.image(for: .normal) {
+			lines.append("image(normal).size: \(img.size.width)x\(img.size.height)")
+			lines.append("image alphaBounds: \(alphaBoundsDescription(for: img))")
+		} else {
+			lines.append("image(normal).size: nil")
+		}
+		if let imageView = button.imageView {
+			lines.append("imageView.frame: \(formatRect(imageView.frame))")
+			lines.append("imageView.bounds: \(formatRect(imageView.bounds))")
+			lines.append("imageView.contentMode: \(imageView.contentMode.rawValue)")
+		} else {
+			lines.append("imageView: nil")
+		}
+
+		if let cached = IconImageCache.shared.imageForFeed(feed)?.image {
+			lines.append("sourceIcon.size: \(cached.size.width)x\(cached.size.height)")
+			lines.append("sourceIcon alphaBounds: \(alphaBoundsDescription(for: cached))")
+		} else {
+			lines.append("sourceIcon.size: nil")
+		}
+
+		if let navBar = rootSplitViewController.navigationController?.navigationBar {
+			lines.append("navBar.bounds: \(formatRect(navBar.bounds))")
+		}
+
+		return lines
+	}
+
+	private func formatRect(_ rect: CGRect) -> String {
+		String(format: "{x:%.1f y:%.1f w:%.1f h:%.1f}", rect.origin.x, rect.origin.y, rect.size.width, rect.size.height)
+	}
+
+	private func formatInsets(_ insets: UIEdgeInsets) -> String {
+		String(format: "{t:%.1f l:%.1f b:%.1f r:%.1f}", insets.top, insets.left, insets.bottom, insets.right)
+	}
+
+	private func alphaBoundsDescription(for image: UIImage) -> String {
+		guard let cgImage = image.cgImage else {
+			return "unavailable(cgImage=nil)"
+		}
+
+		let width = cgImage.width
+		let height = cgImage.height
+		guard width > 0, height > 0 else {
+			return "empty(\(width)x\(height))"
+		}
+
+		let bytesPerPixel = 4
+		let bytesPerRow = width * bytesPerPixel
+		var pixels = [UInt8](repeating: 0, count: width * height * bytesPerPixel)
+		guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+			  let context = CGContext(
+				data: &pixels,
+				width: width,
+				height: height,
+				bitsPerComponent: 8,
+				bytesPerRow: bytesPerRow,
+				space: colorSpace,
+				bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+			  ) else {
+			return "unavailable(context=nil)"
+		}
+
+		context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+		let alphaThreshold: UInt8 = 8
+		var minX = width
+		var minY = height
+		var maxX = -1
+		var maxY = -1
+		var opaqueCount = 0
+
+		for y in 0..<height {
+			for x in 0..<width {
+				let alpha = pixels[(y * bytesPerRow) + (x * bytesPerPixel) + 3]
+				if alpha > alphaThreshold {
+					opaqueCount += 1
+					if x < minX { minX = x }
+					if y < minY { minY = y }
+					if x > maxX { maxX = x }
+					if y > maxY { maxY = y }
+				}
+			}
+		}
+
+		guard maxX >= minX, maxY >= minY else {
+			return "none(opaque=0)"
+		}
+
+		let boxWidth = maxX - minX + 1
+		let boxHeight = maxY - minY + 1
+		let boxPercentW = Double(boxWidth) / Double(width) * 100.0
+		let boxPercentH = Double(boxHeight) / Double(height) * 100.0
+		let opaquePercent = Double(opaqueCount) / Double(width * height) * 100.0
+
+		return String(
+			format: "{x:%d y:%d w:%d h:%d} box%%={w:%.1f h:%.1f} opaque%%=%.1f",
+			minX, minY, boxWidth, boxHeight, boxPercentW, boxPercentH, opaquePercent
+		)
 	}
 
 	private func topMostPresentedViewController() -> UIViewController {
