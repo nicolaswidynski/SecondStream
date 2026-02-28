@@ -149,6 +149,7 @@ struct SidebarItemNode: Hashable, Sendable {
 	private var interactiveArticleOpenTransition: UIPercentDrivenInteractiveTransition?
 	private var isInteractiveArticleOpenTransitionActive = false
 	private var deferredReadMarkArticle: Article?
+	private var deferredUnreadFirstReorder = false
 	private let interactiveTimelineToArticleAnimator = TimelineToArticlePushAnimator()
 
 	/// `Bool` to track whether a refresh is scheduled.
@@ -553,6 +554,10 @@ struct SidebarItemNode: Hashable, Sendable {
 	@objc func statusesDidChange(_ note: Notification) {
 		updateUnreadCount()
 		guard timelineUnreadFirst else {
+			return
+		}
+		if shouldDeferUnreadFirstReorder {
+			deferredUnreadFirstReorder = true
 			return
 		}
 		replaceArticles(with: Set(articles), animated: true)
@@ -1135,6 +1140,11 @@ struct SidebarItemNode: Hashable, Sendable {
 		activityManager.reading(feed: timelineFeed, article: article)
 
 		if article == nil {
+			commitDeferredReadMarkIfNeeded()
+			if deferredUnreadFirstReorder {
+				deferredUnreadFirstReorder = false
+				replaceArticles(with: Set(articles), animated: true)
+			}
 			articleViewController?.article = nil
 			rootSplitViewController.show(.supplementary)
 			mainTimelineViewController?.updateArticleSelection(animations: animations)
@@ -1383,8 +1393,6 @@ struct SidebarItemNode: Hashable, Sendable {
 
 	func markAllAsReadInTimeline(completion: (() -> Void)? = nil) {
 		markAllAsRead(articles) {
-			self.rootSplitViewController.preferredDisplayMode = .twoBesideSecondary
-			self.rootSplitViewController.show(.primary)
 			completion?()
 		}
 	}
@@ -1437,6 +1445,9 @@ struct SidebarItemNode: Hashable, Sendable {
 
 	func markAsUnreadForCurrentArticle() {
 		if let article = currentArticle {
+			if deferredReadMarkArticle?.articleID == article.articleID {
+				deferredReadMarkArticle = nil
+			}
 			markArticlesWithUndo([article], statusKey: .read, flag: false)
 		}
 	}
@@ -2059,6 +2070,21 @@ extension SceneCoordinator: UINavigationControllerDelegate {
 // MARK: Private
 
 private extension SceneCoordinator {
+
+	var shouldDeferUnreadFirstReorder: Bool {
+		return timelineUnreadFirst && rootSplitViewController.isCollapsed && currentArticle != nil
+	}
+
+	func commitDeferredReadMarkIfNeeded() {
+		guard let article = deferredReadMarkArticle else {
+			return
+		}
+		deferredReadMarkArticle = nil
+		guard !article.status.read else {
+			return
+		}
+		markArticles(Set([article]), statusKey: .read, flag: true)
+	}
 
 	func markArticlesWithUndo(_ articles: [Article], statusKey: ArticleStatus.Key, flag: Bool, completion: (() -> Void)? = nil) {
 		guard let undoManager = undoManager,

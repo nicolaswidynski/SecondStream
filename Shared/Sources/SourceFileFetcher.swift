@@ -26,6 +26,7 @@ enum SourceFileFetcher {
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "SourceFileFetcher")
 
 	private static let baseURL = AppURLs.filesBase + "lib/"
+	private static let lastModifiedKeyPrefix = "SourceFileFetcher.lastModified."
 
 	/// Fetches entries from a static file, using Last-Modified to avoid redundant downloads.
 	/// Returns nil if the file has not changed since the last fetch.
@@ -35,7 +36,7 @@ enum SourceFileFetcher {
 			return nil
 		}
 
-		let lastModifiedKey = "SourceFileFetcher.lastModified.\(fileName)"
+		let lastModifiedKey = lastModifiedKeyPrefix + fileName
 		let storedLastModified = UserDefaults.standard.string(forKey: lastModifiedKey)
 
 		// HEAD request to check Last-Modified
@@ -86,7 +87,7 @@ enum SourceFileFetcher {
 			return nil
 		}
 
-		let lastModifiedKey = "SourceFileFetcher.lastModified.\(fileName)"
+		let lastModifiedKey = lastModifiedKeyPrefix + fileName
 
 		do {
 			let (data, response) = try await URLSession.shared.data(from: url)
@@ -118,17 +119,41 @@ enum SourceFileFetcher {
 
 		var entries: [SourceFileEntry] = []
 		for item in dataArray {
-			guard let name = item["Name"] as? String,
-				  let rssURL = item["RSS URL"] as? String else {
+			guard let name = firstNonEmptyString(in: item, keys: ["Name", "name", "title"]),
+				  let rssURL = firstNonEmptyString(in: item, keys: ["RSS URL", "rss_url", "rssURL", "feed"]) else {
 				continue
 			}
-			let author = item["Author"] as? String
-			let myFeedURL = item["My Feed URL"] as? String
-			let imageURL = item["Image URL"] as? String
+			let author = firstNonEmptyString(in: item, keys: ["Author", "author"])
+			let myFeedURL = firstNonEmptyString(in: item, keys: ["My Feed URL", "my_feed_url", "myFeedURL"])
+			let imageURL = firstNonEmptyString(in: item, keys: ["Image URL", "image_url", "imageURL", "image_ref", "icon_url", "icon"])
 			entries.append(SourceFileEntry(name: name, author: author, rssURL: rssURL, myFeedURL: myFeedURL, imageURL: imageURL))
 		}
 
 		logger.info("Parsed \(entries.count) entries from \(fileName)")
 		return entries
+	}
+
+	private static func firstNonEmptyString(in item: [String: Any], keys: [String]) -> String? {
+		for key in keys {
+			guard let value = item[key] else {
+				continue
+			}
+			if let string = value as? String {
+				let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+				if !trimmed.isEmpty {
+					return trimmed
+				}
+			}
+		}
+		return nil
+	}
+
+	static func clearLastModifiedCache() {
+		let defaults = UserDefaults.standard
+		let keys = defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix(lastModifiedKeyPrefix) }
+		for key in keys {
+			defaults.removeObject(forKey: key)
+		}
+		logger.info("Cleared \(keys.count) SourceFileFetcher Last-Modified cache entries")
 	}
 }

@@ -38,7 +38,6 @@ final class PodcastPickerViewController: UIViewController {
 		configureSearch()
 		configureCollectionView()
 		configureDataSource()
-		applySnapshot()
 
 		NotificationCenter.default.addObserver(
 			self,
@@ -46,6 +45,8 @@ final class PodcastPickerViewController: UIViewController {
 			name: .sourceImageDidBecomeAvailable,
 			object: SourceImageCache.shared
 		)
+
+		applySnapshot()
 	}
 
 	// MARK: - Configuration
@@ -193,9 +194,27 @@ final class PodcastPickerViewController: UIViewController {
 		guard let url = notification.userInfo?["url"] as? String else {
 			return
 		}
+
+		reloadItemsIfNeeded(forImageURL: url)
+
 		for cell in collectionView.visibleCells {
 			(cell as? SourcePickerCell)?.updateImageIfNeeded(for: url)
 		}
+	}
+
+	private func reloadItemsIfNeeded(forImageURL url: String) {
+		var snapshot = dataSource.snapshot()
+		let matchingItems = snapshot.itemIdentifiers.filter { item in
+			guard case .podcastSource(let source) = item else {
+				return false
+			}
+			return source.imageURL == url
+		}
+		guard !matchingItems.isEmpty else {
+			return
+		}
+		snapshot.reloadItems(matchingItems)
+		dataSource.apply(snapshot, animatingDifferences: false)
 	}
 }
 

@@ -132,7 +132,8 @@ enum AddNewsResult {
 		async let libraryEntries = SourceFileFetcher.fetchIfModified(fileName: Self.libraryFileName)
 
 		if let entries = await topEntries {
-			let sources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let mappedSources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let sources = await hydrateMissingImageURLs(in: mappedSources)
 			let oldURLs = Set(self.newsSources.compactMap(\.imageURL))
 			let newURLs = Set(sources.compactMap(\.imageURL))
 			let libraryURLs = Set(self.newsLibrarySources.compactMap(\.imageURL))
@@ -145,7 +146,8 @@ enum AddNewsResult {
 		}
 
 		if let entries = await libraryEntries {
-			let sources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let mappedSources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let sources = await hydrateMissingImageURLs(in: mappedSources)
 			let oldURLs = Set(self.newsLibrarySources.compactMap(\.imageURL))
 			let newURLs = Set(sources.compactMap(\.imageURL))
 			let topURLs = Set(self.newsSources.compactMap(\.imageURL))
@@ -156,6 +158,74 @@ enum AddNewsResult {
 			self.newsLibrarySources = sources
 			Self.logger.info("Fetched \(sources.count) library news sources")
 		}
+	}
+
+	private func hydrateMissingImageURLs(in sources: [NewsSource]) async -> [NewsSource] {
+		var hydrated = sources
+
+		for index in hydrated.indices {
+			let currentImageURL = hydrated[index].imageURL?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+			guard currentImageURL.isEmpty else {
+				continue
+			}
+			guard let imageRef = await Self.fetchImageRefFromFeedXML(feedURLString: hydrated[index].url) else {
+				continue
+			}
+
+			hydrated[index] = NewsSource(
+				name: hydrated[index].name,
+				author: hydrated[index].author,
+				url: hydrated[index].url,
+				myFeedURL: hydrated[index].myFeedURL,
+				imageURL: imageRef
+			)
+		}
+
+		return hydrated
+	}
+
+	private static func fetchImageRefFromFeedXML(feedURLString: String) async -> String? {
+		let trimmed = feedURLString.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard let url = URL(string: trimmed) else {
+			return nil
+		}
+
+		do {
+			let (data, response) = try await URLSession.shared.data(from: url)
+			guard let httpResponse = response as? HTTPURLResponse,
+				  (200...299).contains(httpResponse.statusCode),
+				  let xml = String(data: data, encoding: .utf8) else {
+				return nil
+			}
+			return parseImageRef(fromXML: xml)
+		} catch {
+			return nil
+		}
+	}
+
+	private static func parseImageRef(fromXML xml: String) -> String? {
+		let patterns = [
+			#"<image_ref[^>]*>\s*<!\[CDATA\[(.*?)\]\]>\s*</image_ref>"#,
+			#"<image_ref[^>]*>\s*([^<]+?)\s*</image_ref>"#
+		]
+
+		for pattern in patterns {
+			guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
+				continue
+			}
+			let range = NSRange(xml.startIndex..<xml.endIndex, in: xml)
+			guard let match = regex.firstMatch(in: xml, options: [], range: range),
+				  match.numberOfRanges > 1,
+				  let captureRange = Range(match.range(at: 1), in: xml) else {
+				continue
+			}
+			let value = String(xml[captureRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+			if !value.isEmpty {
+				return value
+			}
+		}
+
+		return nil
 	}
 
 	/// Adds a news source by sending the name and author to the webhook.

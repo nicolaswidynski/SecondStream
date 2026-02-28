@@ -699,16 +699,26 @@ private extension SettingsViewController {
 	func cleanTemporaryFiles() {
 		let alert = UIAlertController(
 			title: NSLocalizedString("Clean Temporary Files", comment: "Clean Temporary Files"),
-			message: NSLocalizedString("This will remove cached source images. They will be re-downloaded when needed.", comment: "Clean temp files message"),
+			message: NSLocalizedString("This will remove cached icons/images and cached source lists. They will be re-downloaded when needed.", comment: "Clean temp files message"),
 			preferredStyle: .alert
 		)
 
-		alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
-		alert.addAction(UIAlertAction(title: NSLocalizedString("Clean", comment: "Clean"), style: .destructive) { _ in
-			SourceImageCache.shared.clearCache()
-			FaviconDownloader.shared.resetCache()
-			IconImageCache.shared.emptyCache()
-		})
+			alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
+			alert.addAction(UIAlertAction(title: NSLocalizedString("Clean", comment: "Clean"), style: .destructive) { _ in
+				SourceImageCache.shared.clearCache()
+				FaviconDownloader.shared.resetCache()
+				IconImageCache.shared.emptyCache()
+				SourceFileFetcher.clearLastModifiedCache()
+				PodcastSourcesManager.shared.podcastSources = []
+				PodcastSourcesManager.shared.podcastLibrarySources = []
+				YoutubeSourcesManager.shared.youtubeSources = []
+				YoutubeSourcesManager.shared.youtubeLibrarySources = []
+				NewsSourcesManager.shared.newsSources = []
+				NewsSourcesManager.shared.newsLibrarySources = []
+				RSSSourcesManager.shared.rssSources = []
+				RSSSourcesManager.shared.rssLibrarySources = []
+				SourcesRefreshManager.shared.forceRefresh()
+			})
 
 		present(alert, animated: true)
 	}

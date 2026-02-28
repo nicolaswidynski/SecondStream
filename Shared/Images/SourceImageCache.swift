@@ -55,7 +55,8 @@ extension Notification.Name {
 		guard !urlsInProgress.contains(urlString) else {
 			return
 		}
-		guard let url = URL(string: urlString) else {
+		guard let url = downloadURL(for: urlString) else {
+			Self.logger.error("Invalid source image URL: \(urlString)")
 			return
 		}
 
@@ -124,6 +125,25 @@ extension Notification.Name {
 		return renderer.image { _ in
 			image.draw(in: CGRect(origin: .zero, size: targetSize))
 		}
+	}
+
+	private func downloadURL(for rawURLString: String) -> URL? {
+		let trimmed = rawURLString.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard !trimmed.isEmpty else {
+			return nil
+		}
+
+		if let url = URL(string: trimmed), url.scheme != nil {
+			return url
+		}
+
+		if let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed),
+		   let url = URL(string: encoded),
+		   url.scheme != nil {
+			return url
+		}
+
+		return nil
 	}
 
 	func clearCache() {

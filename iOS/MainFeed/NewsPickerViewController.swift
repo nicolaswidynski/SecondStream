@@ -34,7 +34,6 @@ final class NewsPickerViewController: UIViewController {
 
 		configureCollectionView()
 		configureDataSource()
-		applySnapshot()
 
 		NotificationCenter.default.addObserver(
 			self,
@@ -42,6 +41,13 @@ final class NewsPickerViewController: UIViewController {
 			name: .sourceImageDidBecomeAvailable,
 			object: SourceImageCache.shared
 		)
+
+		applySnapshot()
+
+		Task { [weak self] in
+			await NewsSourcesManager.shared.fetchFresh()
+			self?.applySnapshot()
+		}
 	}
 
 	// MARK: - Configuration
@@ -151,9 +157,27 @@ final class NewsPickerViewController: UIViewController {
 		guard let url = notification.userInfo?["url"] as? String else {
 			return
 		}
+
+		reloadItemsIfNeeded(forImageURL: url)
+
 		for cell in collectionView.visibleCells {
 			(cell as? SourcePickerCell)?.updateImageIfNeeded(for: url)
 		}
+	}
+
+	private func reloadItemsIfNeeded(forImageURL url: String) {
+		var snapshot = dataSource.snapshot()
+		let matchingItems = snapshot.itemIdentifiers.filter { item in
+			guard case .newsSource(let source) = item else {
+				return false
+			}
+			return source.imageURL == url
+		}
+		guard !matchingItems.isEmpty else {
+			return
+		}
+		snapshot.reloadItems(matchingItems)
+		dataSource.apply(snapshot, animatingDifferences: false)
 	}
 }
 

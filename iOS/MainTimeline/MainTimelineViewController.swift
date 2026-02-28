@@ -881,7 +881,10 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		guard let articleIDs = note.userInfo?[Account.UserInfoKey.articleIDs] as? Set<String>, !articleIDs.isEmpty else {
 			return
 		}
+		refreshVisibleCells(for: articleIDs)
+	}
 
+	private func refreshVisibleCells(for articleIDs: Set<String>) {
 		let visibleArticles = tableView.indexPathsForVisibleRows!.compactMap { return dataSource.itemIdentifier(for: $0) }
 		let visibleUpdatedArticles = visibleArticles.filter { articleIDs.contains($0.articleID) }
 
@@ -1145,9 +1148,19 @@ private extension MainTimelineViewController {
 		snapshot.appendSections([0])
 		snapshot.appendItems(articles ?? ArticleArray(), toSection: 0)
 
-		dataSource.apply(snapshot, animatingDifferences: animated) { [weak self] in
-			self?.restoreSelectionIfNecessary(adjustScroll: false)
-			completion?()
+		if animated {
+			CATransaction.begin()
+			CATransaction.setAnimationDuration(0.40)
+			dataSource.apply(snapshot, animatingDifferences: true) { [weak self] in
+				self?.restoreSelectionIfNecessary(adjustScroll: false)
+				completion?()
+			}
+			CATransaction.commit()
+		} else {
+			dataSource.apply(snapshot, animatingDifferences: false) { [weak self] in
+				self?.restoreSelectionIfNecessary(adjustScroll: false)
+				completion?()
+			}
 		}
 	}
 
