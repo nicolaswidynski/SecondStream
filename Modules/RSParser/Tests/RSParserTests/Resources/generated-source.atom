@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+	<title><![CDATA[Artificial Intelligence]]></title>
+	<author><![CDATA[]]></author>
+	<link rel="alternate" href="https://files.nwidynski.com/topics/artificial-intelligence/videos.xml" />
+	<link>https://www.bigtechnology.com/</link>
+	<image_ref>https://files.nwidynski.com/topics/aaa/artificial-intelligence.png</image_ref>
+	<updated>2026-02-26T20:25:01.564Z</updated>
+	<id>urn:uuid:artificial-intelligence</id>
+	<entry>
+		<title type="html"><![CDATA[2026-02-26]]></title>
+		<link href="https://files.nwidynski.com/topics/artificial-intelligence/2026-02-26.md" />
+		<id>topics/artificial-intelligence/2026-02-26.md</id>
+		<link rel="enclosure" href="https://www.youtube.com/watch?v=abc123" type="audio/mpeg" />
+		<pub_date>2026-02-26</pub_date>
+		<updated>2026-02-26T20:25:01.564Z</updated>
+		<summary type="html"><![CDATA[Hello]]></summary>
+	</entry>
+</feed>

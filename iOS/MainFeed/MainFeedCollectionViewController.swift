@@ -339,6 +339,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		if traitCollection.userInterfaceIdiom == .phone {
 			self.navigationController?.navigationBar.prefersLargeTitles = false
 			self.navigationItem.largeTitleDisplayMode = .never
+			
+//			navigationController?.navigationBar.backgroundColor = .red
 
 			/// On iPhone, we want to deselect the feed when the user navigates
 			/// back to the feeds view. To prevent the user from selecting a new feed while

@@ -51,6 +51,7 @@ final class SettingsViewController: UITableViewController {
 	private let displaySection = 5
 	private let timelineUnreadFirstRow = 1
 	private let timelineReadStylingRow = 2
+	private let homepageDebugDialogRow = 3
 
 	var scrollToArticlesSection = false
 	weak var presentingParentController: UIViewController?
@@ -186,7 +187,7 @@ final class SettingsViewController: UITableViewController {
 			// Section 7: row 0 = sync toggle, rows 1-4 = vault/subfolder/preview
 			return shouldHideSubOptions(for: 7) ? 1 : super.tableView(tableView, numberOfRowsInSection: section)
 		case displaySection:
-			return super.tableView(tableView, numberOfRowsInSection: section) + 2
+			return super.tableView(tableView, numberOfRowsInSection: section) + 3
 		default:
 			return super.tableView(tableView, numberOfRowsInSection: section)
 		}
@@ -242,6 +243,8 @@ final class SettingsViewController: UITableViewController {
 			cell = makeTimelineReadStylingCell(tableView)
 		case displaySection where indexPath.row == timelineUnreadFirstRow:
 			cell = makeTimelineUnreadFirstCell(tableView)
+		case displaySection where indexPath.row == homepageDebugDialogRow:
+			cell = makeHomepageDebugDialogCell(tableView)
 		default:
 			cell = super.tableView(tableView, cellForRowAt: indexPath)
 
@@ -452,6 +455,10 @@ final class SettingsViewController: UITableViewController {
 		AppDefaults.shared.timelineUnreadFirst = sender.isOn
 	}
 
+	@objc func switchHomepageDebugDialog(_ sender: UISwitch) {
+		AppDefaults.shared.showHomepageResolutionDebugDialog = sender.isOn
+	}
+
 	// MARK: - Notifications
 
 	@objc func contentSizeCategoryDidChange() {
@@ -539,6 +546,21 @@ private extension SettingsViewController {
 		toggle.removeTarget(self, action: #selector(switchTimelineReadStyling(_:)), for: .valueChanged)
 		toggle.addTarget(self, action: #selector(switchTimelineReadStyling(_:)), for: .valueChanged)
 		toggle.isOn = AppDefaults.shared.timelineDimReadArticles
+		cell.accessoryView = toggle
+		return cell
+	}
+
+	func makeHomepageDebugDialogCell(_ tableView: UITableView) -> UITableViewCell {
+		let cell = tableView.dequeueReusableCell(withIdentifier: "HomepageDebugDialogCell") ??
+			UITableViewCell(style: .default, reuseIdentifier: "HomepageDebugDialogCell")
+		var content = cell.defaultContentConfiguration()
+		content.text = NSLocalizedString("Homepage Debug Dialog", comment: "Homepage debug dialog toggle")
+		cell.contentConfiguration = content
+		cell.selectionStyle = .none
+		let toggle = (cell.accessoryView as? UISwitch) ?? UISwitch(frame: .zero)
+		toggle.removeTarget(self, action: #selector(switchHomepageDebugDialog(_:)), for: .valueChanged)
+		toggle.addTarget(self, action: #selector(switchHomepageDebugDialog(_:)), for: .valueChanged)
+		toggle.isOn = AppDefaults.shared.showHomepageResolutionDebugDialog
 		cell.accessoryView = toggle
 		return cell
 	}

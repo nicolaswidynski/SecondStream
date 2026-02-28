@@ -190,7 +190,7 @@ public enum FeedCategory: String, Codable, Sendable {
 		}
 	}
 
-	/// The feed URL as specified in the feed itself (e.g., <feed_url> tag in Atom).
+	/// The feed URL as specified in feed metadata.
 	/// This may differ from the subscription URL.
 	var displayFeedURL: String? {
 		didSet {

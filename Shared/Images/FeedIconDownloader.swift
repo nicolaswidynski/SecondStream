@@ -51,6 +51,7 @@ extension Notification.Name {
 		}
 
 		if let homePageURLString = feed.homePageURL, let homePageURL = URL(string: homePageURLString), homePageURL.host == "nnw.ranchero.com" || homePageURL.host == "netnewswire.blog" {
+	//	if let homePageURLString = feed.homePageURL, let homePageURL = URL(string: homePageURLString) {
 			return IconImage.nnwFeedIcon
 		}
 		if Self.shouldSkipDownloadingFeedIcon(feed: feed) {

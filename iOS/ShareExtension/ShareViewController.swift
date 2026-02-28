@@ -45,7 +45,7 @@ final class ShareViewController: SLComposeServiceViewController, ShareFolderPick
 		title = "NetNewsWire"
 		placeholder = "Feed Name (Optional)"
 		if let button = navigationController?.navigationBar.topItem?.rightBarButtonItem {
-			button.title = "Add Feed"
+		//	button.title = "Add Feed"
 			button.isEnabled = true
 		}
 

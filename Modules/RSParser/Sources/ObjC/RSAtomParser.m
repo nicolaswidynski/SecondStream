@@ -45,7 +45,6 @@
 @property (nonatomic) NSString *language;
 @property (nonatomic) BOOL isDaringFireball; // Special case — sometimes permalink and external link are swapped.
 @property (nonatomic) NSString *iconURLString;
-@property (nonatomic) NSString *feedURLString;
 
 @end
 
@@ -87,7 +86,7 @@
 
 	[self parse];
 
-	RSParsedFeed *parsedFeed = [[RSParsedFeed alloc] initWithURLString:self.urlString title:self.title homepageURLString:self.homepageURLString language:self.language articles:self.articles iconURLString:self.iconURLString feedURLString:self.feedURLString];
+	RSParsedFeed *parsedFeed = [[RSParsedFeed alloc] initWithURLString:self.urlString title:self.title homepageURLString:self.homepageURLString language:self.language articles:self.articles iconURLString:self.iconURLString feedURLString:nil];
 
 	return parsedFeed;
 }
@@ -221,9 +220,6 @@ static const NSInteger kLengthLength = 7;
 static const char *kImageRef = "image_ref";
 static const NSInteger kImageRefLength = 10;
 
-static const char *kFeedURL = "feed_url";
-static const NSInteger kFeedURLLength = 9;
-
 #pragma mark - Parsing
 
 - (void)parse {
@@ -280,12 +276,17 @@ static const NSInteger kFeedURLLength = 9;
 	if (RSParserStringIsEmpty(rawLink)) {
 		return;
 	}
+	NSString *resolvedRawLink = [self resolvedURLString:rawLink];
+	if (RSParserStringIsEmpty(resolvedRawLink)) {
+		return;
+	}
 
 	NSString *rel = self.currentAttributes[kRelKey];
 	NSString *type = self.currentAttributes[kTypeKey];
+	NSString *normalizedRel = rel.lowercaseString;
 
 	// Never treat Atom self-link (or feed/XML typed links) as the feed homepage.
-	if ([rel isEqualToString:kSelfValue]) {
+	if ([normalizedRel isEqualToString:kSelfValue]) {
 		return;
 	}
 	if (type.length > 0) {
@@ -298,8 +299,8 @@ static const NSInteger kFeedURLLength = 9;
 	// rel="alternate" == home page URL
 	// Also: spec says "alternate" is default value if not present
 	// <https://datatracker.ietf.org/doc/html/rfc4287#section-4.2.7.2>
-	if (!rel || [rel isEqualToString:kAlternateValue]) {
-		self.homepageURLString = [self resolvedURLString:rawLink];
+	if (!rel || [normalizedRel isEqualToString:kAlternateValue]) {
+		self.homepageURLString = resolvedRawLink;
 	}
 }
 
@@ -354,6 +355,9 @@ static NSString *daringFireballPermalinkPrefix = @"https://daringfireball.net/";
 	if ([rel isEqualToString:kEnclosureValue]) {
 		RSParsedEnclosure *enclosure = [self enclosureWithURLString:resolvedURLString attributes:attributes];
 		[article addEnclosure:enclosure];
+		if (RSParserStringIsEmpty(article.mp3URL)) {
+			article.mp3URL = resolvedURLString;
+		}
 		return;
 	}
 
@@ -713,14 +717,10 @@ static NSString *httpURLPrefix = @"http://";
 		NSString *linkText = [self currentString];
 		if (!RSParserStringIsEmpty(linkText) && RSParserStringIsEmpty(self.currentAttributes[kHrefKey])) {
 			// Some podcast Atom feeds provide only text content in <link> at feed scope.
-			self.homepageURLString = [self resolvedURLString:linkText];
-		}
-	}
-
-	else if (!self.parsingArticle && !self.parsingSource && RSSAXEqualTags(localName, kFeedURL, kFeedURLLength)) {
-		NSString *feedURL = [self currentString];
-		if (!RSParserStringIsEmpty(feedURL)) {
-			self.feedURLString = feedURL;
+			NSString *resolvedLinkText = [self resolvedURLString:linkText];
+			if (!RSParserStringIsEmpty(resolvedLinkText)) {
+				self.homepageURLString = resolvedLinkText;
+			}
 		}
 	}
 

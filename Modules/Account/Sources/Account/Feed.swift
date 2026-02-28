@@ -210,7 +210,7 @@ import Articles
 		}
 	}
 
-	/// The feed URL as specified in the feed itself (e.g., <feed_url> tag in Atom).
+	/// The feed URL as specified in feed metadata.
 	/// This may differ from the subscription URL.
 	public var displayFeedURL: String? {
 		get {

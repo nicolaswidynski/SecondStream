@@ -62,6 +62,29 @@ final class AtomParserTests: XCTestCase {
 		XCTAssertEqual(parsedFeed.homePageURL, "https://www.bigtechnology.com/")
 	}
 
+	func testGeneratedSourceUsesFeedLinkForHomepageWithoutCustomFeedURLTag() {
+		let d = parserData("generated-source", "atom", "https://files.nwidynski.com/topics/artificial-intelligence/videos.xml")
+		let parsedFeed = try! FeedParser.parse(d)!
+
+		XCTAssertEqual(parsedFeed.homePageURL, "https://www.bigtechnology.com/")
+		XCTAssertEqual(parsedFeed.feedURL, "https://files.nwidynski.com/topics/artificial-intelligence/videos.xml")
+
+		guard let item = parsedFeed.items.first else {
+			return XCTFail("Expected at least one parsed item")
+		}
+
+		XCTAssertEqual(item.url, "https://files.nwidynski.com/topics/artificial-intelligence/2026-02-26.md")
+		XCTAssertEqual(item.mp3URL, "https://www.youtube.com/watch?v=abc123")
+	}
+
+	func testPodcastMegaphoneUsesFeedLinkForHomepageWithoutCustomFeedURLTag() {
+		let d = parserData("podcast-megaphone", "atom", "https://files.nwidynski.com/pod/aaa/big-technology-podcast.xml")
+		let parsedFeed = try! FeedParser.parse(d)!
+
+		XCTAssertEqual(parsedFeed.homePageURL, "https://feeds.megaphone.fm/LI3617121267")
+		XCTAssertEqual(parsedFeed.feedURL, "https://files.nwidynski.com/pod/aaa/big-technology-podcast.xml")
+	}
+
 	func testArticlePermalinks() {
 
 		var d = parserData("qemu", "atom", "https://www.qemu.org/feed.xml")

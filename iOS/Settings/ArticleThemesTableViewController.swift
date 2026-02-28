@@ -18,7 +18,7 @@ final class ArticleThemesTableViewController: UITableViewController {
 
 	override func viewDidLoad() {
 		let importBarButtonItem = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(importTheme(_:)))
-		importBarButtonItem.title = NSLocalizedString("Import Theme", comment: "Import Theme")
+//		importBarButtonItem.title = NSLocalizedString("Import Theme", comment: "Import Theme")
 		navigationItem.rightBarButtonItem = importBarButtonItem
 
 		NotificationCenter.default.addObserver(self, selector: #selector(articleThemeNamesDidChangeNotification(_:)), name: .ArticleThemeNamesDidChangeNotification, object: nil)

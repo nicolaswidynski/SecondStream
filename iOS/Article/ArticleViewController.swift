@@ -292,13 +292,7 @@ final class ArticleViewController: UIViewController {
 	}
 
 	@objc func showCurrentFeedHomepage(_ sender: Any?) {
-		if coordinator?.timelineFeed is PseudoFeed,
-		   let homePageURLString = article?.feed?.homePageURL,
-		   let url = URL(string: homePageURLString) {
-			UIApplication.shared.open(url, options: [:])
-			return
-		}
-		coordinator?.showBrowserForCurrentFeed()
+		coordinator?.openHomepageForArticleOrTimelineFeed(article)
 	}
 
 	@IBAction func toggleArticleExtractor(_ sender: Any) {
@@ -535,19 +529,18 @@ private extension ArticleViewController {
 
 	func updateNavigationHeader() {
 		let timelineItem = coordinator?.timelineFeed
-		let title = timelineItem?.nameForDisplay ?? article?.feed?.nameForDisplay
+		let isSmartTimeline = timelineItem is PseudoFeed
+		let feedForHeader = isSmartTimeline ? article?.feed : (timelineItem as? Feed ?? article?.feed)
+		let title = feedForHeader?.nameForDisplay ?? timelineItem?.nameForDisplay
 		FeedNavigationChrome.setTitle(title, in: navigationItem.titleView)
 		FeedNavigationChrome.setSubtitle(nil, in: navigationItem.titleView)
 
 		let iconSource: SidebarItem?
-		if timelineItem is PseudoFeed {
-			// On smart timelines, article view should display the actual article feed icon.
-			iconSource = article?.feed
-		} else {
-			iconSource = timelineItem ?? article?.feed
-		}
+		iconSource = isSmartTimeline ? article?.feed : (timelineItem ?? article?.feed)
 
 		guard let iconSource else {
+			navigationItem.rightBarButtonItem = nil
+			lastNavigationIconKey = nil
 			return
 		}
 
@@ -565,7 +558,10 @@ private extension ArticleViewController {
 		}
 
 		guard let iconImage = IconImageCache.shared.imageForFeed(iconSource) else {
-			// Keep the previous icon to avoid blink/disappear while icon download/cache updates.
+			if isSmartTimeline {
+				navigationItem.rightBarButtonItem = nil
+				lastNavigationIconKey = nil
+			}
 			return
 		}
 
@@ -579,4 +575,5 @@ private extension ArticleViewController {
 		)
 		lastNavigationIconKey = iconKey
 	}
+
 }

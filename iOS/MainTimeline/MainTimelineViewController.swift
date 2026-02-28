@@ -46,12 +46,18 @@ import Articles
 	private static let titleContainerWidth: CGFloat = 242
 	private static let titleContainerHeight: CGFloat = 34
 	private static let topBarIconCache = NSCache<NSString, UIImage>()
+	private static let topBarIconCacheVersion = "v7-plain-barbutton"
 
 	static func clearTopBarFeedIcon(cacheKey: String?) {
 		guard let cacheKey else {
 			return
 		}
 		topBarIconCache.removeObject(forKey: cacheKey as NSString)
+		topBarIconCache.removeObject(forKey: namespacedTopBarIconCacheKey(cacheKey))
+	}
+
+	private static func namespacedTopBarIconCacheKey(_ cacheKey: String) -> NSString {
+		"\(topBarIconCacheVersion)|\(cacheKey)" as NSString
 	}
 
 	static func makeTitleView(target: Any?, action: Selector) -> UIView {
@@ -87,10 +93,7 @@ import Articles
 		subtitleLabel.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
 		container.setContentHuggingPriority(.required, for: .horizontal)
 		container.setContentCompressionResistancePriority(.required, for: .horizontal)
-
-		container.isUserInteractionEnabled = true
-		let tap = UITapGestureRecognizer(target: target, action: action)
-		container.addGestureRecognizer(tap)
+		container.isUserInteractionEnabled = false
 		return container
 	}
 
@@ -127,7 +130,8 @@ import Articles
 	}
 
 	static func makeTopBarFeedIcon(from iconImage: IconImage, isPseudoFeedIcon: Bool, cacheKey: String? = nil) -> UIImage {
-		if let cacheKey, let cached = topBarIconCache.object(forKey: cacheKey as NSString) {
+		let namespacedCacheKey = cacheKey.map(namespacedTopBarIconCacheKey)
+		if let namespacedCacheKey, let cached = topBarIconCache.object(forKey: namespacedCacheKey) {
 			return cached
 		}
 
@@ -139,28 +143,31 @@ import Articles
 			let symbolConfig = UIImage.SymbolConfiguration(pointSize: 17, weight: .regular)
 			let configured = iconImage.image.applyingSymbolConfiguration(symbolConfig) ?? iconImage.image
 			let rendered = configured.withTintColor(tintColor, renderingMode: .alwaysOriginal)
-			if let cacheKey {
-				topBarIconCache.setObject(rendered, forKey: cacheKey as NSString)
+			if let namespacedCacheKey {
+				topBarIconCache.setObject(rendered, forKey: namespacedCacheKey)
 			}
 			return rendered
 		}
 
-		// Regular feeds: trim transparent/flat borders and overscan so the icon fills the circular affordance.
+		// Regular feeds: aggressively trim and draw with circular clipping so the icon
+		// visually fills the round top-right button.
 		let sourceImage = trimmedIconImage(from: iconImage.image) ?? iconImage.image
+
 		let rendered = UIGraphicsImageRenderer(size: canvasSize).image { _ in
+			UIBezierPath(ovalIn: CGRect(origin: .zero, size: canvasSize)).addClip()
 			let sourceSize = sourceImage.size
 			guard sourceSize.width > 0, sourceSize.height > 0 else {
 				return
 			}
 
-			let scale = max(canvasSize.width / sourceSize.width, canvasSize.height / sourceSize.height) * 1.6
+			let scale = max(canvasSize.width / sourceSize.width, canvasSize.height / sourceSize.height)
 			let drawSize = CGSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
 			let origin = CGPoint(x: (canvasSize.width - drawSize.width) / 2, y: (canvasSize.height - drawSize.height) / 2)
 			sourceImage.draw(in: CGRect(origin: origin, size: drawSize))
 		}
 		let result = rendered.withRenderingMode(.alwaysOriginal)
-		if let cacheKey {
-			topBarIconCache.setObject(result, forKey: cacheKey as NSString)
+		if let namespacedCacheKey {
+			topBarIconCache.setObject(result, forKey: namespacedCacheKey)
 		}
 		return result
 	}
@@ -273,7 +280,7 @@ import Articles
 			pixel(atX: width - 1, y: height - 1)
 		]
 
-		func isSimilar(_ p1: RGBA, _ p2: RGBA, tolerance: Int = 16) -> Bool {
+		func isSimilar(_ p1: RGBA, _ p2: RGBA, tolerance: Int = 24) -> Bool {
 			let dr = abs(Int(p1.r) - Int(p2.r))
 			let dg = abs(Int(p1.g) - Int(p2.g))
 			let db = abs(Int(p1.b) - Int(p2.b))
@@ -305,7 +312,7 @@ import Articles
 			guard total > 0 else {
 				return false
 			}
-			return CGFloat(borderPixels) / CGFloat(total) > 0.98
+			return CGFloat(borderPixels) / CGFloat(total) > 0.92
 		}
 
 		var minX = 0
@@ -337,9 +344,16 @@ import Articles
 		return UIImage(cgImage: cropped, scale: image.scale, orientation: .up)
 	}
 
-	static func makeTopBarFeedBarButton(iconImage: IconImage, isPseudoFeedIcon: Bool, cacheKey: String? = nil, target: Any?, action: Selector) -> UIBarButtonItem {
+	static func makeTopBarFeedBarButton(iconImage: IconImage, isPseudoFeedIcon: Bool, cacheKey: String? = nil, target: Any?, action: Selector?) -> UIBarButtonItem {
 		let icon = makeTopBarFeedIcon(from: iconImage, isPseudoFeedIcon: isPseudoFeedIcon, cacheKey: cacheKey).withRenderingMode(.alwaysOriginal)
-		return UIBarButtonItem(image: icon, style: .plain, target: target, action: action)
+		return makeTopBarFeedBarButton(image: icon, target: target, action: action)
+	}
+
+	static func makeTopBarFeedBarButton(image: UIImage, target: Any?, action: Selector?) -> UIBarButtonItem {
+		return UIBarButtonItem(image: image.withRenderingMode(.alwaysOriginal),
+						   style: .plain,
+						   target: target,
+						   action: action)
 	}
 }
 
@@ -347,8 +361,6 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	private var numberOfTextLines = 0
 	private var iconSize = IconSize.medium
-	private lazy var feedTapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(showFeedInspector(_:)))
-
 	private var refreshProgressView: RefreshProgressView?
 
 	@IBOutlet var markAllAsReadButton: UIBarButtonItem?
@@ -541,7 +553,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		if navigationController?.navigationBar.isHidden ?? false {
 			navigationController?.navigationBar.alpha = 0
 		}
-
+		
 		updateNavigationBarTitle(coordinator?.timelineFeed?.nameForDisplay ?? "")
 		coordinator?.updateNavigationBarSubtitles(nil)
 		updateNavigationFeedIcon()
@@ -649,8 +661,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	@objc func showFeedInspector(_ sender: Any?) {
-		assert(coordinator != nil)
-		coordinator?.showBrowserForCurrentFeed()
+		coordinator?.openHomepageForCurrentTimelineFeed()
 	}
 
 	// MARK: API
@@ -669,9 +680,6 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		guard let titleView = navigationItem.titleView else {
 			return
 		}
-		let isPseudoFeed = (coordinator?.timelineFeed as? PseudoFeed) != nil
-		titleView.isUserInteractionEnabled = !isPseudoFeed
-
 		FeedNavigationChrome.setTitle(text, in: titleView)
 	}
 

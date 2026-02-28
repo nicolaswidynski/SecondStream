@@ -1142,10 +1142,15 @@ struct SidebarItemNode: Hashable, Sendable {
 		}
 
 		// Set article before transition so article nav chrome (including top-right icon) is ready at push start.
-		if let timelineIcon = mainTimelineViewController?.navigationItem.rightBarButtonItem?.image {
-			articleViewController?.navigationItem.rightBarButtonItem = UIBarButtonItem(
-				image: timelineIcon.withRenderingMode(.alwaysOriginal),
-				style: .plain,
+		// For smart feeds, don't preseed the smart icon: article view should switch to the concrete feed icon.
+		if timelineFeed is PseudoFeed {
+			articleViewController?.navigationItem.rightBarButtonItem = nil
+		} else
+		if let feed = timelineFeed as? Feed, let iconImage = IconImageCache.shared.imageForFeed(feed) {
+			articleViewController?.navigationItem.rightBarButtonItem = FeedNavigationChrome.makeTopBarFeedBarButton(
+				iconImage: iconImage,
+				isPseudoFeedIcon: false,
+				cacheKey: String(describing: feed.sidebarItemID),
 				target: articleViewController,
 				action: #selector(ArticleViewController.showCurrentFeedHomepage(_:))
 			)
@@ -1609,6 +1614,117 @@ struct SidebarItemNode: Hashable, Sendable {
 		if let ip = currentFeedIndexPath, let url = homePageURLForFeed(ip) {
 			UIApplication.shared.open(url, options: [:])
 		}
+	}
+
+	func openHomepageForCurrentTimelineFeed() {
+		guard let feed = timelineFeed as? Feed else {
+			return
+		}
+		openHomepage(for: feed)
+	}
+
+	func openHomepageForArticleOrTimelineFeed(_ article: Article?) {
+		if let feed = article?.feed {
+			openHomepage(for: feed)
+			return
+		}
+		openHomepageForCurrentTimelineFeed()
+	}
+
+	private func openHomepage(for feed: Feed) {
+		let preferredURL = preferredHomepageURL(for: feed)
+		openResolvedHomepage(
+			for: feed,
+			resolvedURL: preferredURL,
+			preferredURL: preferredURL,
+			resolution: preferredURL == nil ? "none" : "stored-homepage",
+			note: "Using stored feed.homePageURL only (no reparse in SceneCoordinator)"
+		)
+	}
+
+	private func preferredHomepageURL(for feed: Feed) -> URL? {
+		if feed.feedCategory == .news {
+			return nil
+		}
+
+		guard let homePageURL = feed.homePageURL?.normalizedURL,
+			  let url = URL(string: homePageURL) else {
+			return nil
+		}
+		return url
+	}
+
+	private func openResolvedHomepage(
+		for feed: Feed,
+		resolvedURL: URL?,
+		preferredURL: URL?,
+		parsedHomePageURL: String? = nil,
+		parsedFeedURL: String? = nil,
+		resolution: String,
+		note: String
+	) {
+		if AppDefaults.shared.showHomepageResolutionDebugDialog {
+			presentHomepageResolutionDebugDialog(
+				for: feed,
+				resolvedURL: resolvedURL,
+				preferredURL: preferredURL,
+				parsedHomePageURL: parsedHomePageURL,
+				parsedFeedURL: parsedFeedURL,
+				resolution: resolution,
+				note: note
+			)
+			return
+		}
+
+		guard let resolvedURL else {
+			return
+		}
+		UIApplication.shared.open(resolvedURL, options: [:], completionHandler: nil)
+	}
+
+	private func presentHomepageResolutionDebugDialog(
+		for feed: Feed,
+		resolvedURL: URL?,
+		preferredURL: URL?,
+		parsedHomePageURL: String?,
+		parsedFeedURL: String?,
+		resolution: String,
+		note: String
+	) {
+		let lines: [String] = [
+			"Feed: \(feed.nameForDisplay)",
+			"Category: \(String(describing: feed.feedCategory))",
+			"Subscription URL: \(feed.url)",
+			"Stored homePageURL: \(feed.homePageURL ?? "nil")",
+			"Stored displayFeedURL: \(feed.displayFeedURL ?? "nil")",
+			"Preferred URL: \(preferredURL?.absoluteString ?? "nil")",
+			"Parsed homePageURL: \(parsedHomePageURL ?? "nil")",
+			"Parsed feedURL: \(parsedFeedURL ?? "nil")",
+			"Resolved URL: \(resolvedURL?.absoluteString ?? "nil")",
+			"Resolution: \(resolution)",
+			"Note: \(note)"
+		]
+		let message = lines.joined(separator: "\n")
+		let alert = UIAlertController(title: "Homepage Debug", message: message, preferredStyle: .alert)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .cancel))
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Copy", comment: "Copy"), style: .default) { _ in
+			UIPasteboard.general.string = message
+		})
+		if let resolvedURL {
+			alert.addAction(UIAlertAction(title: NSLocalizedString("Open Link", comment: "Open Link"), style: .default) { _ in
+				UIApplication.shared.open(resolvedURL, options: [:], completionHandler: nil)
+			})
+		}
+		let presenter = topMostPresentedViewController()
+		presenter.present(alert, animated: true)
+	}
+
+	private func topMostPresentedViewController() -> UIViewController {
+		var presenter: UIViewController = rootSplitViewController
+		while let next = presenter.presentedViewController {
+			presenter = next
+		}
+		return presenter
 	}
 
 	func showBrowserForArticle(_ article: Article) {

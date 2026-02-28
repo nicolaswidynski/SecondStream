@@ -208,9 +208,19 @@ private extension ArticleRenderer {
 
 		d["title"] = title
 
-		// For podcasts and YouTube, don't link the title (it would go to the XML/feed URL)
+		// Custom source categories:
+		// - YouTube titles should open the enclosure URL.
+		// - Podcast and News titles are not linked.
 		let feedCategory = article.feed?.feedCategory ?? .rss
-		if feedCategory == .podcast || feedCategory == .youtube {
+		if feedCategory == .youtube {
+			let preferredLink = article.mp3URL ?? ""
+			d["preferred_link"] = preferredLink
+			if preferredLink.isEmpty {
+				d["title_html"] = title.escapingSpecialXMLCharacters
+			} else {
+				d["title_html"] = "<a href=\"\(preferredLink.escapingSpecialXMLCharacters)\">\(title.escapingSpecialXMLCharacters)</a>"
+			}
+		} else if feedCategory == .podcast || feedCategory == .news {
 			d["preferred_link"] = ""
 			d["title_html"] = title.escapingSpecialXMLCharacters
 		} else {

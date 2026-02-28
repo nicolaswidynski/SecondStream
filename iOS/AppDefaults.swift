@@ -86,6 +86,7 @@ final class AppDefaults: Sendable {
 		static let notifyYouTube = "notifyYouTube"
 		static let notifyWeeklyNews = "notifyWeeklyNews"
 		static let showAddShowSourceFailureDialog = "showAddShowSourceFailureDialog"
+		static let showHomepageResolutionDebugDialog = "showHomepageResolutionDebugDialog"
 		static let timelineDimReadArticles = "timelineDimReadArticles"
 		static let timelineUnreadFirst = "timelineUnreadFirst"
 	}
@@ -488,6 +489,17 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	/// Global toggle for homepage-resolution diagnostics:
+	/// when enabled, opening a feed homepage shows a debug dialog before opening the URL.
+	var showHomepageResolutionDebugDialog: Bool {
+		get {
+			AppDefaults.bool(for: Key.showHomepageResolutionDebugDialog)
+		}
+		set {
+			AppDefaults.setBool(for: Key.showHomepageResolutionDebugDialog, newValue)
+		}
+	}
+
 	/// Timeline styling toggle:
 	/// when enabled, read article titles are grayed and unread blue-dot indicators are hidden.
 	var timelineDimReadArticles: Bool {
@@ -526,8 +538,9 @@ final class AppDefaults: Sendable {
 									   Key.obsidianSubfolderFeedType: true,
 									   Key.obsidianSubfolderFeedName: true,
 									   Key.showAddShowSourceFailureDialog: false,
+									   Key.showHomepageResolutionDebugDialog: true,
 									   Key.timelineDimReadArticles: true,
-									   Key.timelineUnreadFirst: true]
+									   Key.timelineUnreadFirst: false]
 		AppDefaults.store.register(defaults: defaults)
 	}
 }
