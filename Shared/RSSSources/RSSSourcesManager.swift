@@ -13,7 +13,6 @@ struct RSSSource: Codable, Hashable {
 	let name: String
 	let author: String?
 	let url: String
-	let myFeedURL: String?
 	let imageURL: String?
 }
 
@@ -127,7 +126,7 @@ enum AddRSSResult {
 		async let libraryEntries = SourceFileFetcher.fetchIfModified(fileName: Self.libraryFileName)
 
 		if let entries = await topEntries {
-			let sources = entries.map { RSSSource(name: $0.name, author: $0.author, url: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let sources = entries.map { RSSSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
 			let oldURLs = Set(self.rssSources.compactMap(\.imageURL))
 			let newURLs = Set(sources.compactMap(\.imageURL))
 			let libraryURLs = Set(self.rssLibrarySources.compactMap(\.imageURL))
@@ -140,7 +139,7 @@ enum AddRSSResult {
 		}
 
 		if let entries = await libraryEntries {
-			let sources = entries.map { RSSSource(name: $0.name, author: $0.author, url: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let sources = entries.map { RSSSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
 			let oldURLs = Set(self.rssLibrarySources.compactMap(\.imageURL))
 			let newURLs = Set(sources.compactMap(\.imageURL))
 			let topURLs = Set(self.rssSources.compactMap(\.imageURL))

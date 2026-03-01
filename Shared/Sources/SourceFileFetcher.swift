@@ -16,8 +16,7 @@ enum AppURLs {
 struct SourceFileEntry {
 	let name: String
 	let author: String?
-	let rssURL: String
-	let myFeedURL: String?
+	let feedURL: String
 	let imageURL: String?
 }
 
@@ -119,14 +118,13 @@ enum SourceFileFetcher {
 
 		var entries: [SourceFileEntry] = []
 		for item in dataArray {
-			guard let name = firstNonEmptyString(in: item, keys: ["Name", "name", "title"]),
-				  let rssURL = firstNonEmptyString(in: item, keys: ["RSS URL", "rss_url", "rssURL", "feed"]) else {
+			guard let name = firstNonEmptyString(in: item, keys: ["Name", "name", "title"]) else {
 				continue
 			}
+			let feedURL = firstNonEmptyString(in: item, keys: ["My Feed URL", "my_feed_url", "myFeedURL"]) ?? ""
 			let author = firstNonEmptyString(in: item, keys: ["Author", "author"])
-			let myFeedURL = firstNonEmptyString(in: item, keys: ["My Feed URL", "my_feed_url", "myFeedURL"])
 			let imageURL = firstNonEmptyString(in: item, keys: ["Image URL", "image_url", "imageURL", "image_ref", "icon_url", "icon"])
-			entries.append(SourceFileEntry(name: name, author: author, rssURL: rssURL, myFeedURL: myFeedURL, imageURL: imageURL))
+			entries.append(SourceFileEntry(name: name, author: author, feedURL: feedURL, imageURL: imageURL))
 		}
 
 		logger.info("Parsed \(entries.count) entries from \(fileName)")

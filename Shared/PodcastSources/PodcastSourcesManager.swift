@@ -12,9 +12,40 @@ import os.log
 struct PodcastSource: Codable, Hashable {
 	let name: String
 	let author: String?
-	let rssURL: String
-	let myFeedURL: String?
+	let url: String
 	let imageURL: String?
+
+	private enum CodingKeys: String, CodingKey {
+		case name
+		case author
+		case url
+		case imageURL
+		case legacyRSSURL = "rssURL"
+	}
+
+	init(name: String, author: String?, url: String, imageURL: String?) {
+		self.name = name
+		self.author = author
+		self.url = url
+		self.imageURL = imageURL
+	}
+
+	init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+		name = try container.decode(String.self, forKey: .name)
+		author = try container.decodeIfPresent(String.self, forKey: .author)
+		url = try container.decodeIfPresent(String.self, forKey: .url)
+			?? container.decode(String.self, forKey: .legacyRSSURL)
+		imageURL = try container.decodeIfPresent(String.self, forKey: .imageURL)
+	}
+
+	func encode(to encoder: Encoder) throws {
+		var container = encoder.container(keyedBy: CodingKeys.self)
+		try container.encode(name, forKey: .name)
+		try container.encodeIfPresent(author, forKey: .author)
+		try container.encode(url, forKey: .url)
+		try container.encodeIfPresent(imageURL, forKey: .imageURL)
+	}
 }
 
 enum AddPodcastResult {
@@ -132,7 +163,7 @@ enum AddPodcastResult {
 		async let libraryEntries = SourceFileFetcher.fetchIfModified(fileName: Self.libraryFileName)
 
 		if let entries = await topEntries {
-			let sources = entries.map { PodcastSource(name: $0.name, author: $0.author, rssURL: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let sources = entries.map { PodcastSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
 			let oldURLs = Set(self.podcastSources.compactMap(\.imageURL))
 			let newURLs = Set(sources.compactMap(\.imageURL))
 			let libraryURLs = Set(self.podcastLibrarySources.compactMap(\.imageURL))
@@ -145,7 +176,7 @@ enum AddPodcastResult {
 		}
 
 		if let entries = await libraryEntries {
-			let sources = entries.map { PodcastSource(name: $0.name, author: $0.author, rssURL: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let sources = entries.map { PodcastSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
 			let oldURLs = Set(self.podcastLibrarySources.compactMap(\.imageURL))
 			let newURLs = Set(sources.compactMap(\.imageURL))
 			let topURLs = Set(self.podcastSources.compactMap(\.imageURL))

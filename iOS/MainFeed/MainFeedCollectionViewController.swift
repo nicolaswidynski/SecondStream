@@ -1632,9 +1632,20 @@ extension MainFeedCollectionViewController: RSSPickerDelegate {
 
 	func rssPicker(_ picker: RSSPickerViewController, didSelectFeed source: RSSSource) {
 		picker.dismiss(animated: true) {
-			// RSS top picks already include a concrete RSS URL from the listing webhook,
+			let urlString = source.url.trimmingCharacters(in: .whitespacesAndNewlines)
+			guard !urlString.isEmpty else {
+				let alert = UIAlertController(
+					title: NSLocalizedString("Feed URL Missing", comment: "Feed URL Missing"),
+					message: NSLocalizedString("This source does not provide a feed URL yet.", comment: "Missing feed URL message"),
+					preferredStyle: .alert
+				)
+				alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
+				self.present(alert, animated: true)
+				return
+			}
+			// RSS top picks include a concrete feed URL in the source list,
 			// so we can subscribe directly without going through add-show-source.
-			self.addFeedDirectly(urlString: source.url, category: .rss)
+			self.addFeedDirectly(urlString: urlString, category: .rss)
 		}
 	}
 

@@ -13,7 +13,6 @@ struct NewsSource: Codable, Hashable {
 	let name: String
 	let author: String?
 	let url: String
-	let myFeedURL: String?
 	let imageURL: String?
 }
 
@@ -31,8 +30,8 @@ enum AddNewsResult {
 
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
 
-	private static let topFileName = "topics_top.txt"
-	private static let libraryFileName = "topics.txt"
+	private static let topFileNames = ["topic_top.txt", "topics_top.txt"]
+	private static let libraryFileNames = ["topic.txt", "topics.txt"]
 
 	// MARK: - Server Error
 
@@ -118,21 +117,21 @@ enum AddNewsResult {
 		fetchTask?.cancel()
 		fetchTask = nil
 		// Fetch fresh
-		await fetchNewsSources()
+		await fetchNewsSources(forceRefresh: true)
 	}
 
-	private func fetchNewsSources() async {
+	private func fetchNewsSources(forceRefresh: Bool = false) async {
 		isFetching = true
 		defer {
 			isFetching = false
 			fetchTask = nil
 		}
 
-		async let topEntries = SourceFileFetcher.fetchIfModified(fileName: Self.topFileName)
-		async let libraryEntries = SourceFileFetcher.fetchIfModified(fileName: Self.libraryFileName)
+		async let topEntries = fetchEntries(fileNames: Self.topFileNames, forceRefresh: forceRefresh)
+		async let libraryEntries = fetchEntries(fileNames: Self.libraryFileNames, forceRefresh: forceRefresh)
 
 		if let entries = await topEntries {
-			let mappedSources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let mappedSources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
 			let sources = await hydrateMissingImageURLs(in: mappedSources)
 			let oldURLs = Set(self.newsSources.compactMap(\.imageURL))
 			let newURLs = Set(sources.compactMap(\.imageURL))
@@ -146,7 +145,7 @@ enum AddNewsResult {
 		}
 
 		if let entries = await libraryEntries {
-			let mappedSources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.rssURL, myFeedURL: $0.myFeedURL, imageURL: $0.imageURL) }
+			let mappedSources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
 			let sources = await hydrateMissingImageURLs(in: mappedSources)
 			let oldURLs = Set(self.newsLibrarySources.compactMap(\.imageURL))
 			let newURLs = Set(sources.compactMap(\.imageURL))
@@ -158,6 +157,21 @@ enum AddNewsResult {
 			self.newsLibrarySources = sources
 			Self.logger.info("Fetched \(sources.count) library news sources")
 		}
+	}
+
+	private func fetchEntries(fileNames: [String], forceRefresh: Bool) async -> [SourceFileEntry]? {
+		for fileName in fileNames {
+			if forceRefresh {
+				if let entries = await SourceFileFetcher.fetch(fileName: fileName) {
+					return entries
+				}
+			} else {
+				if let entries = await SourceFileFetcher.fetchIfModified(fileName: fileName) {
+					return entries
+				}
+			}
+		}
+		return nil
 	}
 
 	private func hydrateMissingImageURLs(in sources: [NewsSource]) async -> [NewsSource] {
@@ -176,7 +190,6 @@ enum AddNewsResult {
 				name: hydrated[index].name,
 				author: hydrated[index].author,
 				url: hydrated[index].url,
-				myFeedURL: hydrated[index].myFeedURL,
 				imageURL: imageRef
 			)
 		}

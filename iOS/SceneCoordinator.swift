@@ -1850,11 +1850,15 @@ struct SidebarItemNode: Hashable, Sendable {
 			lines.append(String(format: "rowDistance.duration: %.3fs", timelineVC.lastRowDistanceAnimationDuration))
 			lines.append("rowDistance.mode: \(timelineVC.lastRowDistanceMode)")
 			lines.append("rowDistance.listCount: \(timelineVC.lastRowDistanceListCount)")
+			lines.append("rowDistance.referenceID: \(timelineVC.lastRowDistanceResolvedReferenceArticleID ?? "nil")")
 			lines.append("rowDistance.referenceOldIndex: \(timelineVC.lastRowDistanceReferenceOldIndex.map(String.init) ?? "nil")")
 			lines.append("rowDistance.referenceNewIndex: \(timelineVC.lastRowDistanceReferenceNewIndex.map(String.init) ?? "nil")")
 			lines.append("rowDistance.usedDistance: \(timelineVC.lastRowDistanceUsedDistance)")
 			lines.append("rowDistance.referenceDistance: \(timelineVC.lastRowDistanceReferenceDistance.map(String.init) ?? "nil")")
 			lines.append("rowDistance.maxDistance: \(timelineVC.lastRowDistanceMaxDistance)")
+			lines.append("rowDistance.hardJumpApplied: \(timelineVC.lastRowDistanceHardJumpApplied)")
+			lines.append("rowDistance.hardJumpThreshold: \(timelineVC.lastRowDistanceHardJumpThreshold)")
+			lines.append("rowDistance.hardJumpTailDistance: \(timelineVC.lastRowDistanceHardJumpTailDistance)")
 		} else {
 			lines.append("timelineVC: nil")
 		}
