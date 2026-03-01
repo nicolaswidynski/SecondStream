@@ -150,6 +150,9 @@ struct SidebarItemNode: Hashable, Sendable {
 	private var isInteractiveArticleOpenTransitionActive = false
 	private var deferredReadMarkArticle: Article?
 	private var deferredUnreadFirstReorder = false
+	private var pendingRowDistanceReferenceArticleID: String?
+	private var pendingBypassRowDistanceAnimation = false
+	private var bypassUnreadFirstDeferForBatchMark = false
 	private let interactiveTimelineToArticleAnimator = TimelineToArticlePushAnimator()
 
 	/// `Bool` to track whether a refresh is scheduled.
@@ -557,6 +560,10 @@ struct SidebarItemNode: Hashable, Sendable {
 			return
 		}
 		if shouldDeferUnreadFirstReorder {
+			if bypassUnreadFirstDeferForBatchMark {
+				replaceArticles(with: Set(articles), animated: true)
+				return
+			}
 			deferredUnreadFirstReorder = true
 			return
 		}
@@ -1392,13 +1399,21 @@ struct SidebarItemNode: Hashable, Sendable {
 	}
 
 	func markAllAsReadInTimeline(completion: (() -> Void)? = nil) {
+		pendingBypassRowDistanceAnimation = true
+		bypassUnreadFirstDeferForBatchMark = true
 		markAllAsRead(articles) {
+			self.bypassUnreadFirstDeferForBatchMark = false
 			completion?()
 		}
 	}
 
 	func markAllAsUnreadInTimeline(completion: (() -> Void)? = nil) {
-		markAllAsUnread(articles, completion: completion)
+		pendingBypassRowDistanceAnimation = true
+		bypassUnreadFirstDeferForBatchMark = true
+		markAllAsUnread(articles) {
+			self.bypassUnreadFirstDeferForBatchMark = false
+			completion?()
+		}
 	}
 
 	func canMarkAboveAsRead(for article: Article) -> Bool {
@@ -1439,6 +1454,7 @@ struct SidebarItemNode: Hashable, Sendable {
 
 	func markAsReadForCurrentArticle() {
 		if let article = currentArticle {
+			pendingRowDistanceReferenceArticleID = article.articleID
 			markArticlesWithUndo([article], statusKey: .read, flag: true)
 		}
 	}
@@ -1448,6 +1464,7 @@ struct SidebarItemNode: Hashable, Sendable {
 			if deferredReadMarkArticle?.articleID == article.articleID {
 				deferredReadMarkArticle = nil
 			}
+			pendingRowDistanceReferenceArticleID = article.articleID
 			markArticlesWithUndo([article], statusKey: .read, flag: false)
 		}
 	}
@@ -1462,7 +1479,20 @@ struct SidebarItemNode: Hashable, Sendable {
 		guard !article.status.read || article.isAvailableToMarkUnread else {
 			return
 		}
+		pendingRowDistanceReferenceArticleID = article.articleID
 		markArticlesWithUndo([article], statusKey: .read, flag: !article.status.read)
+	}
+
+	func consumeRowDistanceReferenceArticleID() -> String? {
+		let referenceID = pendingRowDistanceReferenceArticleID
+		pendingRowDistanceReferenceArticleID = nil
+		return referenceID
+	}
+
+	func consumeBypassRowDistanceAnimation() -> Bool {
+		let shouldBypass = pendingBypassRowDistanceAnimation
+		pendingBypassRowDistanceAnimation = false
+		return shouldBypass
 	}
 
 	func toggleStarredForCurrentArticle() {
@@ -1813,6 +1843,20 @@ struct SidebarItemNode: Hashable, Sendable {
 
 		if let navBar = rootSplitViewController.navigationController?.navigationBar {
 			lines.append("navBar.bounds: \(formatRect(navBar.bounds))")
+		}
+
+		lines.append("--- Row Distance Debug ---")
+		if let timelineVC = mainTimelineViewController {
+			lines.append(String(format: "rowDistance.duration: %.3fs", timelineVC.lastRowDistanceAnimationDuration))
+			lines.append("rowDistance.mode: \(timelineVC.lastRowDistanceMode)")
+			lines.append("rowDistance.listCount: \(timelineVC.lastRowDistanceListCount)")
+			lines.append("rowDistance.referenceOldIndex: \(timelineVC.lastRowDistanceReferenceOldIndex.map(String.init) ?? "nil")")
+			lines.append("rowDistance.referenceNewIndex: \(timelineVC.lastRowDistanceReferenceNewIndex.map(String.init) ?? "nil")")
+			lines.append("rowDistance.usedDistance: \(timelineVC.lastRowDistanceUsedDistance)")
+			lines.append("rowDistance.referenceDistance: \(timelineVC.lastRowDistanceReferenceDistance.map(String.init) ?? "nil")")
+			lines.append("rowDistance.maxDistance: \(timelineVC.lastRowDistanceMaxDistance)")
+		} else {
+			lines.append("timelineVC: nil")
 		}
 
 		return lines

@@ -402,6 +402,16 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	let scrollPositionQueue = CoalescingQueue(name: "Timeline Scroll Position", interval: 0.3, maxInterval: 1.0)
 	private var shouldFadeInNavigationSubtitle = false
 	private var lastNavigationIconKey: String?
+	private(set) var lastRowDistanceAnimationDuration: CFTimeInterval = 0.40
+	private(set) var lastRowDistanceMaxDistance: Int = 0
+	private(set) var lastRowDistanceListCount: Int = 0
+	private(set) var lastRowDistanceUsedDistance: Int = 0
+	private(set) var lastRowDistanceReferenceDistance: Int?
+	private(set) var lastRowDistanceReferenceOldIndex: Int?
+	private(set) var lastRowDistanceReferenceNewIndex: Int?
+	private(set) var lastRowDistanceMode: String = "fallback"
+	private var rowDistanceReferenceArticleID: String?
+	private var animationSpeedResetWorkItem: DispatchWorkItem?
 
 	private var timelineFeed: SidebarItem? {
 		assert(coordinator != nil)
@@ -1144,24 +1154,120 @@ private extension MainTimelineViewController {
 			tableView.rowHeight = UITableView.automaticDimension
 		}
 
+		let previousItems = dataSource.snapshot().itemIdentifiers
         var snapshot = NSDiffableDataSourceSnapshot<Int, Article>()
 		snapshot.appendSections([0])
 		snapshot.appendItems(articles ?? ArticleArray(), toSection: 0)
 
 		if animated {
+			let animationDuration = rowDistanceAnimationDuration(previousItems: previousItems, newItems: articles ?? ArticleArray())
+			rowDistanceReferenceArticleID = nil // one-shot reference for the next diff
+			if lastRowDistanceMode != "bypass" {
+				applyTemporaryTableAnimationSpeed(for: animationDuration)
+			}
 			CATransaction.begin()
-			CATransaction.setAnimationDuration(0.40)
+			CATransaction.setAnimationDuration(animationDuration)
+			CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
 			dataSource.apply(snapshot, animatingDifferences: true) { [weak self] in
 				self?.restoreSelectionIfNecessary(adjustScroll: false)
 				completion?()
 			}
 			CATransaction.commit()
 		} else {
+			rowDistanceReferenceArticleID = nil
 			dataSource.apply(snapshot, animatingDifferences: false) { [weak self] in
 				self?.restoreSelectionIfNecessary(adjustScroll: false)
 				completion?()
 			}
 		}
+	}
+
+	private func rowDistanceAnimationDuration(previousItems: [Article], newItems: [Article]) -> CFTimeInterval {
+		lastRowDistanceListCount = newItems.count
+		lastRowDistanceMaxDistance = 0
+		lastRowDistanceUsedDistance = 0
+		lastRowDistanceReferenceDistance = nil
+		lastRowDistanceReferenceOldIndex = nil
+		lastRowDistanceReferenceNewIndex = nil
+		lastRowDistanceMode = "fallback"
+
+		if coordinator?.consumeBypassRowDistanceAnimation() == true {
+			lastRowDistanceMode = "bypass"
+			lastRowDistanceAnimationDuration = 0.40
+			return 0.40
+		}
+
+		guard !previousItems.isEmpty, !newItems.isEmpty else {
+			lastRowDistanceAnimationDuration = 0.40
+			return 0.40
+		}
+
+		let millisecondsPerRow: CFTimeInterval = 0.040 // 40 ms per moved row
+		let minDuration: CFTimeInterval = 0.22
+
+		let previousIndexByID = Dictionary(uniqueKeysWithValues: previousItems.enumerated().map { ($1.articleID, $0) })
+		var maxDistance = 0
+
+		for (newIndex, article) in newItems.enumerated() {
+			guard let oldIndex = previousIndexByID[article.articleID] else {
+				continue
+			}
+			maxDistance = max(maxDistance, abs(newIndex - oldIndex))
+		}
+		lastRowDistanceMaxDistance = maxDistance
+
+		var referenceDistance: Int?
+		if let referenceID = rowDistanceReferenceArticleID,
+		   let oldIndex = previousIndexByID[referenceID] {
+			lastRowDistanceReferenceOldIndex = oldIndex
+			if let newIndex = newItems.firstIndex(where: { $0.articleID == referenceID }) {
+				lastRowDistanceReferenceNewIndex = newIndex
+				referenceDistance = abs(newIndex - oldIndex)
+			}
+		}
+		if referenceDistance == nil,
+		   let fallbackID = coordinator?.consumeRowDistanceReferenceArticleID(),
+		   let oldIndex = previousIndexByID[fallbackID] {
+			lastRowDistanceReferenceOldIndex = oldIndex
+			if let newIndex = newItems.firstIndex(where: { $0.articleID == fallbackID }) {
+				lastRowDistanceReferenceNewIndex = newIndex
+			referenceDistance = abs(newIndex - oldIndex)
+			}
+		}
+		lastRowDistanceReferenceDistance = referenceDistance
+
+		let usedDistance = referenceDistance ?? maxDistance
+		lastRowDistanceUsedDistance = usedDistance
+		lastRowDistanceMode = (referenceDistance != nil) ? "reference" : "max"
+
+		guard usedDistance > 0 else {
+			lastRowDistanceAnimationDuration = 0.40
+			return 0.40
+		}
+
+		let duration = millisecondsPerRow * CFTimeInterval(usedDistance)
+		let finalDuration = max(duration, minDuration)
+		lastRowDistanceAnimationDuration = finalDuration
+		return finalDuration
+	}
+
+	private func applyTemporaryTableAnimationSpeed(for duration: CFTimeInterval) {
+		let baseDuration: CFTimeInterval = 0.35
+		let clampedDuration = max(duration, 0.01)
+		let targetSpeed = Float(baseDuration / clampedDuration)
+
+		animationSpeedResetWorkItem?.cancel()
+		tableView.layer.speed = targetSpeed
+
+		let resetWorkItem = DispatchWorkItem { [weak self] in
+			self?.tableView.layer.speed = 1.0
+		}
+		animationSpeedResetWorkItem = resetWorkItem
+		DispatchQueue.main.asyncAfter(deadline: .now() + clampedDuration + 0.08, execute: resetWorkItem)
+	}
+
+	func captureRowDistanceReferenceArticleID(_ articleID: String?) {
+		rowDistanceReferenceArticleID = articleID
 	}
 
 	func makeDataSource() -> UITableViewDiffableDataSource<Int, Article> {
@@ -1201,6 +1307,7 @@ private extension MainTimelineViewController {
 
 	func toggleRead(_ article: Article) {
 		assert(coordinator != nil)
+		rowDistanceReferenceArticleID = article.articleID
 		coordinator?.toggleRead(article)
 	}
 
