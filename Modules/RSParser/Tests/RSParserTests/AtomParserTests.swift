@@ -73,7 +73,7 @@ final class AtomParserTests: XCTestCase {
 			return XCTFail("Expected at least one parsed item")
 		}
 
-		XCTAssertEqual(item.url, "https://files.nwidynski.com/topics/artificial-intelligence/2026-02-26.md")
+		XCTAssertNil(item.url)
 		XCTAssertEqual(item.mp3URL, "https://www.youtube.com/watch?v=abc123")
 	}
 

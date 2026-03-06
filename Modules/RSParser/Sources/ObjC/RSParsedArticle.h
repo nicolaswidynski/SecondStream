@@ -22,6 +22,7 @@
 @property (nonatomic, nullable) NSString *title;
 @property (nonatomic, nullable) NSString *body;
 @property (nonatomic, nullable) NSString *markdown;
+@property (nonatomic, nullable) NSString *contentJSON;
 @property (nonatomic, nullable) NSString *link;
 @property (nonatomic, nullable) NSString *permalink;
 @property (nonatomic, nullable) NSSet<RSParsedAuthor *> *authors;
@@ -36,4 +37,3 @@
 - (void)addAuthor:(RSParsedAuthor *_Nonnull)author;
 
 @end
-

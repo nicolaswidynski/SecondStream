@@ -30,8 +30,8 @@ enum AddRSSResult {
 
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
 
-	private static let topFileName = "rss_top.txt"
-	private static let libraryFileName = "rss.txt"
+	private static let topFileName = "rss_top.json"
+	private static let libraryFileName = "rss.json"
 
 	// MARK: - Server Error
 

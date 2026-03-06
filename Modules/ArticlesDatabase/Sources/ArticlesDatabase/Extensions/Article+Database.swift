@@ -32,6 +32,7 @@ extension Article {
 		let contentHTML = row.string(forColumn: DatabaseKey.contentHTML)
 		let contentText = row.string(forColumn: DatabaseKey.contentText)
 		let markdown = row.string(forColumn: DatabaseKey.markdown)
+		let contentJSON = row.string(forColumn: DatabaseKey.contentJSON)
 		let url = row.string(forColumn: DatabaseKey.url)
 		let externalURL = row.string(forColumn: DatabaseKey.externalURL)
 		let summary = row.string(forColumn: DatabaseKey.summary)
@@ -40,7 +41,7 @@ extension Article {
 		let dateModified = row.date(forColumn: DatabaseKey.dateModified)
 		let mp3URL = row.string(forColumn: DatabaseKey.mp3URL)
 
-		self.init(accountID: accountID, articleID: articleID, feedID: feedID, uniqueID: uniqueID, title: title, contentHTML: contentHTML, contentText: contentText, markdown: markdown, url: url, externalURL: externalURL, summary: summary, imageURL: imageURL, datePublished: datePublished, dateModified: dateModified, authors: nil, status: status, mp3URL: mp3URL)
+		self.init(accountID: accountID, articleID: articleID, feedID: feedID, uniqueID: uniqueID, title: title, contentHTML: contentHTML, contentText: contentText, markdown: markdown, contentJSON: contentJSON, url: url, externalURL: externalURL, summary: summary, imageURL: imageURL, datePublished: datePublished, dateModified: dateModified, authors: nil, status: status, mp3URL: mp3URL)
 	}
 
 	convenience init(parsedItem: ParsedItem, maximumDateAllowed: Date, accountID: String, feedID: String, status: ArticleStatus) {
@@ -60,7 +61,7 @@ extension Article {
 			dateModified = nil
 		}
 
-		self.init(accountID: accountID, articleID: parsedItem.syncServiceID, feedID: feedID, uniqueID: parsedItem.uniqueID, title: parsedItem.title, contentHTML: parsedItem.contentHTML, contentText: parsedItem.contentText, markdown: parsedItem.markdown, url: parsedItem.url, externalURL: parsedItem.externalURL, summary: parsedItem.summary, imageURL: parsedItem.imageURL, datePublished: datePublished, dateModified: dateModified, authors: authors, status: status, mp3URL: parsedItem.mp3URL)
+		self.init(accountID: accountID, articleID: parsedItem.syncServiceID, feedID: feedID, uniqueID: parsedItem.uniqueID, title: parsedItem.title, contentHTML: parsedItem.contentHTML, contentText: parsedItem.contentText, markdown: parsedItem.markdown, contentJSON: parsedItem.contentJSON, url: parsedItem.url, externalURL: parsedItem.externalURL, summary: parsedItem.summary, imageURL: parsedItem.imageURL, datePublished: datePublished, dateModified: dateModified, authors: authors, status: status, mp3URL: parsedItem.mp3URL)
 	}
 
 	private func addPossibleStringChangeWithKeyPath(_ comparisonKeyPath: KeyPath<Article, String?>, _ otherArticle: Article, _ key: String, _ dictionary: inout DatabaseDictionary) {
@@ -73,7 +74,7 @@ extension Article {
 		if authors.isEmpty {
 			return self
 		}
-		return Article(accountID: self.accountID, articleID: self.articleID, feedID: self.feedID, uniqueID: self.uniqueID, title: self.title, contentHTML: self.contentHTML, contentText: self.contentText, markdown: self.markdown, url: self.rawLink, externalURL: self.rawExternalLink, summary: self.summary, imageURL: self.rawImageLink, datePublished: self.datePublished, dateModified: self.dateModified, authors: authors, status: self.status, mp3URL: self.mp3URL)
+		return Article(accountID: self.accountID, articleID: self.articleID, feedID: self.feedID, uniqueID: self.uniqueID, title: self.title, contentHTML: self.contentHTML, contentText: self.contentText, markdown: self.markdown, contentJSON: self.contentJSON, url: self.rawLink, externalURL: self.rawExternalLink, summary: self.summary, imageURL: self.rawImageLink, datePublished: self.datePublished, dateModified: self.dateModified, authors: authors, status: self.status, mp3URL: self.mp3URL)
 	}
 
 	func changesFrom(_ existingArticle: Article) -> DatabaseDictionary? {
@@ -89,6 +90,10 @@ extension Article {
 		addPossibleStringChangeWithKeyPath(\Article.title, existingArticle, DatabaseKey.title, &d)
 		addPossibleStringChangeWithKeyPath(\Article.contentHTML, existingArticle, DatabaseKey.contentHTML, &d)
 		addPossibleStringChangeWithKeyPath(\Article.contentText, existingArticle, DatabaseKey.contentText, &d)
+		// Preserve previously stored JSON when the refreshed parse doesn't provide new JSON payload.
+		if let contentJSON, contentJSON != existingArticle.contentJSON {
+			d[DatabaseKey.contentJSON] = contentJSON
+		}
 		addPossibleStringChangeWithKeyPath(\Article.rawLink, existingArticle, DatabaseKey.url, &d)
 		addPossibleStringChangeWithKeyPath(\Article.rawExternalLink, existingArticle, DatabaseKey.externalURL, &d)
 		addPossibleStringChangeWithKeyPath(\Article.summary, existingArticle, DatabaseKey.summary, &d)
@@ -158,6 +163,9 @@ extension Article: @retroactive DatabaseObject {
 		}
 		if let markdown = markdown {
 			d[DatabaseKey.markdown] = markdown
+		}
+		if let contentJSON = contentJSON {
+			d[DatabaseKey.contentJSON] = contentJSON
 		}
 		if let rawLink = rawLink {
 			d[DatabaseKey.url] = rawLink

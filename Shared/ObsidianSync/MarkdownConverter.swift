@@ -24,7 +24,7 @@ struct MarkdownConverter {
 		markdown += generateFrontmatter(article: article, feed: feed)
 
 		// Add article body only (no H1 title - it's already in frontmatter)
-		if let body = getBodyContent(from: article) {
+		if let body = getBodyContent(from: article, category: feed.feedCategory) {
 			markdown += body
 		}
 
@@ -101,17 +101,24 @@ struct MarkdownConverter {
 
 	// MARK: - Body Content
 
-	private static func getBodyContent(from article: Article) -> String? {
+	private static func getBodyContent(from article: Article, category: FeedCategory) -> String? {
 		var body: String?
 
+		if let json = article.contentJSON,
+		   !json.isEmpty,
+		   let jsonMarkdown = convertContentJSONToMarkdown(json, category: category) {
+			logger.debug("Using contentJSON for body")
+			body = jsonMarkdown
+		}
+
 		// Prefer contentHTML, then contentText, then summary
-		if let html = article.contentHTML, !html.isEmpty {
+		if body == nil, let html = article.contentHTML, !html.isEmpty {
 			logger.debug("Using contentHTML for body")
 			body = convertHTMLToMarkdown(html)
-		} else if let text = article.contentText, !text.isEmpty {
+		} else if body == nil, let text = article.contentText, !text.isEmpty {
 			logger.debug("Using contentText for body (not HTML)")
 			body = text
-		} else if let summary = article.summary, !summary.isEmpty {
+		} else if body == nil, let summary = article.summary, !summary.isEmpty {
 			logger.debug("Using summary for body")
 			body = convertHTMLToMarkdown(summary)
 		} else {
@@ -125,6 +132,187 @@ struct MarkdownConverter {
 			return result
 		}
 		return nil
+	}
+
+	private static func convertContentJSONToMarkdown(_ jsonString: String, category: FeedCategory) -> String? {
+		switch category {
+		case .podcast, .youtube:
+			return convertShowJSONToMarkdown(jsonString)
+		case .news:
+			return convertTopicsJSONToMarkdown(jsonString)
+		case .rss:
+			return nil
+		}
+	}
+
+	private static func convertShowJSONToMarkdown(_ jsonString: String) -> String? {
+		guard let data = jsonString.data(using: .utf8),
+			  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+			return nil
+		}
+
+		var sections = [String]()
+
+		let guests = (json["guests"] as? [[String: Any]]) ?? []
+		var guestsLines = [String]()
+		for guest in guests {
+			let name = (guest["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+			guard !name.isEmpty else {
+				continue
+			}
+			let description = (guest["description"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+			if description.isEmpty {
+				guestsLines.append("- \(name)")
+			} else {
+				guestsLines.append("- \(name): \(description)")
+			}
+		}
+		if !guestsLines.isEmpty {
+			sections.append("## Guest(s)\n" + guestsLines.joined(separator: "\n"))
+		}
+
+		if let summary = json["summary"] as? [String: Any] {
+			var summaryParts = [String]()
+			let thesis = (summary["thesis"] as? [[String: Any]]) ?? []
+			if !thesis.isEmpty {
+				let lines = thesis.compactMap { item -> String? in
+					let title = (item["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+					let content = (item["content"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+					guard !title.isEmpty || !content.isEmpty else { return nil }
+					if !title.isEmpty && !content.isEmpty {
+						return "- **\(title)**: \(content)"
+					}
+					return "- \(title)\(content)"
+				}
+				if !lines.isEmpty {
+					summaryParts.append("### Core Thesis\n" + lines.joined(separator: "\n"))
+				}
+			}
+
+			let practical = (summary["practical"] as? [[String: Any]]) ?? []
+			if !practical.isEmpty {
+				let lines = practical.compactMap { item -> String? in
+					let title = (item["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+					let content = (item["content"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+					guard !title.isEmpty || !content.isEmpty else { return nil }
+					if !title.isEmpty && !content.isEmpty {
+						return "- **\(title)**: \(content)"
+					}
+					return "- \(title)\(content)"
+				}
+				if !lines.isEmpty {
+					summaryParts.append("### Practical Applications\n" + lines.joined(separator: "\n"))
+				}
+			}
+
+			if !summaryParts.isEmpty {
+				sections.append("## Summary\n" + summaryParts.joined(separator: "\n\n"))
+			}
+		}
+
+		let inDepth = (json["in_depth_analysis"] as? [[String: Any]]) ?? []
+		if !inDepth.isEmpty {
+			let blocks = inDepth.compactMap { item -> String? in
+				let title = (item["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+				let content = (item["content"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+				guard !title.isEmpty || !content.isEmpty else { return nil }
+				if !title.isEmpty && !content.isEmpty {
+					return "**\(title)**: \(content)"
+				}
+				return "\(title)\(content)"
+			}
+			if !blocks.isEmpty {
+				sections.append("## In-Depth Analysis\n" + blocks.joined(separator: "\n\n"))
+			}
+		}
+
+		let timestamps = (json["timestamps"] as? [[String: Any]]) ?? []
+		if !timestamps.isEmpty {
+			let lines = timestamps.compactMap { item -> String? in
+				let timestamp = (item["timestamp"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+				let content = (item["content"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+				guard !timestamp.isEmpty || !content.isEmpty else { return nil }
+				if !timestamp.isEmpty && !content.isEmpty {
+					return "- **\(timestamp)** - \(content)"
+				}
+				return "- \(timestamp)\(content)"
+			}
+			if !lines.isEmpty {
+				sections.append("## Timestamps\n" + lines.joined(separator: "\n"))
+			}
+		}
+
+		guard !sections.isEmpty else {
+			return nil
+		}
+		return sections.joined(separator: "\n\n")
+	}
+
+	private static func convertTopicsJSONToMarkdown(_ jsonString: String) -> String? {
+		guard let data = jsonString.data(using: .utf8),
+			  let object = try? JSONSerialization.jsonObject(with: data) else {
+			return nil
+		}
+
+		var entries = [[String: Any]]()
+		if let topLevelArray = object as? [[String: Any]] {
+			if topLevelArray.first?["title"] != nil || topLevelArray.first?["summary"] != nil {
+				entries = topLevelArray
+			} else {
+				for element in topLevelArray {
+					if let dataArray = element["data"] as? [[String: Any]] {
+						entries.append(contentsOf: dataArray)
+					}
+				}
+			}
+		} else if let dict = object as? [String: Any] {
+			if let dataArray = dict["data"] as? [[String: Any]] {
+				entries = dataArray
+			} else if dict["title"] != nil || dict["summary"] != nil {
+				entries = [dict]
+			}
+		}
+
+		guard !entries.isEmpty else {
+			return nil
+		}
+
+		let blocks = entries.compactMap { entry -> String? in
+			let title = (entry["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+			let summary = (entry["summary"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+			let metadata = entry["metadata"] as? [String: Any]
+			let author = (metadata?["author"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+			let pubDate = (metadata?["pubDate"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+			let link = (metadata?["link"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+			var lines = [String]()
+			lines.append("## \(title.isEmpty ? "Untitled" : title)")
+
+			var metadataLines = [String]()
+			if !author.isEmpty {
+				metadataLines.append("- **Author**: \(author)")
+			}
+			if !pubDate.isEmpty {
+				metadataLines.append("- **Published**: \(pubDate)")
+			}
+			if !link.isEmpty {
+				metadataLines.append("- **Link**: \(link)")
+			}
+			if !metadataLines.isEmpty {
+				lines.append(metadataLines.joined(separator: "\n"))
+			}
+
+			if !summary.isEmpty {
+				lines.append(summary)
+			}
+
+			return lines.joined(separator: "\n\n")
+		}
+
+		guard !blocks.isEmpty else {
+			return nil
+		}
+		return blocks.joined(separator: "\n\n---\n\n")
 	}
 
 	/// Convert HTML to a basic markdown-like format

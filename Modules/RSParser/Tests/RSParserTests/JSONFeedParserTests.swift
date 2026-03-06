@@ -121,4 +121,34 @@ final class JSONFeedParserTests: XCTestCase {
 		let bothAuthorsItem = parsedFeed.items.first { $0.uniqueID == "Item with both" }!
 		XCTAssertEqual(bothAuthorsItem.authors, itemAuthors)
 	}
+
+	func testGeneratedShowJSONFeed() {
+		let d = parserData("generated-show", "json", "https://files.nwidynski.com/pod/aaa/crime-junkie.json")
+		let parsedFeed = try! FeedParser.parse(d)!
+
+		XCTAssertEqual(parsedFeed.title, "Crime Junkie")
+		XCTAssertEqual(parsedFeed.homePageURL, "https://podcast.example/")
+		XCTAssertEqual(parsedFeed.iconURL, "https://example.com/crime-junkie.png")
+		XCTAssertEqual(parsedFeed.items.count, 1)
+
+		let item = parsedFeed.items.first!
+		XCTAssertEqual(item.uniqueID, "pod/crime-junkie/2026-03-01-episode-one.json")
+		XCTAssertEqual(item.mp3URL, "https://example.com/episode-one.mp3")
+		XCTAssertEqual(item.title, "Episode One")
+		XCTAssertNotNil(item.contentJSON)
+	}
+
+	func testGeneratedTopicsJSONFeed() {
+		let d = parserData("generated-topics", "json", "https://files.nwidynski.com/topics/aaa/artificial-intelligence.json")
+		let parsedFeed = try! FeedParser.parse(d)!
+
+		XCTAssertEqual(parsedFeed.title, "Artificial Intelligence")
+		XCTAssertEqual(parsedFeed.iconURL, "https://example.com/artificial-intelligence.png")
+		XCTAssertEqual(parsedFeed.items.count, 1)
+
+		let item = parsedFeed.items.first!
+		XCTAssertEqual(item.uniqueID, "topics/artificial-intelligence/2026-03-02.json")
+		XCTAssertEqual(item.title, "How AI can read our scrambled inner thoughts")
+		XCTAssertNotNil(item.contentJSON)
+	}
 }

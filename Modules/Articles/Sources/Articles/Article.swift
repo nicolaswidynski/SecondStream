@@ -19,6 +19,7 @@ public final class Article: Hashable, Sendable {
 	public let contentHTML: String?
 	public let contentText: String?
 	public let markdown: String?
+	public let contentJSON: String?
 	public let rawLink: String? // We store raw source value, but use computed url or link other than where raw value required.
     public let rawExternalLink: String? // We store raw source value, but use computed externalURL or externalLink other than where raw value required.
 	public let summary: String?
@@ -29,7 +30,7 @@ public final class Article: Hashable, Sendable {
 	public let status: ArticleStatus
 	public let mp3URL: String?
 
-	public init(accountID: String, articleID: String?, feedID: String, uniqueID: String, title: String?, contentHTML: String?, contentText: String?, markdown: String?, url: String?, externalURL: String?, summary: String?, imageURL: String?, datePublished: Date?, dateModified: Date?, authors: Set<Author>?, status: ArticleStatus, mp3URL: String? = nil) {
+	public init(accountID: String, articleID: String?, feedID: String, uniqueID: String, title: String?, contentHTML: String?, contentText: String?, markdown: String?, contentJSON: String? = nil, url: String?, externalURL: String?, summary: String?, imageURL: String?, datePublished: Date?, dateModified: Date?, authors: Set<Author>?, status: ArticleStatus, mp3URL: String? = nil) {
 		self.accountID = accountID
 		self.feedID = feedID
 		self.uniqueID = uniqueID
@@ -37,6 +38,7 @@ public final class Article: Hashable, Sendable {
 		self.contentHTML = contentHTML
 		self.contentText = contentText
 		self.markdown = markdown
+		self.contentJSON = contentJSON
 		self.rawLink = url
 		self.rawExternalLink = externalURL
 		self.summary = summary
@@ -67,7 +69,7 @@ public final class Article: Hashable, Sendable {
 	// MARK: - Equatable
 
 	static public func ==(lhs: Article, rhs: Article) -> Bool {
-		return lhs.articleID == rhs.articleID && lhs.accountID == rhs.accountID && lhs.feedID == rhs.feedID && lhs.uniqueID == rhs.uniqueID && lhs.title == rhs.title && lhs.contentHTML == rhs.contentHTML && lhs.contentText == rhs.contentText && lhs.rawLink == rhs.rawLink && lhs.rawExternalLink == rhs.rawExternalLink && lhs.summary == rhs.summary && lhs.rawImageLink == rhs.rawImageLink && lhs.datePublished == rhs.datePublished && lhs.dateModified == rhs.dateModified && lhs.authors == rhs.authors && lhs.mp3URL == rhs.mp3URL
+		return lhs.articleID == rhs.articleID && lhs.accountID == rhs.accountID && lhs.feedID == rhs.feedID && lhs.uniqueID == rhs.uniqueID && lhs.title == rhs.title && lhs.contentHTML == rhs.contentHTML && lhs.contentText == rhs.contentText && lhs.markdown == rhs.markdown && lhs.contentJSON == rhs.contentJSON && lhs.rawLink == rhs.rawLink && lhs.rawExternalLink == rhs.rawExternalLink && lhs.summary == rhs.summary && lhs.rawImageLink == rhs.rawImageLink && lhs.datePublished == rhs.datePublished && lhs.dateModified == rhs.dateModified && lhs.authors == rhs.authors && lhs.mp3URL == rhs.mp3URL
 	}
 }
 

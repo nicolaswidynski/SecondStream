@@ -30,8 +30,8 @@ enum AddNewsResult {
 
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
 
-	private static let topFileNames = ["topic_top.txt", "topics_top.txt"]
-	private static let libraryFileNames = ["topic.txt", "topics.txt"]
+	private static let topFileNames = ["topic_top.json", "topics_top.json"]
+	private static let libraryFileNames = ["topic.json", "topics.json"]
 
 	// MARK: - Server Error
 
@@ -182,7 +182,7 @@ enum AddNewsResult {
 			guard currentImageURL.isEmpty else {
 				continue
 			}
-			guard let imageRef = await Self.fetchImageRefFromFeedXML(feedURLString: hydrated[index].url) else {
+			guard let imageRef = await Self.fetchImageURLFromSource(feedURLString: hydrated[index].url) else {
 				continue
 			}
 
@@ -197,7 +197,7 @@ enum AddNewsResult {
 		return hydrated
 	}
 
-	private static func fetchImageRefFromFeedXML(feedURLString: String) async -> String? {
+	private static func fetchImageURLFromSource(feedURLString: String) async -> String? {
 		let trimmed = feedURLString.trimmingCharacters(in: .whitespacesAndNewlines)
 		guard let url = URL(string: trimmed) else {
 			return nil
@@ -206,8 +206,23 @@ enum AddNewsResult {
 		do {
 			let (data, response) = try await URLSession.shared.data(from: url)
 			guard let httpResponse = response as? HTTPURLResponse,
-				  (200...299).contains(httpResponse.statusCode),
-				  let xml = String(data: data, encoding: .utf8) else {
+				  (200...299).contains(httpResponse.statusCode) else {
+				return nil
+			}
+
+			if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+				let imageKeys = ["image_link", "imageURL", "image_url", "icon", "icon_url", "image_ref"]
+				for key in imageKeys {
+					if let value = json[key] as? String {
+						let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+						if !trimmedValue.isEmpty {
+							return trimmedValue
+						}
+					}
+				}
+			}
+
+			guard let xml = String(data: data, encoding: .utf8) else {
 				return nil
 			}
 			return parseImageRef(fromXML: xml)

@@ -114,6 +114,7 @@ static NSString *kTextValue = @"text";
 static NSString *kSelfValue = @"self";
 static NSString *kLengthKey = @"length";
 static NSString *kTitleKey = @"title";
+static NSCache<NSString *, NSData *> *kGeneratedJSONDataCache;
 
 static const char *kID = "id";
 static const NSInteger kIDLength = 3;
@@ -147,6 +148,9 @@ static const NSInteger kPubDateLength = 9;
 
 static const char *kMp3URL = "mp3_url";
 static const NSInteger kMp3URLLength = 8;
+
+static const char *kURLJSON = "url_json";
+static const NSInteger kURLJSONLength = 9;
 
 static const char *kAuthor = "author";
 static const NSInteger kAuthorLength = 7;
@@ -414,6 +418,215 @@ static NSString *daringFireballPermalinkPrefix = @"https://daringfireball.net/";
 	}
 }
 
+- (BOOL)isNwidynskiFilesURLString:(NSString *)urlString {
+	if (RSParserStringIsEmpty(urlString)) {
+		return NO;
+	}
+
+	NSURL *url = [NSURL URLWithString:urlString];
+	NSString *host = url.host.lowercaseString;
+	return [host isEqualToString:@"files.nwidynski.com"];
+}
+
+- (NSString *)htmlEscapedString:(NSString *)s {
+	if (RSParserStringIsEmpty(s)) {
+		return @"";
+	}
+
+	NSMutableString *escaped = [s mutableCopy];
+	[escaped replaceOccurrencesOfString:@"&" withString:@"&amp;" options:0 range:NSMakeRange(0, escaped.length)];
+	[escaped replaceOccurrencesOfString:@"<" withString:@"&lt;" options:0 range:NSMakeRange(0, escaped.length)];
+	[escaped replaceOccurrencesOfString:@">" withString:@"&gt;" options:0 range:NSMakeRange(0, escaped.length)];
+	[escaped replaceOccurrencesOfString:@"\"" withString:@"&quot;" options:0 range:NSMakeRange(0, escaped.length)];
+	[escaped replaceOccurrencesOfString:@"'" withString:@"&#39;" options:0 range:NSMakeRange(0, escaped.length)];
+	return escaped;
+}
+
+- (void)appendTitledContentArray:(NSArray *)array title:(NSString *)title into:(NSMutableString *)html {
+	if (![array isKindOfClass:[NSArray class]] || array.count < 1) {
+		return;
+	}
+
+	[html appendFormat:@"<h2>%@</h2>", [self htmlEscapedString:title]];
+	[html appendString:@"<ul>"];
+	for (id item in array) {
+		if (![item isKindOfClass:[NSDictionary class]]) {
+			continue;
+		}
+		NSString *itemTitle = [self htmlEscapedString:((NSDictionary *)item)[@"title"]];
+		NSString *itemContent = [self htmlEscapedString:((NSDictionary *)item)[@"content"]];
+		if (RSParserStringIsEmpty(itemTitle) && RSParserStringIsEmpty(itemContent)) {
+			continue;
+		}
+		[html appendString:@"<li>"];
+		if (!RSParserStringIsEmpty(itemTitle)) {
+			[html appendFormat:@"<strong>%@:</strong>", itemTitle];
+		}
+		if (!RSParserStringIsEmpty(itemContent)) {
+			if (!RSParserStringIsEmpty(itemTitle)) {
+				[html appendString:@" "];
+			}
+			[html appendString:itemContent];
+		}
+		[html appendString:@"</li>"];
+	}
+	[html appendString:@"</ul>"];
+}
+
+- (NSString *)generatedArticleHTMLFromJSONData:(NSData *)data {
+	if (!data || data.length < 1) {
+		return nil;
+	}
+
+	NSError *error = nil;
+	id object = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+	if (error || ![object isKindOfClass:[NSDictionary class]]) {
+		return nil;
+	}
+
+	NSDictionary *json = (NSDictionary *)object;
+	NSMutableString *html = [NSMutableString string];
+
+	NSArray *guests = json[@"guests"];
+	if ([guests isKindOfClass:[NSArray class]] && guests.count > 0) {
+		[html appendString:@"<h2>Guest(s)</h2><ul>"];
+		for (id guest in guests) {
+			if (![guest isKindOfClass:[NSDictionary class]]) {
+				continue;
+			}
+			NSString *name = [self htmlEscapedString:((NSDictionary *)guest)[@"name"]];
+			NSString *description = [self htmlEscapedString:((NSDictionary *)guest)[@"description"]];
+			if (RSParserStringIsEmpty(name)) {
+				continue;
+			}
+			[html appendFormat:@"<li><strong>%@</strong>", name];
+			if (!RSParserStringIsEmpty(description)) {
+				[html appendFormat:@": %@", description];
+			}
+			[html appendString:@"</li>"];
+		}
+		[html appendString:@"</ul>"];
+	}
+
+	NSDictionary *summary = json[@"summary"];
+	if ([summary isKindOfClass:[NSDictionary class]]) {
+		[self appendTitledContentArray:summary[@"thesis"] title:@"Executive Summary" into:html];
+		[self appendTitledContentArray:summary[@"practical"] title:@"Practical Information" into:html];
+	}
+
+	NSArray *inDepth = json[@"in_depth_analysis"];
+	if ([inDepth isKindOfClass:[NSArray class]] && inDepth.count > 0) {
+		[html appendString:@"<h2>In-Depth Analysis</h2>"];
+		for (id section in inDepth) {
+			if (![section isKindOfClass:[NSDictionary class]]) {
+				continue;
+			}
+			NSString *sectionTitle = [self htmlEscapedString:((NSDictionary *)section)[@"title"]];
+			NSString *sectionContent = [self htmlEscapedString:((NSDictionary *)section)[@"content"]];
+			if (!RSParserStringIsEmpty(sectionTitle)) {
+				[html appendFormat:@"<h3>%@</h3>", sectionTitle];
+			}
+			if (!RSParserStringIsEmpty(sectionContent)) {
+				[html appendFormat:@"<p>%@</p>", sectionContent];
+			}
+		}
+	}
+
+	NSArray *timestamps = json[@"timestamps"];
+	if ([timestamps isKindOfClass:[NSArray class]] && timestamps.count > 0) {
+		[html appendString:@"<h2>Timestamps</h2><ul>"];
+		for (id stamp in timestamps) {
+			if (![stamp isKindOfClass:[NSDictionary class]]) {
+				continue;
+			}
+			NSString *timestamp = [self htmlEscapedString:((NSDictionary *)stamp)[@"timestamp"]];
+			NSString *content = [self htmlEscapedString:((NSDictionary *)stamp)[@"content"]];
+			if (RSParserStringIsEmpty(timestamp) && RSParserStringIsEmpty(content)) {
+				continue;
+			}
+			[html appendString:@"<li>"];
+			if (!RSParserStringIsEmpty(timestamp)) {
+				[html appendFormat:@"<strong>%@</strong>", timestamp];
+			}
+			if (!RSParserStringIsEmpty(content)) {
+				if (!RSParserStringIsEmpty(timestamp)) {
+					[html appendString:@" - "];
+				}
+				[html appendString:content];
+			}
+			[html appendString:@"</li>"];
+		}
+		[html appendString:@"</ul>"];
+	}
+
+	// Keep topics/news resilient if their JSON shape diverges from podcast/youtube.
+	if (html.length < 1) {
+		NSError *prettyError = nil;
+		NSData *prettyData = [NSJSONSerialization dataWithJSONObject:json options:NSJSONWritingPrettyPrinted error:&prettyError];
+		if (!prettyError && prettyData.length > 0) {
+			NSString *pretty = [[NSString alloc] initWithData:prettyData encoding:NSUTF8StringEncoding];
+			if (!RSParserStringIsEmpty(pretty)) {
+				[html appendFormat:@"<pre>%@</pre>", [self htmlEscapedString:pretty]];
+			}
+		}
+	}
+
+	if (html.length < 1) {
+		return nil;
+	}
+	return [html copy];
+}
+
+- (void)addJSONContentURL {
+	NSString *urlString = [self currentString];
+	NSString *resolvedURLString = [self resolvedURLString:urlString];
+	if (RSParserStringIsEmpty(resolvedURLString)) {
+		return;
+	}
+
+	// Only hydrate generated custom sources from the nwidynski file host.
+	if (![self isNwidynskiFilesURLString:resolvedURLString]) {
+		return;
+	}
+
+	// Keep parser tests deterministic (no network dependency).
+	if (NSClassFromString(@"XCTestCase") != Nil) {
+		return;
+	}
+
+	NSURL *url = [NSURL URLWithString:resolvedURLString];
+	if (!url) {
+		return;
+	}
+
+	if (!kGeneratedJSONDataCache) {
+		kGeneratedJSONDataCache = [NSCache new];
+	}
+
+	NSData *jsonData = [kGeneratedJSONDataCache objectForKey:resolvedURLString];
+	if (!jsonData) {
+		jsonData = [NSData dataWithContentsOfURL:url];
+		if (jsonData.length > 0) {
+			[kGeneratedJSONDataCache setObject:jsonData forKey:resolvedURLString];
+		}
+	}
+	if (!jsonData || jsonData.length < 1) {
+		return;
+	}
+
+	NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+	if (!RSParserStringIsEmpty(jsonString)) {
+		self.currentArticle.contentJSON = jsonString;
+	}
+
+	if (RSParserStringIsEmpty(self.currentArticle.body)) {
+		NSString *generatedHTML = [self generatedArticleHTMLFromJSONData:jsonData];
+		if (!RSParserStringIsEmpty(generatedHTML)) {
+			self.currentArticle.body = generatedHTML;
+		}
+	}
+}
+
 - (NSString *)resolvedURLString:(NSString *)s {
 
 	// Resolve against home page URL (if available) or feed URL.
@@ -520,6 +733,9 @@ static NSString *httpURLPrefix = @"http://";
 		if (!RSParserStringIsEmpty(mp3URLString)) {
 			self.currentArticle.mp3URL = mp3URLString;
 		}
+	}
+	else if (RSSAXEqualTags(localName, kURLJSON, kURLJSONLength)) {
+		[self addJSONContentURL];
 	}
 }
 

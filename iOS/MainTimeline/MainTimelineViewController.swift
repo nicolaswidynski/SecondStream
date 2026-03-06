@@ -415,7 +415,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	private(set) var lastRowDistanceHardJumpThreshold: Int = 0
 	private(set) var lastRowDistanceHardJumpTailDistance: Int = 0
 	private var rowDistanceReferenceArticleID: String?
-	private let rowDistanceSecondsPerRow: CFTimeInterval = 0.14 // 40 ms
+	private let rowDistanceSecondsPerRow: CFTimeInterval = 4 // 40 ms
 	private let rowDistanceMinDuration: CFTimeInterval = 0.22
 	private let hardJumpTailEnabled = true
 

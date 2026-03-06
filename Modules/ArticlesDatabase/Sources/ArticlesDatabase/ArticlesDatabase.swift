@@ -70,6 +70,10 @@ public struct ArticleChanges: Sendable {
 				Self.logger.debug("ArticlesDatabase: adding markdown column \(accountID, privacy: .public)")
 				database.executeStatements("ALTER TABLE articles add column markdown TEXT;")
 			}
+			if !self.articlesTable.containsColumn("contentJSON", in: database) {
+				Self.logger.debug("ArticlesDatabase: adding contentJSON column \(accountID, privacy: .public)")
+				database.executeStatements("ALTER TABLE articles add column contentJSON TEXT;")
+			}
 			if !self.articlesTable.containsColumn("mp3URL", in: database) {
 				Self.logger.debug("ArticlesDatabase: adding mp3URL column \(accountID, privacy: .public)")
 				database.executeStatements("ALTER TABLE articles add column mp3URL TEXT;")
@@ -401,7 +405,7 @@ public struct ArticleChanges: Sendable {
 private extension ArticlesDatabase {
 
 	static let tableCreationStatements = """
-	CREATE TABLE if not EXISTS articles (articleID TEXT NOT NULL PRIMARY KEY, feedID TEXT NOT NULL, uniqueID TEXT NOT NULL, title TEXT, contentHTML TEXT, contentText TEXT, markdown TEXT, url TEXT, externalURL TEXT, summary TEXT, imageURL TEXT, bannerImageURL TEXT, datePublished DATE, dateModified DATE, searchRowID INTEGER, mp3URL TEXT);
+	CREATE TABLE if not EXISTS articles (articleID TEXT NOT NULL PRIMARY KEY, feedID TEXT NOT NULL, uniqueID TEXT NOT NULL, title TEXT, contentHTML TEXT, contentText TEXT, markdown TEXT, contentJSON TEXT, url TEXT, externalURL TEXT, summary TEXT, imageURL TEXT, bannerImageURL TEXT, datePublished DATE, dateModified DATE, searchRowID INTEGER, mp3URL TEXT);
 
 	CREATE TABLE if not EXISTS statuses (articleID TEXT NOT NULL PRIMARY KEY, read BOOL NOT NULL DEFAULT 0, starred BOOL NOT NULL DEFAULT 0, dateArrived DATE NOT NULL DEFAULT 0);
 

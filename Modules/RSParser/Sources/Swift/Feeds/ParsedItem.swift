@@ -20,6 +20,7 @@ public struct ParsedItem: Hashable, Sendable {
 	public let contentHTML: String?
 	public let contentText: String?
 	public let markdown: String?
+	public let contentJSON: String?
 	public let summary: String?
 	public let imageURL: String?
 	public let bannerImageURL: String?
@@ -40,6 +41,7 @@ public struct ParsedItem: Hashable, Sendable {
 	            contentHTML: String?,
 	            contentText: String?,
 	            markdown: String?,
+	            contentJSON: String? = nil,
 	            summary: String?,
 	            imageURL: String?,
 	            bannerImageURL: String?,
@@ -58,6 +60,7 @@ public struct ParsedItem: Hashable, Sendable {
 		self.language = language
 		self.contentText = contentText
 		self.markdown = markdown
+		self.contentJSON = contentJSON
 		self.summary = summary
 		self.imageURL = imageURL
 		self.bannerImageURL = bannerImageURL

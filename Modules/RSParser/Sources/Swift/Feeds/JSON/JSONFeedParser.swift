@@ -18,12 +18,15 @@ public struct JSONFeedParser {
 	struct Key {
 		static let version = "version"
 		static let items = "items"
+		static let entries = "entries"
 		static let title = "title"
 		static let homePageURL = "home_page_url"
+		static let homepage = "homepage"
 		static let feedURL = "feed_url"
 		static let feedDescription = "description"
 		static let nextURL = "next_url"
 		static let icon = "icon"
+		static let imageLink = "image_link"
 		static let favicon = "favicon"
 		static let expired = "expired"
 		static let author = "author"
@@ -48,6 +51,13 @@ public struct JSONFeedParser {
 		static let sizeInBytes = "size_in_bytes"
 		static let durationInSeconds = "duration_in_seconds"
 		static let language = "language"
+		static let idFile = "id_file"
+		static let idEntry = "id_entry"
+		static let mediaLink = "media_link"
+		static let airDate = "air_date"
+		static let content = "content"
+		static let metadata = "metadata"
+		static let pubDate = "pubDate"
 	}
 
 	static let jsonFeedVersionMarker = "://jsonfeed.org/version/" // Allow for the mistake of not getting the scheme exactly correct.
@@ -58,9 +68,21 @@ public struct JSONFeedParser {
 			throw FeedParserError.invalidJSON
 		}
 
-		guard let version = d[Key.version] as? String, version.range(of: JSONFeedParser.jsonFeedVersionMarker) != nil else {
-			throw FeedParserError.jsonFeedVersionNotFound
+		if let version = d[Key.version] as? String, version.range(of: JSONFeedParser.jsonFeedVersionMarker) != nil {
+			return try parseJSONFeed(d, parserData.url)
 		}
+
+		if isGeneratedJSONFeed(d) {
+			return try parseGeneratedJSONFeed(d, parserData.url)
+		}
+
+		throw FeedParserError.jsonFeedVersionNotFound
+	}
+}
+
+private extension JSONFeedParser {
+
+	static func parseJSONFeed(_ d: JSONDictionary, _ parserURL: String) throws -> ParsedFeed {
 		guard let itemsArray = d[Key.items] as? JSONArray else {
 			throw FeedParserError.jsonFeedItemsNotFound
 		}
@@ -70,7 +92,7 @@ public struct JSONFeedParser {
 
 		let authors = parseAuthors(d)
 		let homePageURL = d[Key.homePageURL] as? String
-		let feedURL = d[Key.feedURL] as? String ?? parserData.url
+		let feedURL = d[Key.feedURL] as? String ?? parserURL
 		let feedDescription = d[Key.feedDescription] as? String
 		let nextURL = d[Key.nextURL] as? String
 		let iconURL = d[Key.icon] as? String
@@ -79,13 +101,47 @@ public struct JSONFeedParser {
 		let hubs = parseHubs(d)
 		let language = d[Key.language] as? String
 
-		let items = parseItems(itemsArray, parserData.url)
+		let items = parseItems(itemsArray, parserURL)
 
 		return ParsedFeed(type: .jsonFeed, title: title, homePageURL: homePageURL, feedURL: feedURL, language: language, feedDescription: feedDescription, nextURL: nextURL, iconURL: iconURL, faviconURL: faviconURL, authors: authors, expired: expired, hubs: hubs, items: items)
 	}
-}
 
-private extension JSONFeedParser {
+	static func isGeneratedJSONFeed(_ dictionary: JSONDictionary) -> Bool {
+		(dictionary[Key.entries] as? JSONArray) != nil &&
+		(dictionary[Key.idFile] as? String) != nil &&
+		(dictionary[Key.title] as? String) != nil
+	}
+
+	static func parseGeneratedJSONFeed(_ dictionary: JSONDictionary, _ parserURL: String) throws -> ParsedFeed {
+		guard let entries = dictionary[Key.entries] as? JSONArray else {
+			throw FeedParserError.jsonFeedItemsNotFound
+		}
+		guard let title = dictionary[Key.title] as? String else {
+			throw FeedParserError.jsonFeedTitleNotFound
+		}
+
+		let authors = parseGeneratedAuthors(dictionary)
+		let homePageURL = nonEmptyString(dictionary[Key.homepage]) ?? nonEmptyString(dictionary[Key.homePageURL])
+		let iconURL = nonEmptyString(dictionary[Key.imageLink]) ?? nonEmptyString(dictionary[Key.icon])
+		let dateModified = parseDate(nonEmptyString(dictionary["updated"]))
+		let items = parseGeneratedItems(entries, parserURL, dateModified)
+
+		return ParsedFeed(
+			type: .jsonFeed,
+			title: title,
+			homePageURL: homePageURL,
+			feedURL: parserURL,
+			language: nil,
+			feedDescription: nil,
+			nextURL: nil,
+			iconURL: iconURL,
+			faviconURL: nil,
+			authors: authors,
+			expired: false,
+			hubs: nil,
+			items: items
+		)
+	}
 
 	static func parseAuthors(_ dictionary: JSONDictionary) -> Set<ParsedAuthor>? {
 
@@ -105,6 +161,312 @@ private extension JSONFeedParser {
 		}
 
 		return Set([parsedAuthor])
+	}
+
+	static func parseGeneratedAuthors(_ dictionary: JSONDictionary) -> Set<ParsedAuthor>? {
+		guard let author = nonEmptyString(dictionary[Key.author]) else {
+			return nil
+		}
+		return Set([ParsedAuthor(name: author, url: nil, avatarURL: nil, emailAddress: nil)])
+	}
+
+	static func parseGeneratedItems(_ entries: JSONArray, _ feedURL: String, _ fallbackModifiedDate: Date?) -> Set<ParsedItem> {
+		Set(entries.compactMap { parseGeneratedItem($0, feedURL, fallbackModifiedDate) })
+	}
+
+	static func parseGeneratedItem(_ itemDictionary: JSONDictionary, _ feedURL: String, _ fallbackModifiedDate: Date?) -> ParsedItem? {
+		let uniqueID = nonEmptyString(itemDictionary[Key.idEntry]) ?? {
+			guard let title = nonEmptyString(itemDictionary[Key.title]) else { return nil }
+			return "\(feedURL)::\(title)"
+		}()
+		guard let uniqueID else {
+			return nil
+		}
+
+		let entryContent = itemDictionary[Key.content]
+		let contentJSON = jsonString(from: entryContent)
+		let contentHTML = generatedHTMLFromContent(entryContent)
+		let inferredTitle = inferGeneratedTitle(from: entryContent)
+		let title = nonEmptyString(itemDictionary[Key.title]) ?? inferredTitle
+		let contentText = contentTextFromGeneratedContent(entryContent)
+		let mediaLink = nonEmptyString(itemDictionary[Key.mediaLink])
+		let datePublished = parseDate(nonEmptyString(itemDictionary[Key.airDate])) ?? parseDateFromGeneratedContent(entryContent) ?? fallbackModifiedDate
+
+		if title == nil && contentJSON == nil && contentText == nil {
+			return nil
+		}
+
+		return ParsedItem(
+			syncServiceID: nil,
+			uniqueID: uniqueID,
+			feedURL: feedURL,
+			url: nil,
+			externalURL: nil,
+			title: title,
+			language: nil,
+			contentHTML: contentHTML,
+			contentText: contentText ?? title,
+			markdown: nil,
+			contentJSON: contentJSON,
+			summary: nil,
+			imageURL: nil,
+			bannerImageURL: nil,
+			datePublished: datePublished,
+			dateModified: fallbackModifiedDate,
+			authors: nil,
+			tags: nil,
+			attachments: nil,
+			mp3URL: mediaLink
+		)
+	}
+
+	static func generatedHTMLFromContent(_ content: Any?) -> String? {
+		if let dictionary = content as? JSONDictionary {
+			return generatedShowHTML(from: dictionary)
+		}
+		if let array = content as? JSONArray {
+			return generatedTopicsHTML(from: array)
+		}
+		return nil
+	}
+
+	static func generatedShowHTML(from dictionary: JSONDictionary) -> String? {
+		var blocks = [String]()
+
+		if let timestamps = dictionary["timestamps"] as? JSONArray, !timestamps.isEmpty {
+			let lines = timestamps.compactMap { item -> String? in
+				let timestamp = nonEmptyString(item["timestamp"]) ?? ""
+				let content = nonEmptyString(item[Key.content]) ?? ""
+				guard !timestamp.isEmpty || !content.isEmpty else { return nil }
+				if !timestamp.isEmpty && !content.isEmpty {
+					return "<li><strong>\(htmlEscaped(timestamp))</strong> - \(htmlEscaped(content))</li>"
+				}
+				return "<li>\(htmlEscaped(timestamp + content))</li>"
+			}
+			if !lines.isEmpty {
+				blocks.append("<hr><details><summary><strong>Timestamps</strong></summary><ul>\(lines.joined())</ul></details><hr>")
+			}
+		}
+
+		if let guests = dictionary["guests"] as? JSONArray, !guests.isEmpty {
+			let lines = guests.compactMap { item -> String? in
+				let name = nonEmptyString(item[Key.name]) ?? ""
+				guard !name.isEmpty else { return nil }
+				let description = nonEmptyString(item["description"]) ?? ""
+				if description.isEmpty {
+					return "<li>\(htmlEscaped(name))</li>"
+				}
+				return "<li>\(htmlEscaped(name)): \(htmlEscaped(description))</li>"
+			}
+			if !lines.isEmpty {
+				blocks.append("<h2>Guest(s)</h2><ul>\(lines.joined())</ul>")
+			}
+		}
+
+		if let summary = dictionary[Key.summary] as? JSONDictionary {
+			var summaryBlocks = [String]()
+
+			if let thesis = summary["thesis"] as? JSONArray, !thesis.isEmpty {
+				let lines = thesis.compactMap { item -> String? in
+					let title = nonEmptyString(item[Key.title]) ?? ""
+					let content = nonEmptyString(item[Key.content]) ?? ""
+					guard !title.isEmpty || !content.isEmpty else { return nil }
+					if !title.isEmpty && !content.isEmpty {
+						return "<li><strong>\(htmlEscaped(title))</strong>: \(htmlEscaped(content))</li>"
+					}
+					return "<li>\(htmlEscaped(title + content))</li>"
+				}
+				if !lines.isEmpty {
+					summaryBlocks.append("<h3>Core Thesis</h3><ul>\(lines.joined())</ul>")
+				}
+			}
+
+			if let practical = summary["practical"] as? JSONArray, !practical.isEmpty {
+				let lines = practical.compactMap { item -> String? in
+					let title = nonEmptyString(item[Key.title]) ?? ""
+					let content = nonEmptyString(item[Key.content]) ?? ""
+					guard !title.isEmpty || !content.isEmpty else { return nil }
+					if !title.isEmpty && !content.isEmpty {
+						return "<li><strong>\(htmlEscaped(title))</strong>: \(htmlEscaped(content))</li>"
+					}
+					return "<li>\(htmlEscaped(title + content))</li>"
+				}
+				if !lines.isEmpty {
+					summaryBlocks.append("<h3>Practical Applications</h3><ul>\(lines.joined())</ul>")
+				}
+			}
+
+			if !summaryBlocks.isEmpty {
+				blocks.append("<h2>Summary</h2>\(summaryBlocks.joined())")
+			}
+		}
+
+		if let inDepth = dictionary["in_depth_analysis"] as? JSONArray, !inDepth.isEmpty {
+			let paragraphs = inDepth.compactMap { item -> String? in
+				let title = nonEmptyString(item[Key.title]) ?? ""
+				let content = nonEmptyString(item[Key.content]) ?? ""
+				guard !title.isEmpty || !content.isEmpty else { return nil }
+				if !title.isEmpty && !content.isEmpty {
+					return "<p><strong>\(htmlEscaped(title))</strong>: \(htmlEscaped(content))</p>"
+				}
+				return "<p>\(htmlEscaped(title + content))</p>"
+			}
+			if !paragraphs.isEmpty {
+				blocks.append("<h2>In-Depth Analysis</h2>\(paragraphs.joined())")
+			}
+		}
+
+		let html = blocks.joined(separator: "\n")
+		return html.isEmpty ? nil : html
+	}
+
+	static func generatedTopicsHTML(from items: JSONArray) -> String? {
+		let sections = items.compactMap { item -> String? in
+			let title = nonEmptyString(item[Key.title]) ?? "Untitled"
+			let metadata = item[Key.metadata] as? JSONDictionary
+			let link = nonEmptyString(metadata?["link"])
+			let author = nonEmptyString(metadata?["author"])
+			let pubDate = nonEmptyString(metadata?[Key.pubDate])
+
+			let titleHTML: String
+			if let link {
+				titleHTML = "<h3><a href=\"\(htmlEscaped(link))\">\(htmlEscaped(title))</a></h3>"
+			} else {
+				titleHTML = "<h3>\(htmlEscaped(title))</h3>"
+			}
+
+			var metadataLines = [String]()
+			if let author {
+				metadataLines.append("<li><strong>Author</strong>: \(htmlEscaped(author))</li>")
+			}
+			if let pubDate {
+				metadataLines.append("<li><strong>Published</strong>: \(htmlEscaped(pubDate))</li>")
+			}
+			let metadataHTML = metadataLines.isEmpty ? "" : "<ul>\(metadataLines.joined())</ul>"
+
+			let summaryHTML = generatedTopicsSummaryHTML(item[Key.summary])
+
+			return "\(titleHTML)\(metadataHTML)\(summaryHTML)"
+		}
+
+		guard !sections.isEmpty else {
+			return nil
+		}
+		return sections.joined(separator: "<hr>")
+	}
+
+	static func generatedTopicsSummaryHTML(_ value: Any?) -> String {
+		if let list = value as? [String] {
+			let bulletLines = list
+				.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+				.filter { !$0.isEmpty }
+				.map { "• \(htmlEscaped($0))" }
+			guard !bulletLines.isEmpty else { return "<p>No summary available.</p>" }
+			return "<p>\(bulletLines.joined(separator: "<br>"))</p>"
+		}
+
+		guard let text = nonEmptyString(value) else {
+			return "<p>No summary available.</p>"
+		}
+
+		let lines = text
+			.components(separatedBy: .newlines)
+			.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+			.filter { !$0.isEmpty }
+		if !lines.isEmpty && lines.allSatisfy({ $0.hasPrefix("- ") || $0.hasPrefix("• ") }) {
+			let bulletLines = lines.map { line -> String in
+				if line.hasPrefix("• ") {
+					return htmlEscaped(line)
+				}
+				return "• \(htmlEscaped(String(line.dropFirst(2))))"
+			}
+			return "<p>\(bulletLines.joined(separator: "<br>"))</p>"
+		}
+
+		return "<p>\(htmlEscaped(text))</p>"
+	}
+
+	static func htmlEscaped(_ string: String) -> String {
+		string
+			.replacingOccurrences(of: "&", with: "&amp;")
+			.replacingOccurrences(of: "<", with: "&lt;")
+			.replacingOccurrences(of: ">", with: "&gt;")
+			.replacingOccurrences(of: "\"", with: "&quot;")
+			.replacingOccurrences(of: "'", with: "&#39;")
+	}
+
+	static func inferGeneratedTitle(from content: Any?) -> String? {
+		guard let contentArray = content as? JSONArray else {
+			return nil
+		}
+		for item in contentArray {
+			if let title = nonEmptyString(item[Key.title]) {
+				return title
+			}
+		}
+		return nil
+	}
+
+	static func parseDateFromGeneratedContent(_ content: Any?) -> Date? {
+		guard let contentArray = content as? JSONArray else {
+			return nil
+		}
+
+		for item in contentArray {
+			guard let metadata = item[Key.metadata] as? JSONDictionary,
+				  let pubDate = nonEmptyString(metadata[Key.pubDate]),
+				  let parsedDate = parseDate(pubDate) else {
+				continue
+			}
+			return parsedDate
+		}
+
+		return nil
+	}
+
+	static func contentTextFromGeneratedContent(_ content: Any?) -> String? {
+		if let dictionary = content as? JSONDictionary {
+			let candidates = [dictionary[Key.title], dictionary[Key.contentText], dictionary[Key.summary]]
+			for candidate in candidates {
+				if let text = nonEmptyString(candidate) {
+					return text
+				}
+			}
+		}
+
+		guard let contentArray = content as? JSONArray else {
+			return nil
+		}
+
+		var chunks = [String]()
+		for item in contentArray {
+			if let title = nonEmptyString(item[Key.title]) {
+				chunks.append(title)
+			}
+			if let summary = nonEmptyString(item[Key.summary]) {
+				chunks.append(summary)
+			}
+		}
+		let joined = chunks.joined(separator: "\n\n")
+		return joined.isEmpty ? nil : joined
+	}
+
+	static func nonEmptyString(_ value: Any?) -> String? {
+		guard let string = value as? String else {
+			return nil
+		}
+		let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+		return trimmed.isEmpty ? nil : trimmed
+	}
+
+	static func jsonString(from value: Any?) -> String? {
+		guard let value,
+			  JSONSerialization.isValidJSONObject(value),
+			  let data = try? JSONSerialization.data(withJSONObject: value, options: []),
+			  let jsonString = String(data: data, encoding: .utf8) else {
+			return nil
+		}
+		return jsonString
 	}
 
 	static func parseAuthor(_ dictionary: JSONDictionary) -> ParsedAuthor? {

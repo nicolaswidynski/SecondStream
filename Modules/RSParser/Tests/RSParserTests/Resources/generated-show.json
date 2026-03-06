@@ -1,0 +1,55 @@
+{
+  "title": "Crime Junkie",
+  "author": "Audiochuck",
+  "homepage": "https://podcast.example/",
+  "image_link": "https://example.com/crime-junkie.png",
+  "updated": "2026-03-04T13:28:31.896Z",
+  "id_file": "urn:uuid:crime-junkie",
+  "entries": [
+    {
+      "title": "Episode One",
+      "media_link": "https://example.com/episode-one.mp3",
+      "air_date": "2026-03-01",
+      "id_entry": "pod/crime-junkie/2026-03-01-episode-one.json",
+      "content": {
+        "metadata": {
+          "title": "Episode One",
+          "media": "https://example.com/episode-one.mp3",
+          "air_date": "2026-03-01"
+        },
+        "guests": [
+          {
+            "name": "Guest A",
+            "description": "Guest description."
+          }
+        ],
+        "summary": {
+          "thesis": [
+            {
+              "title": "Core",
+              "content": "Main point."
+            }
+          ],
+          "practical": [
+            {
+              "title": "Action",
+              "content": "What to do."
+            }
+          ]
+        },
+        "in_depth_analysis": [
+          {
+            "title": "Detail",
+            "content": "Deep dive."
+          }
+        ],
+        "timestamps": [
+          {
+            "timestamp": "[00:10]",
+            "content": "Intro"
+          }
+        ]
+      }
+    }
+  ]
+}

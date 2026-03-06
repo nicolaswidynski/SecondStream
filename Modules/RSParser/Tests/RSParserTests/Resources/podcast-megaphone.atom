@@ -8,11 +8,10 @@
 	<id>urn:uuid:big-technology-podcast</id>
 	<entry>
 		<title type="html"><![CDATA[2026-02-26]]></title>
-		<link href="https://files.nwidynski.com/pod/aaa/big-technology-podcast/2026-02-26.md" />
 		<id>pod/big-technology-podcast/2026-02-26.md</id>
 		<link rel="enclosure" href="https://traffic.megaphone.fm/EPISODE.mp3" type="audio/mpeg" />
 		<pub_date>2026-02-26</pub_date>
 		<updated>2026-02-26T20:25:01.564Z</updated>
-		<summary type="html"><![CDATA[Hello]]></summary>
+		<url_json>https://files.nwidynski.com/pod/aaa/big-technology-podcast/2026-02-26.json</url_json>
 	</entry>
 </feed>

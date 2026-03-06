@@ -9,11 +9,10 @@
 	<id>urn:uuid:artificial-intelligence</id>
 	<entry>
 		<title type="html"><![CDATA[2026-02-26]]></title>
-		<link href="https://files.nwidynski.com/topics/artificial-intelligence/2026-02-26.md" />
 		<id>topics/artificial-intelligence/2026-02-26.md</id>
 		<link rel="enclosure" href="https://www.youtube.com/watch?v=abc123" type="audio/mpeg" />
 		<pub_date>2026-02-26</pub_date>
 		<updated>2026-02-26T20:25:01.564Z</updated>
-		<summary type="html"><![CDATA[Hello]]></summary>
+		<url_json>https://files.nwidynski.com/topics/artificial-intelligence/2026-02-26.json</url_json>
 	</entry>
 </feed>

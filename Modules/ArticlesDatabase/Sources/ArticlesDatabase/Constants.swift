@@ -29,6 +29,7 @@ struct DatabaseKey {
 	static let contentHTML = "contentHTML"
 	static let contentText = "contentText"
 	static let markdown = "markdown"
+	static let contentJSON = "contentJSON"
 	static let externalURL = "externalURL"
 	static let summary = "summary"
 	static let imageURL = "imageURL"

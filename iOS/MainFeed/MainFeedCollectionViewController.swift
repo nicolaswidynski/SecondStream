@@ -1672,7 +1672,12 @@ extension MainFeedCollectionViewController: PodcastPickerDelegate {
 
 	func podcastPicker(_ picker: PodcastPickerViewController, didSelectPodcast source: PodcastSource) {
 		picker.dismiss(animated: true) {
-			self.addPodcastWithWebhook(name: source.name, author: source.author)
+			let urlString = source.url.trimmingCharacters(in: .whitespacesAndNewlines)
+			if !urlString.isEmpty {
+				self.addFeedDirectly(urlString: urlString, category: .podcast)
+			} else {
+				self.addPodcastWithWebhook(name: source.name, author: source.author)
+			}
 		}
 	}
 
@@ -1703,7 +1708,12 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 
 	func youtubePicker(_ picker: YoutubePickerViewController, didSelectChannel source: YoutubeSource) {
 		picker.dismiss(animated: true) {
-			self.addYoutubeWithWebhook(name: source.name, author: source.author)
+			let urlString = source.url.trimmingCharacters(in: .whitespacesAndNewlines)
+			if !urlString.isEmpty {
+				self.addFeedDirectly(urlString: urlString, category: .youtube)
+			} else {
+				self.addYoutubeWithWebhook(name: source.name, author: source.author)
+			}
 		}
 	}
 
@@ -1819,7 +1829,12 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 
 	func newsPicker(_ picker: NewsPickerViewController, didSelectSource source: NewsSource) {
 		picker.dismiss(animated: true) {
-			self.addTopicWithWebhook(name: source.name, author: source.author)
+			let urlString = source.url.trimmingCharacters(in: .whitespacesAndNewlines)
+			if !urlString.isEmpty {
+				self.addFeedDirectly(urlString: urlString, category: .news)
+			} else {
+				self.addTopicWithWebhook(name: source.name, author: source.author)
+			}
 		}
 	}
 

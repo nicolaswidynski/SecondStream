@@ -43,7 +43,15 @@ static BOOL bytesStartWithAtom(const char *bytes, NSUInteger numberOfBytes);
 	if (![self isProbablyJSON]) {
 		return NO;
 	}
-	return didFindString("://jsonfeed.org/version/", self.bytes, self.length) || didFindString(":\\/\\/jsonfeed.org\\/version\\/", self.bytes, self.length);
+	if (didFindString("://jsonfeed.org/version/", self.bytes, self.length) || didFindString(":\\/\\/jsonfeed.org\\/version\\/", self.bytes, self.length)) {
+		return YES;
+	}
+
+	// Custom generated show/topics JSON feed shape:
+	// {"title": "...", "entries": [...], "id_file": "...", ...}
+	const char *bytes = self.bytes;
+	NSUInteger length = self.length;
+	return didFindString("\"entries\"", bytes, length) && didFindString("\"id_file\"", bytes, length);
 }
 
 - (BOOL)isProbablyRSSInJSON {
