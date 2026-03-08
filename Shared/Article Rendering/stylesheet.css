@@ -110,6 +110,24 @@ body > .systemMessage {
 	margin-top: 26px;
 }
 
+.articleTitle a.nnw-top-media-link:link,
+.articleTitle a.nnw-top-media-link:visited {
+	color: #0a84ff !important;
+	display: inline-block;
+	font-size: 1.18em;
+	font-weight: 700;
+	line-height: 1;
+	margin-left: 0.38em;
+	margin-top: 0 !important;
+	text-decoration: none !important;
+	vertical-align: baseline;
+}
+
+.articleTitle a.nnw-top-media-link:hover {
+	opacity: 0.8;
+	text-decoration: none !important;
+}
+
 .articleDateline {
 	margin-bottom: 5px;
 	font-weight: bold;

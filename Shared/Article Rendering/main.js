@@ -396,7 +396,7 @@ function findMediaUrl() {
 // Add play buttons next to media links in metadata and outline timestamps
 function addMp3PlayButtons() {
 	const mediaUrl = findMediaUrl();
-	const titleElement = document.querySelector(".articleTitle h1 a, .articleTitle h1");
+	const titleElement = document.querySelector(".articleTitle h1 .nnw-title-text, .articleTitle h1 a:not(.nnw-top-media-link), .articleTitle h1");
 	const articleTitle = titleElement ? titleElement.textContent : "Podcast";
 
 	// Collect all timestamps for calculating end times
@@ -522,6 +522,49 @@ function addMp3PlayButtons() {
 	}
 }
 
+function wireTopMediaButton() {
+	const topMediaLink = document.querySelector(".articleTitle .nnw-top-media-link");
+	if (!topMediaLink || topMediaLink.dataset.nnwBound === "1") {
+		return;
+	}
+	topMediaLink.dataset.nnwBound = "1";
+
+	topMediaLink.addEventListener("click", function(e) {
+		e.preventDefault();
+		e.stopPropagation();
+
+		const mediaUrl = topMediaLink.dataset.mediaUrl || "";
+		const mediaType = (topMediaLink.dataset.mediaType || "").toLowerCase();
+		if (!mediaUrl) {
+			return;
+		}
+
+		const titleElement = document.querySelector(".articleTitle h1 .nnw-title-text, .articleTitle h1");
+		const articleTitle = titleElement ? titleElement.textContent : "Podcast";
+		const youtubeID = getYouTubeVideoID(mediaUrl);
+
+		if ((mediaType === "youtube" || youtubeID) && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.playVideo && youtubeID) {
+			window.webkit.messageHandlers.playVideo.postMessage({
+				videoID: youtubeID,
+				title: articleTitle,
+				startTime: 0
+			});
+			return;
+		}
+
+		if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.playAudio) {
+			window.webkit.messageHandlers.playAudio.postMessage({
+				url: mediaUrl,
+				title: articleTitle,
+				startTime: 0
+			});
+			return;
+		}
+
+		window.location.href = mediaUrl;
+	});
+}
+
 function processPage() {
 	wrapFrames();
 	wrapTables();
@@ -532,6 +575,7 @@ function processPage() {
 	flattenPreElements();
 	styleLocalFootnotes();
 	removeWpSmiley()
+	wireTopMediaButton();
 	addMp3PlayButtons();
 	postRenderProcessing();
 }

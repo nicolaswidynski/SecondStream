@@ -209,18 +209,19 @@ private extension ArticleRenderer {
 		d["title"] = title
 
 		// Custom source categories:
-		// - YouTube titles should open the enclosure URL.
-		// - Podcast and News titles are not linked.
+		// - YouTube/Podcast titles get a dedicated media icon link beside the title.
+		// - News titles are not linked.
 		let feedCategory = article.feed?.feedCategory ?? .rss
 		if feedCategory == .youtube {
-			let preferredLink = article.mp3URL ?? ""
+			let mediaLink = topTitleMediaLink(for: article, feedCategory: .youtube)
+			let preferredLink = mediaLink ?? article.preferredLink ?? ""
 			d["preferred_link"] = preferredLink
-			if preferredLink.isEmpty {
-				d["title_html"] = title.escapingSpecialXMLCharacters
-			} else {
-				d["title_html"] = "<a href=\"\(preferredLink.escapingSpecialXMLCharacters)\">\(title.escapingSpecialXMLCharacters)</a>"
-			}
-		} else if feedCategory == .podcast || feedCategory == .news {
+			d["title_html"] = renderedTitleHTML(title: title, mediaLink: mediaLink, feedCategory: .youtube)
+		} else if feedCategory == .podcast {
+			let mediaLink = topTitleMediaLink(for: article, feedCategory: .podcast)
+			d["preferred_link"] = ""
+			d["title_html"] = renderedTitleHTML(title: title, mediaLink: mediaLink, feedCategory: .podcast)
+		} else if feedCategory == .news {
 			d["preferred_link"] = ""
 			d["title_html"] = title.escapingSpecialXMLCharacters
 		} else {
@@ -305,6 +306,46 @@ private extension ArticleRenderer {
 		d["time_short"] = Self.shortTimeFormatter.string(from: datePublished)
 
 		return d
+	}
+
+	func topTitleMediaLink(for article: Article, feedCategory: FeedCategory) -> String? {
+		if let mediaLink = article.mp3URL?.trimmingCharacters(in: .whitespacesAndNewlines), !mediaLink.isEmpty {
+			return mediaLink
+		}
+
+		guard feedCategory == .youtube else {
+			return nil
+		}
+
+		let candidates = [article.preferredLink, article.externalLink, article.link]
+		for candidate in candidates {
+			if let resolved = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !resolved.isEmpty {
+				return resolved
+			}
+		}
+		return nil
+	}
+
+	func renderedTitleHTML(title: String, mediaLink: String?, feedCategory: FeedCategory) -> String {
+		let escapedTitle = title.escapingSpecialXMLCharacters
+		let titleSpan = "<span class=\"nnw-title-text\">\(escapedTitle)</span>"
+		guard let mediaLink, !mediaLink.isEmpty else {
+			return titleSpan
+		}
+
+		let accessibilityLabel: String
+		switch feedCategory {
+		case .youtube:
+			accessibilityLabel = NSLocalizedString("Watch Video", comment: "Watch Video")
+		default:
+			accessibilityLabel = NSLocalizedString("Listen", comment: "Listen")
+		}
+
+		let escapedURL = mediaLink.escapingSpecialXMLCharacters
+		let escapedLabel = accessibilityLabel.escapingSpecialXMLCharacters
+		let mediaType: String = (feedCategory == .youtube) ? "youtube" : "podcast"
+		let mediaIconHTML = "<a class=\"nnw-top-media-link\" href=\"#\" data-media-url=\"\(escapedURL)\" data-media-type=\"\(mediaType)\" title=\"\(escapedLabel)\" aria-label=\"\(escapedLabel)\">&#9654;</a>"
+		return "\(titleSpan) \(mediaIconHTML)"
 	}
 
 	func byline() -> String {

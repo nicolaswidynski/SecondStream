@@ -234,6 +234,7 @@ final class ArticleViewController: UIViewController {
 			starBarButtonItem.image = Assets.Images.starOpen
 			starBarButtonItem.accLabelText = NSLocalizedString("Star Article", comment: "Star Article")
 		}
+
 	}
 
 	// MARK: Notifications

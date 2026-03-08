@@ -16,6 +16,12 @@ class MainTimelineFeedCell: UITableViewCell {
 	@IBOutlet var metaDataStackView: UIStackView!
 
     private(set) var usedTitleLineCount: Int = 0
+	private var titleTopConstraint: NSLayoutConstraint?
+	private var metaTopConstraint: NSLayoutConstraint?
+	private var metaBottomConstraint: NSLayoutConstraint?
+	private var defaultTitleTopConstant: CGFloat = 13
+	private var defaultMetaTopConstant: CGFloat = 1
+	private var defaultMetaBottomConstant: CGFloat = 8
 
 	var cellData: MainTimelineCellData! {
 		didSet {
@@ -30,6 +36,36 @@ class MainTimelineFeedCell: UITableViewCell {
 			super.awakeFromNib()
 			indicatorView.alpha = 0.0
 			configureStackView()
+			cacheLayoutConstraints()
+			articleDate.setContentCompressionResistancePriority(.required, for: .horizontal)
+			articleTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+		}
+	}
+
+	private func cacheLayoutConstraints() {
+		for constraint in contentView.constraints {
+			if let firstView = constraint.firstItem as? UIView, firstView == articleTitle, constraint.firstAttribute == .top {
+				titleTopConstraint = constraint
+				defaultTitleTopConstant = constraint.constant
+			}
+			if let firstView = constraint.firstItem as? UIView,
+			   firstView == metaDataStackView,
+			   constraint.firstAttribute == .top,
+			   let secondView = constraint.secondItem as? UIView,
+			   secondView == articleTitle,
+			   constraint.secondAttribute == .bottom {
+				metaTopConstraint = constraint
+				defaultMetaTopConstant = constraint.constant
+			}
+			if let firstGuide = constraint.firstItem as? UILayoutGuide,
+			   firstGuide == contentView.safeAreaLayoutGuide,
+			   constraint.firstAttribute == .bottom,
+			   let secondView = constraint.secondItem as? UIView,
+			   secondView == metaDataStackView,
+			   constraint.secondAttribute == .bottom {
+				metaBottomConstraint = constraint
+				defaultMetaBottomConstant = constraint.constant
+			}
 		}
 	}
 
@@ -59,8 +95,26 @@ class MainTimelineFeedCell: UITableViewCell {
 		} else if cellData.showFeedName == .none {
 			authorByLine.text = ""
 		}
+		applySecondaryTextLayout()
 
 		articleDate.text = cellData.dateString
+	}
+
+	private func applySecondaryTextLayout() {
+		let hasSecondaryText = !(authorByLine.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+		authorByLine.isHidden = !hasSecondaryText
+
+		if hasSecondaryText {
+			titleTopConstraint?.constant = defaultTitleTopConstant
+			metaTopConstraint?.constant = defaultMetaTopConstant
+			metaBottomConstraint?.constant = defaultMetaBottomConstant
+			return
+		}
+
+		// Title-only cells can feel too sparse; tighten vertical spacing to visually center title/date.
+		titleTopConstraint?.constant = max(8, defaultTitleTopConstant + 2)
+		metaTopConstraint?.constant = -2
+		metaBottomConstraint?.constant = max(6, defaultMetaBottomConstant + 1)
 	}
 
 	private func updateIndicatorView(_ cellData: MainTimelineCellData) {

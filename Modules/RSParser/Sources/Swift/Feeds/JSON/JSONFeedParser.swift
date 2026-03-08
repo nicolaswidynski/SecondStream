@@ -193,7 +193,7 @@ private extension JSONFeedParser {
 		let isTopicsEntry = uniqueID.hasPrefix("topics/")
 		let title = entryTitle ?? (isTopicsEntry ? nil : inferredTitle)
 		let contentText = contentTextFromGeneratedContent(entryContent)
-		let mediaLink = nonEmptyString(itemDictionary[Key.mediaLink])
+		let mediaLink = parseGeneratedMediaLink(itemDictionary, entryContent)
 		let datePublished = parseDate(nonEmptyString(itemDictionary[Key.airDate])) ?? parseDateFromGeneratedContent(entryContent) ?? fallbackModifiedDate
 
 		if title == nil && contentJSON == nil && contentText == nil {
@@ -425,6 +425,23 @@ private extension JSONFeedParser {
 				continue
 			}
 			return parsedDate
+		}
+
+		return nil
+	}
+
+	static func parseGeneratedMediaLink(_ itemDictionary: JSONDictionary, _ content: Any?) -> String? {
+		if let mediaLink = nonEmptyString(itemDictionary[Key.mediaLink]) {
+			return mediaLink
+		}
+
+		guard let dictionary = content as? JSONDictionary else {
+			return nil
+		}
+
+		if let metadata = dictionary[Key.metadata] as? JSONDictionary,
+		   let media = nonEmptyString(metadata["media"]) {
+			return media
 		}
 
 		return nil
