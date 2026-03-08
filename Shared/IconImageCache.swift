@@ -21,6 +21,11 @@ import Articles
 	private var smallIconImageCache = [SidebarItemIdentifier: IconImage]()
 	private var authorIconImageCache = [Author: IconImage]()
 
+	init() {
+		NotificationCenter.default.addObserver(self, selector: #selector(feedIconDidBecomeAvailable(_:)), name: .feedIconDidBecomeAvailable, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(feedSettingDidChange(_:)), name: .feedSettingDidChange, object: nil)
+	}
+
 	func imageFor(_ feedID: SidebarItemIdentifier) -> IconImage? {
 		if let smartFeed = SmartFeedsController.shared.find(by: feedID) {
 			return imageForFeed(smartFeed)
@@ -66,6 +71,34 @@ import Articles
 		smallIconImageCache = [SidebarItemIdentifier: IconImage]()
 		authorIconImageCache = [Author: IconImage]()
 	}
+
+	@objc func feedIconDidBecomeAvailable(_ note: Notification) {
+		guard let feed = note.userInfo?[UserInfoKey.feed] as? Feed else {
+			return
+		}
+		invalidateFeedCaches(feed)
+	}
+
+	@objc func feedSettingDidChange(_ note: Notification) {
+		guard let feed = note.object as? Feed else {
+			return
+		}
+		guard let key = note.userInfo?[Feed.SettingUserInfoKey] as? String else {
+			invalidateFeedCaches(feed)
+			return
+		}
+		if key == Feed.SettingKey.iconURL || key == Feed.SettingKey.faviconURL || key == Feed.SettingKey.homePageURL {
+			invalidateFeedCaches(feed)
+		}
+	}
+
+	private func invalidateFeedCaches(_ feed: Feed) {
+		guard let feedID = feed.sidebarItemID else {
+			return
+		}
+		feedIconImageCache[feedID] = nil
+		faviconImageCache[feedID] = nil
+	}
 }
 
 private extension IconImageCache {
@@ -82,11 +115,27 @@ private extension IconImageCache {
 	}
 
 	func imageForFeed(_ feed: Feed, _ feedID: SidebarItemIdentifier) -> IconImage? {
-		if let iconImage = feedIconImageCache[feedID] {
+		let prefersGeneratedSourceIcon = {
+			switch feed.feedCategory {
+			case .podcast, .youtube, .news:
+				if let iconURL = feed.iconURL?.trimmingCharacters(in: .whitespacesAndNewlines), !iconURL.isEmpty {
+					return true
+				}
+				return false
+			case .rss:
+				return false
+			}
+		}()
+
+		if !prefersGeneratedSourceIcon, let iconImage = feedIconImageCache[feedID] {
 			return iconImage
 		}
 		if let iconImage = FeedIconDownloader.shared.icon(for: feed) {
 			feedIconImageCache[feedID] = iconImage
+			return iconImage
+		}
+		if prefersGeneratedSourceIcon, let iconImage = feedIconImageCache[feedID] {
+			// Keep currently visible icon while async refresh runs, but always prioritize downloader first.
 			return iconImage
 		}
 		if let faviconImage = faviconImageCache[feedID] {

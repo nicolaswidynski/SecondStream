@@ -487,27 +487,6 @@ static NSString *daringFireballPermalinkPrefix = @"https://daringfireball.net/";
 	NSDictionary *json = (NSDictionary *)object;
 	NSMutableString *html = [NSMutableString string];
 
-	NSArray *guests = json[@"guests"];
-	if ([guests isKindOfClass:[NSArray class]] && guests.count > 0) {
-		[html appendString:@"<h2>Guest(s)</h2><ul>"];
-		for (id guest in guests) {
-			if (![guest isKindOfClass:[NSDictionary class]]) {
-				continue;
-			}
-			NSString *name = [self htmlEscapedString:((NSDictionary *)guest)[@"name"]];
-			NSString *description = [self htmlEscapedString:((NSDictionary *)guest)[@"description"]];
-			if (RSParserStringIsEmpty(name)) {
-				continue;
-			}
-			[html appendFormat:@"<li><strong>%@</strong>", name];
-			if (!RSParserStringIsEmpty(description)) {
-				[html appendFormat:@": %@", description];
-			}
-			[html appendString:@"</li>"];
-		}
-		[html appendString:@"</ul>"];
-	}
-
 	NSDictionary *summary = json[@"summary"];
 	if ([summary isKindOfClass:[NSDictionary class]]) {
 		[self appendTitledContentArray:summary[@"thesis"] title:@"Executive Summary" into:html];

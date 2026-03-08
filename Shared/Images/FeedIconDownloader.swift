@@ -26,6 +26,7 @@ extension Notification.Name {
 	private var homePagesWithNoIconURL = Set<String>()
 	private var cache = [Feed: IconImage]()
 	private var waitingForFeedURLs = [String: Feed]()
+	private var feedIDToResolvedIconURL = [String: String]()
 
 	private var feedURLToIconURLCache = [String: String]()
 	private var feedURLToIconURLCachePath: URL
@@ -42,9 +43,35 @@ extension Notification.Name {
 		loadFeedURLToIconURLCache()
 
 		NotificationCenter.default.addObserver(self, selector: #selector(imageDidBecomeAvailable(_:)), name: .imageDidBecomeAvailable, object: imageDownloader)
+		NotificationCenter.default.addObserver(self, selector: #selector(feedSettingDidChange(_:)), name: .feedSettingDidChange, object: nil)
 	}
 
 	func icon(for feed: Feed) -> IconImage? {
+
+		if let preferredCustomIconURL = preferredIconURLForGeneratedSource(feed) {
+			let lastResolved = feedIDToResolvedIconURL[feed.feedID]
+			if lastResolved != preferredCustomIconURL {
+				cache[feed] = nil
+				feedIDToResolvedIconURL[feed.feedID] = preferredCustomIconURL
+				cacheIconURLForFeedURL(iconURL: preferredCustomIconURL, feedURL: feed.url)
+			}
+
+			if let cachedImage = cache[feed], feedIDToResolvedIconURL[feed.feedID] == preferredCustomIconURL {
+				return cachedImage
+			}
+
+			icon(forURL: preferredCustomIconURL, feed: feed) { image in
+				MainActor.assumeIsolated {
+					if let image {
+						self.cache[feed] = IconImage(image)
+						self.feedIDToResolvedIconURL[feed.feedID] = preferredCustomIconURL
+						self.cacheIconURLForFeedURL(iconURL: preferredCustomIconURL, feedURL: feed.url)
+						self.postFeedIconDidBecomeAvailableNotification(feed)
+					}
+				}
+			}
+			return nil
+		}
 
 		if let cachedImage = cache[feed] {
 			return cachedImage
@@ -98,6 +125,7 @@ extension Notification.Name {
 					if let image {
 						self.postFeedIconDidBecomeAvailableNotification(feed)
 						self.cache[feed] = IconImage(image)
+						self.feedIDToResolvedIconURL[feed.feedID] = previouslyFoundIconURL
 					}
 				}
 			}
@@ -117,9 +145,35 @@ extension Notification.Name {
 		waitingForFeedURLs[url] = nil
 		_ = icon(for: feed)
 	}
+
+	@objc func feedSettingDidChange(_ note: Notification) {
+		guard let feed = note.object as? Feed else {
+			return
+		}
+		guard let key = note.userInfo?[Feed.SettingUserInfoKey] as? String else {
+			invalidateCachedIconState(for: feed)
+			return
+		}
+		if key == Feed.SettingKey.iconURL || key == Feed.SettingKey.faviconURL || key == Feed.SettingKey.homePageURL {
+			invalidateCachedIconState(for: feed)
+		}
+	}
 }
 
 private extension FeedIconDownloader {
+
+	func preferredIconURLForGeneratedSource(_ feed: Feed) -> String? {
+		switch feed.feedCategory {
+		case .podcast, .youtube, .news:
+			guard let iconURL = feed.iconURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+				  !iconURL.isEmpty else {
+				return nil
+			}
+			return iconURL
+		case .rss:
+			return nil
+		}
+	}
 
 	static let specialCasesToSkip = ["macsparky.com", "xkcd.com", SpecialCase.rachelByTheBayHostName, SpecialCase.openRSSOrgHostName]
 
@@ -183,6 +237,16 @@ private extension FeedIconDownloader {
 
 		feedURLToIconURLCache[feedURL] = iconURL
 		feedURLToIconURLCacheDirty = true
+	}
+
+	func invalidateCachedIconState(for feed: Feed) {
+		cache[feed] = nil
+		feedIDToResolvedIconURL[feed.feedID] = nil
+		feedURLToIconURLCache[feed.url] = nil
+		feedURLToIconURLCacheDirty = true
+		if let homePageURL = feed.homePageURL {
+			homePagesWithNoIconURL.remove(homePageURL)
+		}
 	}
 
 	func loadFeedURLToIconURLCache() {

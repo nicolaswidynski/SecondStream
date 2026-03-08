@@ -30,8 +30,7 @@ import Articles
 		self.title = ArticleStringFormatter.truncatedTitle(article)
 		self.attributedTitle = ArticleStringFormatter.attributedTruncatedTitle(article)
 
-		// Listing view is title-only: suppress content snippets.
-		self.summary = ""
+		self.summary = MainTimelineCellData.listingSummary(for: article)
 
 		self.dateString = ArticleStringFormatter.dateString(article.logicalDatePublished)
 
@@ -57,6 +56,96 @@ import Articles
 		self.numberOfLines = numberOfLines
 		self.iconSize = iconSize
 
+	}
+
+	private static func listingSummary(for article: Article) -> String {
+		guard let category = article.feed?.feedCategory else {
+			return ""
+		}
+
+		switch category {
+		case .podcast, .youtube:
+			return firstSummaryContentLine(from: article.contentJSON)
+		case .news:
+			return firstNewsTitle(from: article.contentJSON)
+		default:
+			return ""
+		}
+	}
+
+	private static func firstSummaryContentLine(from contentJSONString: String?) -> String {
+		guard let contentJSONString,
+			  let data = contentJSONString.data(using: .utf8),
+			  let root = try? JSONSerialization.jsonObject(with: data),
+			  let dictionary = root as? [String: Any] else {
+			return ""
+		}
+
+		if let summaryItems = dictionary["summary"] as? [[String: Any]] {
+			for item in summaryItems {
+				if let content = normalizedLine(item["content"]) {
+					return content
+				}
+			}
+		}
+
+		// Backward compatibility with older generated format where summary contains thesis/practical.
+		if let summaryDictionary = dictionary["summary"] as? [String: Any],
+		   let thesisItems = summaryDictionary["thesis"] as? [[String: Any]] {
+			for item in thesisItems {
+				if let content = normalizedLine(item["content"]) {
+					return content
+				}
+			}
+		}
+
+		if let practicalItems = dictionary["practical_applications"] as? [[String: Any]] {
+			for item in practicalItems {
+				if let content = normalizedLine(item["content"]) {
+					return content
+				}
+			}
+		}
+
+		return ""
+	}
+
+	private static func firstNewsTitle(from contentJSONString: String?) -> String {
+		guard let contentJSONString,
+			  let data = contentJSONString.data(using: .utf8),
+			  let root = try? JSONSerialization.jsonObject(with: data) else {
+			return ""
+		}
+
+		if let items = root as? [[String: Any]] {
+			for item in items {
+				if let title = normalizedLine(item["title"]) {
+					return title
+				}
+			}
+		}
+
+		if let dictionary = root as? [String: Any],
+		   let items = dictionary["data"] as? [[String: Any]] {
+			for item in items {
+				if let title = normalizedLine(item["title"]) {
+					return title
+				}
+			}
+		}
+
+		return ""
+	}
+
+	private static func normalizedLine(_ value: Any?) -> String? {
+		guard let raw = value as? String else {
+			return nil
+		}
+		let cleaned = raw
+			.replacingOccurrences(of: "\n", with: " ")
+			.replacingOccurrences(of: "\r", with: " ")
+			.trimmingCharacters(in: .whitespacesAndNewlines)
+		return cleaned.isEmpty ? nil : cleaned
 	}
 
 	init() { // Empty

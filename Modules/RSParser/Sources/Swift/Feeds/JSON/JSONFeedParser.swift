@@ -242,23 +242,6 @@ private extension JSONFeedParser {
 			blocks.append("<hr><details><summary><strong>Timestamps</strong></summary><ul class=\"nnw-generated-bullet-list nnw-generated-timestamps-list\">\(timestampLines.joined())</ul></details><hr>")
 		}
 
-		if let guests = dictionary["guests"] as? JSONArray, !guests.isEmpty {
-			let lines = guests.compactMap { item -> String? in
-				let name = nonEmptyString(item[Key.name]) ?? ""
-				guard !name.isEmpty else { return nil }
-				let description = nonEmptyString(item["description"]) ?? ""
-				if description.isEmpty {
-					return "<li class=\"nnw-generated-bullet-item\">\(htmlEscaped(name))</li>"
-				}
-				return "<li class=\"nnw-generated-bullet-item\">\(htmlEscaped(name)): \(htmlEscaped(description))</li>"
-			}
-			if !lines.isEmpty {
-				blocks.append("<h2>Guest(s)</h2><ul class=\"nnw-generated-bullet-list\">\(lines.joined())</ul>")
-			}
-		}
-
-	//	var summaryBlocks = [String]()
-
 		let summaryBlocks = titledContentLinesHTML(from: dictionary[Key.summary])
 		if !summaryBlocks.isEmpty {
 			blocks.append("<h2>Summary</h2><ul class=\"nnw-generated-bullet-list\">\(summaryBlocks.joined())</ul>")
