@@ -313,6 +313,22 @@ blockquote {
 	border-inline-start: 3px solid var(--block-quote-border-color);
 }
 
+/* Generated show/article bullet styling */
+.articleBody ul.nnw-generated-bullet-list {
+	margin: 0.35em 0 0.7em 0 !important;
+	padding-left: 1.5em !important;
+	list-style-type: disc !important;
+	list-style-position: outside !important;
+}
+
+.articleBody li.nnw-generated-bullet-item {
+	margin-left: 0.28em !important;
+}
+
+.articleBody ul.nnw-generated-timestamps-list {
+	font-size: 0.84em !important;
+}
+
 /* Collapsible Sections */
 
 .nnw-collapsible {

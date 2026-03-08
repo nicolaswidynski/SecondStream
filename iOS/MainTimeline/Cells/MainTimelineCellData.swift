@@ -11,8 +11,6 @@ import Articles
 
 @MainActor struct MainTimelineCellData {
 
-	private static let noText = NSLocalizedString("(No Text)", comment: "No Text")
-
 	let title: String
 	let attributedTitle: NSAttributedString
 	let summary: String
@@ -32,12 +30,8 @@ import Articles
 		self.title = ArticleStringFormatter.truncatedTitle(article)
 		self.attributedTitle = ArticleStringFormatter.attributedTruncatedTitle(article)
 
-		let truncatedSummary = ArticleStringFormatter.truncatedSummary(article)
-		if self.title.isEmpty && truncatedSummary.isEmpty {
-			self.summary = Self.noText
-		} else {
-			self.summary = truncatedSummary
-		}
+		// Listing view is title-only: suppress content snippets.
+		self.summary = ""
 
 		self.dateString = ArticleStringFormatter.dateString(article.logicalDatePublished)
 

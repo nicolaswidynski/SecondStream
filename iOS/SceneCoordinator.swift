@@ -639,6 +639,9 @@ struct SidebarItemNode: Hashable, Sendable {
 		guard let feed = notification.userInfo?[UserInfoKey.feed] as? Feed else {
 			return
 		}
+		if notification.userInfo?[UserInfoKey.suppressFeedDisclosure] as? Bool == true {
+			return
+		}
 		discloseFeed(feed, animations: [.scroll, .navigation])
 	}
 
@@ -1177,15 +1180,16 @@ struct SidebarItemNode: Hashable, Sendable {
 			articleViewController?.restoreScrollPosition = (isShowingExtractedArticle, articleWindowScrollY)
 		}
 
-		rootSplitViewController.show(.secondary)
+			rootSplitViewController.show(.secondary)
 
-		// For interactive swipe-open, defer marking read until finish to avoid side effects on cancel.
-		if isInteractiveArticleOpenTransitionActive {
-			deferredReadMarkArticle = article
-		} else {
-			// Mark article as read before navigating to it, so the read status does not flash unread/read on display
-			markArticles(Set([article!]), statusKey: .read, flag: true)
-		}
+			// For interactive swipe-open, defer marking read until finish to avoid side effects on cancel.
+			if isInteractiveArticleOpenTransitionActive {
+				deferredReadMarkArticle = article
+			} else {
+				// Mark article as read before navigating to it, so the read status does not flash unread/read on display
+				pendingRowDistanceReferenceArticleID = article!.articleID
+				markArticles(Set([article!]), statusKey: .read, flag: true)
+			}
 
 		mainTimelineViewController?.updateArticleSelection(animations: animations)
 	}
@@ -1225,9 +1229,10 @@ struct SidebarItemNode: Hashable, Sendable {
 		interactiveArticleOpenTransition = nil
 		isInteractiveArticleOpenTransitionActive = false
 
-		if let article = deferredReadMarkArticle {
-			markArticles(Set([article]), statusKey: .read, flag: true)
-		}
+			if let article = deferredReadMarkArticle {
+				pendingRowDistanceReferenceArticleID = article.articleID
+				markArticles(Set([article]), statusKey: .read, flag: true)
+			}
 		deferredReadMarkArticle = nil
 	}
 
@@ -1848,6 +1853,9 @@ struct SidebarItemNode: Hashable, Sendable {
 		lines.append("--- Row Distance Debug ---")
 		if let timelineVC = mainTimelineViewController {
 			lines.append(String(format: "rowDistance.duration: %.3fs", timelineVC.lastRowDistanceAnimationDuration))
+			lines.append(String(format: "rowDistance.rawDuration: %.3fs", timelineVC.lastRowDistanceRawDuration))
+			lines.append("rowDistance.minApplied: \(timelineVC.lastRowDistanceMinApplied)")
+			lines.append(String(format: "rowDistance.secondsPerRow: %.3f", timelineVC.debugRowDistanceSecondsPerRow))
 			lines.append("rowDistance.mode: \(timelineVC.lastRowDistanceMode)")
 			lines.append("rowDistance.listCount: \(timelineVC.lastRowDistanceListCount)")
 			lines.append("rowDistance.referenceID: \(timelineVC.lastRowDistanceResolvedReferenceArticleID ?? "nil")")
@@ -2131,6 +2139,7 @@ private extension SceneCoordinator {
 		guard !article.status.read else {
 			return
 		}
+		pendingRowDistanceReferenceArticleID = article.articleID
 		markArticles(Set([article]), statusKey: .read, flag: true)
 	}
 

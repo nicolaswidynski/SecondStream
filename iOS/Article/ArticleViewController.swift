@@ -32,14 +32,9 @@ final class ArticleViewController: UIViewController {
 	private var lastNavigationIconKey: String?
 
 	private var pageViewController: UIPageViewController!
-	private var structuredArticleViewController: StructuredArticleContentViewController?
 
 	private var currentWebViewController: WebViewController? {
 		return pageViewController?.viewControllers?.first as? WebViewController
-	}
-
-	private var isShowingStructuredArticleView: Bool {
-		return !(structuredArticleViewController?.view.isHidden ?? true)
 	}
 
 	private var ttsBarButtonItem: UIBarButtonItem?
@@ -56,8 +51,6 @@ final class ArticleViewController: UIViewController {
 					self.pageViewController.setViewControllers([controller], direction: .forward, animated: false, completion: nil)
 				}
 			}
-			structuredArticleViewController?.setArticle(article)
-			updateContentPresentation()
 			updateUI()
 		}
 	}
@@ -137,36 +130,21 @@ final class ArticleViewController: UIViewController {
 			controller.setScrollPosition(isShowingExtractedArticle: rsp.isShowingExtractedArticle, articleWindowScrollY: rsp.articleWindowScrollY)
 		}
 
-			self.pageViewController.setViewControllers([controller], direction: .forward, animated: false, completion: nil)
-			if AppDefaults.shared.logicalArticleFullscreenEnabled {
-				controller.hideBars()
-			}
+		self.pageViewController.setViewControllers([controller], direction: .forward, animated: false, completion: nil)
+		if AppDefaults.shared.logicalArticleFullscreenEnabled {
+			controller.hideBars()
+		}
 
-			let structuredController = StructuredArticleContentViewController()
-			structuredController.view.translatesAutoresizingMaskIntoConstraints = false
-			view.addSubview(structuredController.view)
-			addChild(structuredController)
-			NSLayoutConstraint.activate([
-				view.leadingAnchor.constraint(equalTo: structuredController.view.leadingAnchor),
-				view.trailingAnchor.constraint(equalTo: structuredController.view.trailingAnchor),
-				view.topAnchor.constraint(equalTo: structuredController.view.topAnchor),
-				view.bottomAnchor.constraint(equalTo: structuredController.view.bottomAnchor)
-			])
-			structuredController.didMove(toParent: self)
-			structuredController.setArticle(article)
-			structuredArticleViewController = structuredController
-
-			// Search bar
-			searchBar.translatesAutoresizingMaskIntoConstraints = false
+		// Search bar
+		searchBar.translatesAutoresizingMaskIntoConstraints = false
 		NotificationCenter.default.addObserver(self, selector: #selector(beginFind(_:)), name: .FindInArticle, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(endFind(_:)), name: .EndFindInArticle, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillChangeFrame(_:)), name: UIWindow.keyboardWillChangeFrameNotification, object: nil)
-			searchBar.delegate = self
-			view.bringSubviewToFront(searchBar)
+		searchBar.delegate = self
+		view.bringSubviewToFront(searchBar)
 
-			updateContentPresentation()
-			updateUI()
-		}
+		updateUI()
+	}
 
 	override func viewWillAppear(_ animated: Bool) {
 		let hideToolbars = AppDefaults.shared.logicalArticleFullscreenEnabled
@@ -278,7 +256,6 @@ final class ArticleViewController: UIViewController {
 
 	@objc func contentSizeCategoryDidChange(_ note: Notification) {
 		currentWebViewController?.fullReload()
-		structuredArticleViewController?.setArticle(article)
 	}
 
 	@objc func feedIconDidBecomeAvailable(_ note: Notification) {
@@ -347,22 +324,13 @@ final class ArticleViewController: UIViewController {
 			// TTS is active - stop it
 			TextToSpeechManager.shared.stop()
 		} else {
-			let startTTS: (String?) -> Void = { [weak self] text in
+			currentWebViewController?.getArticleText { [weak self] text in
 				guard let text, !text.isEmpty else {
 					return
 				}
 				let voiceIdentifier = AppDefaults.shared.ttsVoiceIdentifier
 				TextToSpeechManager.shared.speak(text: text, voiceIdentifier: voiceIdentifier)
 				self?.updateUI()
-			}
-
-			// Start TTS with current article content.
-			if isShowingStructuredArticleView {
-				startTTS(structuredArticleViewController?.articleTextForSpeech())
-			} else {
-				currentWebViewController?.getArticleText { text in
-					startTTS(text)
-				}
 			}
 		}
 		updateUI()
@@ -385,32 +353,18 @@ final class ArticleViewController: UIViewController {
 	}
 
 	func canScrollDown() -> Bool {
-		if isShowingStructuredArticleView {
-			return structuredArticleViewController?.canScrollDown() ?? false
-		}
 		return currentWebViewController?.canScrollDown() ?? false
 	}
 
 	func canScrollUp() -> Bool {
-		if isShowingStructuredArticleView {
-			return structuredArticleViewController?.canScrollUp() ?? false
-		}
 		return currentWebViewController?.canScrollUp() ?? false
 	}
 
 	func scrollPageDown() {
-		if isShowingStructuredArticleView {
-			structuredArticleViewController?.scrollPageDown()
-			return
-		}
 		currentWebViewController?.scrollPageDown()
 	}
 
 	func scrollPageUp() {
-		if isShowingStructuredArticleView {
-			structuredArticleViewController?.scrollPageUp()
-			return
-		}
 		currentWebViewController?.scrollPageUp()
 	}
 
@@ -467,9 +421,6 @@ extension ArticleViewController: SearchBarDelegate {
 extension ArticleViewController {
 
 	@objc func beginFind(_ _: Any? = nil) {
-		if isShowingStructuredArticleView {
-			return
-		}
 		searchBar.isHidden = false
 		navigationController?.setToolbarHidden(true, animated: true)
 		currentWebViewController?.additionalSafeAreaInsets.bottom = searchBar.frame.height
@@ -548,17 +499,6 @@ extension ArticleViewController: UIPageViewControllerDelegate {
 
 private extension ArticleViewController {
 
-	func shouldUseStructuredArticleView(for article: Article?) -> Bool {
-		_ = article
-		return false
-	}
-
-	func updateContentPresentation() {
-		let shouldShowStructured = shouldUseStructuredArticleView(for: article)
-		pageViewController?.view.isHidden = shouldShowStructured
-		structuredArticleViewController?.view.isHidden = !shouldShowStructured
-	}
-
 	func configureToolbarAsSingleBlock() {
 		guard let ttsBarButtonItem else {
 			return
@@ -635,642 +575,4 @@ private extension ArticleViewController {
 		lastNavigationIconKey = iconKey
 	}
 
-}
-
-private final class StructuredArticleContentViewController: UIViewController {
-	private struct RowModel {
-		let id = UUID()
-		let text: NSAttributedString
-		let actionURL: URL?
-	}
-
-	private struct SectionModel {
-		let id = UUID()
-		let title: String?
-		let rows: [RowModel]
-		let collapsible: Bool
-	}
-
-	private struct ShowArticleContent: Decodable {
-		struct Guest: Decodable {
-			let name: String
-			let description: String?
-		}
-
-		struct TitledContent: Decodable {
-			let title: String
-			let content: String
-		}
-
-		struct Timestamp: Decodable {
-			let timestamp: String
-			let content: String
-		}
-
-		struct Summary: Decodable {
-			private enum CodingKeys: String, CodingKey {
-				case thesis
-				case practical
-			}
-
-			let thesis: [TitledContent]
-			let practical: [TitledContent]
-
-			init(from decoder: Decoder) throws {
-				let container = try decoder.container(keyedBy: CodingKeys.self)
-				self.thesis = try container.decodeIfPresent([TitledContent].self, forKey: .thesis) ?? []
-				self.practical = try container.decodeIfPresent([TitledContent].self, forKey: .practical) ?? []
-			}
-		}
-
-		private enum CodingKeys: String, CodingKey {
-			case guests
-			case summary
-			case inDepthAnalysis = "in_depth_analysis"
-			case timestamps
-		}
-
-		let guests: [Guest]
-		let summary: Summary?
-		let inDepthAnalysis: [TitledContent]
-		let timestamps: [Timestamp]
-	}
-
-	private struct TopicFeedContainer: Decodable {
-		let data: [TopicItem]
-	}
-
-	private struct TopicItem: Decodable {
-		struct Metadata: Decodable {
-			let link: String?
-			let author: String?
-			let pubDate: String?
-		}
-
-		private enum CodingKeys: String, CodingKey {
-			case title
-			case summary
-			case metadata
-		}
-
-		let title: String?
-		let summary: String?
-		let summaryList: [String]
-		let metadata: Metadata?
-
-		init(from decoder: Decoder) throws {
-			let container = try decoder.container(keyedBy: CodingKeys.self)
-			title = try container.decodeIfPresent(String.self, forKey: .title)
-			metadata = try container.decodeIfPresent(Metadata.self, forKey: .metadata)
-
-			if let list = try? container.decode([String].self, forKey: .summary) {
-				summaryList = list
-				summary = nil
-			} else {
-				summary = try container.decodeIfPresent(String.self, forKey: .summary)
-				summaryList = []
-			}
-		}
-	}
-
-	private var article: Article?
-	private var sectionModels = [SectionModel]()
-	private var sectionLookup = [UUID: SectionModel]()
-	private var rowLookup = [UUID: RowModel]()
-	private var expandedSections = Set<UUID>()
-	private var currentHeaderMode: UICollectionLayoutListConfiguration.HeaderMode = .supplementary
-
-	private var collectionView: UICollectionView!
-	private var dataSource: UICollectionViewDiffableDataSource<UUID, UUID>!
-
-	override func viewDidLoad() {
-		super.viewDidLoad()
-		view.backgroundColor = .systemBackground
-		configureCollectionView()
-		configureDataSource()
-		applySnapshot(animated: false)
-	}
-
-	func setArticle(_ article: Article?) {
-		self.article = article
-		rebuildSections()
-		applySnapshot(animated: false)
-	}
-
-	func articleTextForSpeech() -> String? {
-		let rows = sectionModels.flatMap(\.rows)
-		guard !rows.isEmpty else {
-			return article?.title
-		}
-		return rows.map { $0.text.string }.joined(separator: "\n\n")
-	}
-
-	func canScrollDown() -> Bool {
-		return collectionView.contentOffset.y + collectionView.bounds.height < collectionView.contentSize.height - 1
-	}
-
-	func canScrollUp() -> Bool {
-		return collectionView.contentOffset.y > 1
-	}
-
-	func scrollPageDown() {
-		let target = min(collectionView.contentOffset.y + (collectionView.bounds.height * 0.8), max(collectionView.contentSize.height - collectionView.bounds.height, 0))
-		collectionView.setContentOffset(CGPoint(x: 0, y: target), animated: true)
-	}
-
-	func scrollPageUp() {
-		let target = max(collectionView.contentOffset.y - (collectionView.bounds.height * 0.8), 0)
-		collectionView.setContentOffset(CGPoint(x: 0, y: target), animated: true)
-	}
-}
-
-private extension StructuredArticleContentViewController {
-	private func configureCollectionView() {
-		let layout = makeLayout(headerMode: currentHeaderMode)
-
-		collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
-		collectionView.translatesAutoresizingMaskIntoConstraints = false
-		collectionView.backgroundColor = .clear
-		collectionView.delegate = self
-		view.addSubview(collectionView)
-
-		NSLayoutConstraint.activate([
-			view.leadingAnchor.constraint(equalTo: collectionView.leadingAnchor),
-			view.trailingAnchor.constraint(equalTo: collectionView.trailingAnchor),
-			view.topAnchor.constraint(equalTo: collectionView.topAnchor),
-			view.bottomAnchor.constraint(equalTo: collectionView.bottomAnchor)
-		])
-	}
-
-	private func makeLayout(headerMode: UICollectionLayoutListConfiguration.HeaderMode) -> UICollectionViewCompositionalLayout {
-		var listConfig = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
-		listConfig.headerMode = headerMode
-		return UICollectionViewCompositionalLayout.list(using: listConfig)
-	}
-
-	private func updateLayoutHeaderModeIfNeeded(_ mode: UICollectionLayoutListConfiguration.HeaderMode) {
-		guard currentHeaderMode != mode else {
-			return
-		}
-		currentHeaderMode = mode
-		let newLayout = makeLayout(headerMode: mode)
-		collectionView.setCollectionViewLayout(newLayout, animated: false)
-	}
-
-	private func configureDataSource() {
-		let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, UUID> { [weak self] cell, _, rowID in
-			guard let row = self?.rowLookup[rowID] else {
-				return
-			}
-
-			var content = UIListContentConfiguration.cell()
-			content.textProperties.numberOfLines = 0
-			content.textProperties.adjustsFontForContentSizeCategory = true
-			content.attributedText = self?.displayText(for: row) ?? row.text
-			cell.contentConfiguration = content
-			cell.isUserInteractionEnabled = row.actionURL != nil
-		}
-
-		let headerRegistration = UICollectionView.SupplementaryRegistration<StructuredArticleSectionHeaderView>(elementKind: UICollectionView.elementKindSectionHeader) { [weak self] view, _, indexPath in
-			guard let self else {
-				return
-			}
-			let sectionID = self.dataSource.snapshot().sectionIdentifiers[indexPath.section]
-			guard let section = self.sectionLookup[sectionID],
-				  let title = section.title else {
-				view.onTap = nil
-				return
-			}
-			let isExpanded = self.expandedSections.contains(sectionID)
-			view.configure(title: title, isExpanded: isExpanded, showsDisclosure: section.collapsible)
-			if section.collapsible {
-				view.onTap = { [weak self] in
-					self?.toggleSection(sectionID: sectionID)
-				}
-			} else {
-				view.onTap = nil
-			}
-		}
-
-		dataSource = UICollectionViewDiffableDataSource<UUID, UUID>(collectionView: collectionView) { collectionView, indexPath, itemID in
-			collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: itemID)
-		}
-
-		dataSource.supplementaryViewProvider = { [weak self] collectionView, _, indexPath in
-			guard let self else { return nil }
-			let sectionID = self.dataSource.snapshot().sectionIdentifiers[indexPath.section]
-			guard let section = self.sectionLookup[sectionID], section.title != nil else {
-				return nil
-			}
-			return collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
-		}
-	}
-
-	private func toggleSection(sectionID: UUID) {
-		guard let section = sectionLookup[sectionID], section.collapsible else {
-			return
-		}
-		if expandedSections.contains(sectionID) {
-			expandedSections.remove(sectionID)
-		} else {
-			expandedSections.insert(sectionID)
-		}
-		applySnapshot(animated: true)
-	}
-
-	private func applySnapshot(animated: Bool) {
-		sectionLookup = Dictionary(uniqueKeysWithValues: sectionModels.map { ($0.id, $0) })
-		rowLookup = Dictionary(uniqueKeysWithValues: sectionModels.flatMap { section in
-			section.rows.map { ($0.id, $0) }
-		})
-
-		var snapshot = NSDiffableDataSourceSnapshot<UUID, UUID>()
-		let sectionIDs = sectionModels.map(\.id)
-		snapshot.appendSections(sectionIDs)
-
-		for section in sectionModels {
-			let shouldShowRows = !section.collapsible || expandedSections.contains(section.id)
-			if shouldShowRows {
-				snapshot.appendItems(section.rows.map(\.id), toSection: section.id)
-			}
-		}
-
-		dataSource.apply(snapshot, animatingDifferences: animated)
-	}
-
-	private func rebuildSections() {
-		guard let article,
-			  let category = article.feed?.feedCategory else {
-			sectionModels = []
-			expandedSections = []
-			return
-		}
-
-		updateLayoutHeaderModeIfNeeded(category == .news ? .none : .supplementary)
-
-		switch category {
-		case .podcast, .youtube:
-			sectionModels = buildShowSections(from: article.contentJSON)
-		case .news:
-			sectionModels = buildTopicSections(from: article.contentJSON)
-		case .rss:
-			sectionModels = []
-		}
-
-		expandedSections = Set(sectionModels.filter { $0.collapsible }.map(\.id))
-	}
-
-	private func buildShowSections(from jsonString: String?) -> [SectionModel] {
-		guard let jsonString,
-			  let data = jsonString.data(using: .utf8),
-			  let content = try? JSONDecoder().decode(ShowArticleContent.self, from: data) else {
-			return [
-				SectionModel(
-					title: NSLocalizedString("Summary", comment: "Structured article section title"),
-					rows: [RowModel(text: attributedBody("Unable to load structured content for this article."), actionURL: nil)],
-					collapsible: true
-				)
-			]
-		}
-
-		let guests = SectionModel(
-			title: NSLocalizedString("Guest(s)", comment: "Structured article section title"),
-			rows: [RowModel(text: bulletedGuests(content.guests), actionURL: nil)],
-			collapsible: true
-		)
-
-		let summary = SectionModel(
-			title: NSLocalizedString("Summary", comment: "Structured article section title"),
-			rows: [
-				RowModel(text: bulletedSummaryRow(
-					rowTitle: NSLocalizedString("Core Thesis", comment: "Structured article summary row title"),
-					items: content.summary?.thesis ?? []
-				), actionURL: nil),
-				RowModel(text: bulletedSummaryRow(
-					rowTitle: NSLocalizedString("Practical Applications", comment: "Structured article summary row title"),
-					items: content.summary?.practical ?? []
-				), actionURL: nil)
-			],
-			collapsible: true
-		)
-
-		let inDepthRows = content.inDepthAnalysis.isEmpty ?
-			[RowModel(text: attributedBody("No in-depth analysis available."), actionURL: nil)] :
-			content.inDepthAnalysis.map { item in
-				RowModel(text: paragraphWithStrongTitle(title: item.title, body: item.content), actionURL: nil)
-			}
-		let inDepth = SectionModel(
-			title: NSLocalizedString("In-Depth Analysis", comment: "Structured article section title"),
-			rows: inDepthRows,
-			collapsible: true
-		)
-
-		let timestamps = SectionModel(
-			title: NSLocalizedString("Timestamps", comment: "Structured article section title"),
-			rows: [RowModel(text: bulletedTimestamps(content.timestamps), actionURL: nil)],
-			collapsible: true
-		)
-
-		return [guests, summary, inDepth, timestamps]
-	}
-
-	private func buildTopicSections(from jsonString: String?) -> [SectionModel] {
-		guard let jsonString,
-			  let data = jsonString.data(using: .utf8) else {
-			return [
-				SectionModel(title: nil, rows: [RowModel(text: attributedBody("No topic content available."), actionURL: nil)], collapsible: false)
-			]
-		}
-
-		let entries: [TopicItem]
-		if let directEntries = try? JSONDecoder().decode([TopicItem].self, from: data) {
-			entries = directEntries
-		} else {
-			let containers = (try? JSONDecoder().decode([TopicFeedContainer].self, from: data)) ??
-				((try? JSONDecoder().decode(TopicFeedContainer.self, from: data)).map { [$0] } ?? [])
-			entries = containers.flatMap(\.data)
-		}
-		guard !entries.isEmpty else {
-			return [
-				SectionModel(title: nil, rows: [RowModel(text: attributedBody("No topic content available."), actionURL: nil)], collapsible: false)
-			]
-		}
-
-		return entries.map { entry in
-			let titleText = entry.title?.trimmingCharacters(in: .whitespacesAndNewlines)
-			let summaryText = entry.summary?.trimmingCharacters(in: .whitespacesAndNewlines)
-			let linkURL = entry.metadata?.link?.trimmingCharacters(in: .whitespacesAndNewlines)
-			let parsedURL = linkURL.flatMap { URL(string: $0) }
-
-			let titleRow = RowModel(
-				text: parsedURL == nil
-					? attributedTitle(titleText?.isEmpty == false ? titleText! : "Untitled")
-					: attributedLinkedTitle(titleText?.isEmpty == false ? titleText! : "Untitled"),
-				actionURL: parsedURL
-			)
-			let metadataRow = RowModel(text: bulletedTopicMetadata(entry.metadata), actionURL: nil)
-			let summaryRow = RowModel(
-				text: attributedTopicSummary(
-					summaryList: entry.summaryList,
-					summaryText: summaryText
-				),
-				actionURL: nil
-			)
-
-			return SectionModel(title: nil, rows: [titleRow, metadataRow, summaryRow], collapsible: false)
-		}
-	}
-
-	private func displayText(for row: RowModel) -> NSAttributedString {
-		guard row.actionURL == nil else {
-			return row.text
-		}
-		let cleaned = NSMutableAttributedString(attributedString: row.text)
-		let range = NSRange(location: 0, length: cleaned.length)
-		cleaned.removeAttribute(.underlineStyle, range: range)
-		cleaned.removeAttribute(.link, range: range)
-		return cleaned
-	}
-
-	private func attributedBody(_ text: String) -> NSAttributedString {
-		NSAttributedString(string: text, attributes: [
-			.font: UIFont.preferredFont(forTextStyle: .body),
-			.foregroundColor: UIColor.label
-		])
-	}
-
-	private func attributedTitle(_ text: String) -> NSAttributedString {
-		NSAttributedString(string: text, attributes: [
-			.font: UIFont.preferredFont(forTextStyle: .headline),
-			.foregroundColor: UIColor.label
-		])
-	}
-
-	private func attributedLinkedTitle(_ text: String) -> NSAttributedString {
-		NSAttributedString(string: text, attributes: [
-			.font: UIFont.preferredFont(forTextStyle: .headline),
-			.foregroundColor: UIColor.link,
-			.underlineStyle: NSUnderlineStyle.single.rawValue
-		])
-	}
-
-	private func bulletedTopicMetadata(_ metadata: TopicItem.Metadata?) -> NSAttributedString {
-		var lines = [String]()
-//		if let author = metadata?.author?.trimmingCharacters(in: .whitespacesAndNewlines), !author.isEmpty {
-//			lines.append("• Author: \(author)")
-//		}
-//		if let pubDate = metadata?.pubDate?.trimmingCharacters(in: .whitespacesAndNewlines), !pubDate.isEmpty {
-//			lines.append("• Published: \(pubDate)")
-//		}
-//		if let link = metadata?.link?.trimmingCharacters(in: .whitespacesAndNewlines), !link.isEmpty {
-//			lines.append("• Link: \(link)")
-//		}
-//		if lines.isEmpty {
-//			lines.append("• No metadata available.")
-//		}
-		if let author = metadata?.author?.trimmingCharacters(in: .whitespacesAndNewlines), !author.isEmpty {
-			lines.append("Author: \(author)")
-		}
-		if let pubDate = metadata?.pubDate?.trimmingCharacters(in: .whitespacesAndNewlines), !pubDate.isEmpty {
-			lines.append("Published: \(pubDate)")
-		}
-		if lines.isEmpty {
-			lines.append("No metadata available.")
-		}
-		return NSAttributedString(string: lines.joined(separator: "\n"), attributes: [
-			.font: UIFont.preferredFont(forTextStyle: .subheadline),
-			.foregroundColor: UIColor.secondaryLabel
-		])
-	}
-
-	private func attributedTopicSummary(summaryList: [String], summaryText: String?) -> NSAttributedString {
-		var lines = [String]()
-
-		if !summaryList.isEmpty {
-			lines = summaryList
-				.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-				.filter { !$0.isEmpty }
-				.map { line in
-					let normalized = line.hasPrefix("- ")
-						? String(line.dropFirst(2))
-						: line
-					return "• \(normalized)"
-				}
-		} else if let summaryText, !summaryText.isEmpty {
-			let split = summaryText
-				.components(separatedBy: .newlines)
-				.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-				.filter { !$0.isEmpty }
-			if split.allSatisfy({ $0.hasPrefix("- ") || $0.hasPrefix("• ") }) {
-				lines = split.map { line in
-					if line.hasPrefix("• ") { return line }
-					return "• \(String(line.dropFirst(2)))"
-				}
-			} else {
-				return attributedBody(summaryText)
-			}
-		}
-
-		if lines.isEmpty {
-			return attributedBody("No summary available.")
-		}
-
-		return NSAttributedString(string: lines.joined(separator: "\n"), attributes: [
-			.font: UIFont.preferredFont(forTextStyle: .body),
-			.foregroundColor: UIColor.label
-		])
-	}
-
-	private func bulletedGuests(_ guests: [ShowArticleContent.Guest]) -> NSAttributedString {
-		let body = NSMutableAttributedString()
-		if guests.isEmpty {
-			body.append(attributedBody("No guests listed."))
-			return body
-		}
-		for (index, guest) in guests.enumerated() {
-			let line = NSMutableAttributedString(string: "• \(guest.name)", attributes: [
-				.font: UIFont.preferredFont(forTextStyle: .body),
-				.foregroundColor: UIColor.label
-			])
-			if let description = guest.description, !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-				line.append(NSAttributedString(string: " - \(description)", attributes: [
-					.font: UIFont.preferredFont(forTextStyle: .body),
-					.foregroundColor: UIColor.secondaryLabel
-				]))
-			}
-			body.append(line)
-			if index < guests.count - 1 {
-				body.append(NSAttributedString(string: "\n"))
-			}
-		}
-		return body
-	}
-
-	private func bulletedSummaryRow(rowTitle: String, items: [ShowArticleContent.TitledContent]) -> NSAttributedString {
-		let result = NSMutableAttributedString(string: rowTitle + "\n\n", attributes: [
-			.font: UIFont.preferredFont(forTextStyle: .headline),
-			.foregroundColor: UIColor.label
-		])
-		if items.isEmpty {
-			result.append(attributedBody("No items."))
-			return result
-		}
-		for (index, item) in items.enumerated() {
-//			let line = NSMutableAttributedString(string: "• ", attributes: [
-//				.font: UIFont.preferredFont(forTextStyle: .body),
-//				.foregroundColor: UIColor.label
-//			])
-//			line.append(NSAttributedString(string: item.title, attributes: [
-//				.font: UIFont.boldSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize),
-//				.foregroundColor: UIColor.label
-//			]))
-			let line = NSMutableAttributedString(string: item.title, attributes: [
-				.font: UIFont.boldSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize),
-				.foregroundColor: UIColor.label
-			])
-			line.append(NSAttributedString(string: ": \(item.content)", attributes: [
-				.font: UIFont.preferredFont(forTextStyle: .body),
-				.foregroundColor: UIColor.label
-			]))
-			result.append(line)
-			if index < items.count - 1 {
-				result.append(NSAttributedString(string: "\n\n"))
-			}
-		}
-		return result
-	}
-
-	private func paragraphWithStrongTitle(title: String, body: String) -> NSAttributedString {
-		let result = NSMutableAttributedString()
-		result.append(NSAttributedString(string: "\(title)\n\n" , attributes: [
-			.font: UIFont.boldSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize),
-			.foregroundColor: UIColor.label
-		]))
-		result.append(NSAttributedString(string: body, attributes: [
-			.font: UIFont.preferredFont(forTextStyle: .body),
-			.foregroundColor: UIColor.label
-		]))
-		return result
-	}
-
-	private func bulletedTimestamps(_ items: [ShowArticleContent.Timestamp]) -> NSAttributedString {
-		let result = NSMutableAttributedString()
-		if items.isEmpty {
-			result.append(attributedBody("No timestamps available."))
-			return result
-		}
-		for (index, item) in items.enumerated() {
-			let line = NSMutableAttributedString(string: "• \(item.timestamp)", attributes: [
-				.font: UIFont.preferredFont(forTextStyle: .body),
-				.foregroundColor: UIColor.label
-			])
-			if !item.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-				line.append(NSAttributedString(string: " - \(item.content)", attributes: [
-					.font: UIFont.preferredFont(forTextStyle: .body),
-					.foregroundColor: UIColor.secondaryLabel
-				]))
-			}
-			result.append(line)
-			if index < items.count - 1 {
-				result.append(NSAttributedString(string: "\n"))
-			}
-		}
-		return result
-	}
-}
-
-extension StructuredArticleContentViewController: UICollectionViewDelegate {
-	func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-		guard let rowID = dataSource.itemIdentifier(for: indexPath),
-			  let row = rowLookup[rowID],
-			  let url = row.actionURL else {
-			return
-		}
-
-		collectionView.deselectItem(at: indexPath, animated: true)
-		UIApplication.shared.open(url, options: [:])
-	}
-}
-
-private final class StructuredArticleSectionHeaderView: UICollectionReusableView {
-	private let button = UIButton(type: .system)
-	var onTap: (() -> Void)?
-
-	override init(frame: CGRect) {
-		super.init(frame: frame)
-		button.translatesAutoresizingMaskIntoConstraints = false
-		button.contentHorizontalAlignment = .fill
-		button.addTarget(self, action: #selector(handleTap), for: .touchUpInside)
-		addSubview(button)
-		NSLayoutConstraint.activate([
-			leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: -16),
-			trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: 16),
-			topAnchor.constraint(equalTo: button.topAnchor),
-			bottomAnchor.constraint(equalTo: button.bottomAnchor)
-		])
-	}
-
-	required init?(coder: NSCoder) {
-		fatalError("init(coder:) has not been implemented")
-	}
-
-	func configure(title: String, isExpanded: Bool, showsDisclosure: Bool) {
-		var configuration = UIButton.Configuration.plain()
-		configuration.title = title
-		configuration.baseForegroundColor = .label
-		configuration.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 16, bottom: 6, trailing: 16)
-		if showsDisclosure {
-			configuration.image = UIImage(systemName: isExpanded ? "chevron.down" : "chevron.right")
-			configuration.imagePlacement = .trailing
-			configuration.imagePadding = 8
-		} else {
-			configuration.image = nil
-		}
-		configuration.titleAlignment = .leading
-		button.configuration = configuration
-	}
-
-	@objc private func handleTap() {
-		onTap?()
-	}
 }

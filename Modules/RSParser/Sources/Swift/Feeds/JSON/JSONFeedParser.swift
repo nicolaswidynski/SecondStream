@@ -58,6 +58,8 @@ public struct JSONFeedParser {
 		static let content = "content"
 		static let metadata = "metadata"
 		static let pubDate = "pubDate"
+		static let practicalApplications = "practical_applications"
+		static let deepDive = "deep_dive"
 	}
 
 	static let jsonFeedVersionMarker = "://jsonfeed.org/version/" // Allow for the mistake of not getting the scheme exactly correct.
@@ -186,8 +188,10 @@ private extension JSONFeedParser {
 		let entryContent = itemDictionary[Key.content]
 		let contentJSON = jsonString(from: entryContent)
 		let contentHTML = generatedHTMLFromContent(entryContent)
+		let entryTitle = nonEmptyString(itemDictionary[Key.title])
 		let inferredTitle = inferGeneratedTitle(from: entryContent)
-		let title = nonEmptyString(itemDictionary[Key.title]) ?? inferredTitle
+		let isTopicsEntry = uniqueID.hasPrefix("topics/")
+		let title = entryTitle ?? (isTopicsEntry ? nil : inferredTitle)
 		let contentText = contentTextFromGeneratedContent(entryContent)
 		let mediaLink = nonEmptyString(itemDictionary[Key.mediaLink])
 		let datePublished = parseDate(nonEmptyString(itemDictionary[Key.airDate])) ?? parseDateFromGeneratedContent(entryContent) ?? fallbackModifiedDate
@@ -233,19 +237,9 @@ private extension JSONFeedParser {
 	static func generatedShowHTML(from dictionary: JSONDictionary) -> String? {
 		var blocks = [String]()
 
-		if let timestamps = dictionary["timestamps"] as? JSONArray, !timestamps.isEmpty {
-			let lines = timestamps.compactMap { item -> String? in
-				let timestamp = nonEmptyString(item["timestamp"]) ?? ""
-				let content = nonEmptyString(item[Key.content]) ?? ""
-				guard !timestamp.isEmpty || !content.isEmpty else { return nil }
-				if !timestamp.isEmpty && !content.isEmpty {
-					return "<li><strong>\(htmlEscaped(timestamp))</strong> - \(htmlEscaped(content))</li>"
-				}
-				return "<li>\(htmlEscaped(timestamp + content))</li>"
-			}
-			if !lines.isEmpty {
-				blocks.append("<hr><details><summary><strong>Timestamps</strong></summary><ul>\(lines.joined())</ul></details><hr>")
-			}
+		let timestampLines = dictionary["timestamps"].flatMap { timestampLinesHTML(from: $0) } ?? []
+		if !timestampLines.isEmpty {
+			blocks.append("<hr><details><summary><strong>Timestamps</strong></summary><ul class=\"nnw-generated-bullet-list nnw-generated-timestamps-list\">\(timestampLines.joined())</ul></details><hr>")
 		}
 
 		if let guests = dictionary["guests"] as? JSONArray, !guests.isEmpty {
@@ -254,70 +248,82 @@ private extension JSONFeedParser {
 				guard !name.isEmpty else { return nil }
 				let description = nonEmptyString(item["description"]) ?? ""
 				if description.isEmpty {
-					return "<li>\(htmlEscaped(name))</li>"
+					return "<li class=\"nnw-generated-bullet-item\">\(htmlEscaped(name))</li>"
 				}
-				return "<li>\(htmlEscaped(name)): \(htmlEscaped(description))</li>"
+				return "<li class=\"nnw-generated-bullet-item\">\(htmlEscaped(name)): \(htmlEscaped(description))</li>"
 			}
 			if !lines.isEmpty {
-				blocks.append("<h2>Guest(s)</h2><ul>\(lines.joined())</ul>")
+				blocks.append("<h2>Guest(s)</h2><ul class=\"nnw-generated-bullet-list\">\(lines.joined())</ul>")
 			}
 		}
 
-		if let summary = dictionary[Key.summary] as? JSONDictionary {
-			var summaryBlocks = [String]()
+	//	var summaryBlocks = [String]()
 
-			if let thesis = summary["thesis"] as? JSONArray, !thesis.isEmpty {
-				let lines = thesis.compactMap { item -> String? in
-					let title = nonEmptyString(item[Key.title]) ?? ""
-					let content = nonEmptyString(item[Key.content]) ?? ""
-					guard !title.isEmpty || !content.isEmpty else { return nil }
-					if !title.isEmpty && !content.isEmpty {
-						return "<li><strong>\(htmlEscaped(title))</strong>: \(htmlEscaped(content))</li>"
-					}
-					return "<li>\(htmlEscaped(title + content))</li>"
-				}
-				if !lines.isEmpty {
-					summaryBlocks.append("<h3>Core Thesis</h3><ul>\(lines.joined())</ul>")
-				}
-			}
-
-			if let practical = summary["practical"] as? JSONArray, !practical.isEmpty {
-				let lines = practical.compactMap { item -> String? in
-					let title = nonEmptyString(item[Key.title]) ?? ""
-					let content = nonEmptyString(item[Key.content]) ?? ""
-					guard !title.isEmpty || !content.isEmpty else { return nil }
-					if !title.isEmpty && !content.isEmpty {
-						return "<li><strong>\(htmlEscaped(title))</strong>: \(htmlEscaped(content))</li>"
-					}
-					return "<li>\(htmlEscaped(title + content))</li>"
-				}
-				if !lines.isEmpty {
-					summaryBlocks.append("<h3>Practical Applications</h3><ul>\(lines.joined())</ul>")
-				}
-			}
-
-			if !summaryBlocks.isEmpty {
-				blocks.append("<h2>Summary</h2>\(summaryBlocks.joined())")
-			}
+		let summaryBlocks = titledContentLinesHTML(from: dictionary[Key.summary])
+		if !summaryBlocks.isEmpty {
+			blocks.append("<h2>Summary</h2><ul class=\"nnw-generated-bullet-list\">\(summaryBlocks.joined())</ul>")
 		}
 
-		if let inDepth = dictionary["in_depth_analysis"] as? JSONArray, !inDepth.isEmpty {
-			let paragraphs = inDepth.compactMap { item -> String? in
-				let title = nonEmptyString(item[Key.title]) ?? ""
-				let content = nonEmptyString(item[Key.content]) ?? ""
-				guard !title.isEmpty || !content.isEmpty else { return nil }
-				if !title.isEmpty && !content.isEmpty {
-					return "<p><strong>\(htmlEscaped(title))</strong>: \(htmlEscaped(content))</p>"
-				}
-				return "<p>\(htmlEscaped(title + content))</p>"
-			}
-			if !paragraphs.isEmpty {
-				blocks.append("<h2>In-Depth Analysis</h2>\(paragraphs.joined())")
-			}
+		let practicalBlocks = titledContentLinesHTML(from: dictionary[Key.practicalApplications])
+		if !practicalBlocks.isEmpty {
+			blocks.append("<h2>Practical Applications</h2><ul class=\"nnw-generated-bullet-list\">\(practicalBlocks.joined())</ul>")
+		}
+
+		let inDepthParagraphs = titledContentParagraphsHTML(from: dictionary[Key.deepDive])
+		if !inDepthParagraphs.isEmpty {
+			blocks.append("<h2>Deep Dive</h2>\(inDepthParagraphs.joined())")
 		}
 
 		let html = blocks.joined(separator: "\n")
 		return html.isEmpty ? nil : html
+	}
+
+	static func timestampLinesHTML(from value: Any?) -> [String] {
+		guard let timestamps = value as? JSONArray else {
+			return []
+		}
+		return timestamps.compactMap { item -> String? in
+			let timestamp = nonEmptyString(item["timestamp"]) ?? ""
+			let content = nonEmptyString(item[Key.content]) ?? ""
+			guard !timestamp.isEmpty || !content.isEmpty else { return nil }
+			if !timestamp.isEmpty && !content.isEmpty {
+				return "<li class=\"nnw-generated-bullet-item\"><strong>\(htmlEscaped(timestamp))</strong> - \(htmlEscaped(content))</li>"
+			}
+			if !timestamp.isEmpty {
+				return "<li class=\"nnw-generated-bullet-item\"><strong>\(htmlEscaped(timestamp))</strong></li>"
+			}
+			return "<li class=\"nnw-generated-bullet-item\">\(htmlEscaped(content))</li>"
+		}
+	}
+
+	static func titledContentLinesHTML(from value: Any?) -> [String] {
+		guard let items = value as? JSONArray else {
+			return []
+		}
+		return items.compactMap { item -> String? in
+			let title = nonEmptyString(item[Key.title]) ?? ""
+			let content = nonEmptyString(item[Key.content]) ?? ""
+			guard !title.isEmpty || !content.isEmpty else { return nil }
+			if !title.isEmpty && !content.isEmpty {
+				return "<li class=\"nnw-generated-bullet-item\"><strong>\(htmlEscaped(title))</strong>: \(htmlEscaped(content))</li>"
+			}
+			return "<li class=\"nnw-generated-bullet-item\">\(htmlEscaped(title + content))</li>"
+		}
+	}
+
+	static func titledContentParagraphsHTML(from value: Any?) -> [String] {
+		guard let items = value as? JSONArray else {
+			return []
+		}
+		return items.compactMap { item -> String? in
+			let title = nonEmptyString(item[Key.title]) ?? ""
+			let content = nonEmptyString(item[Key.content]) ?? ""
+			guard !title.isEmpty || !content.isEmpty else { return nil }
+			if !title.isEmpty && !content.isEmpty {
+				return "<p><strong>\(htmlEscaped(title))</strong>: \(htmlEscaped(content))</p>"
+			}
+			return "<p>\(htmlEscaped(title + content))</p>"
+		}
 	}
 
 	static func generatedTopicsHTML(from items: JSONArray) -> String? {
@@ -432,6 +438,23 @@ private extension JSONFeedParser {
 					return text
 				}
 			}
+			var generatedChunks = [String]()
+			let summaryValue = dictionary[Key.summary]
+			generatedChunks.append(contentsOf: titledContentPlainText(from: summaryValue))
+			if generatedChunks.isEmpty, let summaryDictionary = summaryValue as? JSONDictionary {
+				generatedChunks.append(contentsOf: titledContentPlainText(from: summaryDictionary["thesis"]))
+			}
+			generatedChunks.append(contentsOf: titledContentPlainText(from: dictionary[Key.practicalApplications]))
+			if let summaryDictionary = summaryValue as? JSONDictionary {
+				generatedChunks.append(contentsOf: titledContentPlainText(from: summaryDictionary["practical"]))
+			}
+			generatedChunks.append(contentsOf: titledContentPlainText(from: dictionary[Key.deepDive]))
+			generatedChunks.append(contentsOf: titledContentPlainText(from: dictionary["in_depth_analysis"]))
+			generatedChunks.append(contentsOf: timestampPlainText(from: dictionary["timestamps"]))
+			let joined = generatedChunks.filter { !$0.isEmpty }.joined(separator: "\n\n")
+			if !joined.isEmpty {
+				return joined
+			}
 		}
 
 		guard let contentArray = content as? JSONArray else {
@@ -449,6 +472,30 @@ private extension JSONFeedParser {
 		}
 		let joined = chunks.joined(separator: "\n\n")
 		return joined.isEmpty ? nil : joined
+	}
+
+	static func titledContentPlainText(from value: Any?) -> [String] {
+		guard let items = value as? JSONArray else {
+			return []
+		}
+		return items.compactMap { item -> String? in
+			let title = nonEmptyString(item[Key.title]) ?? ""
+			let content = nonEmptyString(item[Key.content]) ?? ""
+			guard !title.isEmpty || !content.isEmpty else { return nil }
+			return title.isEmpty ? content : (content.isEmpty ? title : "\(title): \(content)")
+		}
+	}
+
+	static func timestampPlainText(from value: Any?) -> [String] {
+		guard let items = value as? JSONArray else {
+			return []
+		}
+		return items.compactMap { item -> String? in
+			let timestamp = nonEmptyString(item["timestamp"]) ?? ""
+			let content = nonEmptyString(item[Key.content]) ?? ""
+			guard !timestamp.isEmpty || !content.isEmpty else { return nil }
+			return timestamp.isEmpty ? content : (content.isEmpty ? timestamp : "\(timestamp) - \(content)")
+		}
 	}
 
 	static func nonEmptyString(_ value: Any?) -> String? {

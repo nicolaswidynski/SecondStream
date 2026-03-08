@@ -414,10 +414,17 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	private(set) var lastRowDistanceHardJumpApplied: Bool = false
 	private(set) var lastRowDistanceHardJumpThreshold: Int = 0
 	private(set) var lastRowDistanceHardJumpTailDistance: Int = 0
+	private(set) var lastRowDistanceRawDuration: CFTimeInterval = 0
+	private(set) var lastRowDistanceMinApplied: Bool = false
 	private var rowDistanceReferenceArticleID: String?
-	private let rowDistanceSecondsPerRow: CFTimeInterval = 4 // 40 ms
+	private var elevatedRowArticleID: String?
+	private let elevatedCellZPosition: CGFloat = 1000
+	private let rowDistanceSecondsPerRow: CFTimeInterval = 0.05
+	private let rowDistanceNoMovementDuration: CFTimeInterval = 0.040
 	private let rowDistanceMinDuration: CFTimeInterval = 0.22
+	private let rowAnimationBaselineDuration: CFTimeInterval = 0.35
 	private let hardJumpTailEnabled = true
+	var debugRowDistanceSecondsPerRow: CFTimeInterval { rowDistanceSecondsPerRow }
 
 	private var timelineFeed: SidebarItem? {
 		assert(coordinator != nil)
@@ -883,6 +890,14 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		coordinator?.selectArticle(article, animations: [.scroll, .select, .navigation])
 	}
 
+	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+		let isElevated = dataSource.itemIdentifier(for: indexPath).map { $0.articleID == elevatedRowArticleID } ?? false
+		cell.layer.zPosition = isElevated ? elevatedCellZPosition : 0
+		if isElevated {
+			tableView.bringSubviewToFront(cell)
+		}
+	}
+
 	override func scrollViewDidScroll(_ scrollView: UIScrollView) {
 		scrollPositionQueue.add(self, #selector(scrollPositionDidChange))
 	}
@@ -1166,6 +1181,7 @@ private extension MainTimelineViewController {
 
 		if animated {
 			var animationDuration = rowDistanceAnimationDuration(previousItems: previousItems, newItems: finalItems)
+			setElevatedRowArticleID(lastRowDistanceResolvedReferenceArticleID)
 			rowDistanceReferenceArticleID = nil // one-shot reference for the next diff
 
 			if let hardJump = hardJumpPlan(previousItems: previousItems, newItems: finalItems) {
@@ -1174,15 +1190,15 @@ private extension MainTimelineViewController {
 				lastRowDistanceHardJumpTailDistance = hardJump.tailDistance
 				lastRowDistanceMode = "reference-hard-jump"
 				lastRowDistanceUsedDistance = hardJump.phaseDistance
-				animationDuration = hardJump.phaseDuration
+				let rawDuration = rowDistanceSecondsPerRow * CFTimeInterval(hardJump.phaseDistance)
+				lastRowDistanceRawDuration = rawDuration
+				lastRowDistanceMinApplied = rawDuration < rowDistanceMinDuration
+				animationDuration = max(rawDuration, rowDistanceMinDuration)
 				lastRowDistanceAnimationDuration = animationDuration
 				let resolvedReferenceID = lastRowDistanceResolvedReferenceArticleID
 
 				let intermediateSnapshot = makeTimelineSnapshot(with: hardJump.items)
-				CATransaction.begin()
-				CATransaction.setAnimationDuration(animationDuration)
-				CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
-				dataSource.apply(intermediateSnapshot, animatingDifferences: true) { [weak self] in
+				applyAnimatedSnapshot(intermediateSnapshot, duration: animationDuration) { [weak self] in
 					guard let self else {
 						completion?()
 						return
@@ -1197,16 +1213,17 @@ private extension MainTimelineViewController {
 
 					guard shouldFinalizeWithHardJump else {
 						self.restoreSelectionIfNecessary(adjustScroll: false)
+						self.clearElevatedRowArticleID()
 						completion?()
 						return
 					}
 
 					self.dataSource.apply(finalSnapshot, animatingDifferences: false) { [weak self] in
 						self?.restoreSelectionIfNecessary(adjustScroll: false)
+						self?.clearElevatedRowArticleID()
 						completion?()
 					}
 				}
-				CATransaction.commit()
 				return
 			} else {
 				lastRowDistanceHardJumpApplied = false
@@ -1214,24 +1231,55 @@ private extension MainTimelineViewController {
 				lastRowDistanceHardJumpTailDistance = 0
 			}
 
-			CATransaction.begin()
-			CATransaction.setAnimationDuration(animationDuration)
-			CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
-			dataSource.apply(finalSnapshot, animatingDifferences: true) { [weak self] in
+			applyAnimatedSnapshot(finalSnapshot, duration: animationDuration) { [weak self] in
 				self?.restoreSelectionIfNecessary(adjustScroll: false)
+				self?.clearElevatedRowArticleID()
 				completion?()
 			}
-			CATransaction.commit()
 		} else {
 			rowDistanceReferenceArticleID = nil
 			lastRowDistanceHardJumpApplied = false
 			lastRowDistanceHardJumpThreshold = 0
 			lastRowDistanceHardJumpTailDistance = 0
+			clearElevatedRowArticleID()
 			dataSource.apply(finalSnapshot, animatingDifferences: false) { [weak self] in
 				self?.restoreSelectionIfNecessary(adjustScroll: false)
 				completion?()
 			}
 		}
+	}
+
+	private func applyAnimatedSnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Int, Article>, duration: CFTimeInterval, completion: (() -> Void)? = nil) {
+		let clampedDuration = max(duration, rowDistanceNoMovementDuration)
+		let targetSpeed = Float(rowAnimationBaselineDuration / clampedDuration)
+		let shouldAdjustSpeed = abs(targetSpeed - 1.0) > 0.01
+
+		let originalSpeed = tableView.layer.speed
+		let originalTimeOffset = tableView.layer.timeOffset
+		let originalBeginTime = tableView.layer.beginTime
+
+		if shouldAdjustSpeed {
+			tableView.layer.speed = targetSpeed
+			tableView.layer.timeOffset = 0
+			tableView.layer.beginTime = 0
+		}
+
+		CATransaction.begin()
+		CATransaction.setAnimationDuration(clampedDuration)
+		CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
+		dataSource.apply(snapshot, animatingDifferences: true) { [weak self] in
+			guard let self else {
+				completion?()
+				return
+			}
+			if shouldAdjustSpeed {
+				self.tableView.layer.speed = originalSpeed
+				self.tableView.layer.timeOffset = originalTimeOffset
+				self.tableView.layer.beginTime = originalBeginTime
+			}
+			completion?()
+		}
+		CATransaction.commit()
 	}
 
 	private func rowDistanceAnimationDuration(previousItems: [Article], newItems: [Article]) -> CFTimeInterval {
@@ -1244,17 +1292,19 @@ private extension MainTimelineViewController {
 		lastRowDistanceResolvedReferenceArticleID = nil
 		lastRowDistanceMode = "fallback"
 
-		let msPerRow = 0.040
-		
 		if coordinator?.consumeBypassRowDistanceAnimation() == true {
 			lastRowDistanceMode = "bypass"
-			lastRowDistanceAnimationDuration = msPerRow
-			return msPerRow
+			lastRowDistanceRawDuration = rowDistanceNoMovementDuration
+			lastRowDistanceMinApplied = false
+			lastRowDistanceAnimationDuration = rowDistanceNoMovementDuration
+			return rowDistanceNoMovementDuration
 		}
 
 		guard !previousItems.isEmpty, !newItems.isEmpty else {
-			lastRowDistanceAnimationDuration = msPerRow
-			return msPerRow
+			lastRowDistanceRawDuration = rowDistanceNoMovementDuration
+			lastRowDistanceMinApplied = false
+			lastRowDistanceAnimationDuration = rowDistanceNoMovementDuration
+			return rowDistanceNoMovementDuration
 		}
 
 		let previousIndexByID = Dictionary(uniqueKeysWithValues: previousItems.enumerated().map { ($1.articleID, $0) })
@@ -1297,12 +1347,16 @@ private extension MainTimelineViewController {
 		lastRowDistanceMode = (referenceDistance != nil) ? "reference" : "max"
 
 		guard usedDistance > 0 else {
-			lastRowDistanceAnimationDuration = msPerRow
-			return msPerRow
+			lastRowDistanceRawDuration = rowDistanceNoMovementDuration
+			lastRowDistanceMinApplied = false
+			lastRowDistanceAnimationDuration = rowDistanceNoMovementDuration
+			return rowDistanceNoMovementDuration
 		}
 
-		let duration = rowDistanceSecondsPerRow * CFTimeInterval(usedDistance)
-		let finalDuration = max(duration, rowDistanceMinDuration)
+		let rawDuration = rowDistanceSecondsPerRow * CFTimeInterval(usedDistance)
+		let finalDuration = max(rawDuration, rowDistanceMinDuration)
+		lastRowDistanceRawDuration = rawDuration
+		lastRowDistanceMinApplied = rawDuration < rowDistanceMinDuration
 		lastRowDistanceAnimationDuration = finalDuration
 		return finalDuration
 	}
@@ -1314,7 +1368,7 @@ private extension MainTimelineViewController {
 		return snapshot
 	}
 
-	private func hardJumpPlan(previousItems: [Article], newItems: [Article]) -> (items: [Article], phaseDuration: CFTimeInterval, phaseDistance: Int, threshold: Int, tailDistance: Int)? {
+	private func hardJumpPlan(previousItems: [Article], newItems: [Article]) -> (items: [Article], phaseDistance: Int, threshold: Int, tailDistance: Int)? {
 		guard hardJumpTailEnabled,
 			  lastRowDistanceMode == "reference",
 			  let referenceID = lastRowDistanceResolvedReferenceArticleID,
@@ -1345,9 +1399,8 @@ private extension MainTimelineViewController {
 		intermediateItems.insert(referenceArticle, at: clampedIntermediateIndex)
 
 		let phaseDistance = threshold
-		let phaseDuration = max(rowDistanceSecondsPerRow * CFTimeInterval(phaseDistance), rowDistanceMinDuration)
 		let tailDistance = totalDistance - threshold
-		return (intermediateItems, phaseDuration, phaseDistance, threshold, tailDistance)
+		return (intermediateItems, phaseDistance, threshold, tailDistance)
 	}
 
 	private func visibleRowThreshold() -> Int {
@@ -1366,6 +1419,33 @@ private extension MainTimelineViewController {
 		let visibleCount = Int(ceil(tableView.bounds.height / approximateRowHeight))
 		let visibilityBuffer = 4
 		return max(1, visibleCount + visibilityBuffer)
+	}
+
+	private func setElevatedRowArticleID(_ articleID: String?) {
+		elevatedRowArticleID = articleID
+		updateVisibleCellElevation()
+	}
+
+	private func clearElevatedRowArticleID() {
+		elevatedRowArticleID = nil
+		updateVisibleCellElevation()
+	}
+
+	private func updateVisibleCellElevation() {
+		guard let visibleIndexPaths = tableView.indexPathsForVisibleRows else {
+			return
+		}
+
+		for indexPath in visibleIndexPaths {
+			guard let cell = tableView.cellForRow(at: indexPath) else {
+				continue
+			}
+			let isElevated = dataSource.itemIdentifier(for: indexPath).map { $0.articleID == elevatedRowArticleID } ?? false
+			cell.layer.zPosition = isElevated ? elevatedCellZPosition : 0
+			if isElevated {
+				tableView.bringSubviewToFront(cell)
+			}
+		}
 	}
 
 	func captureRowDistanceReferenceArticleID(_ articleID: String?) {

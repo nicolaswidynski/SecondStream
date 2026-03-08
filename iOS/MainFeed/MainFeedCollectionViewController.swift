@@ -305,7 +305,14 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			loadingAlert.dismiss(animated: true) {
 				switch result {
 				case .success(let feed):
-					NotificationCenter.default.post(name: .UserDidAddFeed, object: self, userInfo: [UserInfoKey.feed: feed])
+					NotificationCenter.default.post(
+						name: .UserDidAddFeed,
+						object: self,
+						userInfo: [
+							UserInfoKey.feed: feed,
+							UserInfoKey.suppressFeedDisclosure: true
+						]
+					)
 					// Expand the corresponding category section
 					self.expandCategorySectionForCategory(category)
 				case .failure(let error):

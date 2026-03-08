@@ -15,6 +15,7 @@ struct UserInfoKey {
 	static let articlePath = "articlePath"
 	static let sidebarItemID = "sidebarItemID"
 	static let feedIdentifier = "feedIdentifier" // legacy
+	static let suppressFeedDisclosure = "suppressFeedDisclosure"
 
 	static let windowState = "windowState"
 	static let windowFullScreenState = "windowFullScreenState"

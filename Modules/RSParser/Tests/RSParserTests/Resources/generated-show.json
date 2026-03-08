@@ -23,21 +23,19 @@
             "description": "Guest description."
           }
         ],
-        "summary": {
-          "thesis": [
-            {
-              "title": "Core",
-              "content": "Main point."
-            }
-          ],
-          "practical": [
-            {
-              "title": "Action",
-              "content": "What to do."
-            }
-          ]
-        },
-        "in_depth_analysis": [
+        "summary": [
+          {
+            "title": "Core",
+            "content": "Main point."
+          }
+        ],
+        "practical_applications": [
+          {
+            "title": "Action",
+            "content": "What to do."
+          }
+        ],
+        "deep_dive": [
           {
             "title": "Detail",
             "content": "Deep dive."

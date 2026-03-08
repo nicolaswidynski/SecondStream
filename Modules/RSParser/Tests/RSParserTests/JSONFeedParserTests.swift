@@ -136,6 +136,11 @@ final class JSONFeedParserTests: XCTestCase {
 		XCTAssertEqual(item.mp3URL, "https://example.com/episode-one.mp3")
 		XCTAssertEqual(item.title, "Episode One")
 		XCTAssertNotNil(item.contentJSON)
+		XCTAssertNotNil(item.contentHTML)
+		XCTAssertTrue(item.contentHTML?.contains("<summary><strong>Timestamps</strong></summary>") == true)
+		XCTAssertTrue(item.contentHTML?.contains("<h2>Summary</h2>") == true)
+		XCTAssertTrue(item.contentHTML?.contains("<h2>Practical Applications</h2>") == true)
+		XCTAssertTrue(item.contentHTML?.contains("<h2>Deep Dive</h2>") == true)
 	}
 
 	func testGeneratedTopicsJSONFeed() {
@@ -148,7 +153,7 @@ final class JSONFeedParserTests: XCTestCase {
 
 		let item = parsedFeed.items.first!
 		XCTAssertEqual(item.uniqueID, "topics/artificial-intelligence/2026-03-02.json")
-		XCTAssertEqual(item.title, "How AI can read our scrambled inner thoughts")
+		XCTAssertEqual(item.title, "This Is The Entry Title")
 		XCTAssertNotNil(item.contentJSON)
 	}
 }
