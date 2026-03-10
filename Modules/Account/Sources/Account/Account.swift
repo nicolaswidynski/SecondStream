@@ -779,6 +779,29 @@ public enum FetchType {
 		try await database.fetchArticleIDsForStatusesWithoutArticlesNewerThanCutoffDateAsync()
 	}
 
+	/// Hard-resets local article/status state for a specific set of feed IDs.
+	/// Used by app-level maintenance actions when JSON-backed feeds are rebuilt.
+	/// - Returns: Number of deleted articles.
+	@discardableResult
+	@MainActor public func hardResetArticlesForFeedIDs(_ feedIDs: Set<String>) async throws -> Int {
+		guard !feedIDs.isEmpty else {
+			return 0
+		}
+
+		let articlesToReset = try database.fetchArticles(feedIDs: feedIDs)
+		guard !articlesToReset.isEmpty else {
+			return 0
+		}
+
+		let articleIDs = Set(articlesToReset.map { $0.articleID })
+		// Ensure any surviving/reappearing article IDs are reset to defaults.
+		_ = try await markAndFetchNewAsync(articleIDs: articleIDs, statusKey: .starred, flag: false)
+		_ = try await markAndFetchNewAsync(articleIDs: articleIDs, statusKey: .read, flag: false)
+		try await database.deleteAsync(articleIDs: articleIDs)
+		sendNotificationAbout(ArticleChanges(new: nil, updated: nil, deleted: articlesToReset))
+		return articleIDs.count
+	}
+
 	// MARK: - Unread Counts
 	public func unreadCount(for feed: Feed) -> Int {
 		unreadCounts[feed.feedID] ?? 0

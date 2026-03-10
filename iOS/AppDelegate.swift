@@ -128,6 +128,10 @@ import Secrets
 		IconImageCache.shared.emptyCache()
 	}
 
+	func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+		.portrait
+	}
+
 	private func updateBadge() {
 		assert(unreadCount == AccountManager.shared.unreadCount)
 		UNUserNotificationCenter.current().setBadgeCount(unreadCount)

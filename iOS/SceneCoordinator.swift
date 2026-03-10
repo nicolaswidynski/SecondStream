@@ -561,13 +561,13 @@ struct SidebarItemNode: Hashable, Sendable {
 		}
 		if shouldDeferUnreadFirstReorder {
 			if bypassUnreadFirstDeferForBatchMark {
-				replaceArticles(with: Set(articles), animated: true)
+				replaceArticles(with: Set(articles), animated: true, forceReload: true)
 				return
 			}
 			deferredUnreadFirstReorder = true
 			return
 		}
-		replaceArticles(with: Set(articles), animated: true)
+		replaceArticles(with: Set(articles), animated: true, forceReload: true)
 	}
 
 	@objc func containerChildrenDidChange(_ note: Notification) {
@@ -2123,6 +2123,14 @@ extension SceneCoordinator: UINavigationControllerDelegate {
 
 }
 
+extension SceneCoordinator {
+	func clearTimelineForMaintenance() {
+		currentArticle = nil
+		replaceArticles(with: Set<Article>(), animated: false, forceReload: true)
+		mainTimelineViewController?.reinitializeArticles(resetScroll: true)
+	}
+}
+
 // MARK: Private
 
 private extension SceneCoordinator {
@@ -2709,19 +2717,19 @@ private extension SceneCoordinator {
 		replaceArticles(with: Set(articles), animated: true)
 	}
 
-	func replaceArticles(with unsortedArticles: Set<Article>, animated: Bool) {
+	func replaceArticles(with unsortedArticles: Set<Article>, animated: Bool, forceReload: Bool = false) {
 		let sortedByDateArticles = Array(unsortedArticles).sortedByDate(sortDirection, groupByFeed: groupByFeed)
 		if timelineUnreadFirst {
 			let unreadArticles = sortedByDateArticles.filter { !$0.status.read }
 			let readArticles = sortedByDateArticles.filter { $0.status.read }
-			replaceArticles(with: unreadArticles + readArticles, animated: animated)
+			replaceArticles(with: unreadArticles + readArticles, animated: animated, forceReload: forceReload)
 		} else {
-			replaceArticles(with: sortedByDateArticles, animated: animated)
+			replaceArticles(with: sortedByDateArticles, animated: animated, forceReload: forceReload)
 		}
 	}
 
-	func replaceArticles(with sortedArticles: ArticleArray, animated: Bool) {
-		if articles != sortedArticles {
+	func replaceArticles(with sortedArticles: ArticleArray, animated: Bool, forceReload: Bool = false) {
+		if forceReload || articles != sortedArticles {
 			articles = sortedArticles
 
 			// Clear current article if it's no longer in the timeline.

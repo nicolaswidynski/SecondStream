@@ -699,7 +699,7 @@ private extension SettingsViewController {
 	func cleanTemporaryFiles() {
 		let alert = UIAlertController(
 			title: NSLocalizedString("Clean Temporary Files", comment: "Clean Temporary Files"),
-			message: NSLocalizedString("This will remove cached icons/images and cached source lists. They will be re-downloaded when needed.", comment: "Clean temp files message"),
+			message: NSLocalizedString("This will clear cached source/icon data, remove all podcast/YouTube/topic subscriptions, and add those subscriptions again. Their read/unread/starred state will be reset. RSS feeds are not changed.", comment: "Clean temp files message"),
 			preferredStyle: .alert
 		)
 
@@ -709,18 +709,187 @@ private extension SettingsViewController {
 				FaviconDownloader.shared.resetCache()
 				IconImageCache.shared.emptyCache()
 				SourceFileFetcher.clearLastModifiedCache()
+				URLCache.shared.removeAllCachedResponses()
 				PodcastSourcesManager.shared.podcastSources = []
 				PodcastSourcesManager.shared.podcastLibrarySources = []
 				YoutubeSourcesManager.shared.youtubeSources = []
 				YoutubeSourcesManager.shared.youtubeLibrarySources = []
 				NewsSourcesManager.shared.newsSources = []
 				NewsSourcesManager.shared.newsLibrarySources = []
-				RSSSourcesManager.shared.rssSources = []
-				RSSSourcesManager.shared.rssLibrarySources = []
-				SourcesRefreshManager.shared.forceRefresh()
+
+				let rebuildingAlert = UIAlertController(
+					title: NSLocalizedString("Rebuilding Sources", comment: "Rebuilding Sources"),
+					message: NSLocalizedString("Removing and re-adding podcast, YouTube, and topic feeds...", comment: "Rebuilding non-RSS feeds"),
+					preferredStyle: .alert
+				)
+				let spinner = UIActivityIndicatorView(style: .medium)
+				spinner.translatesAutoresizingMaskIntoConstraints = false
+				spinner.startAnimating()
+				rebuildingAlert.view.addSubview(spinner)
+				NSLayoutConstraint.activate([
+					spinner.centerXAnchor.constraint(equalTo: rebuildingAlert.view.centerXAnchor),
+					spinner.bottomAnchor.constraint(equalTo: rebuildingAlert.view.bottomAnchor, constant: -20)
+				])
+
+				self.present(rebuildingAlert, animated: true)
+
+				Task { @MainActor in
+					self.clearTimelineCachesInAllScenes()
+					self.dropConditionalGetInfoForJSONFeedURLs()
+					let result = await self.resetNonRSSFeedsFromURLs()
+					self.clearTimelineCachesInAllScenes()
+					SourcesRefreshManager.shared.forceRefresh()
+					AccountManager.shared.refreshAllWithoutWaiting()
+
+					rebuildingAlert.dismiss(animated: true) {
+						let doneAlert = UIAlertController(
+							title: NSLocalizedString("Done", comment: "Done"),
+							message: String(
+								format: NSLocalizedString("Removed %d feeds and re-added %d. Failed: %d.", comment: "Rebuild result"),
+								result.removed,
+								result.readded,
+								result.failed
+							),
+							preferredStyle: .alert
+						)
+						doneAlert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
+						self.present(doneAlert, animated: true)
+					}
+				}
 			})
 
 		present(alert, animated: true)
+	}
+
+	private func dropConditionalGetInfoForJSONFeedURLs() {
+		for account in AccountManager.shared.activeAccounts {
+			for feed in account.flattenedFeeds() {
+				guard URL(string: feed.url)?.pathExtension.lowercased() == "json" else {
+					continue
+				}
+				feed.dropConditionalGetInfo()
+			}
+		}
+	}
+
+	private struct JSONFeedResetPlan {
+		let account: Account
+		let feedID: String
+		let feedURL: String
+		let category: FeedCategory
+		let folderExternalID: String?
+	}
+
+	private func resetNonRSSFeedsFromURLs() async -> (removed: Int, readded: Int, failed: Int) {
+		let plans = buildJSONFeedResetPlans()
+		var feedIDsByAccountID = [String: Set<String>]()
+		var accountByID = [String: Account]()
+		var removedCount = 0
+		var readdedCount = 0
+		var failedCount = 0
+
+		for plan in plans {
+			accountByID[plan.account.accountID] = plan.account
+			feedIDsByAccountID[plan.account.accountID, default: []].insert(plan.feedID)
+		}
+
+		for (accountID, feedIDs) in feedIDsByAccountID {
+			guard let account = accountByID[accountID] else {
+				continue
+			}
+			do {
+				_ = try await account.hardResetArticlesForFeedIDs(feedIDs)
+			} catch {
+				failedCount += feedIDs.count
+			}
+		}
+
+		for plan in plans {
+			guard let feed = plan.account.existingFeed(withURL: plan.feedURL) else {
+				continue
+			}
+			let removalContainer = plan.account.existingContainers(withFeed: feed).first ?? plan.account
+			let removeResult = await removeFeedAsync(feed, from: removalContainer, account: plan.account)
+			switch removeResult {
+			case .success:
+				removedCount += 1
+			case .failure:
+				failedCount += 1
+			}
+		}
+
+		for plan in plans {
+			if plan.account.hasFeed(withURL: plan.feedURL) {
+				continue
+			}
+			let targetContainer: Container
+			if let folderExternalID = plan.folderExternalID,
+			   let folder = plan.account.existingFolder(withExternalID: folderExternalID) {
+				targetContainer = folder
+			} else {
+				targetContainer = plan.account
+			}
+
+			let createResult = await createFeedAsync(url: plan.feedURL, account: plan.account, container: targetContainer)
+			switch createResult {
+			case .success(let feed):
+				feed.feedCategory = plan.category
+				readdedCount += 1
+			case .failure:
+				failedCount += 1
+			}
+		}
+
+		return (removedCount, readdedCount, failedCount)
+	}
+
+	private func buildJSONFeedResetPlans() -> [JSONFeedResetPlan] {
+		var plans = [JSONFeedResetPlan]()
+		let resetCategories: Set<FeedCategory> = [.podcast, .youtube, .news]
+
+		for account in AccountManager.shared.activeAccounts {
+			for feed in account.flattenedFeeds() where resetCategories.contains(feed.feedCategory) {
+				let containers = account.existingContainers(withFeed: feed)
+				let folderExternalID = (containers.first as? Folder)?.externalID
+				plans.append(
+					JSONFeedResetPlan(
+						account: account,
+						feedID: feed.feedID,
+						feedURL: feed.url,
+						category: feed.feedCategory,
+						folderExternalID: folderExternalID
+					)
+				)
+			}
+		}
+
+		return plans
+	}
+
+	private func removeFeedAsync(_ feed: Feed, from container: Container, account: Account) async -> Result<Void, Error> {
+		await withCheckedContinuation { continuation in
+			account.removeFeed(feed, from: container) { result in
+				continuation.resume(returning: result)
+			}
+		}
+	}
+
+	private func createFeedAsync(url: String, account: Account, container: Container) async -> Result<Feed, Error> {
+		await withCheckedContinuation { continuation in
+			account.createFeed(url: url, name: nil, container: container, validateFeed: true) { result in
+				continuation.resume(returning: result)
+			}
+		}
+	}
+
+	private func clearTimelineCachesInAllScenes() {
+		for scene in UIApplication.shared.connectedScenes {
+			guard let windowScene = scene as? UIWindowScene,
+				  let delegate = windowScene.delegate as? SceneDelegate else {
+				continue
+			}
+			delegate.coordinator?.clearTimelineForMaintenance()
+		}
 	}
 
 	func updateNotificationSwitches() {

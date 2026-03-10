@@ -10,7 +10,7 @@ import UIKit
 
 class MainTimelineFeedCell: UITableViewCell {
 	@IBOutlet var articleTitle: UILabel!
-	@IBOutlet var authorByLine: UILabel!
+	@IBOutlet var authorByLine: UILabel?
 	@IBOutlet var indicatorView: IconView!
 	@IBOutlet var articleDate: UILabel!
 	@IBOutlet var metaDataStackView: UIStackView!
@@ -36,11 +36,11 @@ class MainTimelineFeedCell: UITableViewCell {
 			super.awakeFromNib()
 			indicatorView.alpha = 0.0
 			configureStackView()
-			cacheLayoutConstraints()
-			articleDate.setContentCompressionResistancePriority(.required, for: .horizontal)
-			articleTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+				cacheLayoutConstraints()
+				articleDate.setContentCompressionResistancePriority(.required, for: .horizontal)
+				articleTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+			}
 		}
-	}
 
 	private func cacheLayoutConstraints() {
 		for constraint in contentView.constraints {
@@ -83,26 +83,27 @@ class MainTimelineFeedCell: UITableViewCell {
 	}
 
 	private func configure(_ cellData: MainTimelineCellData) {
+		selectionStyle = cellData.isGeneratedSummaryRow ? .none : .default
 		updateIndicatorView(cellData)
 		articleTitle.numberOfLines = cellData.numberOfLines
 
 		applyTitleTextWithAttributes(configurationState)
 
-		if cellData.showFeedName == .feed {
-			authorByLine.text = cellData.feedName
-		} else if cellData.showFeedName == .byline {
-			authorByLine.text = cellData.byline
-		} else if cellData.showFeedName == .none {
-			authorByLine.text = ""
-		}
-		applySecondaryTextLayout()
+			if cellData.showFeedName == .feed {
+				authorByLine?.text = cellData.feedName
+			} else if cellData.showFeedName == .byline {
+				authorByLine?.text = cellData.byline
+			} else if cellData.showFeedName == .none {
+				authorByLine?.text = ""
+			}
+			applySecondaryTextLayout()
 
 		articleDate.text = cellData.dateString
 	}
 
 	private func applySecondaryTextLayout() {
-		let hasSecondaryText = !(authorByLine.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-		authorByLine.isHidden = !hasSecondaryText
+		let hasSecondaryText = !((authorByLine?.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+		authorByLine?.isHidden = !hasSecondaryText
 
 		if hasSecondaryText {
 			titleTopConstraint?.constant = defaultTitleTopConstant
@@ -118,6 +119,11 @@ class MainTimelineFeedCell: UITableViewCell {
 	}
 
 	private func updateIndicatorView(_ cellData: MainTimelineCellData) {
+		guard cellData.showIndicator else {
+			indicatorView.alpha = 0.0
+			indicatorView.iconImage = nil
+			return
+		}
 		let dimReadArticles = AppDefaults.shared.timelineDimReadArticles
 		if cellData.starred {
 			if indicatorView.alpha == 0.0 {
@@ -146,6 +152,19 @@ class MainTimelineFeedCell: UITableViewCell {
 	}
 
 	private func applyTitleTextWithAttributes(_ state: UICellConfigurationState) {
+		if cellData.isGeneratedSummaryRow {
+			let paragraphStyle = NSMutableParagraphStyle()
+			paragraphStyle.lineBreakMode = .byWordWrapping
+			let summaryAttributes: [NSAttributedString.Key: Any] = [
+				.font: UIFont.preferredFont(forTextStyle: .body),
+				.paragraphStyle: paragraphStyle,
+				.foregroundColor: titleTextColor(for: state)
+			]
+			articleTitle.attributedText = NSAttributedString(string: cellData.title, attributes: summaryAttributes)
+			articleTitle.lineBreakMode = .byWordWrapping
+			return
+		}
+
 		let attributedCellText = NSMutableAttributedString()
 		if cellData.title != "" {
 			let paragraphStyle = NSMutableParagraphStyle()
@@ -195,6 +214,8 @@ class MainTimelineFeedCell: UITableViewCell {
 		let isSelected = state.isSelected || state.isHighlighted || state.isFocused || state.isSwiped
 		if isSelected {
 			return .white
+		} else if cellData?.isGeneratedSummaryRow == true {
+			return .secondaryLabel
 		} else if AppDefaults.shared.timelineDimReadArticles, cellData?.read == true {
 			return traitCollection.userInterfaceStyle == .dark ? .tertiaryLabel : .quaternaryLabel
 		} else {
@@ -244,13 +265,24 @@ class MainTimelineFeedCell: UITableViewCell {
 
 		if state.isSelected || state.isHighlighted || state.isFocused || state.isSwiped {
 			backgroundConfig.backgroundColor = Assets.Colors.primaryAccent
+			backgroundConfig.strokeColor = nil
+			backgroundConfig.strokeWidth = 0
 			articleTitle.textColor = titleTextColor(for: state)
 			articleDate.textColor = .lightText
-			authorByLine.textColor = .lightText
+			authorByLine?.textColor = .lightText
 		} else {
+			if cellData?.isGeneratedSummaryRow == true {
+				backgroundConfig.backgroundColor = .systemBackground
+				//let contourAlpha: CGFloat = traitCollection.userInterfaceStyle == .dark ? 0.55 : 0.35
+				backgroundConfig.strokeColor = .secondarySystemBackground //Assets.Colors.primaryAccent//UIColor.separator.withAlphaComponent(contourAlpha)
+				backgroundConfig.strokeWidth = 3.0
+			} else {
+				backgroundConfig.strokeColor = nil
+				backgroundConfig.strokeWidth = 0
+			}
 			articleTitle.textColor = titleTextColor(for: state)
 			articleDate.textColor = .secondaryLabel
-			authorByLine.textColor = .secondaryLabel
+			authorByLine?.textColor = .secondaryLabel
 		}
 
 		self.backgroundConfiguration = backgroundConfig
