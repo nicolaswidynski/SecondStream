@@ -1300,66 +1300,20 @@ private extension MainTimelineViewController {
 			tableView.rowHeight = UITableView.automaticDimension
 		}
 
-		let previousItems = orderedArticlesFromCurrentSnapshot()
 		let finalItems = articles ?? ArticleArray()
 		let finalSnapshot = makeTimelineSnapshot(with: finalItems)
-		let previousUnreadCount = previousItems.reduce(into: 0) { if !$1.status.read { $0 += 1 } }
-		let finalUnreadCount = finalItems.reduce(into: 0) { if !$1.status.read { $0 += 1 } }
-		let crossesUnreadBoundary = previousUnreadCount == 0 || finalUnreadCount == 0
 
-		if animated {
-			if crossesUnreadBoundary {
-				rowDistanceReferenceArticleID = nil
-				lastRowDistanceHardJumpApplied = false
-				lastRowDistanceHardJumpThreshold = 0
-				lastRowDistanceHardJumpTailDistance = 0
-				clearElevatedRowArticleID()
-				dataSource.apply(finalSnapshot, animatingDifferences: false) { [weak self] in
-					self?.restoreSelectionIfNecessary(adjustScroll: false)
-					completion?()
-				}
-				return
-			}
-
-			let animationDuration = rowDistanceAnimationDuration(previousItems: previousItems, newItems: finalItems)
-			setElevatedRowArticleID(lastRowDistanceResolvedReferenceArticleID)
-			rowDistanceReferenceArticleID = nil // one-shot reference for the next diff
-			lastRowDistanceHardJumpApplied = false
-			lastRowDistanceHardJumpThreshold = 0
-			lastRowDistanceHardJumpTailDistance = 0
-
-			if let referenceArticleID = lastRowDistanceResolvedReferenceArticleID,
-			   let intermediateSnapshot = makeIntermediateSnapshotForReadStateTransition(previousItems: previousItems, finalItems: finalItems, referenceArticleID: referenceArticleID) {
-				lastRowDistanceMode = "reference-cross-section"
-				applyAnimatedSnapshot(intermediateSnapshot, duration: animationDuration) { [weak self] in
-					guard let self else {
-						completion?()
-						return
-					}
-					self.dataSource.apply(finalSnapshot, animatingDifferences: false) { [weak self] in
-						self?.restoreSelectionIfNecessary(adjustScroll: false)
-						self?.clearElevatedRowArticleID()
-						completion?()
-					}
-				}
-				return
-			}
-
-			applyAnimatedSnapshot(finalSnapshot, duration: animationDuration) { [weak self] in
-				self?.restoreSelectionIfNecessary(adjustScroll: false)
-				self?.clearElevatedRowArticleID()
-				completion?()
-			}
-		} else {
-			rowDistanceReferenceArticleID = nil
-			lastRowDistanceHardJumpApplied = false
-			lastRowDistanceHardJumpThreshold = 0
-			lastRowDistanceHardJumpTailDistance = 0
-			clearElevatedRowArticleID()
-			dataSource.apply(finalSnapshot, animatingDifferences: false) { [weak self] in
-				self?.restoreSelectionIfNecessary(adjustScroll: false)
-				completion?()
-			}
+		// Temporary freeze-debug mode: force non-animated snapshot applies
+		// to eliminate animation/race side effects while validating logic.
+		rowDistanceReferenceArticleID = nil
+		lastRowDistanceHardJumpApplied = false
+		lastRowDistanceHardJumpThreshold = 0
+		lastRowDistanceHardJumpTailDistance = 0
+		lastRowDistanceMode = "debug-no-animation"
+		clearElevatedRowArticleID()
+		dataSource.apply(finalSnapshot, animatingDifferences: false) { [weak self] in
+			self?.restoreSelectionIfNecessary(adjustScroll: false)
+			completion?()
 		}
 	}
 

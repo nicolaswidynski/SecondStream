@@ -200,13 +200,13 @@
                                             </constraints>
                                         </view>
                                         <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" text="Article Title" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="2" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="xIH-Bj-Hfb">
-                                            <rect key="frame" x="32" y="13" width="331" height="20.333333333333332"/>
+                                            <rect key="frame" x="35" y="13" width="331" height="20.333333333333332"/>
                                             <fontDescription key="fontDescription" style="UICTFontTextStyleHeadline"/>
                                             <nil key="textColor"/>
                                             <nil key="highlightedColor"/>
                                         </label>
                                         <stackView opaque="NO" contentMode="scaleToFill" misplaced="YES" distribution="fillProportionally" alignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="POG-WQ-rYn">
-                                            <rect key="frame" x="32" y="34" width="331" height="20.333333333333332"/>
+                                            <rect key="frame" x="35" y="34" width="331" height="20.333333333333332"/>
                                             <subviews>
                                                 <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="articleDate" lineBreakMode="wordWrap" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="DHe-fL-GeU">
                                                     <rect key="frame" x="0.0" y="3.0000000000000009" width="331" height="14.333333333333336"/>
