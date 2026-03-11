@@ -46,7 +46,7 @@ final class AppDefaults: Sendable {
 		return UserDefaults.init(suiteName: suiteName)!
 	}()
 
-	struct Key {
+		struct Key {
 		static let userInterfaceColorPalette = "userInterfaceColorPalette"
 		static let lastImageCacheFlushDate = "lastImageCacheFlushDate"
 		static let firstRunDate = "firstRunDate"
@@ -80,7 +80,8 @@ final class AppDefaults: Sendable {
 		static let obsidianVaultBookmark = "obsidianVaultBookmark"
 		static let obsidianSubfolderFeedType = "obsidianSubfolderFeedType"
 		static let obsidianSubfolderFeedName = "obsidianSubfolderFeedName"
-		static let ttsVoiceIdentifier = "ttsVoiceIdentifier"
+			static let ttsVoiceIdentifier = "ttsVoiceIdentifier"
+			static let ttsEnabled = "ttsEnabled"
 		static let notifyFeeds = "notifyFeeds"
 		static let notifyPodcasts = "notifyPodcasts"
 		static let notifyYouTube = "notifyYouTube"
@@ -442,6 +443,15 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	var ttsEnabled: Bool {
+		get {
+			AppDefaults.bool(for: Key.ttsEnabled)
+		}
+		set {
+			AppDefaults.setBool(for: Key.ttsEnabled, newValue)
+		}
+	}
+
 	var notifyFeeds: Bool {
 		get {
 			AppDefaults.bool(for: Key.notifyFeeds)
@@ -535,9 +545,10 @@ final class AppDefaults: Sendable {
 									   Key.articleContentJavascriptEnabled: true,
 									   Key.currentThemeName: Self.defaultThemeName,
 									   Key.splitViewPreferredDisplayMode: UISplitViewController.DisplayMode.oneBesideSecondary.rawValue,
-									   Key.obsidianSubfolderFeedType: true,
-									   Key.obsidianSubfolderFeedName: true,
-									   Key.showAddShowSourceFailureDialog: false,
+										   Key.obsidianSubfolderFeedType: true,
+										   Key.obsidianSubfolderFeedName: true,
+										   Key.ttsEnabled: false,
+										   Key.showAddShowSourceFailureDialog: false,
 									   Key.showHomepageResolutionDebugDialog: true,
 									   Key.timelineDimReadArticles: true,
 									   Key.timelineUnreadFirst: false]

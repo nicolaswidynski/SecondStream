@@ -49,6 +49,9 @@ final class SettingsViewController: UITableViewController {
 
 	private var notificationsAuthorized = false
 	private let displaySection = 5
+	private let ttsSection = 6
+	private let ttsEnabledRow = 0
+	private let ttsVoiceRow = 1
 	private let timelineUnreadFirstRow = 1
 	private let timelineReadStylingRow = 2
 	private let homepageDebugDialogRow = 3
@@ -186,6 +189,8 @@ final class SettingsViewController: UITableViewController {
 		case 7:
 			// Section 7: row 0 = sync toggle, rows 1-4 = vault/subfolder/preview
 			return shouldHideSubOptions(for: 7) ? 1 : super.tableView(tableView, numberOfRowsInSection: section)
+		case ttsSection:
+			return super.tableView(tableView, numberOfRowsInSection: section) + 1
 		case displaySection:
 			return super.tableView(tableView, numberOfRowsInSection: section) + 3
 		default:
@@ -223,8 +228,8 @@ final class SettingsViewController: UITableViewController {
 
 	override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
-		let cell: UITableViewCell
-		switch indexPath.section {
+			let cell: UITableViewCell
+			switch indexPath.section {
 		case 1:
 
 			let sortedAccounts = AccountManager.shared.sortedAccounts
@@ -243,12 +248,19 @@ final class SettingsViewController: UITableViewController {
 			cell = makeTimelineReadStylingCell(tableView)
 		case displaySection where indexPath.row == timelineUnreadFirstRow:
 			cell = makeTimelineUnreadFirstCell(tableView)
-		case displaySection where indexPath.row == homepageDebugDialogRow:
-			cell = makeHomepageDebugDialogCell(tableView)
-		default:
-			cell = super.tableView(tableView, cellForRowAt: indexPath)
+			case displaySection where indexPath.row == homepageDebugDialogRow:
+				cell = makeHomepageDebugDialogCell(tableView)
+			case ttsSection where indexPath.row == ttsEnabledRow:
+				cell = makeTTSEnabledCell(tableView)
+			default:
+				if indexPath.section == ttsSection && indexPath.row > ttsEnabledRow {
+					let originalIndexPath = IndexPath(row: indexPath.row - 1, section: indexPath.section)
+					cell = super.tableView(tableView, cellForRowAt: originalIndexPath)
+				} else {
+					cell = super.tableView(tableView, cellForRowAt: indexPath)
+				}
 
-		}
+			}
 
 		return cell
 	}
@@ -311,7 +323,9 @@ final class SettingsViewController: UITableViewController {
 			}
 		case 6:
 			// Text-to-Speech section
-			presentTTSVoicePicker()
+			if indexPath.row == ttsVoiceRow {
+				presentTTSVoicePicker()
+			}
 			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
 		case 7:
 			// Obsidian section
@@ -459,6 +473,11 @@ final class SettingsViewController: UITableViewController {
 		AppDefaults.shared.showHomepageResolutionDebugDialog = sender.isOn
 	}
 
+	@objc func switchTTSEnabled(_ sender: UISwitch) {
+		AppDefaults.shared.ttsEnabled = sender.isOn
+		NotificationCenter.default.post(name: UserDefaults.didChangeNotification, object: nil)
+	}
+
 	// MARK: - Notifications
 
 	@objc func contentSizeCategoryDidChange() {
@@ -561,6 +580,21 @@ private extension SettingsViewController {
 		toggle.removeTarget(self, action: #selector(switchHomepageDebugDialog(_:)), for: .valueChanged)
 		toggle.addTarget(self, action: #selector(switchHomepageDebugDialog(_:)), for: .valueChanged)
 		toggle.isOn = AppDefaults.shared.showHomepageResolutionDebugDialog
+		cell.accessoryView = toggle
+		return cell
+	}
+
+	func makeTTSEnabledCell(_ tableView: UITableView) -> UITableViewCell {
+		let cell = tableView.dequeueReusableCell(withIdentifier: "TTSEnabledCell") ??
+			UITableViewCell(style: .default, reuseIdentifier: "TTSEnabledCell")
+		var content = cell.defaultContentConfiguration()
+		content.text = NSLocalizedString("Enable Text-to-Speech", comment: "Text-to-Speech enabled toggle")
+		cell.contentConfiguration = content
+		cell.selectionStyle = .none
+		let toggle = (cell.accessoryView as? UISwitch) ?? UISwitch(frame: .zero)
+		toggle.removeTarget(self, action: #selector(switchTTSEnabled(_:)), for: .valueChanged)
+		toggle.addTarget(self, action: #selector(switchTTSEnabled(_:)), for: .valueChanged)
+		toggle.isOn = AppDefaults.shared.ttsEnabled
 		cell.accessoryView = toggle
 		return cell
 	}
@@ -708,7 +742,9 @@ private extension SettingsViewController {
 				SourceImageCache.shared.clearCache()
 				FaviconDownloader.shared.resetCache()
 				IconImageCache.shared.emptyCache()
-				SourceFileFetcher.clearLastModifiedCache()
+				Task {
+					await SourceFileFetcher.clearLastModifiedCache()
+				}
 				PodcastSourcesManager.shared.podcastSources = []
 				PodcastSourcesManager.shared.podcastLibrarySources = []
 				YoutubeSourcesManager.shared.youtubeSources = []

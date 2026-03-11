@@ -86,15 +86,13 @@ final class ArticleViewController: UIViewController {
 		NotificationCenter.default.addObserver(self, selector: #selector(contentSizeCategoryDidChange(_:)), name: UIContentSizeCategory.didChangeNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground(_:)), name: UIApplication.willEnterForegroundNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(feedIconDidBecomeAvailable(_:)), name: .feedIconDidBecomeAvailable, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
 
 		navigationItem.titleView = FeedNavigationChrome.makeTitleView(target: self, action: #selector(showCurrentFeedHomepage(_:)))
 		navigationItem.rightBarButtonItems = nil
 
 		// Add TTS button after share
 		ttsBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "speaker.wave.2"), style: .plain, target: self, action: #selector(ttsTapped))
-		if let ttsButton = ttsBarButtonItem {
-			toolbarItems?.append(ttsButton)
-		}
 		configureToolbarAsSingleBlock()
 
 		pageViewController = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal, options: [:])
@@ -286,6 +284,14 @@ final class ArticleViewController: UIViewController {
 		}
 	}
 
+	@objc func userDefaultsDidChange(_ note: Notification) {
+		if !AppDefaults.shared.ttsEnabled, TextToSpeechManager.shared.isActive {
+			TextToSpeechManager.shared.stop()
+		}
+		configureToolbarAsSingleBlock()
+		updateUI()
+	}
+
 	// MARK: Actions
 
 	@objc func showBars(_ sender: Any) {
@@ -321,6 +327,9 @@ final class ArticleViewController: UIViewController {
 	}
 
 	@objc func ttsTapped() {
+		guard AppDefaults.shared.ttsEnabled else {
+			return
+		}
 		if TextToSpeechManager.shared.isActive {
 			// TTS is active - stop it
 			TextToSpeechManager.shared.stop()
@@ -501,20 +510,18 @@ extension ArticleViewController: UIPageViewControllerDelegate {
 private extension ArticleViewController {
 
 	func configureToolbarAsSingleBlock() {
-		guard let ttsBarButtonItem else {
-			return
-		}
-
-		let items: [UIBarButtonItem] = [
+		var items: [UIBarButtonItem] = [
 			.flexibleSpace(),
 			readBarButtonItem,
 			starBarButtonItem,
 			prevArticleBarButtonItem,
 			nextArticleBarButtonItem,
-			actionBarButtonItem,
-			ttsBarButtonItem,
-			.flexibleSpace()
+			actionBarButtonItem
 		]
+		if AppDefaults.shared.ttsEnabled, let ttsBarButtonItem {
+			items.append(ttsBarButtonItem)
+		}
+		items.append(.flexibleSpace())
 
 		setToolbarItems(items, animated: false)
 	}

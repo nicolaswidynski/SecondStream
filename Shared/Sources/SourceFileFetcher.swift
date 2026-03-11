@@ -25,7 +25,25 @@ enum SourceFileFetcher {
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "SourceFileFetcher")
 
 	private static let baseURL = AppURLs.filesBase + "lib/"
-	private static let lastModifiedKeyPrefix = "SourceFileFetcher.lastModified."
+	private static let lastModifiedCache = LastModifiedCache()
+
+	private actor LastModifiedCache {
+		private var values = [String: String]()
+
+		func value(for fileName: String) -> String? {
+			values[fileName]
+		}
+
+		func set(_ value: String, for fileName: String) {
+			values[fileName] = value
+		}
+
+		func clear() -> Int {
+			let count = values.count
+			values.removeAll(keepingCapacity: false)
+			return count
+		}
+	}
 
 	/// Fetches entries from a static file, using Last-Modified to avoid redundant downloads.
 	/// Returns nil if the file has not changed since the last fetch.
@@ -35,8 +53,7 @@ enum SourceFileFetcher {
 			return nil
 		}
 
-		let lastModifiedKey = lastModifiedKeyPrefix + fileName
-		let storedLastModified = UserDefaults.standard.string(forKey: lastModifiedKey)
+		let storedLastModified = await lastModifiedCache.value(for: fileName)
 
 		// HEAD request to check Last-Modified
 		var headRequest = URLRequest(url: url)
@@ -69,7 +86,7 @@ enum SourceFileFetcher {
 
 			// Store the Last-Modified header
 			if let newLastModified = getHTTPResponse.value(forHTTPHeaderField: "Last-Modified") {
-				UserDefaults.standard.set(newLastModified, forKey: lastModifiedKey)
+				await lastModifiedCache.set(newLastModified, for: fileName)
 			}
 
 			return parseEntries(from: data, fileName: fileName)
@@ -86,8 +103,6 @@ enum SourceFileFetcher {
 			return nil
 		}
 
-		let lastModifiedKey = lastModifiedKeyPrefix + fileName
-
 		do {
 			let (data, response) = try await URLSession.shared.data(from: url)
 
@@ -98,7 +113,7 @@ enum SourceFileFetcher {
 			}
 
 			if let newLastModified = httpResponse.value(forHTTPHeaderField: "Last-Modified") {
-				UserDefaults.standard.set(newLastModified, forKey: lastModifiedKey)
+				await lastModifiedCache.set(newLastModified, for: fileName)
 			}
 
 			return parseEntries(from: data, fileName: fileName)
@@ -146,12 +161,8 @@ enum SourceFileFetcher {
 		return nil
 	}
 
-	static func clearLastModifiedCache() {
-		let defaults = UserDefaults.standard
-		let keys = defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix(lastModifiedKeyPrefix) }
-		for key in keys {
-			defaults.removeObject(forKey: key)
-		}
-		logger.info("Cleared \(keys.count) SourceFileFetcher Last-Modified cache entries")
+	static func clearLastModifiedCache() async {
+		let count = await lastModifiedCache.clear()
+		logger.info("Cleared \(count) SourceFileFetcher Last-Modified cache entries")
 	}
 }
