@@ -378,23 +378,6 @@ import Articles
 }
 
 final class MainTimelineViewController: UITableViewController, UndoableCommandRunner {
-	private enum TimelineSection: Hashable {
-		case unreadCard(articleID: String)
-		case readBucket
-	}
-
-	private enum TimelineRowKind: Hashable {
-		case title
-		case summary
-	}
-
-	private struct TimelineRow: Hashable {
-		let articleID: String
-		let kind: TimelineRowKind
-	}
-
-	private typealias TimelineSnapshot = NSDiffableDataSourceSnapshot<TimelineSection, TimelineRow>
-	private typealias TimelineDataSource = UITableViewDiffableDataSource<TimelineSection, TimelineRow>
 
 	private var numberOfTextLines = 0
 	private var iconSize = IconSize.medium
@@ -407,13 +390,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	private lazy var longPressStarToggleGestureRecognizer: UILongPressGestureRecognizer = {
 		let gesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPressToggleStar(_:)))
 		gesture.minimumPressDuration = 0.45
-		gesture.allowableMovement = 36
+		gesture.allowableMovement = 14
 		return gesture
 	}()
 
-	private lazy var dataSource: TimelineDataSource = makeDataSource()
-	private var articleByID = [String: Article]()
-	private var isReadSectionCollapsed = false
+	private lazy var dataSource = makeDataSource()
 	private let searchController = UISearchController(searchResultsController: nil)
 
 	weak var coordinator: SceneCoordinator?
@@ -433,17 +414,10 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	private(set) var lastRowDistanceHardJumpApplied: Bool = false
 	private(set) var lastRowDistanceHardJumpThreshold: Int = 0
 	private(set) var lastRowDistanceHardJumpTailDistance: Int = 0
-	private(set) var lastRowDistanceRawDuration: CFTimeInterval = 0
-	private(set) var lastRowDistanceMinApplied: Bool = false
 	private var rowDistanceReferenceArticleID: String?
-	private var elevatedRowArticleID: String?
-	private let elevatedCellZPosition: CGFloat = 1000
-	private let rowDistanceSecondsPerRow: CFTimeInterval = 0.05
-	private let rowDistanceNoMovementDuration: CFTimeInterval = 0.040
+	private let rowDistanceSecondsPerRow: CFTimeInterval = 0.14 // 40 ms
 	private let rowDistanceMinDuration: CFTimeInterval = 0.22
-	private let rowAnimationBaselineDuration: CFTimeInterval = 0.35
 	private let hardJumpTailEnabled = true
-	var debugRowDistanceSecondsPerRow: CFTimeInterval { rowDistanceSecondsPerRow }
 
 	private var timelineFeed: SidebarItem? {
 		assert(coordinator != nil)
@@ -729,14 +703,12 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	// MARK: API
 
 	func restoreSelectionIfNecessary(adjustScroll: Bool) {
-		if let article = currentArticle, let indexPath = indexPathForTitleRow(of: article) {
+		if let article = currentArticle, let indexPath = dataSource.indexPath(for: article) {
 			if adjustScroll {
 				tableView.selectRowAndScrollIfNotVisible(at: indexPath, animations: [])
 			} else {
 				tableView.selectRow(at: indexPath, animated: false, scrollPosition: .none)
 			}
-		} else {
-			tableView.selectRow(at: nil, animated: false, scrollPosition: .none)
 		}
 	}
 
@@ -763,7 +735,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	func updateArticleSelection(animations: Animations) {
-		if let article = currentArticle, let indexPath = indexPathForTitleRow(of: article) {
+		if let article = currentArticle, let indexPath = dataSource.indexPath(for: article) {
 			if tableView.indexPathForSelectedRow != indexPath {
 				tableView.selectRowAndScrollIfNotVisible(at: indexPath, animations: animations)
 			}
@@ -801,76 +773,16 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
-		guard let row = dataSource.itemIdentifier(for: indexPath) else {
-			return false
-		}
-		return row.kind == .title
-	}
-
-	override func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-		guard sectionIdentifier(for: section) == .readBucket,
-			  let articles,
-			  articles.contains(where: { $0.status.read }) else {
-			return nil
-		}
-
-		let container = UIView()
-		container.backgroundColor = .clear
-
-		let tapControl = UIControl()
-		tapControl.addTarget(self, action: #selector(toggleReadSectionCollapsed(_:)), for: .touchUpInside)
-		container.addSubview(tapControl)
-		tapControl.translatesAutoresizingMaskIntoConstraints = false
-
-		let titleLabel = UILabel()
-		titleLabel.translatesAutoresizingMaskIntoConstraints = false
-		titleLabel.text = NSLocalizedString("Read", comment: "Read section header")
-		titleLabel.font = UIFont.preferredFont(forTextStyle: .body).bold()
-		titleLabel.textColor = .label
-		tapControl.addSubview(titleLabel)
-
-		let chevronSymbolConfig = UIImage.SymbolConfiguration(pointSize: 19, weight: .semibold)
-		let chevronImage = UIImage(systemName: isReadSectionCollapsed ? "chevron.right" : "chevron.down", withConfiguration: chevronSymbolConfig)
-		let chevronImageView = UIImageView(image: chevronImage)
-		chevronImageView.translatesAutoresizingMaskIntoConstraints = false
-		chevronImageView.tintColor = .label
-		chevronImageView.contentMode = .scaleAspectFit
-		tapControl.addSubview(chevronImageView)
-
-		NSLayoutConstraint.activate([
-			tapControl.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-			tapControl.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-			tapControl.topAnchor.constraint(equalTo: container.topAnchor),
-			tapControl.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-
-			titleLabel.leadingAnchor.constraint(equalTo: tapControl.leadingAnchor, constant: 20),
-			titleLabel.centerYAnchor.constraint(equalTo: tapControl.centerYAnchor),
-
-			chevronImageView.trailingAnchor.constraint(equalTo: tapControl.trailingAnchor, constant: -20),
-			chevronImageView.centerYAnchor.constraint(equalTo: tapControl.centerYAnchor),
-			chevronImageView.widthAnchor.constraint(equalToConstant: 22),
-			chevronImageView.heightAnchor.constraint(equalToConstant: 22)
-		])
-		return container
-	}
-
-	override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-		sectionIdentifier(for: section) == .readBucket ? 38 : CGFloat.leastNormalMagnitude
-	}
-
-	override func tableView(_ tableView: UITableView, estimatedHeightForHeaderInSection section: Int) -> CGFloat {
-		sectionIdentifier(for: section) == .readBucket ? 38 : 0
+		true
 	}
 
 	override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-		guard let row = dataSource.itemIdentifier(for: indexPath),
-			  row.kind == .title,
-			  let article = articleForRow(row) else {
+		guard let article = dataSource.itemIdentifier(for: indexPath) else {
 			return nil
 		}
 
 		let readAction = UIContextualAction(style: .normal, title: nil) { [weak self] _, _, completion in
-			self?.toggleRead(article)
+			self?.coordinator?.toggleRead(article)
 			completion(true)
 		}
 		readAction.image = article.status.read ? Assets.Images.circleClosed : Assets.Images.circleOpen
@@ -892,54 +804,69 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 		let point = gesture.location(in: tableView)
 		guard let indexPath = tableView.indexPathForRow(at: point),
-			  let row = dataSource.itemIdentifier(for: indexPath),
-			  row.kind == .title,
-			  let article = articleForRow(row) else {
+			  let article = dataSource.itemIdentifier(for: indexPath) else {
 			return
+		}
+
+		if let cell = tableView.cellForRow(at: indexPath) {
+			animateDoubleFlash(on: cell)
 		}
 
 		let generator = UIImpactFeedbackGenerator(style: .light)
 		generator.impactOccurred()
-		if let cell = tableView.cellForRow(at: indexPath) {
-			let flashFrame = tableView.convert(cell.bounds, from: cell)
-			animateDoubleFlash(in: flashFrame)
-		}
 		coordinator?.toggleStar(article)
 	}
 
-	private func animateDoubleFlash(in frame: CGRect) {
-		let flashView = UIView(frame: frame)
+	private func animateDoubleFlash(on cell: UITableViewCell) {
+		if traitCollection.userInterfaceStyle == .dark {
+			let flashView = UIView(frame: cell.bounds)
+			flashView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+			flashView.backgroundColor = .white
+			flashView.alpha = 0
+			flashView.isUserInteractionEnabled = false
+			cell.contentView.addSubview(flashView)
+
+			UIView.animateKeyframes(withDuration: 0.56, delay: 0, options: [.allowUserInteraction, .calculationModeLinear]) {
+				UIView.addKeyframe(withRelativeStartTime: 0.00, relativeDuration: 0.16) {
+					flashView.alpha = 0.32
+				}
+				UIView.addKeyframe(withRelativeStartTime: 0.16, relativeDuration: 0.34) {
+					flashView.alpha = 0
+				}
+			} completion: { _ in
+				Task { @MainActor in
+					flashView.removeFromSuperview()
+				}
+			}
+			return
+		}
+
+		let flashView = UIView(frame: cell.bounds)
+		flashView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
 		flashView.backgroundColor = .white
 		flashView.alpha = 0
 		flashView.isUserInteractionEnabled = false
-		flashView.layer.zPosition = 10_000
-		flashView.layer.cornerRadius = 20
-		flashView.clipsToBounds = true
-		tableView.addSubview(flashView)
-		tableView.bringSubviewToFront(flashView)
+		cell.contentView.addSubview(flashView)
 
-		let secondFlashView = UIView(frame: frame)
-		secondFlashView.backgroundColor = traitCollection.userInterfaceStyle == .dark ? .white : .black
+		let secondFlashView = UIView(frame: cell.bounds)
+		secondFlashView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+		secondFlashView.backgroundColor = .black
 		secondFlashView.alpha = 0
 		secondFlashView.isUserInteractionEnabled = false
-		secondFlashView.layer.zPosition = 10_001
-		secondFlashView.layer.cornerRadius = 20
-		secondFlashView.clipsToBounds = true
-		tableView.addSubview(secondFlashView)
-		tableView.bringSubviewToFront(secondFlashView)
+		cell.contentView.addSubview(secondFlashView)
 
 		UIView.animateKeyframes(withDuration: 0.72, delay: 0, options: [.allowUserInteraction, .calculationModeLinear]) {
-			UIView.addKeyframe(withRelativeStartTime: 0.00, relativeDuration: 0.14) {
-				flashView.alpha = 0.34
+			UIView.addKeyframe(withRelativeStartTime: 0.00, relativeDuration: 0.16) {
+				flashView.alpha = 0.32
 			}
-			UIView.addKeyframe(withRelativeStartTime: 0.14, relativeDuration: 0.16) {
+			UIView.addKeyframe(withRelativeStartTime: 0.16, relativeDuration: 0.18) {
 				flashView.alpha = 0
 			}
 
-			UIView.addKeyframe(withRelativeStartTime: 0.46, relativeDuration: 0.16) {
-				secondFlashView.alpha = self.traitCollection.userInterfaceStyle == .dark ? 0.30 : 0.26
+			UIView.addKeyframe(withRelativeStartTime: 0.42, relativeDuration: 0.14) {
+				secondFlashView.alpha = 0.22
 			}
-			UIView.addKeyframe(withRelativeStartTime: 0.62, relativeDuration: 0.16) {
+			UIView.addKeyframe(withRelativeStartTime: 0.56, relativeDuration: 0.20) {
 				secondFlashView.alpha = 0
 			}
 		} completion: { _ in
@@ -952,44 +879,8 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
 		becomeFirstResponder()
-		guard let row = dataSource.itemIdentifier(for: indexPath), row.kind == .title else {
-			return
-		}
-		let article = articleForRow(row)
+		let article = dataSource.itemIdentifier(for: indexPath)
 		coordinator?.selectArticle(article, animations: [.scroll, .select, .navigation])
-	}
-
-	override func tableView(_ tableView: UITableView, willSelectRowAt indexPath: IndexPath) -> IndexPath? {
-		guard let row = dataSource.itemIdentifier(for: indexPath), row.kind == .title else {
-			return nil
-		}
-		return indexPath
-	}
-
-	override func tableView(_ tableView: UITableView, shouldHighlightRowAt indexPath: IndexPath) -> Bool {
-		guard let row = dataSource.itemIdentifier(for: indexPath) else {
-			return false
-		}
-		return row.kind == .title
-	}
-
-	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-		guard let row = dataSource.itemIdentifier(for: indexPath) else {
-			return
-		}
-
-		let isElevated = row.kind == .title && row.articleID == elevatedRowArticleID
-		cell.layer.zPosition = isElevated ? elevatedCellZPosition : 0
-		if isElevated {
-			tableView.bringSubviewToFront(cell)
-		}
-
-		// Unread cards use a title row + summary row pair. Hide only their internal separator.
-		if sectionIdentifier(for: indexPath.section) != .readBucket && row.kind == .title {
-			cell.separatorInset = UIEdgeInsets(top: 0, left: tableView.bounds.width, bottom: 0, right: 0)
-		} else {
-			cell.separatorInset = tableView.separatorInset
-		}
 	}
 
 	override func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -1006,42 +897,23 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		guard let articleIDs = note.userInfo?[Account.UserInfoKey.articleIDs] as? Set<String>, !articleIDs.isEmpty else {
 			return
 		}
-		let statusKeyAny = note.userInfo?[Account.UserInfoKey.statusKey]
-		let statusKey: ArticleStatus.Key?
-		if let typed = statusKeyAny as? ArticleStatus.Key {
-			statusKey = typed
-		} else if let raw = statusKeyAny as? String {
-			statusKey = ArticleStatus.Key(rawValue: raw)
-		} else {
-			statusKey = nil
-		}
-
-		if statusKey == .starred {
-			refreshVisibleCells(for: articleIDs)
-			return
-		}
-
-		applyChanges(animated: true) { [weak self] in
-			self?.refreshVisibleCells(for: articleIDs)
-		}
+		refreshVisibleCells(for: articleIDs)
 	}
 
 	private func refreshVisibleCells(for articleIDs: Set<String>) {
-		guard let visibleIndexPaths = tableView.indexPathsForVisibleRows else {
-			return
-		}
+		let visibleArticles = tableView.indexPathsForVisibleRows!.compactMap { return dataSource.itemIdentifier(for: $0) }
+		let visibleUpdatedArticles = visibleArticles.filter { articleIDs.contains($0.articleID) }
 
-		for indexPath in visibleIndexPaths {
-			guard let row = dataSource.itemIdentifier(for: indexPath),
-				  articleIDs.contains(row.articleID),
-				  let article = articleForRow(row) else {
-				continue
-			}
-			let cellData = configure(article: article, rowKind: row.kind)
-			if let cell = tableView.cellForRow(at: indexPath) as? MainTimelineIconFeedCell {
-				cell.cellData = cellData
-			} else if let cell = tableView.cellForRow(at: indexPath) as? MainTimelineFeedCell {
-				cell.cellData = cellData
+		for article in visibleUpdatedArticles {
+			if let indexPath = dataSource.indexPath(for: article) {
+				if let cell = tableView.cellForRow(at: indexPath) as? MainTimelineIconFeedCell {
+					let cellData = configure(article: article)
+					cell.cellData = cellData
+				}
+				if let cell = tableView.cellForRow(at: indexPath) as? MainTimelineFeedCell {
+					let cellData = configure(article: article)
+					cell.cellData = cellData
+				}
 			}
 		}
 	}
@@ -1061,9 +933,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		}
 
 		for indexPath in indexPaths {
-			guard let row = dataSource.itemIdentifier(for: indexPath),
-				  row.kind == .title,
-				  let article = articleForRow(row) else {
+			guard let article = dataSource.itemIdentifier(for: indexPath) else {
 				continue
 			}
 			if article.feed == feed {
@@ -1083,11 +953,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		}
 
 		for indexPath in indexPaths {
-			guard let row = dataSource.itemIdentifier(for: indexPath),
-				  row.kind == .title,
-				  let article = articleForRow(row),
-				  let authors = article.authors,
-				  !authors.isEmpty else {
+			guard let article = dataSource.itemIdentifier(for: indexPath), let authors = article.authors, !authors.isEmpty else {
 				continue
 			}
 			for author in authors {
@@ -1137,21 +1003,16 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	@objc private func reloadAllVisibleCells() {
-		let visibleRows = tableView.indexPathsForVisibleRows?.compactMap { dataSource.itemIdentifier(for: $0) } ?? []
-		reloadCells(visibleRows)
+		let visibleArticles = tableView.indexPathsForVisibleRows!.compactMap { return dataSource.itemIdentifier(for: $0) }
+		reloadCells(visibleArticles)
 	}
 
-	private func reloadCells(_ rows: [TimelineRow]) {
+	private func reloadCells(_ articles: [Article]) {
 		var snapshot = dataSource.snapshot()
-		snapshot.reloadItems(rows)
+		snapshot.reloadItems(articles)
 		dataSource.apply(snapshot, animatingDifferences: false) { [weak self] in
 			self?.restoreSelectionIfNecessary(adjustScroll: false)
 		}
-	}
-
-	@objc private func toggleReadSectionCollapsed(_ sender: Any?) {
-		isReadSectionCollapsed.toggle()
-		applyChanges(animated: true)
 	}
 }
 
@@ -1267,8 +1128,7 @@ private extension MainTimelineViewController {
 
 		if resetScroll {
 			let snapshot = dataSource.snapshot()
-			if let firstSection = snapshot.sectionIdentifiers.first,
-			   !snapshot.itemIdentifiers(inSection: firstSection).isEmpty {
+			if snapshot.sectionIdentifiers.count > 0 && snapshot.itemIdentifiers(inSection: 0).count > 0 {
 				tableView.scrollToRow(at: IndexPath(row: 0, section: 0), at: .top, animated: false)
 			}
 		}
@@ -1300,54 +1160,78 @@ private extension MainTimelineViewController {
 			tableView.rowHeight = UITableView.automaticDimension
 		}
 
+		let previousItems = dataSource.snapshot().itemIdentifiers
 		let finalItems = articles ?? ArticleArray()
 		let finalSnapshot = makeTimelineSnapshot(with: finalItems)
 
-		// Temporary freeze-debug mode: force non-animated snapshot applies
-		// to eliminate animation/race side effects while validating logic.
-		rowDistanceReferenceArticleID = nil
-		lastRowDistanceHardJumpApplied = false
-		lastRowDistanceHardJumpThreshold = 0
-		lastRowDistanceHardJumpTailDistance = 0
-		lastRowDistanceMode = "debug-no-animation"
-		clearElevatedRowArticleID()
-		dataSource.apply(finalSnapshot, animatingDifferences: false) { [weak self] in
-			self?.restoreSelectionIfNecessary(adjustScroll: false)
-			completion?()
-		}
-	}
+		if animated {
+			var animationDuration = rowDistanceAnimationDuration(previousItems: previousItems, newItems: finalItems)
+			rowDistanceReferenceArticleID = nil // one-shot reference for the next diff
 
-	private func applyAnimatedSnapshot(_ snapshot: TimelineSnapshot, duration: CFTimeInterval, completion: (() -> Void)? = nil) {
-		let clampedDuration = max(duration, rowDistanceNoMovementDuration)
-		let targetSpeed = Float(rowAnimationBaselineDuration / clampedDuration)
-		let shouldAdjustSpeed = abs(targetSpeed - 1.0) > 0.01
+			if let hardJump = hardJumpPlan(previousItems: previousItems, newItems: finalItems) {
+				lastRowDistanceHardJumpApplied = true
+				lastRowDistanceHardJumpThreshold = hardJump.threshold
+				lastRowDistanceHardJumpTailDistance = hardJump.tailDistance
+				lastRowDistanceMode = "reference-hard-jump"
+				lastRowDistanceUsedDistance = hardJump.phaseDistance
+				animationDuration = hardJump.phaseDuration
+				lastRowDistanceAnimationDuration = animationDuration
+				let resolvedReferenceID = lastRowDistanceResolvedReferenceArticleID
 
-		let originalSpeed = tableView.layer.speed
-		let originalTimeOffset = tableView.layer.timeOffset
-		let originalBeginTime = tableView.layer.beginTime
+				let intermediateSnapshot = makeTimelineSnapshot(with: hardJump.items)
+				CATransaction.begin()
+				CATransaction.setAnimationDuration(animationDuration)
+				CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
+				dataSource.apply(intermediateSnapshot, animatingDifferences: true) { [weak self] in
+					guard let self else {
+						completion?()
+						return
+					}
 
-		if shouldAdjustSpeed {
-			tableView.layer.speed = targetSpeed
-			tableView.layer.timeOffset = 0
-			tableView.layer.beginTime = 0
-		}
+					var shouldFinalizeWithHardJump = true
+					if let resolvedReferenceID,
+					   let currentIndex = self.dataSource.snapshot().itemIdentifiers.firstIndex(where: { $0.articleID == resolvedReferenceID }),
+					   let finalIndex = finalItems.firstIndex(where: { $0.articleID == resolvedReferenceID }) {
+						shouldFinalizeWithHardJump = currentIndex != finalIndex
+					}
 
-		CATransaction.begin()
-		CATransaction.setAnimationDuration(clampedDuration)
-		CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
-		dataSource.apply(snapshot, animatingDifferences: true) { [weak self] in
-			guard let self else {
-				completion?()
+					guard shouldFinalizeWithHardJump else {
+						self.restoreSelectionIfNecessary(adjustScroll: false)
+						completion?()
+						return
+					}
+
+					self.dataSource.apply(finalSnapshot, animatingDifferences: false) { [weak self] in
+						self?.restoreSelectionIfNecessary(adjustScroll: false)
+						completion?()
+					}
+				}
+				CATransaction.commit()
 				return
+			} else {
+				lastRowDistanceHardJumpApplied = false
+				lastRowDistanceHardJumpThreshold = 0
+				lastRowDistanceHardJumpTailDistance = 0
 			}
-			if shouldAdjustSpeed {
-				self.tableView.layer.speed = originalSpeed
-				self.tableView.layer.timeOffset = originalTimeOffset
-				self.tableView.layer.beginTime = originalBeginTime
+
+			CATransaction.begin()
+			CATransaction.setAnimationDuration(animationDuration)
+			CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
+			dataSource.apply(finalSnapshot, animatingDifferences: true) { [weak self] in
+				self?.restoreSelectionIfNecessary(adjustScroll: false)
+				completion?()
 			}
-			completion?()
+			CATransaction.commit()
+		} else {
+			rowDistanceReferenceArticleID = nil
+			lastRowDistanceHardJumpApplied = false
+			lastRowDistanceHardJumpThreshold = 0
+			lastRowDistanceHardJumpTailDistance = 0
+			dataSource.apply(finalSnapshot, animatingDifferences: false) { [weak self] in
+				self?.restoreSelectionIfNecessary(adjustScroll: false)
+				completion?()
+			}
 		}
-		CATransaction.commit()
 	}
 
 	private func rowDistanceAnimationDuration(previousItems: [Article], newItems: [Article]) -> CFTimeInterval {
@@ -1360,19 +1244,17 @@ private extension MainTimelineViewController {
 		lastRowDistanceResolvedReferenceArticleID = nil
 		lastRowDistanceMode = "fallback"
 
+		let msPerRow = 0.040
+		
 		if coordinator?.consumeBypassRowDistanceAnimation() == true {
 			lastRowDistanceMode = "bypass"
-			lastRowDistanceRawDuration = rowDistanceNoMovementDuration
-			lastRowDistanceMinApplied = false
-			lastRowDistanceAnimationDuration = rowDistanceNoMovementDuration
-			return rowDistanceNoMovementDuration
+			lastRowDistanceAnimationDuration = msPerRow
+			return msPerRow
 		}
 
 		guard !previousItems.isEmpty, !newItems.isEmpty else {
-			lastRowDistanceRawDuration = rowDistanceNoMovementDuration
-			lastRowDistanceMinApplied = false
-			lastRowDistanceAnimationDuration = rowDistanceNoMovementDuration
-			return rowDistanceNoMovementDuration
+			lastRowDistanceAnimationDuration = msPerRow
+			return msPerRow
 		}
 
 		let previousIndexByID = Dictionary(uniqueKeysWithValues: previousItems.enumerated().map { ($1.articleID, $0) })
@@ -1415,114 +1297,24 @@ private extension MainTimelineViewController {
 		lastRowDistanceMode = (referenceDistance != nil) ? "reference" : "max"
 
 		guard usedDistance > 0 else {
-			lastRowDistanceRawDuration = rowDistanceNoMovementDuration
-			lastRowDistanceMinApplied = false
-			lastRowDistanceAnimationDuration = rowDistanceNoMovementDuration
-			return rowDistanceNoMovementDuration
+			lastRowDistanceAnimationDuration = msPerRow
+			return msPerRow
 		}
 
-		let rawDuration = rowDistanceSecondsPerRow * CFTimeInterval(usedDistance)
-		let finalDuration = max(rawDuration, rowDistanceMinDuration)
-		lastRowDistanceRawDuration = rawDuration
-		lastRowDistanceMinApplied = rawDuration < rowDistanceMinDuration
+		let duration = rowDistanceSecondsPerRow * CFTimeInterval(usedDistance)
+		let finalDuration = max(duration, rowDistanceMinDuration)
 		lastRowDistanceAnimationDuration = finalDuration
 		return finalDuration
 	}
 
-	private func makeTimelineSnapshot(with items: [Article]) -> TimelineSnapshot {
-		articleByID = Dictionary(uniqueKeysWithValues: items.map { ($0.articleID, $0) })
-
-		var snapshot = TimelineSnapshot()
-		var readRows = [TimelineRow]()
-
-		for article in items {
-			if article.status.read {
-				readRows.append(TimelineRow(articleID: article.articleID, kind: .title))
-				continue
-			}
-
-			let section = TimelineSection.unreadCard(articleID: article.articleID)
-			snapshot.appendSections([section])
-			let unreadRows: [TimelineRow] = [
-				TimelineRow(articleID: article.articleID, kind: .title),
-				TimelineRow(articleID: article.articleID, kind: .summary)
-			]
-			snapshot.appendItems(unreadRows, toSection: section)
-		}
-
-		if !readRows.isEmpty {
-			snapshot.appendSections([.readBucket])
-			if !isReadSectionCollapsed {
-				snapshot.appendItems(readRows, toSection: .readBucket)
-			}
-		}
-
+	private func makeTimelineSnapshot(with items: [Article]) -> NSDiffableDataSourceSnapshot<Int, Article> {
+		var snapshot = NSDiffableDataSourceSnapshot<Int, Article>()
+		snapshot.appendSections([0])
+		snapshot.appendItems(items, toSection: 0)
 		return snapshot
 	}
 
-	private func makeIntermediateSnapshotForReadStateTransition(previousItems: [Article], finalItems: [Article], referenceArticleID: String) -> TimelineSnapshot? {
-		guard let oldArticle = previousItems.first(where: { $0.articleID == referenceArticleID }),
-			  let newArticle = finalItems.first(where: { $0.articleID == referenceArticleID }),
-			  oldArticle.status.read != newArticle.status.read else {
-			return nil
-		}
-
-		var snapshot = dataSource.snapshot()
-		let movingRow = TimelineRow(articleID: referenceArticleID, kind: .title)
-		guard snapshot.itemIdentifiers.contains(movingRow) else {
-			return nil
-		}
-
-		let targetSection: TimelineSection = newArticle.status.read ? .readBucket : .unreadCard(articleID: referenceArticleID)
-		ensureSectionExistsForIntermediateTransition(targetSection, finalItems: finalItems, snapshot: &snapshot, referenceArticleID: referenceArticleID)
-
-		snapshot.deleteItems([movingRow])
-		insertIntermediateRow(movingRow, into: targetSection, finalItems: finalItems, snapshot: &snapshot, referenceArticleID: referenceArticleID)
-		return snapshot
-	}
-
-	private func ensureSectionExistsForIntermediateTransition(_ section: TimelineSection, finalItems: [Article], snapshot: inout TimelineSnapshot, referenceArticleID: String) {
-		if snapshot.sectionIdentifiers.contains(section) {
-			return
-		}
-
-		switch section {
-		case .readBucket:
-			snapshot.appendSections([.readBucket])
-		case .unreadCard:
-			let unreadIDs = finalItems.filter { !$0.status.read }.map(\.articleID)
-			let nextUnreadIDs = unreadIDs.drop { $0 != referenceArticleID }.dropFirst()
-			if let nextID = nextUnreadIDs.first(where: { snapshot.sectionIdentifiers.contains(.unreadCard(articleID: $0)) }) {
-				snapshot.insertSections([section], beforeSection: .unreadCard(articleID: nextID))
-				return
-			}
-			if snapshot.sectionIdentifiers.contains(.readBucket) {
-				snapshot.insertSections([section], beforeSection: .readBucket)
-			} else {
-				snapshot.appendSections([section])
-			}
-		}
-	}
-
-	private func insertIntermediateRow(_ row: TimelineRow, into section: TimelineSection, finalItems: [Article], snapshot: inout TimelineSnapshot, referenceArticleID: String) {
-		switch section {
-		case .unreadCard:
-			snapshot.appendItems([row], toSection: section)
-		case .readBucket:
-			let orderedReadIDs = finalItems.filter(\.status.read).map(\.articleID)
-			let currentRows = snapshot.itemIdentifiers(inSection: .readBucket)
-			if let referenceIndex = orderedReadIDs.firstIndex(of: referenceArticleID) {
-				let remainingIDs = orderedReadIDs.suffix(from: referenceIndex + 1)
-				if let nextID = remainingIDs.first(where: { currentRows.contains(TimelineRow(articleID: $0, kind: .title)) }) {
-					snapshot.insertItems([row], beforeItem: TimelineRow(articleID: nextID, kind: .title))
-					return
-				}
-			}
-			snapshot.appendItems([row], toSection: .readBucket)
-		}
-	}
-
-	private func hardJumpPlan(previousItems: [Article], newItems: [Article]) -> (items: [Article], phaseDistance: Int, threshold: Int, tailDistance: Int)? {
+	private func hardJumpPlan(previousItems: [Article], newItems: [Article]) -> (items: [Article], phaseDuration: CFTimeInterval, phaseDistance: Int, threshold: Int, tailDistance: Int)? {
 		guard hardJumpTailEnabled,
 			  lastRowDistanceMode == "reference",
 			  let referenceID = lastRowDistanceResolvedReferenceArticleID,
@@ -1553,8 +1345,9 @@ private extension MainTimelineViewController {
 		intermediateItems.insert(referenceArticle, at: clampedIntermediateIndex)
 
 		let phaseDistance = threshold
+		let phaseDuration = max(rowDistanceSecondsPerRow * CFTimeInterval(phaseDistance), rowDistanceMinDuration)
 		let tailDistance = totalDistance - threshold
-		return (intermediateItems, phaseDistance, threshold, tailDistance)
+		return (intermediateItems, phaseDuration, phaseDistance, threshold, tailDistance)
 	}
 
 	private func visibleRowThreshold() -> Int {
@@ -1575,131 +1368,35 @@ private extension MainTimelineViewController {
 		return max(1, visibleCount + visibilityBuffer)
 	}
 
-	private func setElevatedRowArticleID(_ articleID: String?) {
-		elevatedRowArticleID = articleID
-		updateVisibleCellElevation()
-	}
-
-	private func clearElevatedRowArticleID() {
-		elevatedRowArticleID = nil
-		updateVisibleCellElevation()
-	}
-
-	private func updateVisibleCellElevation() {
-		guard let visibleIndexPaths = tableView.indexPathsForVisibleRows else {
-			return
-		}
-
-		for indexPath in visibleIndexPaths {
-			guard let cell = tableView.cellForRow(at: indexPath) else {
-				continue
-			}
-			let isElevated = dataSource.itemIdentifier(for: indexPath).map { $0.kind == .title && $0.articleID == elevatedRowArticleID } ?? false
-			cell.layer.zPosition = isElevated ? elevatedCellZPosition : 0
-			if isElevated {
-				tableView.bringSubviewToFront(cell)
-			}
-		}
-	}
-
-	private func orderedArticlesFromCurrentSnapshot() -> [Article] {
-		let snapshot = dataSource.snapshot()
-		var result = [Article]()
-		result.reserveCapacity(snapshot.numberOfItems)
-		var seen = Set<String>()
-		for row in snapshot.itemIdentifiers {
-			guard row.kind == .title,
-				  seen.insert(row.articleID).inserted,
-				  let article = articleByID[row.articleID] else {
-				continue
-			}
-			result.append(article)
-		}
-		return result
-	}
-
-	private func articleForRow(_ row: TimelineRow) -> Article? {
-		articleByID[row.articleID]
-	}
-
-	private func titleRow(for article: Article) -> TimelineRow {
-		TimelineRow(articleID: article.articleID, kind: .title)
-	}
-
-	private func indexPathForTitleRow(of article: Article) -> IndexPath? {
-		dataSource.indexPath(for: titleRow(for: article))
-	}
-
-	private func sectionIdentifier(for section: Int) -> TimelineSection? {
-		let sections = dataSource.snapshot().sectionIdentifiers
-		guard section >= 0, section < sections.count else {
-			return nil
-		}
-		return sections[section]
-	}
-
 	func captureRowDistanceReferenceArticleID(_ articleID: String?) {
 		rowDistanceReferenceArticleID = articleID
 	}
 
-	private func makeDataSource() -> TimelineDataSource {
-		let dataSource: TimelineDataSource =
-			MainTimelineDataSource(tableView: tableView, cellProvider: { [weak self] tableView, indexPath, row in
-				guard let self, let article = self.articleForRow(row) else {
-					return UITableViewCell()
-				}
-				let cellData = self.configure(article: article, rowKind: row.kind)
-				let accessoryType: UITableViewCell.AccessoryType = (row.kind == .title) ? .disclosureIndicator : .none
-				let isInteractive = row.kind == .title
-				if self.showIcons {
+	func makeDataSource() -> UITableViewDiffableDataSource<Int, Article> {
+		let dataSource: UITableViewDiffableDataSource<Int, Article> =
+			MainTimelineDataSource(tableView: tableView, cellProvider: { [weak self] tableView, indexPath, article in
+				let cellData = self!.configure(article: article)
+				if self!.showIcons {
 					let cell = tableView.dequeueReusableCell(withIdentifier: "MainTimelineIconFeedCell", for: indexPath) as! MainTimelineIconFeedCell
 					cell.cellData = cellData
-					cell.accessoryType = accessoryType
-					cell.isUserInteractionEnabled = isInteractive
 					return cell
 				} else {
 					let cell = tableView.dequeueReusableCell(withIdentifier: "MainTimelineFeedCell", for: indexPath) as! MainTimelineFeedCell
 					cell.cellData = cellData
-					cell.accessoryType = accessoryType
-					cell.isUserInteractionEnabled = isInteractive
 					return cell
 				}
+
 			})
 		dataSource.defaultRowAnimation = .middle
 		return dataSource
-	}
+    }
 
 	@discardableResult
-	private func configure(article: Article, rowKind: TimelineRowKind = .title) -> MainTimelineCellData {
-		if rowKind == .summary {
-			let summary = MainTimelineCellData.listingSummaryText(for: article)
-			return MainTimelineCellData.summaryRow(
-				text: summary,
-				numberOfLines: numberOfTextLines,
-				iconSize: iconSize
-			)
-		}
-
+	func configure(article: Article) -> MainTimelineCellData {
 		let iconImage = iconImageFor(article)
 		let showFeedNames = coordinator?.showFeedNames ?? ShowFeedName.none
 		let showIcon = showIcons && iconImage != nil
-		let includeListingSummary = false
-		let dateBottomLeft = showFeedNames == .none
-		let effectiveShowFeedName: ShowFeedName = dateBottomLeft ? .byline : showFeedNames
-		let byline = dateBottomLeft ? ArticleStringFormatter.dateString(article.logicalDatePublished) : nil
-		let dateStringOverride = dateBottomLeft ? "" : nil
-		let cellData = MainTimelineCellData(
-			article: article,
-			showFeedName: effectiveShowFeedName,
-			feedName: article.feed?.nameForDisplay,
-			byline: byline,
-			iconImage: iconImage,
-			showIcon: showIcon,
-			numberOfLines: numberOfTextLines,
-			iconSize: iconSize,
-			includeListingSummary: includeListingSummary,
-			dateStringOverride: dateStringOverride
-		)
+		let cellData = MainTimelineCellData(article: article, showFeedName: showFeedNames, feedName: article.feed?.nameForDisplay, byline: article.byline(), iconImage: iconImage, showIcon: showIcon, numberOfLines: numberOfTextLines, iconSize: iconSize)
 		return cellData
 	}
 

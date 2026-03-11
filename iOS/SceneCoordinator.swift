@@ -561,13 +561,13 @@ struct SidebarItemNode: Hashable, Sendable {
 		}
 		if shouldDeferUnreadFirstReorder {
 			if bypassUnreadFirstDeferForBatchMark {
-				replaceArticles(with: Set(articles), animated: true, forceReload: true)
+				replaceArticles(with: Set(articles), animated: true)
 				return
 			}
 			deferredUnreadFirstReorder = true
 			return
 		}
-		replaceArticles(with: Set(articles), animated: true, forceReload: true)
+		replaceArticles(with: Set(articles), animated: true)
 	}
 
 	@objc func containerChildrenDidChange(_ note: Notification) {
@@ -637,9 +637,6 @@ struct SidebarItemNode: Hashable, Sendable {
 
 	@objc func userDidAddFeed(_ notification: Notification) {
 		guard let feed = notification.userInfo?[UserInfoKey.feed] as? Feed else {
-			return
-		}
-		if notification.userInfo?[UserInfoKey.suppressFeedDisclosure] as? Bool == true {
 			return
 		}
 		discloseFeed(feed, animations: [.scroll, .navigation])
@@ -1180,16 +1177,15 @@ struct SidebarItemNode: Hashable, Sendable {
 			articleViewController?.restoreScrollPosition = (isShowingExtractedArticle, articleWindowScrollY)
 		}
 
-			rootSplitViewController.show(.secondary)
+		rootSplitViewController.show(.secondary)
 
-			// For interactive swipe-open, defer marking read until finish to avoid side effects on cancel.
-			if isInteractiveArticleOpenTransitionActive {
-				deferredReadMarkArticle = article
-			} else {
-				// Mark article as read before navigating to it, so the read status does not flash unread/read on display
-				pendingRowDistanceReferenceArticleID = article!.articleID
-				markArticles(Set([article!]), statusKey: .read, flag: true)
-			}
+		// For interactive swipe-open, defer marking read until finish to avoid side effects on cancel.
+		if isInteractiveArticleOpenTransitionActive {
+			deferredReadMarkArticle = article
+		} else {
+			// Mark article as read before navigating to it, so the read status does not flash unread/read on display
+			markArticles(Set([article!]), statusKey: .read, flag: true)
+		}
 
 		mainTimelineViewController?.updateArticleSelection(animations: animations)
 	}
@@ -1229,10 +1225,9 @@ struct SidebarItemNode: Hashable, Sendable {
 		interactiveArticleOpenTransition = nil
 		isInteractiveArticleOpenTransitionActive = false
 
-			if let article = deferredReadMarkArticle {
-				pendingRowDistanceReferenceArticleID = article.articleID
-				markArticles(Set([article]), statusKey: .read, flag: true)
-			}
+		if let article = deferredReadMarkArticle {
+			markArticles(Set([article]), statusKey: .read, flag: true)
+		}
 		deferredReadMarkArticle = nil
 	}
 
@@ -1853,9 +1848,6 @@ struct SidebarItemNode: Hashable, Sendable {
 		lines.append("--- Row Distance Debug ---")
 		if let timelineVC = mainTimelineViewController {
 			lines.append(String(format: "rowDistance.duration: %.3fs", timelineVC.lastRowDistanceAnimationDuration))
-			lines.append(String(format: "rowDistance.rawDuration: %.3fs", timelineVC.lastRowDistanceRawDuration))
-			lines.append("rowDistance.minApplied: \(timelineVC.lastRowDistanceMinApplied)")
-			lines.append(String(format: "rowDistance.secondsPerRow: %.3f", timelineVC.debugRowDistanceSecondsPerRow))
 			lines.append("rowDistance.mode: \(timelineVC.lastRowDistanceMode)")
 			lines.append("rowDistance.listCount: \(timelineVC.lastRowDistanceListCount)")
 			lines.append("rowDistance.referenceID: \(timelineVC.lastRowDistanceResolvedReferenceArticleID ?? "nil")")
@@ -2123,14 +2115,6 @@ extension SceneCoordinator: UINavigationControllerDelegate {
 
 }
 
-extension SceneCoordinator {
-	func clearTimelineForMaintenance() {
-		currentArticle = nil
-		replaceArticles(with: Set<Article>(), animated: false, forceReload: true)
-		mainTimelineViewController?.reinitializeArticles(resetScroll: true)
-	}
-}
-
 // MARK: Private
 
 private extension SceneCoordinator {
@@ -2147,7 +2131,6 @@ private extension SceneCoordinator {
 		guard !article.status.read else {
 			return
 		}
-		pendingRowDistanceReferenceArticleID = article.articleID
 		markArticles(Set([article]), statusKey: .read, flag: true)
 	}
 
@@ -2717,19 +2700,19 @@ private extension SceneCoordinator {
 		replaceArticles(with: Set(articles), animated: true)
 	}
 
-	func replaceArticles(with unsortedArticles: Set<Article>, animated: Bool, forceReload: Bool = false) {
+	func replaceArticles(with unsortedArticles: Set<Article>, animated: Bool) {
 		let sortedByDateArticles = Array(unsortedArticles).sortedByDate(sortDirection, groupByFeed: groupByFeed)
 		if timelineUnreadFirst {
 			let unreadArticles = sortedByDateArticles.filter { !$0.status.read }
 			let readArticles = sortedByDateArticles.filter { $0.status.read }
-			replaceArticles(with: unreadArticles + readArticles, animated: animated, forceReload: forceReload)
+			replaceArticles(with: unreadArticles + readArticles, animated: animated)
 		} else {
-			replaceArticles(with: sortedByDateArticles, animated: animated, forceReload: forceReload)
+			replaceArticles(with: sortedByDateArticles, animated: animated)
 		}
 	}
 
-	func replaceArticles(with sortedArticles: ArticleArray, animated: Bool, forceReload: Bool = false) {
-		if forceReload || articles != sortedArticles {
+	func replaceArticles(with sortedArticles: ArticleArray, animated: Bool) {
+		if articles != sortedArticles {
 			articles = sortedArticles
 
 			// Clear current article if it's no longer in the timeline.
