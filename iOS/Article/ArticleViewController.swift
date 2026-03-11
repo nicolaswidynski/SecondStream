@@ -202,8 +202,13 @@ final class ArticleViewController: UIViewController {
 		readBarButtonItem.isEnabled = true
 		starBarButtonItem.isEnabled = true
 
-		let permalinkPresent = article.preferredLink != nil
-		actionBarButtonItem.isEnabled = permalinkPresent
+		let feedCategory = article.feed?.feedCategory ?? .rss
+		switch feedCategory {
+		case .rss:
+			actionBarButtonItem.isEnabled = article.preferredURL != nil
+		case .podcast, .youtube, .news:
+			actionBarButtonItem.isEnabled = true
+		}
 
 		// Update TTS button state
 		ttsBarButtonItem?.isEnabled = true

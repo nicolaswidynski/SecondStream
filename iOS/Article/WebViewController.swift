@@ -8,6 +8,8 @@
 
 import UIKit
 @preconcurrency import WebKit
+import LinkPresentation
+import UniformTypeIdentifiers
 import RSCore
 import RSWeb
 import Account
@@ -280,10 +282,41 @@ final class WebViewController: UIViewController {
 	}
 
 	func showActivityDialog(popOverBarButtonItem: UIBarButtonItem? = nil) {
-		guard let url = article?.preferredURL else { return }
-		let activityViewController = UIActivityViewController(url: url, title: article?.title, applicationActivities: [FindInArticleActivity(), OpenInBrowserActivity()])
-		activityViewController.popoverPresentationController?.barButtonItem = popOverBarButtonItem
-		present(activityViewController, animated: true)
+		guard let article else {
+			return
+		}
+
+		let feedCategory = article.feed?.feedCategory ?? .rss
+		switch feedCategory {
+		case .rss:
+			guard let url = article.preferredURL else {
+				return
+			}
+			let activityViewController = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+			activityViewController.popoverPresentationController?.barButtonItem = popOverBarButtonItem
+			present(activityViewController, animated: true)
+
+		case .podcast, .youtube, .news:
+			getArticleShareAttributedText { [weak self] attributedText, plainText in
+				guard let self else {
+					return
+				}
+				let sharedText = plainText?.trimmingCharacters(in: .whitespacesAndNewlines)
+				let fallbackTitle = article.title?.trimmingCharacters(in: .whitespacesAndNewlines)
+				guard let payload = (sharedText?.isEmpty == false ? sharedText : fallbackTitle), !payload.isEmpty else {
+					return
+				}
+				let richText = attributedText ?? NSAttributedString(string: payload)
+				let shareItem = RichTextShareItemSource(
+					attributedText: richText,
+					plainTextFallback: payload,
+					subject: article.title
+				)
+				let activityViewController = UIActivityViewController(activityItems: [shareItem], applicationActivities: nil)
+				activityViewController.popoverPresentationController?.barButtonItem = popOverBarButtonItem
+				self.present(activityViewController, animated: true)
+			}
+		}
 	}
 
 	func openInAppBrowser() {
@@ -318,6 +351,42 @@ extension WebViewController: ArticleExtractorDelegate {
 		}
 	}
 
+}
+
+private final class RichTextShareItemSource: NSObject, UIActivityItemSource {
+
+	private let attributedText: NSAttributedString
+	private let plainTextFallback: String
+	private let subject: String?
+
+	init(attributedText: NSAttributedString, plainTextFallback: String, subject: String?) {
+		self.attributedText = attributedText
+		self.plainTextFallback = plainTextFallback
+		self.subject = subject
+	}
+
+	func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
+		return attributedText
+	}
+
+	func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
+		return attributedText
+	}
+
+	func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
+		return UTType.rtf.identifier
+	}
+
+	func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
+		return subject ?? plainTextFallback
+	}
+
+	@available(iOS 13.0, *)
+	func activityViewControllerLinkMetadata(_ activityViewController: UIActivityViewController) -> LPLinkMetadata? {
+		let metadata = LPLinkMetadata()
+		metadata.title = subject ?? ""
+		return metadata
+	}
 }
 
 // MARK: UIContextMenuInteractionDelegate
@@ -989,6 +1058,170 @@ extension WebViewController {
 				completionHandler(nil)
 			}
 		}
+	}
+
+	func getArticleShareAttributedText(completionHandler: @escaping (NSAttributedString?, String?) -> Void) {
+		let script = """
+			(function() {
+				const articleBody = document.querySelector('.articleBody');
+				if (!articleBody) return null;
+
+				const bodyClone = articleBody.cloneNode(true);
+				const titleClone = document.querySelector('.articleTitle')?.cloneNode(true) || null;
+
+				// Force-open generated collapsible sections so hidden content is included.
+				bodyClone.querySelectorAll('.nnw-collapsible').forEach(section => {
+					section.setAttribute('data-open', 'true');
+					const content = section.querySelector('.nnw-collapsible-content');
+					if (content) {
+						content.style.display = 'block';
+					}
+				});
+				bodyClone.querySelectorAll('details').forEach(details => {
+					details.open = true;
+				});
+
+				// Remove the entire timestamps section.
+				bodyClone.querySelectorAll('.nnw-collapsible').forEach(section => {
+					const header = section.querySelector('.nnw-collapsible-header');
+					const headerText = (header?.textContent || '').trim().toLowerCase();
+					if (headerText.includes('timestamp')) {
+						section.remove();
+					}
+				});
+				bodyClone.querySelectorAll('details').forEach(details => {
+					const summary = details.querySelector('summary');
+					const summaryText = (summary?.textContent || '').trim().toLowerCase();
+					if (summaryText.includes('timestamp')) {
+						details.remove();
+					}
+				});
+
+				// Remove UI controls/icons introduced at render-time.
+				bodyClone.querySelectorAll('.nnw-top-media-link, .nnw-mp3-play-button, .nnw-collapsible-arrow, .nnw-timestamp-link').forEach(node => node.remove());
+				if (titleClone) {
+					titleClone.querySelectorAll('.nnw-top-media-link, .nnw-mp3-play-button, .nnw-collapsible-arrow, .nnw-timestamp-link').forEach(node => node.remove());
+				}
+
+				// Remove individual timestamp list lines if any remain.
+				bodyClone.querySelectorAll('li').forEach(li => {
+					const text = (li.textContent || '').trim();
+					if (/^\\[\\d{1,2}:\\d{2}(:\\d{2})?\\]/.test(text)) {
+						li.remove();
+					}
+				});
+
+				// Convert links to plain text so shared rich text doesn't become fully underlined.
+				function stripAnchors(root) {
+					if (!root) return;
+					root.querySelectorAll('a').forEach(a => {
+						const text = (a.textContent || '').trim();
+						const replacement = document.createElement('span');
+						replacement.textContent = text;
+						a.parentNode.replaceChild(replacement, a);
+					});
+				}
+				stripAnchors(bodyClone);
+				stripAnchors(titleClone);
+
+				// Convert collapsible headers to semantic headings so share keeps stronger hierarchy.
+				bodyClone.querySelectorAll('.nnw-collapsible-header').forEach(header => {
+					const rawText = (header.textContent || '').replace(/[▶▼]/g, '').trim();
+					if (!rawText) {
+						header.remove();
+						return;
+					}
+
+					let level = 2;
+					for (let n = 1; n <= 6; n++) {
+						if (header.classList.contains('nnw-collapsible-h' + n)) {
+							level = Math.min(Math.max(n, 2), 4);
+							break;
+						}
+					}
+
+					const heading = document.createElement('h' + level);
+					const strong = document.createElement('strong');
+					strong.textContent = rawText;
+					heading.appendChild(strong);
+					header.replaceWith(heading);
+
+					// Required spacing: two newlines after section titles.
+					heading.insertAdjacentHTML('afterend', '<br>');
+				});
+
+				// Required spacing: two newlines after each deep-dive paragraph.
+				bodyClone.querySelectorAll('.nnw-collapsible').forEach(section => {
+					const heading = section.querySelector('h1, h2, h3, h4, h5, h6');
+					const headingText = (heading?.textContent || '').trim().toLowerCase();
+					if (!headingText.includes('deep dive') && !headingText.includes('in-depth')) {
+						return;
+					}
+					section.querySelectorAll('.nnw-collapsible-content p').forEach(paragraph => {
+						paragraph.insertAdjacentHTML('afterend', '<br>');
+					});
+				});
+
+				// Required spacing: three newlines after each section.
+				bodyClone.querySelectorAll('.nnw-collapsible').forEach(section => {
+					section.insertAdjacentHTML('afterend', '<br><br>');
+				});
+
+				const wrapper = document.createElement('div');
+				if (titleClone) {
+					wrapper.appendChild(titleClone);
+				}
+				wrapper.appendChild(bodyClone);
+
+				const plainText = (wrapper.innerText || wrapper.textContent || '')
+					.replace(/[\\t ]+\\n/g, '\\n')
+					.replace(/\\n{4,}/g, '\\n\\n\\n')
+					.trim();
+				if (!plainText) return null;
+
+				return JSON.stringify({
+					html: wrapper.innerHTML,
+					plain: plainText
+				});
+			})();
+		"""
+
+		webView?.evaluateJavaScript(script) { [weak self] result, _ in
+			guard let self else {
+				completionHandler(nil, nil)
+				return
+			}
+			guard let payload = result as? String,
+				  let data = payload.data(using: .utf8),
+				  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+				  let html = json["html"] as? String,
+				  let plain = json["plain"] as? String else {
+				completionHandler(nil, nil)
+				return
+			}
+			let attributed = self.attributedStringForShareHTML(html)
+			completionHandler(attributed, plain)
+		}
+	}
+
+	func attributedStringForShareHTML(_ htmlBody: String) -> NSAttributedString? {
+		let wrappedHTML = "<html><head><meta charset=\"utf-8\"></head><body>\(htmlBody)</body></html>"
+		guard let data = wrappedHTML.data(using: .utf8),
+			  let mutable = try? NSMutableAttributedString(
+				data: data,
+				options: [
+					.documentType: NSAttributedString.DocumentType.html,
+					.characterEncoding: String.Encoding.utf8.rawValue
+				],
+				documentAttributes: nil
+			  ) else {
+			return nil
+		}
+
+		let fullRange = NSRange(location: 0, length: mutable.length)
+		mutable.removeAttribute(.link, range: fullRange)
+		mutable.removeAttribute(.underlineStyle, range: fullRange)
+		return mutable
 	}
 
 }
