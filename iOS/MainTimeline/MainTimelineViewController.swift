@@ -1379,10 +1379,12 @@ private extension MainTimelineViewController {
 				if self!.showIcons {
 					let cell = tableView.dequeueReusableCell(withIdentifier: "MainTimelineIconFeedCell", for: indexPath) as! MainTimelineIconFeedCell
 					cell.cellData = cellData
+					cell.accessoryType = .disclosureIndicator
 					return cell
 				} else {
 					let cell = tableView.dequeueReusableCell(withIdentifier: "MainTimelineFeedCell", for: indexPath) as! MainTimelineFeedCell
 					cell.cellData = cellData
+					cell.accessoryType = .disclosureIndicator
 					return cell
 				}
 
@@ -1394,9 +1396,20 @@ private extension MainTimelineViewController {
 	@discardableResult
 	func configure(article: Article) -> MainTimelineCellData {
 		let iconImage = iconImageFor(article)
-		let showFeedNames = coordinator?.showFeedNames ?? ShowFeedName.none
 		let showIcon = showIcons && iconImage != nil
-		let cellData = MainTimelineCellData(article: article, showFeedName: showFeedNames, feedName: article.feed?.nameForDisplay, byline: article.byline(), iconImage: iconImage, showIcon: showIcon, numberOfLines: numberOfTextLines, iconSize: iconSize)
+		let byline = ArticleStringFormatter.dateString(article.logicalDatePublished)
+		let cellData = MainTimelineCellData(
+			article: article,
+			showFeedName: .byline,
+			feedName: article.feed?.nameForDisplay,
+			byline: byline,
+			iconImage: iconImage,
+			showIcon: showIcon,
+			numberOfLines: numberOfTextLines,
+			iconSize: iconSize,
+			includeListingSummary: false,
+			dateStringOverride: ""
+		)
 		return cellData
 	}
 

@@ -27,19 +27,23 @@ import Articles
 	let numberOfLines: Int
 	let iconSize: IconSize
 
-	init(article: Article, showFeedName: ShowFeedName, feedName: String?, byline: String?, iconImage: IconImage?, showIcon: Bool, numberOfLines: Int, iconSize: IconSize) {
+	init(article: Article, showFeedName: ShowFeedName, feedName: String?, byline: String?, iconImage: IconImage?, showIcon: Bool, numberOfLines: Int, iconSize: IconSize, includeListingSummary: Bool = true, dateStringOverride: String? = nil) {
 
 		self.title = ArticleStringFormatter.truncatedTitle(article)
 		self.attributedTitle = ArticleStringFormatter.attributedTruncatedTitle(article)
 
-		let truncatedSummary = ArticleStringFormatter.truncatedSummary(article)
-		if self.title.isEmpty && truncatedSummary.isEmpty {
-			self.summary = Self.noText
+		if includeListingSummary {
+			let truncatedSummary = ArticleStringFormatter.truncatedSummary(article)
+			if self.title.isEmpty && truncatedSummary.isEmpty {
+				self.summary = Self.noText
+			} else {
+				self.summary = truncatedSummary
+			}
 		} else {
-			self.summary = truncatedSummary
+			self.summary = ""
 		}
 
-		self.dateString = ArticleStringFormatter.dateString(article.logicalDatePublished)
+		self.dateString = dateStringOverride ?? ArticleStringFormatter.dateString(article.logicalDatePublished)
 
 		if let feedName = feedName {
 			self.feedName = ArticleStringFormatter.truncatedFeedName(feedName)

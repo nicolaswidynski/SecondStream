@@ -393,9 +393,25 @@ function findMediaUrl() {
 	return null;
 }
 
+// Fallback media source from the top title media icon/link.
+function findTopMediaInfo() {
+	const topMediaLink = document.querySelector(".articleTitle .nnw-top-media-link");
+	if (!topMediaLink) {
+		return { url: null, type: null };
+	}
+
+	const url = (topMediaLink.dataset.mediaUrl || "").trim();
+	const type = (topMediaLink.dataset.mediaType || "").trim().toLowerCase();
+	return {
+		url: url.length > 0 ? url : null,
+		type: type.length > 0 ? type : null
+	};
+}
+
 // Add play buttons next to media links in metadata and outline timestamps
 function addMp3PlayButtons() {
-	const mediaUrl = findMediaUrl();
+	const topMedia = findTopMediaInfo();
+	const mediaUrl = findMediaUrl() || topMedia.url;
 	const titleElement = document.querySelector(".articleTitle h1 .nnw-title-text, .articleTitle h1 a:not(.nnw-top-media-link), .articleTitle h1");
 	const articleTitle = titleElement ? titleElement.textContent : "Podcast";
 
@@ -472,8 +488,12 @@ function addMp3PlayButtons() {
 		}
 	}
 
-	// Check if the media URL is a YouTube video
-	const youtubeVideoID = getYouTubeVideoID(mediaUrl);
+	// Check if the media URL is a YouTube video.
+	// If URL parsing doesn't detect it, trust explicit top-link media type.
+	let youtubeVideoID = getYouTubeVideoID(mediaUrl);
+	if (!youtubeVideoID && topMedia.type === "youtube" && topMedia.url) {
+		youtubeVideoID = getYouTubeVideoID(topMedia.url);
+	}
 
 	// Now convert timestamps to clickable blue links
 	for (let i = 0; i < outlineItems.length; i++) {
