@@ -72,7 +72,7 @@ enum FeedSectionIdentifier: String {
 	var displayName: String {
 		switch self {
 		case .smartFeeds:
-			return NSLocalizedString("Smart Feeds", comment: "Smart Feeds section")
+			return NSLocalizedString("Recently Updated", comment: "Recently Updated section")
 		case .rssFeeds:
 			return NSLocalizedString("My RSS Feeds", comment: "My RSS Feeds section")
 		case .podcasts:
@@ -132,8 +132,8 @@ struct SidebarItemNode: Hashable, Sendable {
 	// Which Containers used to be expanded. Reset by rebuilding the sidebar.
 	private var lastExpandedContainers = Set<ContainerIdentifier>()
 
-	// Which category sections are expanded (only smartFeeds expanded by default, feed categories collapsed)
-	private var expandedCategorySections = Set<FeedSectionIdentifier>([.smartFeeds])
+	// Which category sections are expanded (feed categories collapsed by default)
+	private var expandedCategorySections = Set<FeedSectionIdentifier>()
 
 	private let hidingReadArticlesState = HidingReadArticlesState()
 
@@ -2260,17 +2260,8 @@ private extension SceneCoordinator {
 		for i in 0..<treeController.rootNode.numberOfChildNodes {
 			let sectionNode = treeController.rootNode.childAtIndex(i)!
 
-			// Handle Smart Feeds section (first section)
+			// Smart feeds are now represented by a custom top strip on main page, not a sidebar table section.
 			if sectionNode.representedObject is SmartFeedsController {
-				snapshot.appendSections([FeedSectionIdentifier.smartFeeds.rawValue])
-
-				if isCategorySectionExpanded(.smartFeeds) {
-					var siNodes = [SidebarItemNode]()
-					for node in sectionNode.childNodes {
-						siNodes.append(SidebarItemNode(node))
-					}
-					snapshot.appendItems(siNodes, toSection: FeedSectionIdentifier.smartFeeds.rawValue)
-				}
 				continue
 			}
 

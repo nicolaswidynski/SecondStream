@@ -21,6 +21,19 @@ private let reuseIdentifier = "FeedCell"
 private let folderIdentifier = "Folder"
 private let containerReuseIdentifier = "Container"
 
+private struct DiscoverSourceItem {
+	let name: String
+	let author: String?
+	let url: String
+	let imageURL: String?
+	let category: FeedCategory
+}
+
+private enum RecentlyUpdatedStripPayload {
+	case feed(Feed)
+	case discover(DiscoverSourceItem)
+}
+
 final class MainFeedCollectionViewController: UICollectionViewController, UndoableCommandRunner {
 
 	private let keyboardManager = KeyboardManager(type: .sidebar)
@@ -82,12 +95,77 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		return label
 	}()
 
+	private var updateStatusTrailingConstraint: NSLayoutConstraint?
+	private let recentlyUpdatedTopInset: CGFloat = 156
+	private let defaultTopInset: CGFloat = 8
+
+	private lazy var recentlyUpdatedContainerView: UIView = {
+		let view = UIView()
+		view.translatesAutoresizingMaskIntoConstraints = false
+		return view
+	}()
+
+	private lazy var navBarExtendedBackgroundView: UIVisualEffectView = {
+		let view = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
+		view.translatesAutoresizingMaskIntoConstraints = false
+		view.isUserInteractionEnabled = false
+		return view
+	}()
+
+	private lazy var recentlyUpdatedTitleLabel: UILabel = {
+		let label = UILabel()
+		label.translatesAutoresizingMaskIntoConstraints = false
+		label.font = UIFont.preferredFont(forTextStyle: .title3).bold()
+		label.textColor = .label
+		label.text = NSLocalizedString("Recently Updated", comment: "Recently Updated")
+		return label
+	}()
+
+	private lazy var recentlyUpdatedScrollView: UIScrollView = {
+		let scrollView = UIScrollView()
+		scrollView.translatesAutoresizingMaskIntoConstraints = false
+		scrollView.showsHorizontalScrollIndicator = false
+		scrollView.showsVerticalScrollIndicator = false
+		scrollView.alwaysBounceVertical = false
+		scrollView.isDirectionalLockEnabled = true
+		return scrollView
+	}()
+
+	private lazy var recentlyUpdatedBackgroundView: UIVisualEffectView = {
+		let view = UIVisualEffectView(effect: nil)//UIBlurEffect(style: .systemChromeMaterial))
+		view.translatesAutoresizingMaskIntoConstraints = false
+		view.layer.cornerRadius = 20
+		view.clipsToBounds = true
+		return view
+	}()
+
+	private lazy var recentlyUpdatedStackView: UIStackView = {
+		let stack = UIStackView()
+		stack.translatesAutoresizingMaskIntoConstraints = false
+		stack.axis = .horizontal
+		stack.spacing = 3
+		stack.alignment = .center
+		return stack
+	}()
+
 	/// The current update status text to display
 	var updateStatusText: String? {
 		didSet {
 			updateStatusLabel.text = updateStatusText
 		}
 	}
+
+	private lazy var starredButton: UIBarButtonItem = {
+		let image = Assets.Images.starClosed.withTintColor(Assets.Colors.star, renderingMode: .alwaysOriginal)
+		let button = FeedNavigationChrome.makeTopBarFeedBarButton(
+			image: image,
+			fillsCircularButton: false,
+			target: self,
+			action: #selector(starredTapped)
+		)
+		button.accessibilityLabel = NSLocalizedString("Starred", comment: "Starred")
+		return button
+	}()
 
 	var dataSource: UICollectionViewDiffableDataSource<String, SidebarItemNode>!
 
@@ -97,10 +175,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		configureCollectionView()
 		configureDiffableDataSource()
 		configureNavigationBar()
+		configureRecentlyUpdatedStrip()
 		configureBottomActionBar()
 		collectionView.dragDelegate = self
 		collectionView.dropDelegate = self
 		becomeFirstResponder()
+		refreshRecentlyUpdatedShowsStrip()
 
 		// Fetch sources on launch
 		SourcesRefreshManager.shared.forceRefresh()
@@ -160,9 +240,11 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			actionButtonsStack.centerYAnchor.constraint(equalTo: bottomActionBar.contentView.centerYAnchor)
 		])
 
-		// Add content insets: top to avoid navigation bar overlay, bottom for action bar
-		collectionView.contentInset.top = 8
+		// Add content insets: top for Recently Updated strip, bottom for action bar
+		collectionView.contentInset.top = defaultTopInset
 		collectionView.contentInset.bottom = 80
+		collectionView.verticalScrollIndicatorInsets.top = defaultTopInset
+		collectionView.verticalScrollIndicatorInsets.bottom = 80
 	}
 
 	private func createActionButton(iconName: String, accessibilityLabel: String, fallbackSystemName: String? = nil, action: Selector) -> UIButton {
@@ -184,7 +266,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func configureNavigationBar() {
-		// No title
 		navigationItem.title = nil
 
 		// Left bar button: Settings
@@ -197,19 +278,264 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		settingsButton.accessibilityLabel = NSLocalizedString("Settings", comment: "Settings")
 		navigationItem.leftBarButtonItem = settingsButton
 
-		// No right bar button - update status is shown as a label in the view
-		navigationItem.rightBarButtonItem = nil
+		// Right bar button: Starred smart feed shortcut
+		navigationItem.rightBarButtonItem = starredButton
 
 		// Add update status label to the view (not navigation bar)
 		view.addSubview(updateStatusLabel)
+		let trailingConstraint = updateStatusLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -72)
+		updateStatusTrailingConstraint = trailingConstraint
 		NSLayoutConstraint.activate([
-			updateStatusLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -30),
-			updateStatusLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+			updateStatusLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -40),
+			trailingConstraint
+		])
+	}
+
+	private func configureRecentlyUpdatedStrip() {
+		view.insertSubview(navBarExtendedBackgroundView, aboveSubview: collectionView)
+		view.addSubview(recentlyUpdatedContainerView)
+		recentlyUpdatedContainerView.addSubview(recentlyUpdatedTitleLabel)
+		recentlyUpdatedContainerView.addSubview(recentlyUpdatedBackgroundView)
+		recentlyUpdatedBackgroundView.contentView.addSubview(recentlyUpdatedScrollView)
+		recentlyUpdatedScrollView.addSubview(recentlyUpdatedStackView)
+
+		NSLayoutConstraint.activate([
+			navBarExtendedBackgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+			navBarExtendedBackgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+			navBarExtendedBackgroundView.topAnchor.constraint(equalTo: view.topAnchor),
+			navBarExtendedBackgroundView.bottomAnchor.constraint(equalTo: recentlyUpdatedContainerView.bottomAnchor, constant: 10),
+
+			recentlyUpdatedContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+			recentlyUpdatedContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+			recentlyUpdatedContainerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6),
+
+			recentlyUpdatedTitleLabel.leadingAnchor.constraint(equalTo: recentlyUpdatedContainerView.leadingAnchor, constant: 2),
+			recentlyUpdatedTitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: recentlyUpdatedContainerView.trailingAnchor),
+			recentlyUpdatedTitleLabel.topAnchor.constraint(equalTo: recentlyUpdatedContainerView.topAnchor),
+
+			recentlyUpdatedBackgroundView.leadingAnchor.constraint(equalTo: recentlyUpdatedContainerView.leadingAnchor),
+			recentlyUpdatedBackgroundView.trailingAnchor.constraint(equalTo: recentlyUpdatedContainerView.trailingAnchor),
+			recentlyUpdatedBackgroundView.topAnchor.constraint(equalTo: recentlyUpdatedTitleLabel.bottomAnchor, constant: 10),
+			recentlyUpdatedBackgroundView.heightAnchor.constraint(equalToConstant: 86),
+			recentlyUpdatedBackgroundView.bottomAnchor.constraint(equalTo: recentlyUpdatedContainerView.bottomAnchor),
+
+			recentlyUpdatedScrollView.leadingAnchor.constraint(equalTo: recentlyUpdatedBackgroundView.contentView.leadingAnchor, constant: 10),
+			recentlyUpdatedScrollView.trailingAnchor.constraint(equalTo: recentlyUpdatedBackgroundView.contentView.trailingAnchor, constant: -10),
+			recentlyUpdatedScrollView.topAnchor.constraint(equalTo: recentlyUpdatedBackgroundView.contentView.topAnchor, constant: 8),
+			recentlyUpdatedScrollView.bottomAnchor.constraint(equalTo: recentlyUpdatedBackgroundView.contentView.bottomAnchor, constant: -8),
+
+			recentlyUpdatedStackView.leadingAnchor.constraint(equalTo: recentlyUpdatedScrollView.contentLayoutGuide.leadingAnchor),
+			recentlyUpdatedStackView.trailingAnchor.constraint(equalTo: recentlyUpdatedScrollView.contentLayoutGuide.trailingAnchor),
+			recentlyUpdatedStackView.topAnchor.constraint(equalTo: recentlyUpdatedScrollView.contentLayoutGuide.topAnchor),
+			recentlyUpdatedStackView.bottomAnchor.constraint(equalTo: recentlyUpdatedScrollView.contentLayoutGuide.bottomAnchor)
 		])
 	}
 
 	@objc private func settingsTapped() {
 		coordinator.showSettings()
+	}
+
+	@objc private func starredTapped() {
+		coordinator.selectStarredFeed()
+	}
+
+	@objc private func recentlyUpdatedFeedTapped(_ sender: UIControl) {
+		guard let itemView = sender as? RecentlyUpdatedFeedItemView,
+			  let payload = itemView.payload else {
+			return
+		}
+		switch payload {
+		case .feed(let feed):
+			expandCategorySectionForCategory(feed.feedCategory)
+			coordinator.selectFeed(feed, animations: [.navigation, .scroll, .select])
+		case .discover(let source):
+			addDiscoverSource(source)
+		}
+	}
+
+	private func refreshRecentlyUpdatedShowsStrip() {
+		let payloads = buildRecentlyUpdatedStripPayloads()
+		let isDiscoverMode: Bool = {
+			guard let first = payloads.first else { return false }
+			if case .discover = first { return true }
+			return false
+		}()
+		recentlyUpdatedTitleLabel.text = isDiscoverMode
+			? NSLocalizedString("Discover", comment: "Discover")
+			: NSLocalizedString("Recently Updated", comment: "Recently Updated")
+
+		recentlyUpdatedStackView.arrangedSubviews.forEach { view in
+			recentlyUpdatedStackView.removeArrangedSubview(view)
+			view.removeFromSuperview()
+		}
+
+		for payload in payloads {
+			let itemView = RecentlyUpdatedFeedItemView()
+			itemView.payload = payload
+			itemView.translatesAutoresizingMaskIntoConstraints = false
+			itemView.addTarget(self, action: #selector(recentlyUpdatedFeedTapped(_:)), for: .touchUpInside)
+			switch payload {
+			case .feed(let feed):
+				itemView.accessibilityLabel = feed.nameForDisplay
+				itemView.setImage(recentlyUpdatedIconImage(for: feed))
+			case .discover(let source):
+				itemView.accessibilityLabel = source.name
+				itemView.setImage(discoverSourceIconImage(for: source))
+			}
+			NSLayoutConstraint.activate([
+				itemView.widthAnchor.constraint(equalToConstant: 72),
+				itemView.heightAnchor.constraint(equalToConstant: 68)
+			])
+			recentlyUpdatedStackView.addArrangedSubview(itemView)
+		}
+
+		let hasFeeds = !payloads.isEmpty
+		recentlyUpdatedContainerView.isHidden = !hasFeeds
+		navBarExtendedBackgroundView.isHidden = !hasFeeds
+		let topInset = hasFeeds ? recentlyUpdatedTopInset : defaultTopInset
+		collectionView.contentInset.top = topInset
+		collectionView.verticalScrollIndicatorInsets.top = topInset
+	}
+
+	private func buildRecentlyUpdatedStripPayloads() -> [RecentlyUpdatedStripPayload] {
+		let recentFeeds = computeRecentlyUpdatedUnreadFeeds()
+		if !recentFeeds.isEmpty {
+			return recentFeeds.map { .feed($0) }
+		}
+		return buildDiscoverSourceItems().map { .discover($0) }
+	}
+
+	private func computeRecentlyUpdatedUnreadFeeds() -> [Feed] {
+		var latestDateByFeedID = [String: Date]()
+		var feedByID = [String: Feed]()
+
+		for account in AccountManager.shared.activeAccounts {
+			for feed in account.flattenedFeeds() where feed.unreadCount > 0 {
+				feedByID[feed.feedID] = feed
+			}
+
+			guard !feedByID.isEmpty else {
+				continue
+			}
+
+			guard let unreadArticles = try? account.fetchArticles(.unread()) else {
+				continue
+			}
+
+			for article in unreadArticles {
+				guard feedByID[article.feedID] != nil else {
+					continue
+				}
+				let date = article.logicalDatePublished
+				let existing = latestDateByFeedID[article.feedID] ?? .distantPast
+				if date > existing {
+					latestDateByFeedID[article.feedID] = date
+				}
+			}
+		}
+
+		return latestDateByFeedID
+			.sorted { $0.value > $1.value }
+			.compactMap { feedByID[$0.key] }
+	}
+
+	private func buildDiscoverSourceItems() -> [DiscoverSourceItem] {
+		var discoverItems = [DiscoverSourceItem]()
+
+		let randomPodcastSources = Array(PodcastSourcesManager.shared.podcastSources.shuffled().prefix(2))
+		for source in randomPodcastSources {
+			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, category: .podcast))
+		}
+
+		let randomYoutubeSources = Array(YoutubeSourcesManager.shared.youtubeSources.shuffled().prefix(2))
+		for source in randomYoutubeSources {
+			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, category: .youtube))
+		}
+
+		let randomNewsSources = Array(NewsSourcesManager.shared.newsSources.shuffled().prefix(2))
+		for source in randomNewsSources {
+			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, category: .news))
+		}
+
+		let randomRSSSources = Array(RSSSourcesManager.shared.rssSources.shuffled().prefix(2))
+		for source in randomRSSSources {
+			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, category: .rss))
+		}
+
+		return discoverItems
+	}
+
+	private func recentlyUpdatedIconImage(for feed: Feed) -> UIImage {
+		let fallback = Assets.Images.nnwFeedIcon
+		let sourceImage = IconImageCache.shared.imageForFeed(feed)?.image ?? fallback
+		let canvasSize = CGSize(width: 68, height: 68)
+		return UIGraphicsImageRenderer(size: canvasSize).image { _ in
+			let sourceSize = sourceImage.size
+			guard sourceSize.width > 0, sourceSize.height > 0 else {
+				return
+			}
+			let scale = max(canvasSize.width / sourceSize.width, canvasSize.height / sourceSize.height)
+			let drawSize = CGSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
+			let origin = CGPoint(x: (canvasSize.width - drawSize.width) / 2, y: (canvasSize.height - drawSize.height) / 2)
+			sourceImage.draw(in: CGRect(origin: origin, size: drawSize))
+		}.withRenderingMode(.alwaysOriginal)
+	}
+
+	private func discoverSourceIconImage(for source: DiscoverSourceItem) -> UIImage {
+		let sourceImage: UIImage
+		if let imageURL = source.imageURL,
+		   let downloadedImage = SourceImageCache.shared.image(for: imageURL) {
+			sourceImage = downloadedImage
+		} else {
+			let config = UIImage.SymbolConfiguration(pointSize: 34, weight: .regular)
+			let fallback: UIImage
+			switch source.category {
+			case .podcast:
+				fallback = RSImage(named: "podcast_thin-symbol")?.applyingSymbolConfiguration(config)
+					?? UIImage(systemName: "mic.fill", withConfiguration: config)
+					?? Assets.Images.nnwFeedIcon
+			case .youtube:
+				fallback = UIImage(systemName: "play.rectangle", withConfiguration: config) ?? Assets.Images.nnwFeedIcon
+			case .news:
+				fallback = UIImage(systemName: "newspaper", withConfiguration: config) ?? Assets.Images.nnwFeedIcon
+			case .rss:
+				fallback = RSImage(named: "rss_thin-symbol")?.applyingSymbolConfiguration(config)
+					?? UIImage(systemName: "dot.radiowaves.left.and.right", withConfiguration: config)
+					?? Assets.Images.nnwFeedIcon
+			}
+			sourceImage = fallback.withTintColor(.secondaryLabel, renderingMode: .alwaysOriginal)
+		}
+
+		let canvasSize = CGSize(width: 68, height: 68)
+		return UIGraphicsImageRenderer(size: canvasSize).image { _ in
+			let sourceSize = sourceImage.size
+			guard sourceSize.width > 0, sourceSize.height > 0 else {
+				return
+			}
+			let scale = max(canvasSize.width / sourceSize.width, canvasSize.height / sourceSize.height)
+			let drawSize = CGSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
+			let origin = CGPoint(x: (canvasSize.width - drawSize.width) / 2, y: (canvasSize.height - drawSize.height) / 2)
+			sourceImage.draw(in: CGRect(origin: origin, size: drawSize))
+		}.withRenderingMode(.alwaysOriginal)
+	}
+
+	private func addDiscoverSource(_ source: DiscoverSourceItem) {
+		let urlString = source.url.trimmingCharacters(in: .whitespacesAndNewlines)
+		if !urlString.isEmpty {
+			addFeedDirectly(urlString: urlString, category: source.category)
+			return
+		}
+
+		switch source.category {
+		case .podcast:
+			addPodcastWithWebhook(name: source.name, author: source.author)
+		case .youtube:
+			addYoutubeWithWebhook(name: source.name, author: source.author)
+		case .news:
+			addTopicWithWebhook(name: source.name, author: source.author)
+		case .rss:
+			break
+		}
 	}
 
 	@objc private func addRSSFeed() {
@@ -340,6 +666,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	override func viewWillAppear(_ animated: Bool) {
 		// Hide the toolbar - all actions are now in the navigation bar
 		navigationController?.isToolbarHidden = true
+		applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip()
+		refreshRecentlyUpdatedShowsStrip()
 		updateUI()
 		super.viewWillAppear(animated)
 
@@ -388,7 +716,28 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		NotificationCenter.default.addObserver(self, selector: #selector(feedIconDidBecomeAvailable(_:)), name: .feedIconDidBecomeAvailable, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(feedSettingDidChange(_:)), name: .feedSettingDidChange, object: nil)
 
-		registerForTraitChanges([UITraitPreferredContentSizeCategory.self], target: self, action: #selector(preferredContentSizeCategoryDidChange))
+			registerForTraitChanges([UITraitPreferredContentSizeCategory.self], target: self, action: #selector(preferredContentSizeCategoryDidChange))
+		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
+	}
+
+	private func applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip() {
+		guard let navigationBar = navigationController?.navigationBar else {
+			recentlyUpdatedBackgroundView.effect = nil//UIBlurEffect(style: .systemChromeMaterial)
+			navBarExtendedBackgroundView.effect = UIBlurEffect(style: .systemChromeMaterial)
+			return
+		}
+
+		let appearance = navigationBar.scrollEdgeAppearance ?? navigationBar.standardAppearance
+		if let backgroundEffect = appearance.backgroundEffect {
+			recentlyUpdatedBackgroundView.effect = nil//backgroundEffect
+			navBarExtendedBackgroundView.effect = backgroundEffect
+		} else {
+			recentlyUpdatedBackgroundView.effect = nil//UIBlurEffect(style: .systemChromeMaterial)
+			navBarExtendedBackgroundView.effect = UIBlurEffect(style: .systemChromeMaterial)
+		}
+
+		recentlyUpdatedBackgroundView.backgroundColor = .clear
+		navBarExtendedBackgroundView.backgroundColor = .clear
 	}
 
 	// MARK: - Collection View Configuration
@@ -399,8 +748,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		// Don't use section footers - we use a standalone footer label instead
 
 		config.trailingSwipeActionsConfigurationProvider = { [unowned self] indexPath in
-			if indexPath.section == 0 { return UISwipeActionsConfiguration(actions: []) }
-
 			let deleteTitle = NSLocalizedString("Delete", comment: "Delete")
 			let deleteAction = UIContextualAction(style: .destructive, title: nil) { [weak self] _, _, completion in
 				self?.delete(indexPath: indexPath)
@@ -829,6 +1176,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc func unreadCountDidChange(_ note: Notification) {
+		refreshRecentlyUpdatedShowsStrip()
 		updateUI()
 
 		// Update category section headers (My Feeds, My Podcasts, etc.)
@@ -861,6 +1209,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc func unreadCountDidInitialize(_ note: Notification) {
+		refreshRecentlyUpdatedShowsStrip()
 		// Update all category section headers when unread counts are fully initialized
 		updateCategorySectionUnreadCounts()
 	}
@@ -899,6 +1248,11 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			return
 		}
 		applyToCellsForRepresentedObject(feed, configureIcon(_:_:))
+		refreshRecentlyUpdatedShowsStrip()
+	}
+
+	@objc func sourceImageDidBecomeAvailable(_ note: Notification) {
+		refreshRecentlyUpdatedShowsStrip()
 	}
 
 	// MARK: - Actions
@@ -918,6 +1272,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	@objc private func appWillEnterForeground() {
 		SourcesRefreshManager.shared.refreshIfNeeded()
+		refreshRecentlyUpdatedShowsStrip()
 	}
 
 	private func showEnterRSSURLDialog() {
@@ -1897,5 +2252,40 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 		)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
 		present(alert, animated: true)
+	}
+}
+
+private final class RecentlyUpdatedFeedItemView: UIControl {
+	var payload: RecentlyUpdatedStripPayload?
+
+	private let iconImageView: UIImageView = {
+		let imageView = UIImageView()
+		imageView.translatesAutoresizingMaskIntoConstraints = false
+		imageView.contentMode = .scaleAspectFill
+		imageView.backgroundColor = .white
+		imageView.layer.cornerRadius = 12
+		imageView.clipsToBounds = true
+		return imageView
+	}()
+
+	override init(frame: CGRect) {
+		super.init(frame: frame)
+		addSubview(iconImageView)
+
+		NSLayoutConstraint.activate([
+			iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
+			iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
+			iconImageView.widthAnchor.constraint(equalToConstant: 68),
+			iconImageView.heightAnchor.constraint(equalToConstant: 68)
+		])
+	}
+
+	@available(*, unavailable)
+	required init?(coder: NSCoder) {
+		fatalError("init(coder:) has not been implemented")
+	}
+
+	func setImage(_ image: UIImage?) {
+		iconImageView.image = image
 	}
 }
