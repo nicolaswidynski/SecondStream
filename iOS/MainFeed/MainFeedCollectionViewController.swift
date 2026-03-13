@@ -344,12 +344,17 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			  let payload = itemView.payload else {
 			return
 		}
-		switch payload {
-		case .feed(let feed):
-			expandCategorySectionForCategory(feed.feedCategory)
-			coordinator.selectFeed(feed, animations: [.navigation, .scroll, .select])
-		case .discover(let source):
-			addDiscoverSource(source)
+		itemView.performTapFeedback { [weak self] in
+			guard let self else {
+				return
+			}
+			switch payload {
+			case .feed(let feed):
+				expandCategorySectionForCategory(feed.feedCategory)
+				coordinator.selectFeed(feed, animations: [.navigation, .scroll])
+			case .discover(let source):
+				addDiscoverSource(source)
+			}
 		}
 	}
 
@@ -724,6 +729,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		guard let navigationBar = navigationController?.navigationBar else {
 			recentlyUpdatedBackgroundView.effect = nil//UIBlurEffect(style: .systemChromeMaterial)
 			navBarExtendedBackgroundView.effect = UIBlurEffect(style: .systemChromeMaterial)
+			navBarExtendedBackgroundView.alpha = 0.75
 			return
 		}
 
@@ -734,6 +740,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		} else {
 			recentlyUpdatedBackgroundView.effect = nil//UIBlurEffect(style: .systemChromeMaterial)
 			navBarExtendedBackgroundView.effect = UIBlurEffect(style: .systemChromeMaterial)
+			navBarExtendedBackgroundView.alpha = 0.75
 		}
 
 		recentlyUpdatedBackgroundView.backgroundColor = .clear
@@ -2262,21 +2269,42 @@ private final class RecentlyUpdatedFeedItemView: UIControl {
 		let imageView = UIImageView()
 		imageView.translatesAutoresizingMaskIntoConstraints = false
 		imageView.contentMode = .scaleAspectFill
-		imageView.backgroundColor = .white
+		imageView.backgroundColor = .secondarySystemBackground// .white
 		imageView.layer.cornerRadius = 12
 		imageView.clipsToBounds = true
 		return imageView
 	}()
 
+	private let pressOverlayView: UIView = {
+		let view = UIView()
+		view.translatesAutoresizingMaskIntoConstraints = false
+		view.backgroundColor = UIColor.systemBlue.withAlphaComponent(1)
+		view.isUserInteractionEnabled = false
+		view.alpha = 0
+		return view
+	}()
+
+	override var isHighlighted: Bool {
+		didSet {
+			pressOverlayView.alpha = isHighlighted ? 1 : 0
+		}
+	}
+
 	override init(frame: CGRect) {
 		super.init(frame: frame)
 		addSubview(iconImageView)
+		iconImageView.addSubview(pressOverlayView)
 
 		NSLayoutConstraint.activate([
 			iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
 			iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
 			iconImageView.widthAnchor.constraint(equalToConstant: 68),
-			iconImageView.heightAnchor.constraint(equalToConstant: 68)
+			iconImageView.heightAnchor.constraint(equalToConstant: 68),
+
+			pressOverlayView.leadingAnchor.constraint(equalTo: iconImageView.leadingAnchor),
+			pressOverlayView.trailingAnchor.constraint(equalTo: iconImageView.trailingAnchor),
+			pressOverlayView.topAnchor.constraint(equalTo: iconImageView.topAnchor),
+			pressOverlayView.bottomAnchor.constraint(equalTo: iconImageView.bottomAnchor)
 		])
 	}
 
@@ -2287,5 +2315,14 @@ private final class RecentlyUpdatedFeedItemView: UIControl {
 
 	func setImage(_ image: UIImage?) {
 		iconImageView.image = image
+	}
+
+	func performTapFeedback(_ completion: @escaping () -> Void) {
+		pressOverlayView.alpha = 1
+		UIView.animate(withDuration: 0.08, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
+			self.pressOverlayView.alpha = 0
+		} completion: { _ in
+			completion()
+		}
 	}
 }

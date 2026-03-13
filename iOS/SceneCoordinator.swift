@@ -1118,23 +1118,32 @@ struct SidebarItemNode: Hashable, Sendable {
 	}
 
 	func selectTodayFeed(completion: (() -> Void)? = nil) {
-		markExpanded(SmartFeedsController.shared)
-		self.ensureFeedIsAvailableToSelect(SmartFeedsController.shared.todayFeed) {
-			self.selectFeed(SmartFeedsController.shared.todayFeed, animations: [.navigation, .scroll], completion: completion)
-		}
+		selectPseudoFeed(SmartFeedsController.shared.todayFeed, completion: completion)
 	}
 
 	func selectAllUnreadFeed(completion: (() -> Void)? = nil) {
-		markExpanded(SmartFeedsController.shared)
-		self.ensureFeedIsAvailableToSelect(SmartFeedsController.shared.unreadFeed) {
-			self.selectFeed(SmartFeedsController.shared.unreadFeed, animations: [.navigation, .scroll], completion: completion)
-		}
+		selectPseudoFeed(SmartFeedsController.shared.unreadFeed, completion: completion)
 	}
 
 	func selectStarredFeed(completion: (() -> Void)? = nil) {
-		markExpanded(SmartFeedsController.shared)
-		self.ensureFeedIsAvailableToSelect(SmartFeedsController.shared.starredFeed) {
-			self.selectFeed(SmartFeedsController.shared.starredFeed, animations: [.navigation, .scroll], completion: completion)
+		selectPseudoFeed(SmartFeedsController.shared.starredFeed, completion: completion)
+	}
+
+	private func selectPseudoFeed(_ pseudoFeed: PseudoFeed, completion: (() -> Void)? = nil) {
+		ensureFeedIsAvailableToSelect(pseudoFeed) {
+			self.currentFeedIndexPath = nil
+			self.mainFeedCollectionViewController.updateFeedSelection(animations: [.select])
+			self.selectArticle(nil)
+			self.activityManager.selecting(sidebarItem: pseudoFeed)
+			self.rootSplitViewController.show(.supplementary)
+			self.setTimelineFeed(pseudoFeed, animated: false) {
+				if self.isReadFeedsFiltered {
+					self.rebuildBackingStores()
+				}
+				AppDefaults.shared.selectedSidebarItem = pseudoFeed.sidebarItemID
+				completion?()
+			}
+			self.updateNavigationBarSubtitles(nil)
 		}
 	}
 

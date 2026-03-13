@@ -24,6 +24,7 @@ import Articles
 	init() {
 		NotificationCenter.default.addObserver(self, selector: #selector(feedIconDidBecomeAvailable(_:)), name: .feedIconDidBecomeAvailable, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(feedSettingDidChange(_:)), name: .feedSettingDidChange, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
 	}
 
 	func imageFor(_ feedID: SidebarItemIdentifier) -> IconImage? {
@@ -92,6 +93,25 @@ import Articles
 		}
 	}
 
+	@objc func sourceImageDidBecomeAvailable(_ note: Notification) {
+		guard let imageURL = note.userInfo?["url"] as? String else {
+			return
+		}
+
+		for account in AccountManager.shared.activeAccounts {
+			for feed in account.flattenedFeeds() where feed.feedCategory == .rss {
+				if RSSSourcesManager.shared.matches(imageURL: imageURL, feedURL: feed.url, homePageURL: feed.homePageURL) {
+					invalidateFeedCaches(feed)
+					NotificationCenter.default.post(
+						name: .feedIconDidBecomeAvailable,
+						object: self,
+						userInfo: [UserInfoKey.feed: feed]
+					)
+				}
+			}
+		}
+	}
+
 	private func invalidateFeedCaches(_ feed: Feed) {
 		guard let feedID = feed.sidebarItemID else {
 			return
@@ -130,6 +150,10 @@ private extension IconImageCache {
 		if !prefersGeneratedSourceIcon, let iconImage = feedIconImageCache[feedID] {
 			return iconImage
 		}
+		if feed.feedCategory == .rss, let sourceIcon = rssLibraryIcon(for: feed) {
+			feedIconImageCache[feedID] = sourceIcon
+			return sourceIcon
+		}
 		if let iconImage = FeedIconDownloader.shared.icon(for: feed) {
 			feedIconImageCache[feedID] = iconImage
 			return iconImage
@@ -146,6 +170,14 @@ private extension IconImageCache {
 			return faviconImage
 		}
 		return categoryIcon(for: feed.feedCategory)
+	}
+
+	func rssLibraryIcon(for feed: Feed) -> IconImage? {
+		guard let imageURL = RSSSourcesManager.shared.imageURL(forFeedURL: feed.url, homePageURL: feed.homePageURL),
+			  let image = SourceImageCache.shared.image(for: imageURL) else {
+			return nil
+		}
+		return IconImage(image, isSymbol: false, isBackgroundSuppressed: true)
 	}
 
 	func categoryIcon(for category: FeedCategory) -> IconImage? {

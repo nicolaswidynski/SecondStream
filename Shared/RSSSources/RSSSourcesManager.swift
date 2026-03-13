@@ -79,6 +79,40 @@ enum AddRSSResult {
 		}
 	}
 
+	// MARK: - Lookup
+
+	/// Returns the configured image URL for a subscribed RSS feed URL (or its homepage URL), if present in rss_top.json or rss.json.
+	func imageURL(forFeedURL feedURL: String, homePageURL: String?) -> String? {
+		let normalizedFeedURL = normalizedURLKey(feedURL)
+		let normalizedHomePageURL = normalizedURLKey(homePageURL)
+
+		for source in rssSources + rssLibrarySources {
+			let sourceURL = normalizedURLKey(source.url)
+			guard !sourceURL.isEmpty else {
+				continue
+			}
+			let matchesFeed = !normalizedFeedURL.isEmpty && sourceURL == normalizedFeedURL
+			let matchesHome = !normalizedHomePageURL.isEmpty && sourceURL == normalizedHomePageURL
+			guard matchesFeed || matchesHome else {
+				continue
+			}
+			guard let imageURL = source.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+				  !imageURL.isEmpty else {
+				continue
+			}
+			return imageURL
+		}
+
+		return nil
+	}
+
+	func matches(imageURL candidateImageURL: String, feedURL: String, homePageURL: String?) -> Bool {
+		guard let matched = imageURL(forFeedURL: feedURL, homePageURL: homePageURL) else {
+			return false
+		}
+		return normalizedURLKey(matched) == normalizedURLKey(candidateImageURL)
+	}
+
 	// MARK: - Token
 
 	private var bearerToken: String? {
@@ -227,5 +261,22 @@ enum AddRSSResult {
 			Self.logger.error("Failed to add RSS source: \(error.localizedDescription)")
 			return .failure(message: error.localizedDescription)
 		}
+	}
+
+	private func normalizedURLKey(_ rawURL: String?) -> String {
+		guard let rawURL else {
+			return ""
+		}
+		let trimmed = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard !trimmed.isEmpty else {
+			return ""
+		}
+		guard let components = URLComponents(string: trimmed.lowercased()) else {
+			return trimmed.lowercased()
+		}
+		let host = components.host ?? ""
+		let path = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+		let query = components.percentEncodedQuery.map { "?\($0)" } ?? ""
+		return path.isEmpty ? "\(host)\(query)" : "\(host)/\(path)\(query)"
 	}
 }
