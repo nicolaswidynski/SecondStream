@@ -9,6 +9,7 @@
 import UIKit
 import UserNotifications
 import Account
+import AuthenticationServices
 
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
@@ -33,6 +34,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		coordinator.restoreWindowState(activity: session.stateRestorationActivity)
 
 		updateUserInterfaceStyle()
+
+		if !AuthManager.shared.isRegistered {
+			presentRegistration()
+		}
 
 		NotificationCenter.default.addObserver(self, selector: #selector(handleUserInterfaceColorPaletteDidUpdate(_:)), name: .userInterfaceColorPaletteDidUpdate, object: AppDefaults.self)
 
@@ -249,6 +254,16 @@ private extension SceneDelegate {
 			self.window?.overrideUserInterfaceStyle = .light
 		case .dark:
 			self.window?.overrideUserInterfaceStyle = .dark
+		}
+	}
+
+	func presentRegistration() {
+		// Defer to the next run loop so the window is visible before we present.
+		DispatchQueue.main.async {
+			let registrationVC = RegistrationViewController()
+			registrationVC.modalPresentationStyle = .fullScreen
+			registrationVC.isModalInPresentation = true // prevents swipe-to-dismiss
+			self.window?.rootViewController?.present(registrationVC, animated: false)
 		}
 	}
 }
