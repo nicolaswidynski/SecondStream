@@ -43,6 +43,8 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleDisplayName</key>
+	<string>Second Stream</string>
 	<key>CFBundleName</key>
 	<string>Second Stream</string>
 	<key>CFBundlePackageType</key>
@@ -117,7 +119,7 @@
 					<key>UISceneConfigurationName</key>
 					<string>Default Configuration</string>
 					<key>UISceneDelegateClassName</key>
-					<string>NetNewsWire.SceneDelegate</string>
+					<string>Second_Stream.SceneDelegate</string>
 					<key>UISceneStoryboardFile</key>
 					<string>Main</string>
 				</dict>

@@ -3,7 +3,7 @@
 //  NetNewsWire
 //
 //  Created by Claude on 2026-03-14.
-//  Copyright © 2026 Ranchero Software. All rights reserved.
+//  Copyright © 2026 STDN. All rights reserved.
 //
 
 import Foundation
