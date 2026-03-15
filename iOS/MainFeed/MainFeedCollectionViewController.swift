@@ -635,9 +635,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 					try await FeedStatsManager.shared.gateAdd(
 						type: category,
 						name: sourceName ?? url.absoluteString,
-						author: sourceAuthor,
-						feedURL: url.absoluteString,
-						imageURL: sourceImageURL
+						author: sourceAuthor
 					)
 				} catch {
 					loadingAlert.dismiss(animated: true) {
@@ -1392,7 +1390,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		Task {
 			do {
-				try await FeedStatsManager.shared.gateAdd(type: .podcast, name: name, author: author, feedURL: "", imageURL: nil)
+				try await FeedStatsManager.shared.gateAdd(type: .podcast, name: name, author: author)
 			} catch {
 				loadingAlert.dismiss(animated: true) {
 					self.showFeedStatsError(error)
@@ -2023,9 +2021,7 @@ extension MainFeedCollectionViewController {
 			FeedStatsManager.shared.queueDelete(
 				type: feed.feedCategory,
 				name: feed.nameForDisplay,
-				author: feed.authors?.first?.name,
-				feedURL: feed.url,
-				imageURL: feed.iconURL ?? feed.faviconURL
+				author: feed.authors?.first?.name
 			)
 		}
 
@@ -2190,7 +2186,7 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 
 		Task {
 			do {
-				try await FeedStatsManager.shared.gateAdd(type: .youtube, name: name, author: author, feedURL: "", imageURL: nil)
+				try await FeedStatsManager.shared.gateAdd(type: .youtube, name: name, author: author)
 			} catch {
 				loadingAlert.dismiss(animated: true) {
 					self.showFeedStatsError(error)
@@ -2293,7 +2289,7 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 
 		Task {
 			do {
-				try await FeedStatsManager.shared.gateAdd(type: .news, name: name, author: author, feedURL: "", imageURL: nil)
+				try await FeedStatsManager.shared.gateAdd(type: .news, name: name, author: author)
 			} catch {
 				loadingAlert.dismiss(animated: true) {
 					self.showFeedStatsError(error)

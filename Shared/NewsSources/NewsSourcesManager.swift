@@ -277,7 +277,7 @@ enum AddNewsResult {
 			"type": "topics",
 			"show": show,
 			"author": author,
-			"authorize_unknown_sources": "YES"
+			"apple_user_id": AuthManager.shared.appleUserID ?? ""
 		]
 
 		do {

@@ -32,7 +32,6 @@ import os.log
 		let operation: String
 		let show: String
 		let author: String
-		let feedURL: String
 	}
 
 	// MARK: - Error helpers
@@ -72,7 +71,7 @@ import os.log
 	// MARK: - Pre-add gate
 
 	/// Calls feeds-stats before an add operation. Throws if the server does not return 200.
-	func gateAdd(type: FeedCategory, name: String, author: String?, feedURL: String, imageURL: String?) async throws {
+	func gateAdd(type: FeedCategory, name: String, author: String?) async throws {
 		guard let token = bearerToken else {
 			throw FeedStatsError.missingToken
 		}
@@ -84,8 +83,7 @@ import os.log
 			"type": typeString(for: type),
 			"operation": "add",
 			"show": name,
-			"author": author ?? "",
-			"my_feed_url": feedURL
+			"author": author ?? ""
 		]
 
 		var request = URLRequest(url: statsURL)
@@ -112,15 +110,14 @@ import os.log
 	// MARK: - Delete outbox
 
 	/// Queues a delete event and attempts to drain the outbox immediately.
-	func queueDelete(type: FeedCategory, name: String, author: String?, feedURL: String, imageURL: String?) {
+	func queueDelete(type: FeedCategory, name: String, author: String?) {
 		let appleUserID = AuthManager.shared.appleUserID ?? ""
 		let record = OutboxRecord(
 			appleUserID: appleUserID,
 			type: typeString(for: type),
 			operation: "del",
 			show: name,
-			author: author ?? "",
-			feedURL: feedURL
+			author: author ?? ""
 		)
 
 		var outbox = loadOutbox()
@@ -164,8 +161,7 @@ import os.log
 			"type": record.type,
 			"operation": record.operation,
 			"show": record.show,
-			"author": record.author,
-			"my_feed_url": record.feedURL
+			"author": record.author
 		]
 
 		var request = URLRequest(url: statsURL)
