@@ -658,6 +658,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				loadingAlert.dismiss(animated: true) {
 					switch result {
 					case .success(let feed):
+						Task {
+							await FeedStatsManager.shared.reportAdd(
+								type: category,
+								name: sourceName ?? url.absoluteString,
+								author: sourceAuthor
+							)
+						}
 						NotificationCenter.default.post(
 							name: .UserDidAddFeed,
 							object: self,
