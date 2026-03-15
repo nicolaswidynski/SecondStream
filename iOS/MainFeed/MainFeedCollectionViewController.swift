@@ -632,7 +632,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		Task {
 			if !skipGate {
 				do {
-					try await FeedStatsManager.shared.gateAdd(
+					try await FeedStatsManager.shared.canUserAddFeed(
 						type: category,
 						name: sourceName ?? url.absoluteString,
 						author: sourceAuthor
@@ -1390,7 +1390,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		Task {
 			do {
-				try await FeedStatsManager.shared.gateAdd(type: .podcast, name: name, author: author)
+				try await FeedStatsManager.shared.canUserAddFeed(type: .podcast, name: name, author: author)
 			} catch {
 				loadingAlert.dismiss(animated: true) {
 					self.showFeedStatsError(error)
@@ -1407,12 +1407,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				switch result {
 				case .successExisting(let summaryURL):
 					// Podcast already exists, no wait needed - add the feed directly (gate already cleared)
-					self.addFeedDirectly(urlString: summaryURL, category: .podcast, skipGate: true)
+					self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, skipGate: true)
 
 				case .successNew(let summaryURL):
 					// Show success message for new podcasts (need processing)
 					self.showPodcastSuccessMessage {
-						self.addFeedDirectly(urlString: summaryURL, category: .podcast, skipGate: true)
+						self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, skipGate: true)
 					}
 
 				case .failure(let message):
@@ -2186,7 +2186,7 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 
 		Task {
 			do {
-				try await FeedStatsManager.shared.gateAdd(type: .youtube, name: name, author: author)
+				try await FeedStatsManager.shared.canUserAddFeed(type: .youtube, name: name, author: author)
 			} catch {
 				loadingAlert.dismiss(animated: true) {
 					self.showFeedStatsError(error)
@@ -2200,21 +2200,21 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
 
 			loadingAlert.dismiss(animated: true) {
-				self.handleYoutubeResult(result)
+				self.handleYoutubeResult(result, name: name, author: author)
 			}
 		}
 	}
 
-	private func handleYoutubeResult(_ result: AddYoutubeResult) {
+	private func handleYoutubeResult(_ result: AddYoutubeResult, name: String, author: String?) {
 		switch result {
 		case .successExisting(let summaryURL):
 			// Channel already exists, no wait needed - add the feed directly (gate already cleared)
-			self.addFeedDirectly(urlString: summaryURL, category: .youtube, skipGate: true)
+			self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, skipGate: true)
 
 		case .successNew(let summaryURL):
 			// Show success message for new channels (need processing)
 			self.showYoutubeSuccessMessage {
-				self.addFeedDirectly(urlString: summaryURL, category: .youtube, skipGate: true)
+				self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, skipGate: true)
 			}
 
 		case .failure(let message):
@@ -2289,7 +2289,7 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 
 		Task {
 			do {
-				try await FeedStatsManager.shared.gateAdd(type: .news, name: name, author: author)
+				try await FeedStatsManager.shared.canUserAddFeed(type: .news, name: name, author: author)
 			} catch {
 				loadingAlert.dismiss(animated: true) {
 					self.showFeedStatsError(error)
@@ -2300,20 +2300,20 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 			let result = await NewsSourcesManager.shared.addNews(name: name, author: author)
 
 			loadingAlert.dismiss(animated: true) {
-				self.handleTopicResult(result)
+				self.handleTopicResult(result, name: name, author: author)
 			}
 		}
 	}
 
-	private func handleTopicResult(_ result: AddNewsResult) {
+	private func handleTopicResult(_ result: AddNewsResult, name: String, author: String?) {
 		switch result {
 		case .successExisting(let summaryURL):
 			// Topic already exists, no wait needed - add the feed directly (gate already cleared)
-			self.addFeedDirectly(urlString: summaryURL, category: .news, skipGate: true)
+			self.addFeedDirectly(urlString: summaryURL, category: .news, sourceName: name, sourceAuthor: author, skipGate: true)
 
 		case .successNew(let summaryURL):
 			// Topic is new, add the feed directly (processing happens server-side; gate already cleared)
-			self.addFeedDirectly(urlString: summaryURL, category: .news, skipGate: true)
+			self.addFeedDirectly(urlString: summaryURL, category: .news, sourceName: name, sourceAuthor: author, skipGate: true)
 
 		case .failure(let message):
 			self.showTopicError(message: message)

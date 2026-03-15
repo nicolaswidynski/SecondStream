@@ -13,7 +13,8 @@ import os.log
 
 /// Tracks feed add/delete events and reports them to the backend.
 ///
-/// For additions the gate function must succeed (200) before the actual add proceeds.
+/// For additions, `canUserAddFeed` must succeed before the add proceeds, and
+/// `reportAdd` is called after a successful add.
 /// For deletions events are queued in a UserDefaults outbox and drained when network is available.
 @MainActor final class FeedStatsManager {
 
@@ -21,7 +22,8 @@ import os.log
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "FeedStats")
 
-	private let statsURL = URL(string: "https://n8n.nwidynski.com/webhook/feeds-stats")!
+	private let statsURL = URL(string: "https://n8n.nwidynski.com/webhook/update-feed-stats")!
+	private let canAddURL = URL(string: "https://n8n.nwidynski.com/webhook/can-user-add-feed")!
 	private let outboxKey = "feedStats_deletionOutbox"
 
 	// MARK: - Outbox record
@@ -70,10 +72,49 @@ import os.log
 
 	// MARK: - Pre-add gate
 
-	/// Calls feeds-stats before an add operation. Throws if the server does not return 200.
-	func gateAdd(type: FeedCategory, name: String, author: String?) async throws {
+	/// Checks with the server whether the user is allowed to add a feed. Throws if denied.
+	func canUserAddFeed(type: FeedCategory, name: String, author: String?) async throws {
 		guard let token = bearerToken else {
 			throw FeedStatsError.missingToken
+		}
+
+		let appleUserID = AuthManager.shared.appleUserID ?? ""
+
+		let body: [String: Any] = [
+			"apple_user_id": appleUserID,
+			"type": typeString(for: type),
+			"show": name,
+			"author": author ?? ""
+		]
+
+		var request = URLRequest(url: canAddURL)
+		request.httpMethod = "POST"
+		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+		request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+		let (data, response) = try await URLSession.shared.data(for: request)
+
+		guard let httpResponse = response as? HTTPURLResponse else {
+			throw FeedStatsError.invalidResponse
+		}
+
+		guard (200...299).contains(httpResponse.statusCode) else {
+			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
+			Self.logger.error("can-user-add-feed rejected [\(httpResponse.statusCode)]: \(rawBody)")
+			throw FeedStatsError.serverError(statusCode: httpResponse.statusCode, body: Self.webhookMessage(from: data))
+		}
+
+		Self.logger.info("can-user-add-feed approved: \(name) type=\(self.typeString(for: type))")
+	}
+
+	// MARK: - Post-add reporting
+
+	/// Reports a successful add to update-feed-stats. Best-effort — errors are only logged.
+	func reportAdd(type: FeedCategory, name: String, author: String?) async {
+		guard let token = bearerToken else {
+			Self.logger.error("reportAdd: no bearer token")
+			return
 		}
 
 		let appleUserID = AuthManager.shared.appleUserID ?? ""
@@ -90,21 +131,20 @@ import os.log
 		request.httpMethod = "POST"
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-		request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-		let (data, response) = try await URLSession.shared.data(for: request)
-
-		guard let httpResponse = response as? HTTPURLResponse else {
-			throw FeedStatsError.invalidResponse
+		do {
+			request.httpBody = try JSONSerialization.data(withJSONObject: body)
+			let (data, response) = try await URLSession.shared.data(for: request)
+			if let httpResponse = response as? HTTPURLResponse,
+			   !(200...299).contains(httpResponse.statusCode) {
+				let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
+				Self.logger.error("update-feed-stats add failed [\(httpResponse.statusCode)]: \(rawBody)")
+			} else {
+				Self.logger.info("update-feed-stats add reported: \(name)")
+			}
+		} catch {
+			Self.logger.error("update-feed-stats add error: \(error.localizedDescription)")
 		}
-
-		guard (200...299).contains(httpResponse.statusCode) else {
-			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
-			Self.logger.error("feeds-stats gate rejected add [\(httpResponse.statusCode)]: \(rawBody)")
-			throw FeedStatsError.serverError(statusCode: httpResponse.statusCode, body: Self.webhookMessage(from: data))
-		}
-
-		Self.logger.info("feeds-stats gate approved add: \(name) type=\(self.typeString(for: type))")
 	}
 
 	// MARK: - Delete outbox
@@ -175,7 +215,7 @@ import os.log
 		guard let httpResponse = response as? HTTPURLResponse,
 			  (200...299).contains(httpResponse.statusCode) else {
 			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
-			Self.logger.error("feeds-stats drain failed [\((response as? HTTPURLResponse)?.statusCode ?? 0)]: \(rawBody)")
+			Self.logger.error("update-feed-stats drain failed [\((response as? HTTPURLResponse)?.statusCode ?? 0)]: \(rawBody)")
 			throw FeedStatsError.serverError(
 				statusCode: (response as? HTTPURLResponse)?.statusCode ?? 0,
 				body: Self.webhookMessage(from: data)
