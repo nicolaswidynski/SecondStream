@@ -639,6 +639,10 @@ struct SidebarItemNode: Hashable, Sendable {
 		guard let feed = notification.userInfo?[UserInfoKey.feed] as? Feed else {
 			return
 		}
+		let suppress = notification.userInfo?[UserInfoKey.suppressFeedDisclosure] as? Bool ?? false
+		guard !suppress else {
+			return
+		}
 		discloseFeed(feed, animations: [.scroll, .navigation])
 	}
 
