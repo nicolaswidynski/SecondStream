@@ -30,8 +30,8 @@ enum AddNewsResult {
 
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
 
-	private static let topFileNames = ["topic_top.json", "topics_top.json"]
-	private static let libraryFileNames = ["topic.json", "topics.json"]
+	private static let topFileNames = ["topic_free.json", "topics_free.json"]
+	private static let libraryFileNames = ["topic_featured.json", "topics_featured.json"]
 
 	// MARK: - Server Error
 

@@ -30,8 +30,8 @@ enum AddYoutubeResult {
 
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
 
-	private static let topFileName = "yt_top.json"
-	private static let libraryFileName = "yt.json"
+	private static let topFileName = "yt_free.json"
+	private static let libraryFileName = "yt_featured.json"
 
 	// MARK: - Server Error
 

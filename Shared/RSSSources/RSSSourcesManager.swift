@@ -30,8 +30,8 @@ enum AddRSSResult {
 
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
 
-	private static let topFileName = "rss_top.json"
-	private static let libraryFileName = "rss.json"
+	private static let topFileName = "rss_free.json"
+	private static let libraryFileName = "rss_featured.json"
 
 	// MARK: - Server Error
 
@@ -81,7 +81,7 @@ enum AddRSSResult {
 
 	// MARK: - Lookup
 
-	/// Returns the configured image URL for a subscribed RSS feed URL (or its homepage URL), if present in rss_top.json or rss.json.
+	/// Returns the configured image URL for a subscribed RSS feed URL (or its homepage URL), if present in rss_free.json or rss_featured.json.
 	func imageURL(forFeedURL feedURL: String, homePageURL: String?) -> String? {
 		let normalizedFeedURL = normalizedURLKey(feedURL)
 		let normalizedHomePageURL = normalizedURLKey(homePageURL)

@@ -160,13 +160,13 @@ final class YoutubePickerViewController: UIViewController {
 
 		if query.isEmpty {
 			if !topSources.isEmpty {
-				let topPicks = SourcePickerSection.sources(NSLocalizedString("Top Picks", comment: "Top Picks"))
+				let topPicks = SourcePickerSection.sources(NSLocalizedString("Free Picks", comment: "Free Picks"))
 				snapshot.appendSections([topPicks])
 				let items = topSources.map { SourcePickerItem.youtubeSource($0) }
 				snapshot.appendItems(items, toSection: topPicks)
 			}
 			if !librarySources.isEmpty {
-				let otherSection = SourcePickerSection.sources(NSLocalizedString("Other YouTube Channels", comment: "Other YouTube Channels"))
+				let otherSection = SourcePickerSection.sources(NSLocalizedString("Popular Picks", comment: "Popular Picks"))
 				snapshot.appendSections([otherSection])
 				let items = librarySources.map { SourcePickerItem.youtubeSource($0) }
 				snapshot.appendItems(items, toSection: otherSection)

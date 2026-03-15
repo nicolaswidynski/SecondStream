@@ -62,8 +62,8 @@ enum AddPodcastResult {
 
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
 
-	private static let topFileName = "pod_top.json"
-	private static let libraryFileName = "pod.json"
+	private static let topFileName = "pod_free.json"
+	private static let libraryFileName = "pod_featured.json"
 
 	// MARK: - Server Error
 

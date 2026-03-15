@@ -159,7 +159,7 @@ final class RSSPickerViewController: UIViewController {
 
 		if query.isEmpty {
 			if !topSources.isEmpty {
-				let topPicks = SourcePickerSection.sources(NSLocalizedString("Top Picks", comment: "Top Picks"))
+				let topPicks = SourcePickerSection.sources(NSLocalizedString("Popular Picks", comment: "Popular Picks"))
 				snapshot.appendSections([topPicks])
 				let items = topSources.map { SourcePickerItem.rssSource($0) }
 				snapshot.appendItems(items, toSection: topPicks)
