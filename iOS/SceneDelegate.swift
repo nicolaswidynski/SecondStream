@@ -84,6 +84,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		appDelegate.resumeDatabaseProcessingIfNecessary()
 		appDelegate.prepareAccountsForForeground()
 		coordinator.resetFocus()
+		Task { await FeedStatsManager.shared.drainOutbox() }
 	}
 
 	func stateRestorationActivity(for scene: UIScene) -> NSUserActivity? {

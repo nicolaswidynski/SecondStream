@@ -1,0 +1,216 @@
+//
+//  FeedStatsManager.swift
+//  NetNewsWire
+//
+//  Created by Claude on 2026-03-14.
+//  Copyright © 2026 STDN. All rights reserved.
+//
+
+import Foundation
+import Account
+import RSWeb
+import os.log
+
+/// Tracks feed add/delete events and reports them to the backend.
+///
+/// For additions the gate function must succeed (200) before the actual add proceeds.
+/// For deletions events are queued in a UserDefaults outbox and drained when network is available.
+@MainActor final class FeedStatsManager {
+
+	static let shared = FeedStatsManager()
+
+	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "FeedStats")
+
+	private let statsURL = URL(string: "https://n8n.nwidynski.com/webhook/feeds_stats")!
+	private let outboxKey = "feedStats_deletionOutbox"
+
+	// MARK: - Outbox record
+
+	struct OutboxRecord: Codable {
+		let appleUserID: String
+		let type: String
+		let operation: String
+		let name: String
+		let author: String
+		let feedURL: String
+		let imageURL: String
+	}
+
+	// MARK: - Bearer token
+
+	private var bearerToken: String? {
+		guard let tokenURL = Bundle.main.url(forResource: "podcast_token", withExtension: "txt"),
+			  let token = try? String(contentsOf: tokenURL, encoding: .utf8) else {
+			Self.logger.error("Failed to load bearer token from file")
+			return nil
+		}
+		return token.trimmingCharacters(in: .whitespacesAndNewlines)
+	}
+
+	// MARK: - Type mapping
+
+	private func typeString(for category: FeedCategory) -> String {
+		switch category {
+		case .podcast: return "pod"
+		case .youtube: return "yt"
+		case .rss: return "rss"
+		case .news: return "topics"
+		}
+	}
+
+	// MARK: - Pre-add gate
+
+	/// Calls feeds_stats before an add operation. Throws if the server does not return 200.
+	func gateAdd(type: FeedCategory, name: String, author: String?, feedURL: String, imageURL: String?) async throws {
+		guard let token = bearerToken else {
+			throw FeedStatsError.missingToken
+		}
+
+		let appleUserID = AuthManager.shared.appleUserID ?? ""
+
+		let body: [String: Any] = [
+			"apple_user_id": appleUserID,
+			"type": typeString(for: type),
+			"operation": "add",
+			"Name": name,
+			"Author": author ?? "",
+			"My Feed URL": feedURL,
+			"Image URL": imageURL ?? ""
+		]
+
+		var request = URLRequest(url: statsURL)
+		request.httpMethod = "POST"
+		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+		request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+		let (data, response) = try await URLSession.shared.data(for: request)
+
+		guard let httpResponse = response as? HTTPURLResponse else {
+			throw FeedStatsError.invalidResponse
+		}
+
+		guard (200...299).contains(httpResponse.statusCode) else {
+			let responseBody = String(data: data, encoding: .utf8) ?? "(empty)"
+			Self.logger.error("feeds_stats gate rejected add [\(httpResponse.statusCode)]: \(responseBody)")
+			throw FeedStatsError.serverError(statusCode: httpResponse.statusCode, body: responseBody)
+		}
+
+		Self.logger.info("feeds_stats gate approved add: \(name) type=\(self.typeString(for: type))")
+	}
+
+	// MARK: - Delete outbox
+
+	/// Queues a delete event and attempts to drain the outbox immediately.
+	func queueDelete(type: FeedCategory, name: String, author: String?, feedURL: String, imageURL: String?) {
+		let appleUserID = AuthManager.shared.appleUserID ?? ""
+		let record = OutboxRecord(
+			appleUserID: appleUserID,
+			type: typeString(for: type),
+			operation: "del",
+			name: name,
+			author: author ?? "",
+			feedURL: feedURL,
+			imageURL: imageURL ?? ""
+		)
+
+		var outbox = loadOutbox()
+		outbox.append(record)
+		saveOutbox(outbox)
+
+		Self.logger.info("Queued delete for \(name)")
+		Task { await self.drainOutbox() }
+	}
+
+	/// Attempts to send all queued delete events to the server.
+	func drainOutbox() async {
+		let outbox = loadOutbox()
+		guard !outbox.isEmpty else {
+			return
+		}
+		guard NetworkMonitor.shared.isConnected else {
+			Self.logger.info("Outbox drain skipped — no network (\(outbox.count) pending)")
+			return
+		}
+		guard let token = bearerToken else {
+			return
+		}
+
+		var remaining = [OutboxRecord]()
+		for record in outbox {
+			do {
+				try await send(record: record, token: token)
+				Self.logger.info("Drained delete: \(record.name)")
+			} catch {
+				Self.logger.error("Failed to drain delete for \(record.name): \(error.localizedDescription)")
+				remaining.append(record)
+			}
+		}
+		saveOutbox(remaining)
+	}
+
+	private func send(record: OutboxRecord, token: String) async throws {
+		let body: [String: Any] = [
+			"apple_user_id": record.appleUserID,
+			"type": record.type,
+			"operation": record.operation,
+			"Name": record.name,
+			"Author": record.author,
+			"My Feed URL": record.feedURL,
+			"Image URL": record.imageURL
+		]
+
+		var request = URLRequest(url: statsURL)
+		request.httpMethod = "POST"
+		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+		request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+		let (data, response) = try await URLSession.shared.data(for: request)
+
+		guard let httpResponse = response as? HTTPURLResponse,
+			  (200...299).contains(httpResponse.statusCode) else {
+			let responseBody = String(data: data, encoding: .utf8) ?? "(empty)"
+			throw FeedStatsError.serverError(
+				statusCode: (response as? HTTPURLResponse)?.statusCode ?? 0,
+				body: responseBody
+			)
+		}
+	}
+
+	// MARK: - UserDefaults persistence
+
+	private func loadOutbox() -> [OutboxRecord] {
+		guard let data = UserDefaults.standard.data(forKey: outboxKey),
+			  let records = try? JSONDecoder().decode([OutboxRecord].self, from: data) else {
+			return []
+		}
+		return records
+	}
+
+	private func saveOutbox(_ records: [OutboxRecord]) {
+		guard let data = try? JSONEncoder().encode(records) else {
+			return
+		}
+		UserDefaults.standard.set(data, forKey: outboxKey)
+	}
+}
+
+// MARK: - FeedStatsError
+
+enum FeedStatsError: LocalizedError {
+	case missingToken
+	case invalidResponse
+	case serverError(statusCode: Int, body: String)
+
+	var errorDescription: String? {
+		switch self {
+		case .missingToken:
+			return "Authentication token not found."
+		case .invalidResponse:
+			return "Received an invalid response from the server."
+		case .serverError(let code, let body):
+			return "Server rejected the request (\(code)): \(body)"
+		}
+	}
+}
