@@ -96,9 +96,9 @@ import os.log
 		}
 
 		guard (200...299).contains(httpResponse.statusCode) else {
-			let body = String(data: data, encoding: .utf8) ?? "(empty)"
-			Self.logger.error("Registration failed [\(httpResponse.statusCode)]: \(body)")
-			throw AuthError.serverError(statusCode: httpResponse.statusCode, body: body)
+			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
+			Self.logger.error("Registration failed [\(httpResponse.statusCode)]: \(rawBody)")
+			throw AuthError.serverError(statusCode: httpResponse.statusCode, body: Self.webhookMessage(from: data))
 		}
 
 		// Persist the Apple user ID locally only after a successful server response.
@@ -109,6 +109,18 @@ import os.log
 	/// Removes the stored Apple user ID from the Keychain (e.g. on sign-out).
 	func clearStoredIdentity() {
 		keychainDelete(key: appleUserIDKey)
+	}
+
+	// MARK: - Error helpers
+
+	/// Extracts the `"message"` field from a JSON webhook error body.
+	/// Falls back to the raw UTF-8 body if the field is absent or unparseable.
+	private static func webhookMessage(from data: Data) -> String {
+		if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+		   let message = json["message"] as? String {
+			return message
+		}
+		return String(data: data, encoding: .utf8) ?? "Unknown error"
 	}
 
 	// MARK: - Bearer token
@@ -208,8 +220,8 @@ enum AuthError: LocalizedError {
 			return "Authentication token not found."
 		case .invalidResponse:
 			return "Received an invalid response from the server."
-		case .serverError(let code, let body):
-			return "Server returned \(code):\n\(body)"
+		case .serverError(_, let body):
+			return body
 		}
 	}
 }

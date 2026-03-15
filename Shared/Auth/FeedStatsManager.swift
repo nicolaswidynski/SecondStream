@@ -35,6 +35,18 @@ import os.log
 		let feedURL: String
 	}
 
+	// MARK: - Error helpers
+
+	/// Extracts the `"message"` field from a JSON webhook error body.
+	/// Falls back to the raw UTF-8 body if the field is absent or unparseable.
+	private static func webhookMessage(from data: Data) -> String {
+		if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+		   let message = json["message"] as? String {
+			return message
+		}
+		return String(data: data, encoding: .utf8) ?? "Unknown error"
+	}
+
 	// MARK: - Bearer token
 
 	private var bearerToken: String? {
@@ -89,9 +101,9 @@ import os.log
 		}
 
 		guard (200...299).contains(httpResponse.statusCode) else {
-			let responseBody = String(data: data, encoding: .utf8) ?? "(empty)"
-			Self.logger.error("feeds-stats gate rejected add [\(httpResponse.statusCode)]: \(responseBody)")
-			throw FeedStatsError.serverError(statusCode: httpResponse.statusCode, body: responseBody)
+			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
+			Self.logger.error("feeds-stats gate rejected add [\(httpResponse.statusCode)]: \(rawBody)")
+			throw FeedStatsError.serverError(statusCode: httpResponse.statusCode, body: Self.webhookMessage(from: data))
 		}
 
 		Self.logger.info("feeds-stats gate approved add: \(name) type=\(self.typeString(for: type))")
@@ -166,10 +178,11 @@ import os.log
 
 		guard let httpResponse = response as? HTTPURLResponse,
 			  (200...299).contains(httpResponse.statusCode) else {
-			let responseBody = String(data: data, encoding: .utf8) ?? "(empty)"
+			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
+			Self.logger.error("feeds-stats drain failed [\((response as? HTTPURLResponse)?.statusCode ?? 0)]: \(rawBody)")
 			throw FeedStatsError.serverError(
 				statusCode: (response as? HTTPURLResponse)?.statusCode ?? 0,
-				body: responseBody
+				body: Self.webhookMessage(from: data)
 			)
 		}
 	}
@@ -205,8 +218,8 @@ enum FeedStatsError: LocalizedError {
 			return "Authentication token not found."
 		case .invalidResponse:
 			return "Received an invalid response from the server."
-		case .serverError(let code, let body):
-			return "Server rejected the request (\(code)): \(body)"
+		case .serverError(_, let body):
+			return body
 		}
 	}
 }
