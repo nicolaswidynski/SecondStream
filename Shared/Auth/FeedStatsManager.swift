@@ -22,7 +22,7 @@ import os.log
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "FeedStats")
 
-	private let statsURL = URL(string: "https://n8n.nwidynski.com/webhook/update-feed-stats")!
+	private let statsURL = URL(string: "https://n8n.nwidynski.com/webhook/update-feeds-stats")!
 	private let canAddURL = URL(string: "https://n8n.nwidynski.com/webhook/can-user-add-feed")!
 	private let outboxKey = "feedStats_deletionOutbox"
 
