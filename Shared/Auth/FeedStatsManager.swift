@@ -21,7 +21,7 @@ import os.log
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "FeedStats")
 
-	private let statsURL = URL(string: "https://n8n.nwidynski.com/webhook/feeds_stats")!
+	private let statsURL = URL(string: "https://n8n.nwidynski.com/webhook/feeds-stats")!
 	private let outboxKey = "feedStats_deletionOutbox"
 
 	// MARK: - Outbox record
@@ -30,10 +30,9 @@ import os.log
 		let appleUserID: String
 		let type: String
 		let operation: String
-		let name: String
+		let show: String
 		let author: String
 		let feedURL: String
-		let imageURL: String
 	}
 
 	// MARK: - Bearer token
@@ -60,7 +59,7 @@ import os.log
 
 	// MARK: - Pre-add gate
 
-	/// Calls feeds_stats before an add operation. Throws if the server does not return 200.
+	/// Calls feeds-stats before an add operation. Throws if the server does not return 200.
 	func gateAdd(type: FeedCategory, name: String, author: String?, feedURL: String, imageURL: String?) async throws {
 		guard let token = bearerToken else {
 			throw FeedStatsError.missingToken
@@ -72,10 +71,9 @@ import os.log
 			"apple_user_id": appleUserID,
 			"type": typeString(for: type),
 			"operation": "add",
-			"Name": name,
-			"Author": author ?? "",
-			"My Feed URL": feedURL,
-			"Image URL": imageURL ?? ""
+			"show": name,
+			"author": author ?? "",
+			"my_feed_url": feedURL
 		]
 
 		var request = URLRequest(url: statsURL)
@@ -92,11 +90,11 @@ import os.log
 
 		guard (200...299).contains(httpResponse.statusCode) else {
 			let responseBody = String(data: data, encoding: .utf8) ?? "(empty)"
-			Self.logger.error("feeds_stats gate rejected add [\(httpResponse.statusCode)]: \(responseBody)")
+			Self.logger.error("feeds-stats gate rejected add [\(httpResponse.statusCode)]: \(responseBody)")
 			throw FeedStatsError.serverError(statusCode: httpResponse.statusCode, body: responseBody)
 		}
 
-		Self.logger.info("feeds_stats gate approved add: \(name) type=\(self.typeString(for: type))")
+		Self.logger.info("feeds-stats gate approved add: \(name) type=\(self.typeString(for: type))")
 	}
 
 	// MARK: - Delete outbox
@@ -108,10 +106,9 @@ import os.log
 			appleUserID: appleUserID,
 			type: typeString(for: type),
 			operation: "del",
-			name: name,
+			show: name,
 			author: author ?? "",
-			feedURL: feedURL,
-			imageURL: imageURL ?? ""
+			feedURL: feedURL
 		)
 
 		var outbox = loadOutbox()
@@ -140,9 +137,9 @@ import os.log
 		for record in outbox {
 			do {
 				try await send(record: record, token: token)
-				Self.logger.info("Drained delete: \(record.name)")
+				Self.logger.info("Drained delete: \(record.show)")
 			} catch {
-				Self.logger.error("Failed to drain delete for \(record.name): \(error.localizedDescription)")
+				Self.logger.error("Failed to drain delete for \(record.show): \(error.localizedDescription)")
 				remaining.append(record)
 			}
 		}
@@ -154,10 +151,9 @@ import os.log
 			"apple_user_id": record.appleUserID,
 			"type": record.type,
 			"operation": record.operation,
-			"Name": record.name,
-			"Author": record.author,
-			"My Feed URL": record.feedURL,
-			"Image URL": record.imageURL
+			"show": record.show,
+			"author": record.author,
+			"my_feed_url": record.feedURL
 		]
 
 		var request = URLRequest(url: statsURL)
