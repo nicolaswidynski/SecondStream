@@ -158,10 +158,16 @@ enum AddYoutubeResult {
 	}
 
 	/// Adds a YouTube channel by sending the channel name and author to the webhook.
+	/// When the input starts with `@` it is a channel handle — sent as `author` with an empty `show`.
 	/// Returns the summary feed URL on success.
 	func addYoutube(name channelName: String, author: String? = nil) async -> AddYoutubeResult {
-		let name = channelName.replacingOccurrences(of: "@", with: "")
-		return await sendAddYoutubeRequest(show: name, author: author ?? "")
+		let isHandle = channelName.hasPrefix("@")
+		let cleanedName = channelName.replacingOccurrences(of: "@", with: "")
+		if isHandle {
+			return await sendAddYoutubeRequest(show: "", author: cleanedName)
+		} else {
+			return await sendAddYoutubeRequest(show: cleanedName, author: author ?? "")
+		}
 	}
 
 	private func sendAddYoutubeRequest(show: String, author: String) async -> AddYoutubeResult {
