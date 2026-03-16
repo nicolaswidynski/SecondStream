@@ -2136,11 +2136,8 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 	func youtubePicker(_ picker: YoutubePickerViewController, didSelectChannel source: YoutubeSource) {
 		picker.dismiss(animated: true) {
 			let urlString = source.url.trimmingCharacters(in: .whitespacesAndNewlines)
-			if !urlString.isEmpty {
-				self.addFeedDirectly(urlString: urlString, category: .youtube, sourceName: source.name, sourceAuthor: source.author, sourceImageURL: source.imageURL)
-			} else {
-				self.addYoutubeWithWebhook(name: source.name, author: source.author)
-			}
+			let knownURL: String? = urlString.isEmpty ? nil : urlString
+			self.addYoutubeWithWebhook(name: source.name, author: source.author, knownURL: knownURL)
 		}
 	}
 
@@ -2171,7 +2168,7 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 		present(nav, animated: true)
 	}
 
-	private func addYoutubeWithWebhook(name: String, author: String?) {
+	private func addYoutubeWithWebhook(name: String, author: String?, knownURL: String? = nil) {
 		// Show loading indicator
 		let loadingAlert = UIAlertController(
 			title: nil,
@@ -2207,25 +2204,26 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
 
 			loadingAlert.dismiss(animated: true) {
-				self.handleYoutubeResult(result, name: name, author: author)
+				switch result {
+				case .successExisting(let summaryURL):
+					// Use the local URL if available; no wait needed
+					let url = knownURL ?? summaryURL
+					self.addFeedDirectly(urlString: url, category: .youtube, sourceName: name, sourceAuthor: author, skipGate: true)
+
+				case .successNew(let summaryURL):
+					if let url = knownURL {
+						// Local URL already known — add directly without showing a wait message
+						self.addFeedDirectly(urlString: url, category: .youtube, sourceName: name, sourceAuthor: author, skipGate: true)
+					} else {
+						self.showYoutubeSuccessMessage {
+							self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, skipGate: true)
+						}
+					}
+
+				case .failure(let message):
+					self.showYoutubeError(message: message)
+				}
 			}
-		}
-	}
-
-	private func handleYoutubeResult(_ result: AddYoutubeResult, name: String, author: String?) {
-		switch result {
-		case .successExisting(let summaryURL):
-			// Channel already exists, no wait needed - add the feed directly (gate already cleared)
-			self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, skipGate: true)
-
-		case .successNew(let summaryURL):
-			// Show success message for new channels (need processing)
-			self.showYoutubeSuccessMessage {
-				self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, skipGate: true)
-			}
-
-		case .failure(let message):
-			self.showYoutubeError(message: message)
 		}
 	}
 
