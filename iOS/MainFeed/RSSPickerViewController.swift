@@ -149,29 +149,18 @@ final class RSSPickerViewController: UIViewController {
 		let query = (searchController.searchBar.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 		var snapshot = NSDiffableDataSourceSnapshot<SourcePickerSection, SourcePickerItem>()
 
-		let topSources = RSSSourcesManager.shared.rssSources.sorted {
+		let allSources = RSSSourcesManager.shared.rssSources.sorted {
 			$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
 		}
-		let topNames = Set(topSources.map { $0.name.lowercased() })
-		let librarySources = RSSSourcesManager.shared.rssLibrarySources
-			.filter { !topNames.contains($0.name.lowercased()) }
-			.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 
 		if query.isEmpty {
-			if !topSources.isEmpty {
-				let topPicks = SourcePickerSection.sources(NSLocalizedString("Popular Picks", comment: "Popular Picks"))
-				snapshot.appendSections([topPicks])
-				let items = topSources.map { SourcePickerItem.rssSource($0) }
-				snapshot.appendItems(items, toSection: topPicks)
-			}
-			if !librarySources.isEmpty {
-				let otherSection = SourcePickerSection.sources(NSLocalizedString("Other RSS Feeds", comment: "Other RSS Feeds"))
-				snapshot.appendSections([otherSection])
-				let items = librarySources.map { SourcePickerItem.rssSource($0) }
-				snapshot.appendItems(items, toSection: otherSection)
+			if !allSources.isEmpty {
+				let popularPicks = SourcePickerSection.sources(NSLocalizedString("Popular Picks", comment: "Popular Picks"))
+				snapshot.appendSections([popularPicks])
+				let items = allSources.map { SourcePickerItem.rssSource($0) }
+				snapshot.appendItems(items, toSection: popularPicks)
 			}
 		} else {
-			let allSources = topSources + librarySources
 			let matches = allSources.filter { source in
 				source.name.localizedCaseInsensitiveContains(query) ||
 				(source.author?.localizedCaseInsensitiveContains(query) ?? false)

@@ -750,9 +750,7 @@ private extension SettingsViewController {
 				YoutubeSourcesManager.shared.youtubeSources = []
 				YoutubeSourcesManager.shared.youtubeLibrarySources = []
 				NewsSourcesManager.shared.newsSources = []
-				NewsSourcesManager.shared.newsLibrarySources = []
 				RSSSourcesManager.shared.rssSources = []
-				RSSSourcesManager.shared.rssLibrarySources = []
 				SourcesRefreshManager.shared.forceRefresh()
 			})
 

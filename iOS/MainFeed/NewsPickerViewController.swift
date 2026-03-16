@@ -138,10 +138,10 @@ final class NewsPickerViewController: UIViewController {
 		}
 
 		if !sources.isEmpty {
-			let sourcesSection = SourcePickerSection.sources("")
-			snapshot.appendSections([sourcesSection])
+			let popularPicks = SourcePickerSection.sources(NSLocalizedString("Popular Picks", comment: "Popular Picks"))
+			snapshot.appendSections([popularPicks])
 			let items = sources.map { SourcePickerItem.newsSource($0) }
-			snapshot.appendItems(items, toSection: sourcesSection)
+			snapshot.appendItems(items, toSection: popularPicks)
 		}
 
 		dataSource.apply(snapshot, animatingDifferences: false)
