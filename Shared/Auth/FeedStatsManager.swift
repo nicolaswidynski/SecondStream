@@ -13,7 +13,6 @@ import os.log
 
 /// Tracks feed add/delete events and reports them to the backend.
 ///
-/// For additions, `canUserAddFeed` must succeed before the add proceeds, and
 /// `reportAdd` is called after a successful add.
 /// For deletions events are queued in a UserDefaults outbox and drained when network is available.
 @MainActor final class FeedStatsManager {
@@ -22,9 +21,10 @@ import os.log
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "FeedStats")
 
-	private let statsURL = URL(string: "https://n8n.nwidynski.com/webhook/update-feeds-stats")!
-	private let canAddURL = URL(string: "https://n8n.nwidynski.com/webhook/can-user-add-feed")!
+	private let statsURL = URL(string: "https://n8n.nwidynski.com/webhook/update-user-stats")!
+	private let creditsURL = URL(string: "https://n8n.nwidynski.com/webhook/get-number-of-credits")!
 	private let outboxKey = "feedStats_deletionOutbox"
+	private let creditsKey = "feedStats_cachedCredits"
 
 	// MARK: - Outbox record
 
@@ -70,42 +70,53 @@ import os.log
 		}
 	}
 
-	// MARK: - Pre-add gate
+	// MARK: - Credits
 
-	/// Checks with the server whether the user is allowed to add a feed. Throws if denied.
-	func canUserAddFeed(type: FeedCategory, name: String, author: String?) async throws {
+	/// Cached credit count. Nil means never fetched. Observers watch `.creditsDidUpdate`.
+	var cachedCredits: Int? {
+		get { UserDefaults.standard.object(forKey: creditsKey) as? Int }
+		set {
+			if let v = newValue {
+				UserDefaults.standard.set(v, forKey: creditsKey)
+			} else {
+				UserDefaults.standard.removeObject(forKey: creditsKey)
+			}
+			NotificationCenter.default.post(name: .creditsDidUpdate, object: nil)
+		}
+	}
+
+	/// Fetches the current credit count from the server. Best-effort — errors are only logged.
+	func fetchCredits() async {
 		guard let token = bearerToken else {
-			throw FeedStatsError.missingToken
+			return
+		}
+		let appleUserID = AuthManager.shared.appleUserID ?? ""
+		guard !appleUserID.isEmpty else {
+			return
 		}
 
-		let appleUserID = AuthManager.shared.appleUserID ?? ""
+		let body: [String: Any] = ["apple_user_id": appleUserID]
 
-		let body: [String: Any] = [
-			"apple_user_id": appleUserID,
-			"type": typeString(for: type),
-			"show": name,
-			"author": author ?? ""
-		]
-
-		var request = URLRequest(url: canAddURL)
+		var request = URLRequest(url: creditsURL)
 		request.httpMethod = "POST"
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-		request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-		let (data, response) = try await URLSession.shared.data(for: request)
-
-		guard let httpResponse = response as? HTTPURLResponse else {
-			throw FeedStatsError.invalidResponse
+		do {
+			request.httpBody = try JSONSerialization.data(withJSONObject: body)
+			let (data, response) = try await URLSession.shared.data(for: request)
+			guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+				return
+			}
+			if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+			   let message = json["message"] as? String,
+			   let credits = Int(message) {
+				cachedCredits = credits
+				Self.logger.info("Credits fetched: \(credits)")
+			}
+		} catch {
+			Self.logger.error("fetchCredits error: \(error.localizedDescription)")
 		}
-
-		guard (200...299).contains(httpResponse.statusCode) else {
-			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
-			Self.logger.error("can-user-add-feed rejected [\(httpResponse.statusCode)]: \(rawBody)")
-			throw FeedStatsError.serverError(statusCode: httpResponse.statusCode, body: Self.webhookMessage(from: data))
-		}
-
-		Self.logger.info("can-user-add-feed approved: \(name) type=\(self.typeString(for: type))")
 	}
 
 	// MARK: - Post-add reporting
@@ -141,9 +152,106 @@ import os.log
 				Self.logger.error("update-feed-stats add failed [\(httpResponse.statusCode)]: \(rawBody)")
 			} else {
 				Self.logger.info("update-feed-stats add reported: \(name)")
+				await fetchCredits()
 			}
 		} catch {
 			Self.logger.error("update-feed-stats add error: \(error.localizedDescription)")
+		}
+	}
+
+	// MARK: - Subscription snapshot (update operation)
+
+	/// Sends a snapshot of all current subscriptions to `update-user-stats`.
+	/// `count_free` for pod/yt is resolved at send time by fetching the live free-lib files.
+	/// rss and topics are always considered free.
+	/// Non-blocking: errors are only logged.
+	func reportUpdate() async {
+
+		guard let token = bearerToken else {
+			Self.logger.error("reportUpdate: no bearer token")
+			return
+		}
+		let appleUserID = AuthManager.shared.appleUserID ?? ""
+		guard !appleUserID.isEmpty else {
+			return
+		}
+
+		// Collect feeds from the first active account
+		guard let account = AccountManager.shared.activeAccounts.first else {
+			return
+		}
+
+		let allFeeds = account.flattenedFeeds()
+
+		var podSources: [String] = []
+		var ytSources: [String] = []
+		var topicSources: [String] = []
+		var rssCount = 0
+
+		for feed in allFeeds {
+			switch feed.feedCategory {
+			case .podcast:
+				podSources.append(feed.nameForDisplay)
+			case .youtube:
+				ytSources.append(feed.nameForDisplay)
+			case .news:
+				topicSources.append(feed.nameForDisplay)
+			case .rss:
+				rssCount += 1
+			}
+		}
+
+		// Resolve count_free at send time by fetching the live free-lib files.
+		async let podFreeEntries = SourceFileFetcher.fetch(fileName: "pod_free.json")
+		async let ytFreeEntries = SourceFileFetcher.fetch(fileName: "yt_free.json")
+
+		let podFreeNames = Set((await podFreeEntries ?? []).map { $0.name.lowercased() })
+		let ytFreeNames = Set((await ytFreeEntries ?? []).map { $0.name.lowercased() })
+
+		let podFreeCount = podSources.filter { podFreeNames.contains($0.lowercased()) }.count
+		let ytFreeCount = ytSources.filter { ytFreeNames.contains($0.lowercased()) }.count
+
+		let body: [String: Any] = [
+			"apple_user_id": appleUserID,
+			"operation": "update",
+			"pod": [
+				"count": String(podSources.count),
+				"count_free": String(podFreeCount),
+				"sources": podSources
+			],
+			"yt": [
+				"count": String(ytSources.count),
+				"count_free": String(ytFreeCount),
+				"sources": ytSources
+			],
+			"topics": [
+				"count": String(topicSources.count),
+				"count_free": String(topicSources.count),
+				"sources": topicSources
+			],
+			"rss": [
+				"count": String(rssCount),
+				"count_free": String(rssCount)
+			]
+		]
+
+		var request = URLRequest(url: statsURL)
+		request.httpMethod = "POST"
+		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+		do {
+			request.httpBody = try JSONSerialization.data(withJSONObject: body)
+			let (data, response) = try await URLSession.shared.data(for: request)
+			if let httpResponse = response as? HTTPURLResponse,
+			   !(200...299).contains(httpResponse.statusCode) {
+				let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
+				Self.logger.error("update-user-stats failed [\(httpResponse.statusCode)]: \(rawBody)")
+			} else {
+				Self.logger.info("update-user-stats sent: pod=\(podSources.count) free=\(podFreeCount) yt=\(ytSources.count) free=\(ytFreeCount) topics=\(topicSources.count) rss=\(rssCount)")
+			}
+		} catch {
+			Self.logger.error("update-user-stats error: \(error.localizedDescription)")
 		}
 	}
 
@@ -193,6 +301,9 @@ import os.log
 			}
 		}
 		saveOutbox(remaining)
+		if remaining.count < outbox.count {
+			await fetchCredits()
+		}
 	}
 
 	private func send(record: OutboxRecord, token: String) async throws {
@@ -258,4 +369,10 @@ enum FeedStatsError: LocalizedError {
 			return body
 		}
 	}
+}
+
+// MARK: - Notification names
+
+extension Notification.Name {
+	static let creditsDidUpdate = Notification.Name("com.secondstream.creditsDidUpdate")
 }

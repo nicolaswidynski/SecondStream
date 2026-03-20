@@ -50,11 +50,20 @@ final class SettingsViewController: UITableViewController {
 	private var notificationsAuthorized = false
 	private let displaySection = 5
 	private let ttsSection = 6
+	private let debugSection = 8
+	private let aboutSection = 9
 	private let ttsEnabledRow = 0
 	private let ttsVoiceRow = 1
 	private let timelineUnreadFirstRow = 1
 	private let timelineReadStylingRow = 2
-	private let homepageDebugDialogRow = 3
+	// Debug section rows
+	private let debugCleanTempRow = 0
+	private let debugDialogRow = 1
+	// About section rows
+	private let aboutAppRow = 0
+	private let aboutCreditsRow = 1
+	private let aboutDisconnectRow = 2
+	private let aboutDeleteRow = 3
 
 	var scrollToArticlesSection = false
 	weak var presentingParentController: UIViewController?
@@ -67,6 +76,7 @@ final class SettingsViewController: UITableViewController {
 		NotificationCenter.default.addObserver(self, selector: #selector(accountsDidChange), name: .UserDidAddAccount, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(accountsDidChange), name: .UserDidDeleteAccount, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(displayNameDidChange), name: .DisplayNameDidChange, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(creditsDidUpdate), name: .creditsDidUpdate, object: nil)
 
 		tableView.register(UINib(nibName: "SettingsComboTableViewCell", bundle: nil), forCellReuseIdentifier: "SettingsComboTableViewCell")
 		tableView.register(UINib(nibName: "SettingsTableViewCell", bundle: nil), forCellReuseIdentifier: "SettingsTableViewCell")
@@ -166,10 +176,14 @@ final class SettingsViewController: UITableViewController {
 		case 0:
 			return !notificationsAuthorized
 		case 7:
-			return !obsidianSyncSwitch.isOn
+			return !AppDefaults.shared.isObsidianSyncEnabled
 		default:
 			return false
 		}
+	}
+
+	override func numberOfSections(in tableView: UITableView) -> Int {
+		return super.numberOfSections(in: tableView)
 	}
 
 	override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -192,46 +206,55 @@ final class SettingsViewController: UITableViewController {
 		case ttsSection:
 			return super.tableView(tableView, numberOfRowsInSection: section) + 1
 		case displaySection:
-			return super.tableView(tableView, numberOfRowsInSection: section) + 3
+			// Adds Unread First and Gray Read Articles rows; Debug Dialog moved to Debug section
+			return super.tableView(tableView, numberOfRowsInSection: section) + 2
+		case debugSection:
+			// Clean Temporary Files, Debug Dialog
+			return 2
+		case aboutSection:
+			// About Second Stream, Credits remaining, Disconnect Account, Delete Account
+			return 4
 		default:
 			return super.tableView(tableView, numberOfRowsInSection: section)
 		}
 	}
 
 	override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-		if hiddenSections.contains(section) {
-			return nil
-		}
+		if hiddenSections.contains(section) { return nil }
+		if section == debugSection { return NSLocalizedString("Debug", comment: "Debug section header") }
+		if section == aboutSection { return NSLocalizedString("About", comment: "About section header") }
 		return super.tableView(tableView, titleForHeaderInSection: section)
 	}
 
+	override func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+		if hiddenSections.contains(section) { return nil }
+		return super.tableView(tableView, viewForHeaderInSection: section)
+	}
+
 	override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-		if hiddenSections.contains(section) {
-			return nil
-		}
+		if hiddenSections.contains(section) { return nil }
 		return super.tableView(tableView, titleForFooterInSection: section)
 	}
 
+	override func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
+		if hiddenSections.contains(section) { return nil }
+		return super.tableView(tableView, viewForFooterInSection: section)
+	}
+
 	override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-		if hiddenSections.contains(section) {
-			return CGFloat.leastNormalMagnitude
-		}
+		if hiddenSections.contains(section) { return CGFloat.leastNormalMagnitude }
 		return super.tableView(tableView, heightForHeaderInSection: section)
 	}
 
 	override func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
-		if hiddenSections.contains(section) {
-			return CGFloat.leastNormalMagnitude
-		}
+		if hiddenSections.contains(section) { return CGFloat.leastNormalMagnitude }
 		return super.tableView(tableView, heightForFooterInSection: section)
 	}
 
 	override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-
-			let cell: UITableViewCell
-			switch indexPath.section {
+		let cell: UITableViewCell
+		switch indexPath.section {
 		case 1:
-
 			let sortedAccounts = AccountManager.shared.sortedAccounts
 			if indexPath.row == sortedAccounts.count {
 				cell = tableView.dequeueReusableCell(withIdentifier: "SettingsTableViewCell", for: indexPath)
@@ -248,20 +271,52 @@ final class SettingsViewController: UITableViewController {
 			cell = makeTimelineReadStylingCell(tableView)
 		case displaySection where indexPath.row == timelineUnreadFirstRow:
 			cell = makeTimelineUnreadFirstCell(tableView)
-			case displaySection where indexPath.row == homepageDebugDialogRow:
-				cell = makeHomepageDebugDialogCell(tableView)
-			case ttsSection where indexPath.row == ttsEnabledRow:
-				cell = makeTTSEnabledCell(tableView)
+		case ttsSection where indexPath.row == ttsEnabledRow:
+			cell = makeTTSEnabledCell(tableView)
+		case debugSection:
+			switch indexPath.row {
+			case debugCleanTempRow:
+				cell = UITableViewCell(style: .default, reuseIdentifier: "CleanTempFilesCell")
+				cell.textLabel?.text = NSLocalizedString("Clean Temporary Files", comment: "Clean Temporary Files")
+			case debugDialogRow:
+				cell = makeDebugDialogCell(tableView)
 			default:
-				if indexPath.section == ttsSection && indexPath.row > ttsEnabledRow {
-					let originalIndexPath = IndexPath(row: indexPath.row - 1, section: indexPath.section)
-					cell = super.tableView(tableView, cellForRowAt: originalIndexPath)
-				} else {
-					cell = super.tableView(tableView, cellForRowAt: indexPath)
-				}
-
+				cell = super.tableView(tableView, cellForRowAt: indexPath)
 			}
-
+		case aboutSection:
+			switch indexPath.row {
+			case aboutAppRow:
+				cell = UITableViewCell(style: .default, reuseIdentifier: "AboutAppCell")
+				cell.textLabel?.text = NSLocalizedString("About Second Stream", comment: "About Second Stream")
+				cell.accessoryType = .disclosureIndicator
+			case aboutCreditsRow:
+				cell = UITableViewCell(style: .value1, reuseIdentifier: "CreditsCell")
+				cell.textLabel?.text = NSLocalizedString("Credits remaining", comment: "Credits remaining")
+				cell.selectionStyle = .none
+				if let credits = FeedStatsManager.shared.cachedCredits {
+					cell.detailTextLabel?.text = "\(credits)"
+				} else {
+					cell.detailTextLabel?.text = "—"
+				}
+			case aboutDisconnectRow:
+				cell = UITableViewCell(style: .default, reuseIdentifier: "DisconnectAccountCell")
+				cell.textLabel?.text = NSLocalizedString("Disconnect Account", comment: "Disconnect Account")
+				cell.textLabel?.textColor = .systemRed
+			case aboutDeleteRow:
+				cell = UITableViewCell(style: .default, reuseIdentifier: "DeleteAccountCell")
+				cell.textLabel?.text = NSLocalizedString("Delete Account", comment: "Delete Account")
+				cell.textLabel?.textColor = .systemRed
+			default:
+				cell = super.tableView(tableView, cellForRowAt: indexPath)
+			}
+		default:
+			if indexPath.section == ttsSection && indexPath.row > ttsEnabledRow {
+				let originalIndexPath = IndexPath(row: indexPath.row - 1, section: indexPath.section)
+				cell = super.tableView(tableView, cellForRowAt: originalIndexPath)
+			} else {
+				cell = super.tableView(tableView, cellForRowAt: indexPath)
+			}
+		}
 		return cell
 	}
 
@@ -339,13 +394,29 @@ final class SettingsViewController: UITableViewController {
 				break
 			}
 			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
-		case 8:
-			// Storage section - Clean Temporary Files
-			cleanTemporaryFiles()
+		case debugSection:
+			switch indexPath.row {
+			case debugCleanTempRow:
+				cleanTemporaryFiles()
+			case debugDialogRow:
+				break // handled by switch
+			default:
+				break
+			}
 			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
-		case 9:
-			let hosting = UIHostingController(rootView: AboutWPodView())
-			self.navigationController?.pushViewController(hosting, animated: true)
+		case aboutSection:
+			switch indexPath.row {
+			case aboutAppRow:
+				let hosting = UIHostingController(rootView: AboutWPodView())
+				self.navigationController?.pushViewController(hosting, animated: true)
+			case aboutDisconnectRow:
+				confirmDisconnect()
+			case aboutDeleteRow:
+				confirmDeleteAccount()
+			default:
+				break
+			}
+			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
 		default:
 			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
 		}
@@ -368,6 +439,7 @@ final class SettingsViewController: UITableViewController {
 	}
 
 	override func tableView(_ tableView: UITableView, indentationLevelForRowAt indexPath: IndexPath) -> Int {
+		if indexPath.section == debugSection || indexPath.section == aboutSection { return 0 }
 		return super.tableView(tableView, indentationLevelForRowAt: IndexPath(row: 0, section: 1))
 	}
 
@@ -432,7 +504,7 @@ final class SettingsViewController: UITableViewController {
 	@IBAction func switchObsidianSync(_ sender: Any) {
 		AppDefaults.shared.isObsidianSyncEnabled = obsidianSyncSwitch.isOn
 		updateObsidianVaultLabel()
-		tableView.reloadSections(IndexSet(integer: 7), with: .automatic)
+		tableView.reloadSections(IndexSet(integer: 7), with: .none)
 	}
 
 	@IBAction func switchObsidianSubfolderFeedType(_ sender: Any) {
@@ -469,9 +541,10 @@ final class SettingsViewController: UITableViewController {
 		AppDefaults.shared.timelineUnreadFirst = sender.isOn
 	}
 
-	@objc func switchHomepageDebugDialog(_ sender: UISwitch) {
+	@objc func switchDebugDialog(_ sender: UISwitch) {
 		AppDefaults.shared.showHomepageResolutionDebugDialog = sender.isOn
 	}
+
 
 	@objc func switchTTSEnabled(_ sender: UISwitch) {
 		AppDefaults.shared.ttsEnabled = sender.isOn
@@ -490,6 +563,11 @@ final class SettingsViewController: UITableViewController {
 
 	@objc func displayNameDidChange() {
 		tableView.reloadData()
+	}
+
+	@objc func creditsDidUpdate() {
+		let creditsIndexPath = IndexPath(row: aboutCreditsRow, section: aboutSection)
+		tableView.reloadRows(at: [creditsIndexPath], with: .none)
 	}
 
 	@objc func browserPreferenceDidChange() {
@@ -569,20 +647,21 @@ private extension SettingsViewController {
 		return cell
 	}
 
-	func makeHomepageDebugDialogCell(_ tableView: UITableView) -> UITableViewCell {
-		let cell = tableView.dequeueReusableCell(withIdentifier: "HomepageDebugDialogCell") ??
-			UITableViewCell(style: .default, reuseIdentifier: "HomepageDebugDialogCell")
+	func makeDebugDialogCell(_ tableView: UITableView) -> UITableViewCell {
+		let cell = tableView.dequeueReusableCell(withIdentifier: "DebugDialogCell") ??
+			UITableViewCell(style: .default, reuseIdentifier: "DebugDialogCell")
 		var content = cell.defaultContentConfiguration()
-		content.text = NSLocalizedString("Homepage Debug Dialog", comment: "Homepage debug dialog toggle")
+		content.text = NSLocalizedString("Debug Dialog", comment: "Debug dialog toggle")
 		cell.contentConfiguration = content
 		cell.selectionStyle = .none
 		let toggle = (cell.accessoryView as? UISwitch) ?? UISwitch(frame: .zero)
-		toggle.removeTarget(self, action: #selector(switchHomepageDebugDialog(_:)), for: .valueChanged)
-		toggle.addTarget(self, action: #selector(switchHomepageDebugDialog(_:)), for: .valueChanged)
+		toggle.removeTarget(self, action: #selector(switchDebugDialog(_:)), for: .valueChanged)
+		toggle.addTarget(self, action: #selector(switchDebugDialog(_:)), for: .valueChanged)
 		toggle.isOn = AppDefaults.shared.showHomepageResolutionDebugDialog
 		cell.accessoryView = toggle
 		return cell
 	}
+
 
 	func makeTTSEnabledCell(_ tableView: UITableView) -> UITableViewCell {
 		let cell = tableView.dequeueReusableCell(withIdentifier: "TTSEnabledCell") ??
@@ -729,6 +808,56 @@ private extension SettingsViewController {
 		}
 	}
 
+
+	func confirmDisconnect() {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Disconnect Account", comment: "Disconnect Account"),
+			message: NSLocalizedString("You will be signed out of your Second Stream account. Sign in again to reconnect.", comment: "Disconnect confirmation"),
+			preferredStyle: .alert
+		)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Disconnect", comment: "Disconnect"), style: .destructive) { [weak self] _ in
+			AuthManager.shared.disconnect()
+			self?.dismiss(animated: true) {
+				guard let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+					  let sceneDelegate = windowScene.delegate as? SceneDelegate else {
+					return
+				}
+				sceneDelegate.presentRegistration()
+			}
+		})
+		present(alert, animated: true)
+	}
+
+	func confirmDeleteAccount() {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Delete Account", comment: "Delete Account"),
+			message: NSLocalizedString("This will permanently delete your Second Stream account and all associated data. This action cannot be undone.", comment: "Delete account confirmation"),
+			preferredStyle: .alert
+		)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Delete", comment: "Delete"), style: .destructive) { [weak self] _ in
+			Task {
+				do {
+					try await AuthManager.shared.deleteAccount()
+					await MainActor.run {
+						self?.dismiss(animated: true) {
+							guard let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+								  let sceneDelegate = windowScene.delegate as? SceneDelegate else {
+								return
+							}
+							sceneDelegate.presentRegistration()
+						}
+					}
+				} catch {
+					await MainActor.run {
+						self?.presentError(title: NSLocalizedString("Error", comment: "Error"), message: error.localizedDescription)
+					}
+				}
+			}
+		})
+		present(alert, animated: true)
+	}
 
 	func cleanTemporaryFiles() {
 		let alert = UIAlertController(

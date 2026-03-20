@@ -35,7 +35,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 		updateUserInterfaceStyle()
 
-		if !AuthManager.shared.isRegistered {
+		if !AuthManager.shared.isConnected {
 			presentRegistration()
 		}
 
@@ -223,6 +223,16 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 			}
 		}
 	}
+
+	func presentRegistration() {
+		// Defer to the next run loop so the window is visible before we present.
+		DispatchQueue.main.async {
+			let registrationVC = RegistrationViewController()
+			registrationVC.modalPresentationStyle = .fullScreen
+			registrationVC.isModalInPresentation = true // prevents swipe-to-dismiss
+			self.window?.rootViewController?.present(registrationVC, animated: false)
+		}
+	}
 }
 
 private extension SceneDelegate {
@@ -258,13 +268,4 @@ private extension SceneDelegate {
 		}
 	}
 
-	func presentRegistration() {
-		// Defer to the next run loop so the window is visible before we present.
-		DispatchQueue.main.async {
-			let registrationVC = RegistrationViewController()
-			registrationVC.modalPresentationStyle = .fullScreen
-			registrationVC.isModalInPresentation = true // prevents swipe-to-dismiss
-			self.window?.rootViewController?.present(registrationVC, animated: false)
-		}
-	}
 }

@@ -112,8 +112,13 @@ import os.log
 		do {
 			let markdown: String
 
-			// Check if the article link is a markdown file - if so, fetch it directly
-			if let rawLink = article.rawLink,
+			// For podcast/YouTube, always parse from contentJSON so all sections
+			// (guests, summary, in-depth analysis) are included.
+			// For other categories, fetch the remote .md if the link points to one.
+			let category = feed.feedCategory
+			let isStructured = category == .podcast || category == .youtube
+			if !isStructured,
+			   let rawLink = article.rawLink,
 			   rawLink.lowercased().hasSuffix(".md"),
 			   let url = URL(string: rawLink) {
 				Self.logger.info("Article link is markdown file, fetching directly: \(rawLink)")

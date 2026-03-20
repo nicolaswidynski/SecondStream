@@ -23,7 +23,7 @@ import os.log
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "Auth")
 
-	private let createUserURL = URL(string: "https://n8n.nwidynski.com/webhook/create-user")!
+	private let manageUserURL = URL(string: "https://n8n.nwidynski.com/webhook/manage-user")!
 
 	// MARK: - Keychain keys
 
@@ -32,14 +32,30 @@ import os.log
 
 	// MARK: - Public state
 
-	/// Whether the user has already completed registration on this device.
+	/// Whether the user has a stored Apple user ID (identity) on this device.
 	var isRegistered: Bool {
 		appleUserID != nil
+	}
+
+	/// Whether the user is actively connected to the backend.
+	/// False when explicitly disconnected, even if the identity is still stored.
+	/// Existing users (registered before this flag existed) default to connected.
+	var isConnected: Bool {
+		isRegistered && !isExplicitlyDisconnected
 	}
 
 	/// The stored Apple `sub` identifier, or `nil` if the user hasn't registered yet.
 	var appleUserID: String? {
 		keychainRead(key: appleUserIDKey)
+	}
+
+	// MARK: - Disconnect flag
+
+	private let disconnectedKey = "authIsDisconnected"
+
+	private var isExplicitlyDisconnected: Bool {
+		get { UserDefaults.standard.bool(forKey: disconnectedKey) }
+		set { UserDefaults.standard.set(newValue, forKey: disconnectedKey) }
 	}
 
 	// MARK: - Registration
@@ -73,7 +89,7 @@ import os.log
 			return false
 		}()
 
-		var request = URLRequest(url: createUserURL)
+		var request = URLRequest(url: manageUserURL)
 		request.httpMethod = "POST"
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -82,7 +98,8 @@ import os.log
 			"apple_user_id": appleUserID,
 			"email": email,
 			"is_private_email": isPrivateEmail,
-			"real_user_status": realUserStatus
+			"real_user_status": realUserStatus,
+			"operation": "creation"
 		]
 		if let firstName { body["first_name"] = firstName }
 		if let lastName { body["last_name"] = lastName }
@@ -103,12 +120,94 @@ import os.log
 
 		// Persist the Apple user ID locally only after a successful server response.
 		keychainWrite(key: appleUserIDKey, value: appleUserID)
+		isExplicitlyDisconnected = false
 		Self.logger.info("User registered successfully")
 	}
 
-	/// Removes the stored Apple user ID from the Keychain (e.g. on sign-out).
+	/// Marks the user as disconnected without erasing the stored identity.
+	/// The identity is preserved so the user can reconnect without Sign in with Apple.
+	func disconnect() {
+		isExplicitlyDisconnected = true
+		Self.logger.info("User disconnected")
+	}
+
+	/// Reconnects using a stored or freshly-obtained Apple user ID.
+	/// - Parameter overrideAppleUserID: When provided (e.g. from a new Sign in with Apple flow),
+	///   this ID is used instead of the Keychain value and is persisted on success.
+	///   When nil, falls back to the stored Keychain identity.
+	func reconnect(overrideAppleUserID: String? = nil) async throws {
+		let idToUse = overrideAppleUserID ?? appleUserID
+		guard let storedID = idToUse else {
+			throw AuthError.noStoredIdentity
+		}
+		guard let token = bearerToken else {
+			throw AuthError.missingToken
+		}
+
+		var request = URLRequest(url: manageUserURL)
+		request.httpMethod = "POST"
+		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+		let body: [String: Any] = ["apple_user_id": storedID, "operation": "reconnection"]
+		request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+		let (data, response) = try await URLSession.shared.data(for: request)
+
+		guard let httpResponse = response as? HTTPURLResponse else {
+			throw AuthError.invalidResponse
+		}
+		guard (200...299).contains(httpResponse.statusCode) else {
+			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
+			Self.logger.error("Reconnect failed [\(httpResponse.statusCode)]: \(rawBody)")
+			throw AuthError.serverError(statusCode: httpResponse.statusCode, body: Self.webhookMessage(from: data))
+		}
+
+		// Persist the ID when reconnecting via a fresh Apple sign-in (no prior Keychain entry).
+		if overrideAppleUserID != nil {
+			keychainWrite(key: appleUserIDKey, value: storedID)
+		}
+		isExplicitlyDisconnected = false
+		Self.logger.info("User reconnected successfully")
+	}
+
+	/// Sends a delete request to the backend and wipes the local identity.
+	/// This is non-recoverable: the user will need to create a new account.
+	func deleteAccount() async throws {
+		guard let storedID = appleUserID else {
+			throw AuthError.noStoredIdentity
+		}
+		guard let token = bearerToken else {
+			throw AuthError.missingToken
+		}
+
+		var request = URLRequest(url: manageUserURL)
+		request.httpMethod = "POST"
+		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+		let body: [String: Any] = ["apple_user_id": storedID, "operation": "deletion"]
+		request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+		let (data, response) = try await URLSession.shared.data(for: request)
+
+		guard let httpResponse = response as? HTTPURLResponse else {
+			throw AuthError.invalidResponse
+		}
+		guard (200...299).contains(httpResponse.statusCode) else {
+			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
+			Self.logger.error("Delete account failed [\(httpResponse.statusCode)]: \(rawBody)")
+			throw AuthError.serverError(statusCode: httpResponse.statusCode, body: Self.webhookMessage(from: data))
+		}
+
+		clearStoredIdentity()
+		Self.logger.info("Account deleted successfully")
+	}
+
+	/// Removes the stored Apple user ID from the Keychain (full sign-out, cannot auto-reconnect).
 	func clearStoredIdentity() {
 		keychainDelete(key: appleUserIDKey)
+		isExplicitlyDisconnected = false
 	}
 
 	// MARK: - Error helpers
@@ -212,6 +311,7 @@ import os.log
 enum AuthError: LocalizedError {
 	case missingToken
 	case invalidResponse
+	case noStoredIdentity
 	case serverError(statusCode: Int, body: String)
 
 	var errorDescription: String? {
@@ -220,6 +320,8 @@ enum AuthError: LocalizedError {
 			return "Authentication token not found."
 		case .invalidResponse:
 			return "Received an invalid response from the server."
+		case .noStoredIdentity:
+			return "No stored account identity found."
 		case .serverError(_, let body):
 			return body
 		}

@@ -532,6 +532,8 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+
+
 	@MainActor static func registerDefaults() {
 		let defaults: [String: Any] = [Key.userInterfaceColorPalette: UserInterfaceColorPalette.automatic.rawValue,
 									   Key.timelineGroupByFeed: false,

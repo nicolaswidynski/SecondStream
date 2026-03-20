@@ -37,6 +37,14 @@ enum AddYoutubeResult {
 
 	private(set) var lastServerMessage: String?
 
+	private static func extractMessage(from data: Data) -> String {
+		if let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+		   let msg = arr.first?["message"] as? String { return msg }
+		if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+		   let msg = obj["message"] as? String { return msg }
+		return String(data: data, encoding: .utf8) ?? "Unknown error"
+	}
+
 	// MARK: - Fetch State
 
 	private(set) var isFetching = false
@@ -159,14 +167,14 @@ enum AddYoutubeResult {
 
 	/// Adds a YouTube channel by sending the channel name and author to the webhook.
 	/// When the input starts with `@` it is a channel handle — sent as `author` with an empty `show`.
+	/// The `@` prefix is preserved so the webhook always receives the full handle (e.g. `@channel`).
 	/// Returns the summary feed URL on success.
 	func addYoutube(name channelName: String, author: String? = nil) async -> AddYoutubeResult {
-		let isHandle = channelName.hasPrefix("@")
-		let cleanedName = channelName.replacingOccurrences(of: "@", with: "")
-		if isHandle {
-			return await sendAddYoutubeRequest(show: "", author: cleanedName)
+		if channelName.hasPrefix("@") {
+			// @handle entered — send as-is (with @) as author, empty show
+			return await sendAddYoutubeRequest(show: "", author: channelName)
 		} else {
-			return await sendAddYoutubeRequest(show: cleanedName, author: author ?? "")
+			return await sendAddYoutubeRequest(show: channelName, author: author ?? "")
 		}
 	}
 
