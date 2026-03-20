@@ -248,15 +248,17 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		bottomActionBar.contentView.addSubview(actionButtonsStack)
 
 		NSLayoutConstraint.activate([
-			// Position action bar at bottom center
+			// Position action bar at bottom center with a fixed compact width
 			bottomActionBar.centerXAnchor.constraint(equalTo: view.centerXAnchor),
 			bottomActionBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
 			bottomActionBar.heightAnchor.constraint(equalToConstant: 70),
+			bottomActionBar.widthAnchor.constraint(equalToConstant: 260),
 
-			// Stack view constraints inside the action bar
-			actionButtonsStack.leadingAnchor.constraint(equalTo: bottomActionBar.contentView.leadingAnchor, constant: 20),
-			actionButtonsStack.trailingAnchor.constraint(equalTo: bottomActionBar.contentView.trailingAnchor, constant: -20),
-			actionButtonsStack.centerYAnchor.constraint(equalTo: bottomActionBar.contentView.centerYAnchor)
+			// Stack view centered inside the action bar
+			actionButtonsStack.centerXAnchor.constraint(equalTo: bottomActionBar.contentView.centerXAnchor),
+			actionButtonsStack.centerYAnchor.constraint(equalTo: bottomActionBar.contentView.centerYAnchor),
+			actionButtonsStack.leadingAnchor.constraint(equalTo: bottomActionBar.contentView.leadingAnchor, constant: 16),
+			actionButtonsStack.trailingAnchor.constraint(equalTo: bottomActionBar.contentView.trailingAnchor, constant: -16)
 		])
 
 		// Add content insets: top for Recently Updated strip, bottom for action bar
@@ -308,7 +310,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			vStack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
 			vStack.topAnchor.constraint(equalTo: container.topAnchor),
 			vStack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-			container.widthAnchor.constraint(equalToConstant: 68)
+			container.widthAnchor.constraint(equalToConstant: 52)
 		])
 		return container
 	}
