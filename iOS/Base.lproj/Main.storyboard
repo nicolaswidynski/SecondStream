@@ -340,11 +340,11 @@
                                             <nil key="highlightedColor"/>
                                         </label>
                                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Ea0-VT-Gvl" customClass="IconView" customModule="NetNewsWire" customModuleProvider="target">
-                                            <rect key="frame" x="222.66666666666666" y="18" width="24" height="24"/>
+                                            <rect key="frame" x="222.66666666666666" y="15" width="30" height="30"/>
                                             <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                                             <constraints>
-                                                <constraint firstAttribute="height" constant="24" id="Bru-x6-68Z"/>
-                                                <constraint firstAttribute="width" constant="24" id="WjF-Bc-GuF"/>
+                                                <constraint firstAttribute="height" constant="30" id="Bru-x6-68Z"/>
+                                                <constraint firstAttribute="width" constant="30" id="WjF-Bc-GuF"/>
                                             </constraints>
                                         </view>
                                     </subviews>
@@ -382,11 +382,11 @@
                                             <nil key="highlightedColor"/>
                                         </label>
                                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="AAi-mv-o14" customClass="IconView" customModule="NetNewsWire" customModuleProvider="target">
-                                            <rect key="frame" x="16" y="18" width="24" height="24"/>
+                                            <rect key="frame" x="16" y="15" width="30" height="30"/>
                                             <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                                             <constraints>
-                                                <constraint firstAttribute="height" constant="24" id="9he-Zh-cFe"/>
-                                                <constraint firstAttribute="width" constant="24" id="ygW-tD-t1U"/>
+                                                <constraint firstAttribute="height" constant="30" id="9he-Zh-cFe"/>
+                                                <constraint firstAttribute="width" constant="30" id="ygW-tD-t1U"/>
                                             </constraints>
                                         </view>
                                         <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="noV-fz-88z">
