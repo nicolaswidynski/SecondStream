@@ -68,8 +68,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let blurEffect = UIBlurEffect(style: .systemMaterial)
 		let visualEffectView = UIVisualEffectView(effect: blurEffect)
 		visualEffectView.translatesAutoresizingMaskIntoConstraints = false
-		// Use half the height (26pt) for a full pill/oval shape
-		visualEffectView.layer.cornerRadius = 26
+		// Use half the height (35pt) for a full pill/oval shape
+		visualEffectView.layer.cornerRadius = 35
 		visualEffectView.clipsToBounds = true
 		return visualEffectView
 	}()
@@ -210,6 +210,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		// Create action buttons
 		let rssButton = createActionButton(
 			iconName: "rss_thin-symbol",
+			label: NSLocalizedString("RSS", comment: "RSS label"),
 			accessibilityLabel: NSLocalizedString("Add RSS Feed", comment: "Add RSS Feed"),
 			fallbackSystemName: "dot.radiowaves.left.and.right",
 			action: #selector(addRSSFeed)
@@ -217,6 +218,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		let podcastButton = createActionButton(
 			iconName: "podcast_thin-symbol",
+			label: NSLocalizedString("Podcasts", comment: "Podcasts label"),
 			accessibilityLabel: NSLocalizedString("Add Podcast", comment: "Add Podcast"),
 			fallbackSystemName: "mic.fill",
 			action: #selector(addPodcast)
@@ -224,12 +226,14 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		let youtubeButton = createActionButton(
 			iconName: "play.rectangle",
+			label: NSLocalizedString("YouTube", comment: "YouTube label"),
 			accessibilityLabel: NSLocalizedString("Add YouTube Channel", comment: "Add YouTube Channel"),
 			action: #selector(addYoutube)
 		)
 
 		let newsButton = createActionButton(
 			iconName: "newspaper",
+			label: NSLocalizedString("News", comment: "News label"),
 			accessibilityLabel: NSLocalizedString("Add News", comment: "Add News"),
 			action: #selector(addNews)
 		)
@@ -247,7 +251,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			// Position action bar at bottom center
 			bottomActionBar.centerXAnchor.constraint(equalTo: view.centerXAnchor),
 			bottomActionBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
-			bottomActionBar.heightAnchor.constraint(equalToConstant: 52),
+			bottomActionBar.heightAnchor.constraint(equalToConstant: 70),
 
 			// Stack view constraints inside the action bar
 			actionButtonsStack.leadingAnchor.constraint(equalTo: bottomActionBar.contentView.leadingAnchor, constant: 20),
@@ -262,21 +266,29 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		collectionView.verticalScrollIndicatorInsets.bottom = 80
 	}
 
-	private func createActionButton(iconName: String, accessibilityLabel: String, fallbackSystemName: String? = nil, action: Selector) -> UIButton {
-		let button = UIButton(type: .system)
-		let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+	private func createActionButton(iconName: String, label: String, accessibilityLabel: String, fallbackSystemName: String? = nil, action: Selector) -> UIButton {
+		let symbolConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
 		let image = RSImage(named: iconName)?
-			.applyingSymbolConfiguration(config)
-			?? UIImage(systemName: fallbackSystemName ?? iconName, withConfiguration: config)
-		button.setImage(image, for: .normal)
-		button.tintColor = .label
+			.applyingSymbolConfiguration(symbolConfig)
+			?? UIImage(systemName: fallbackSystemName ?? iconName, withConfiguration: symbolConfig)
+
+		var config = UIButton.Configuration.plain()
+		config.image = image
+		config.title = label
+		config.imagePlacement = .top
+		config.imagePadding = 4
+		config.baseForegroundColor = .label
+		config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+			var outgoing = incoming
+			outgoing.font = UIFont.systemFont(ofSize: 10, weight: .medium)
+			return outgoing
+		}
+
+		let button = UIButton(configuration: config)
 		button.accessibilityLabel = accessibilityLabel
 		button.addTarget(self, action: action, for: .touchUpInside)
 		button.translatesAutoresizingMaskIntoConstraints = false
-		NSLayoutConstraint.activate([
-			button.widthAnchor.constraint(equalToConstant: 44),
-			button.heightAnchor.constraint(equalToConstant: 44)
-		])
+		button.widthAnchor.constraint(equalToConstant: 60).isActive = true
 		return button
 	}
 
