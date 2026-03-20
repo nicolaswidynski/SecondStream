@@ -266,30 +266,51 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		collectionView.verticalScrollIndicatorInsets.bottom = 80
 	}
 
-	private func createActionButton(iconName: String, label: String, accessibilityLabel: String, fallbackSystemName: String? = nil, action: Selector) -> UIButton {
+	private func createActionButton(iconName: String, label: String, accessibilityLabel: String, fallbackSystemName: String? = nil, action: Selector) -> UIView {
 		let symbolConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
 		let image = RSImage(named: iconName)?
 			.applyingSymbolConfiguration(symbolConfig)
 			?? UIImage(systemName: fallbackSystemName ?? iconName, withConfiguration: symbolConfig)
 
-		var config = UIButton.Configuration.plain()
-		config.image = image
-		config.title = label
-		config.imagePlacement = .top
-		config.imagePadding = 4
-		config.baseForegroundColor = .label
-		config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-			var outgoing = incoming
-			outgoing.font = UIFont.systemFont(ofSize: 10, weight: .medium)
-			return outgoing
-		}
+		let iconButton = UIButton(type: .system)
+		iconButton.setImage(image, for: .normal)
+		iconButton.tintColor = .label
+		iconButton.isUserInteractionEnabled = false // container handles the tap
+		iconButton.translatesAutoresizingMaskIntoConstraints = false
 
-		let button = UIButton(configuration: config)
-		button.accessibilityLabel = accessibilityLabel
-		button.addTarget(self, action: action, for: .touchUpInside)
-		button.translatesAutoresizingMaskIntoConstraints = false
-		button.widthAnchor.constraint(equalToConstant: 60).isActive = true
-		return button
+		let titleLabel = UILabel()
+		titleLabel.text = label
+		titleLabel.font = .systemFont(ofSize: 10, weight: .medium)
+		titleLabel.textColor = .label
+		titleLabel.textAlignment = .center
+		titleLabel.numberOfLines = 1
+		titleLabel.translatesAutoresizingMaskIntoConstraints = false
+
+		let vStack = UIStackView(arrangedSubviews: [iconButton, titleLabel])
+		vStack.axis = .vertical
+		vStack.alignment = .center
+		vStack.spacing = 3
+		vStack.isUserInteractionEnabled = false
+		vStack.translatesAutoresizingMaskIntoConstraints = false
+
+		// Container UIControl makes the full icon+label area tappable
+		let container = UIControl()
+		container.addSubview(vStack)
+		container.addTarget(self, action: action, for: .touchUpInside)
+		container.translatesAutoresizingMaskIntoConstraints = false
+		container.accessibilityLabel = accessibilityLabel
+		container.isAccessibilityElement = true
+		container.accessibilityTraits = .button
+		NSLayoutConstraint.activate([
+			vStack.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+			vStack.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+			vStack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+			vStack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+			vStack.topAnchor.constraint(equalTo: container.topAnchor),
+			vStack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+			container.widthAnchor.constraint(equalToConstant: 68)
+		])
+		return container
 	}
 
 	private func configureNavigationBar() {

@@ -586,6 +586,8 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		// Configure the table
 		tableView.dataSource = dataSource
 		tableView.isPrefetchingEnabled = false
+		tableView.estimatedSectionHeaderHeight = 50
+		tableView.sectionHeaderTopPadding = 0
 
 		numberOfTextLines = AppDefaults.shared.timelineNumberOfLines
 		iconSize = AppDefaults.shared.timelineIconSize
