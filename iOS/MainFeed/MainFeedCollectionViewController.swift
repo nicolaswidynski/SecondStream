@@ -155,6 +155,14 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 	}
 
+	private lazy var creditsLabel: UILabel = {
+		let label = UILabel()
+		label.font = .preferredFont(forTextStyle: .caption2)
+		label.textColor = .secondaryLabel
+		label.translatesAutoresizingMaskIntoConstraints = false
+		return label
+	}()
+
 	private lazy var starredButton: UIBarButtonItem = {
 		let image = Assets.Images.starClosed.withTintColor(Assets.Colors.star, renderingMode: .alwaysOriginal)
 		let button = FeedNavigationChrome.makeTopBarFeedBarButton(
@@ -184,6 +192,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		// Fetch sources on launch
 		SourcesRefreshManager.shared.forceRefresh()
+
+		// Credits: observe updates and fetch on first launch
+		NotificationCenter.default.addObserver(self, selector: #selector(creditsDidUpdate), name: .creditsDidUpdate, object: nil)
+		updateCreditsLabel()
+		if FeedStatsManager.shared.cachedCredits == nil {
+			Task { await FeedStatsManager.shared.fetchCredits() }
+		}
 
 		// Refresh sources when app comes to foreground
 		NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
@@ -289,6 +304,14 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			updateStatusLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -40),
 			trailingConstraint
 		])
+
+		// Credits label is hidden; the value is shown in Settings instead.
+		creditsLabel.isHidden = true
+		view.addSubview(creditsLabel)
+		NSLayoutConstraint.activate([
+			creditsLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 72),
+			creditsLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -40)
+		])
 	}
 
 	private func configureRecentlyUpdatedStrip() {
@@ -359,7 +382,11 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func refreshRecentlyUpdatedShowsStrip() {
-		let payloads = buildRecentlyUpdatedStripPayloads()
+		Task { await applyRecentlyUpdatedStripPayloads() }
+	}
+
+	private func applyRecentlyUpdatedStripPayloads() async {
+		let payloads = await buildRecentlyUpdatedStripPayloads()
 		let isDiscoverMode: Bool = {
 			guard let first = payloads.first else { return false }
 			if case .discover = first { return true }
@@ -402,15 +429,15 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		collectionView.verticalScrollIndicatorInsets.top = topInset
 	}
 
-	private func buildRecentlyUpdatedStripPayloads() -> [RecentlyUpdatedStripPayload] {
-		let recentFeeds = computeRecentlyUpdatedUnreadFeeds()
+	private func buildRecentlyUpdatedStripPayloads() async -> [RecentlyUpdatedStripPayload] {
+		let recentFeeds = await computeRecentlyUpdatedUnreadFeeds()
 		if !recentFeeds.isEmpty {
 			return recentFeeds.map { .feed($0) }
 		}
 		return buildDiscoverSourceItems().map { .discover($0) }
 	}
 
-	private func computeRecentlyUpdatedUnreadFeeds() -> [Feed] {
+	private func computeRecentlyUpdatedUnreadFeeds() async -> [Feed] {
 		var latestDateByFeedID = [String: Date]()
 		var feedByID = [String: Feed]()
 
@@ -423,7 +450,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				continue
 			}
 
-			guard let unreadArticles = try? account.fetchArticles(.unread()) else {
+			guard let unreadArticles = try? await account.fetchArticlesAsync(.unread()) else {
 				continue
 			}
 
@@ -527,7 +554,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	private func addDiscoverSource(_ source: DiscoverSourceItem) {
 		let urlString = source.url.trimmingCharacters(in: .whitespacesAndNewlines)
 		if !urlString.isEmpty {
-			addFeedDirectly(urlString: urlString, category: source.category)
+			addFeedDirectly(urlString: urlString, category: source.category, sourceName: source.name, sourceAuthor: source.author, sourceImageURL: source.imageURL)
 			return
 		}
 
@@ -588,7 +615,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		present(navController, animated: true)
 	}
 
-	private func addFeedDirectly(urlString: String, category: FeedCategory) {
+	/// Adds a feed by URL directly (no gate check).
+	///
+	/// Pass `sourceName`, `sourceAuthor`, and `sourceImageURL` when the caller already has that
+	/// metadata (e.g. from a picker).
+	/// Pass `summaryURL` to fetch canonical show name/author from the server-side JSON file
+	/// instead of relying on the user-entered string when reporting the add to update-user-stats.
+	private func addFeedDirectly(urlString: String, category: FeedCategory, sourceName: String? = nil, sourceAuthor: String? = nil, sourceImageURL: String? = nil, validateFeed: Bool = true, summaryURL: String? = nil) {
 		let normalizedURL = urlString.normalizedURL
 		guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else {
 			return
@@ -621,35 +654,94 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
 			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
 		])
-		present(loadingAlert, animated: true)
+		present(loadingAlert, animated: true) {
+			Task {
+				BatchUpdate.shared.start()
 
-		BatchUpdate.shared.start()
+				account.createFeed(url: url.absoluteString, name: nil, container: account, validateFeed: validateFeed) { result in
+				// Set category before ending batch update to avoid UI flicker
+				if case .success(let feed) = result {
+					feed.feedCategory = category
+				}
 
-		account.createFeed(url: url.absoluteString, name: nil, container: account, validateFeed: true) { result in
-			// Set category before ending batch update to avoid UI flicker
-			if case .success(let feed) = result {
-				feed.feedCategory = category
-			}
+				BatchUpdate.shared.end()
 
-			BatchUpdate.shared.end()
-
-			loadingAlert.dismiss(animated: true) {
-				switch result {
-				case .success(let feed):
-					NotificationCenter.default.post(
-						name: .UserDidAddFeed,
-						object: self,
-						userInfo: [
-							UserInfoKey.feed: feed,
-							UserInfoKey.suppressFeedDisclosure: true
-						]
-					)
-					// Expand the corresponding category section
-					self.expandCategorySectionForCategory(category)
-				case .failure(let error):
-					self.presentError(error)
+				loadingAlert.dismiss(animated: true) {
+					switch result {
+					case .success(let feed):
+						Task {
+							if category == .rss {
+								// RSS: report just this one add
+								await FeedStatsManager.shared.reportAdd(
+									type: category,
+									name: sourceName ?? url.absoluteString,
+									author: sourceAuthor
+								)
+							} else {
+								// Pod / YT / Topics: send a full subscription snapshot
+								await FeedStatsManager.shared.reportUpdate()
+							}
+						}
+						NotificationCenter.default.post(
+							name: .UserDidAddFeed,
+							object: self,
+							userInfo: [
+								UserInfoKey.feed: feed,
+								UserInfoKey.suppressFeedDisclosure: true
+							]
+						)
+						// Expand the corresponding category section
+						self.expandCategorySectionForCategory(category)
+					case .failure(let error):
+						self.presentError(error)
+					}
 				}
 			}
+		}
+		}
+	}
+
+	/// Fetches the JSON at `urlString` and returns the canonical `(name, author)` for the show.
+	/// The expected format is the source library format: `[{"data": [{"Name": ..., "Author": ...}]}]`.
+	/// Returns `nil` on network error, unexpected format, or missing name.
+	private static func fetchSummaryInfo(urlString: String) async -> (name: String, author: String?)? {
+		guard let url = URL(string: urlString) else {
+			return nil
+		}
+		do {
+			let (data, response) = try await URLSession.shared.data(from: url)
+			guard let httpResponse = response as? HTTPURLResponse,
+				  (200...299).contains(httpResponse.statusCode) else {
+				return nil
+			}
+			guard let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+				  let firstItem = jsonArray.first,
+				  let dataArray = firstItem["data"] as? [[String: Any]],
+				  let entry = dataArray.first else {
+				return nil
+			}
+			let nameKeys = ["Name", "name", "title"]
+			let authorKeys = ["Author", "author"]
+			var foundName: String?
+			for key in nameKeys {
+				if let v = entry[key] as? String {
+					let trimmed = v.trimmingCharacters(in: .whitespacesAndNewlines)
+					if !trimmed.isEmpty { foundName = trimmed; break }
+				}
+			}
+			guard let name = foundName else {
+				return nil
+			}
+			var foundAuthor: String?
+			for key in authorKeys {
+				if let v = entry[key] as? String {
+					let trimmed = v.trimmingCharacters(in: .whitespacesAndNewlines)
+					if !trimmed.isEmpty { foundAuthor = trimmed; break }
+				}
+			}
+			return (name: name, author: foundAuthor)
+		} catch {
+			return nil
 		}
 	}
 
@@ -669,6 +761,11 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
+		// Apply blur to the nav bar at scroll-edge (iOS default is transparent there).
+		let blurredAppearance = UINavigationBarAppearance()
+		blurredAppearance.configureWithDefaultBackground()
+		navigationController?.navigationBar.scrollEdgeAppearance = blurredAppearance
+
 		// Hide the toolbar - all actions are now in the navigation bar
 		navigationController?.isToolbarHidden = true
 		applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip()
@@ -707,6 +804,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				})
 			}
 		}
+	}
+
+	override func viewWillDisappear(_ animated: Bool) {
+		super.viewWillDisappear(animated)
+		// Reset so the nav bar appearance doesn't bleed into pushed view controllers.
+		navigationController?.navigationBar.scrollEdgeAppearance = nil
 	}
 
 	func registerForNotifications() {
@@ -1280,6 +1383,19 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	@objc private func appWillEnterForeground() {
 		SourcesRefreshManager.shared.refreshIfNeeded()
 		refreshRecentlyUpdatedShowsStrip()
+		Task { await FeedStatsManager.shared.fetchCredits() }
+	}
+
+	@objc private func creditsDidUpdate() {
+		updateCreditsLabel()
+	}
+
+	private func updateCreditsLabel() {
+		if let credits = FeedStatsManager.shared.cachedCredits {
+			creditsLabel.text = "credits: \(credits)"
+		} else {
+			creditsLabel.text = nil
+		}
 	}
 
 	private func showEnterRSSURLDialog() {
@@ -1353,28 +1469,26 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
 		])
 
-		present(loadingAlert, animated: true)
+		present(loadingAlert, animated: true) {
+			Task {
+				let result = await PodcastSourcesManager.shared.addPodcast(name: name, author: author)
 
-		Task {
-			let result = await PodcastSourcesManager.shared.addPodcast(name: name, author: author)
+				if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
+				if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
 
-			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
-			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
+				loadingAlert.dismiss(animated: true) {
+					switch result {
+					case .successExisting(let summaryURL):
+						self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, summaryURL: summaryURL)
 
-			loadingAlert.dismiss(animated: true) {
-				switch result {
-				case .successExisting(let summaryURL):
-					// Podcast already exists, no wait needed - add the feed directly
-					self.addFeedDirectly(urlString: summaryURL, category: .podcast)
+					case .successNew(let summaryURL):
+						self.showPodcastSuccessMessage {
+							self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL)
+						}
 
-				case .successNew(let summaryURL):
-					// Show success message for new podcasts (need processing)
-					self.showPodcastSuccessMessage {
-						self.addFeedDirectly(urlString: summaryURL, category: .podcast)
+					case .failure(let message):
+						self.showPodcastError(message: message)
 					}
-
-				case .failure(let message):
-					self.showPodcastError(message: message)
 				}
 			}
 		}
@@ -1974,6 +2088,15 @@ extension MainFeedCollectionViewController {
 			ActivityManager.cleanUp(feed)
 		}
 
+		// Queue feed stats before deletion so we still have the feed object available.
+		if let feed = deleteNode.representedObject as? Feed {
+			FeedStatsManager.shared.queueDelete(
+				type: feed.feedCategory,
+				name: feed.nameForDisplay,
+				author: feed.authors?.first?.name
+			)
+		}
+
 		if indexPath == coordinator.currentFeedIndexPath {
 			coordinator.selectSidebarItem(indexPath: nil)
 		}
@@ -2014,7 +2137,7 @@ extension MainFeedCollectionViewController: RSSPickerDelegate {
 			}
 			// RSS top picks include a concrete feed URL in the source list,
 			// so we can subscribe directly without going through add-show-source.
-			self.addFeedDirectly(urlString: urlString, category: .rss)
+			self.addFeedDirectly(urlString: urlString, category: .rss, sourceName: source.name, sourceAuthor: source.author, sourceImageURL: source.imageURL)
 		}
 	}
 
@@ -2041,12 +2164,7 @@ extension MainFeedCollectionViewController: PodcastPickerDelegate {
 
 	func podcastPicker(_ picker: PodcastPickerViewController, didSelectPodcast source: PodcastSource) {
 		picker.dismiss(animated: true) {
-			let urlString = source.url.trimmingCharacters(in: .whitespacesAndNewlines)
-			if !urlString.isEmpty {
-				self.addFeedDirectly(urlString: urlString, category: .podcast)
-			} else {
-				self.addPodcastWithWebhook(name: source.name, author: source.author)
-			}
+			self.addPodcastWithWebhook(name: source.name, author: source.author)
 		}
 	}
 
@@ -2077,12 +2195,7 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 
 	func youtubePicker(_ picker: YoutubePickerViewController, didSelectChannel source: YoutubeSource) {
 		picker.dismiss(animated: true) {
-			let urlString = source.url.trimmingCharacters(in: .whitespacesAndNewlines)
-			if !urlString.isEmpty {
-				self.addFeedDirectly(urlString: urlString, category: .youtube)
-			} else {
-				self.addYoutubeWithWebhook(name: source.name, author: source.author)
-			}
+			self.addYoutubeWithWebhook(name: source.name, author: source.author)
 		}
 	}
 
@@ -2131,34 +2244,29 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
 		])
 
-		present(loadingAlert, animated: true)
+		present(loadingAlert, animated: true) {
+			Task {
+				let result = await YoutubeSourcesManager.shared.addYoutube(name: name, author: author)
 
-		Task {
-			let result = await YoutubeSourcesManager.shared.addYoutube(name: name, author: author)
+				if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
+				if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
 
-			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
-			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
+				loadingAlert.dismiss(animated: true) {
+					switch result {
+					case .successExisting(let summaryURL):
+						self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, summaryURL: summaryURL)
 
-			loadingAlert.dismiss(animated: true) {
-				self.handleYoutubeResult(result)
+					case .successNew(let summaryURL):
+						// New channel — skip validation since CDN may not have propagated yet
+						self.showYoutubeSuccessMessage {
+							self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL)
+						}
+
+					case .failure(let message):
+						self.showYoutubeError(message: message)
+					}
+				}
 			}
-		}
-	}
-
-	private func handleYoutubeResult(_ result: AddYoutubeResult) {
-		switch result {
-		case .successExisting(let summaryURL):
-			// Channel already exists, no wait needed - add the feed directly
-			self.addFeedDirectly(urlString: summaryURL, category: .youtube)
-
-		case .successNew(let summaryURL):
-			// Show success message for new channels (need processing)
-			self.showYoutubeSuccessMessage {
-				self.addFeedDirectly(urlString: summaryURL, category: .youtube)
-			}
-
-		case .failure(let message):
-			self.showYoutubeError(message: message)
 		}
 	}
 
@@ -2198,12 +2306,7 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 
 	func newsPicker(_ picker: NewsPickerViewController, didSelectSource source: NewsSource) {
 		picker.dismiss(animated: true) {
-			let urlString = source.url.trimmingCharacters(in: .whitespacesAndNewlines)
-			if !urlString.isEmpty {
-				self.addFeedDirectly(urlString: urlString, category: .news)
-			} else {
-				self.addTopicWithWebhook(name: source.name, author: source.author)
-			}
+			self.addTopicWithWebhook(name: source.name, author: source.author)
 		}
 	}
 
@@ -2225,26 +2328,24 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
 		])
 
-		present(loadingAlert, animated: true)
+		present(loadingAlert, animated: true) {
+			Task {
+				let result = await NewsSourcesManager.shared.addNews(name: name, author: author)
 
-		Task {
-			let result = await NewsSourcesManager.shared.addNews(name: name, author: author)
-
-			loadingAlert.dismiss(animated: true) {
-				self.handleTopicResult(result)
+				loadingAlert.dismiss(animated: true) {
+					self.handleTopicResult(result, name: name, author: author)
+				}
 			}
 		}
 	}
 
-	private func handleTopicResult(_ result: AddNewsResult) {
+	private func handleTopicResult(_ result: AddNewsResult, name: String, author: String?) {
 		switch result {
 		case .successExisting(let summaryURL):
-			// Topic already exists, no wait needed - add the feed directly
-			self.addFeedDirectly(urlString: summaryURL, category: .news)
+			self.addFeedDirectly(urlString: summaryURL, category: .news, sourceName: name, sourceAuthor: author, summaryURL: summaryURL)
 
 		case .successNew(let summaryURL):
-			// Topic is new, add the feed directly (processing happens server-side)
-			self.addFeedDirectly(urlString: summaryURL, category: .news)
+			self.addFeedDirectly(urlString: summaryURL, category: .news, sourceName: name, sourceAuthor: author, summaryURL: summaryURL)
 
 		case .failure(let message):
 			self.showTopicError(message: message)

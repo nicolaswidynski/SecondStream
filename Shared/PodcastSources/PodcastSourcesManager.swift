@@ -62,12 +62,22 @@ enum AddPodcastResult {
 
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
 
-	private static let topFileName = "pod_top.json"
-	private static let libraryFileName = "pod.json"
+	private static let topFileName = "pod_free.json"
+	private static let libraryFileName = "pod_featured.json"
 
 	// MARK: - Server Error
 
 	private(set) var lastServerMessage: String?
+
+	/// Extracts a human-readable error message from a webhook response body.
+	/// Handles both array `[{"message":...}]` and object `{"message":...}` formats.
+	private static func extractMessage(from data: Data) -> String {
+		if let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+		   let msg = arr.first?["message"] as? String { return msg }
+		if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+		   let msg = obj["message"] as? String { return msg }
+		return String(data: data, encoding: .utf8) ?? "Unknown error"
+	}
 
 	// MARK: - Fetch State
 
@@ -210,7 +220,7 @@ enum AddPodcastResult {
 			"type": "pod",
 			"show": show,
 			"author": author,
-			"authorize_unknown_sources": "YES"
+			"apple_user_id": AuthManager.shared.appleUserID ?? ""
 		]
 
 		do {

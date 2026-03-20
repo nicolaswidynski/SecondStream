@@ -136,7 +136,7 @@ enum SourceFileFetcher {
 			guard let name = firstNonEmptyString(in: item, keys: ["Name", "name", "title"]) else {
 				continue
 			}
-			let feedURL = firstNonEmptyString(in: item, keys: ["My Feed URL", "my_feed_url", "myFeedURL"]) ?? ""
+			let feedURL = firstNonEmptyString(in: item, keys: ["RSS URL", "My Feed URL", "my_feed_url", "myFeedURL"]) ?? ""
 			let author = firstNonEmptyString(in: item, keys: ["Author", "author"])
 			let imageURL = firstNonEmptyString(in: item, keys: ["Image URL", "image_url", "imageURL", "image_ref", "icon_url", "icon"])
 			entries.append(SourceFileEntry(name: name, author: author, feedURL: feedURL, imageURL: imageURL))

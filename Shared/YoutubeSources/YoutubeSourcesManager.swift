@@ -30,12 +30,20 @@ enum AddYoutubeResult {
 
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
 
-	private static let topFileName = "yt_top.json"
-	private static let libraryFileName = "yt.json"
+	private static let topFileName = "yt_free.json"
+	private static let libraryFileName = "yt_featured.json"
 
 	// MARK: - Server Error
 
 	private(set) var lastServerMessage: String?
+
+	private static func extractMessage(from data: Data) -> String {
+		if let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+		   let msg = arr.first?["message"] as? String { return msg }
+		if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+		   let msg = obj["message"] as? String { return msg }
+		return String(data: data, encoding: .utf8) ?? "Unknown error"
+	}
 
 	// MARK: - Fetch State
 
@@ -158,10 +166,16 @@ enum AddYoutubeResult {
 	}
 
 	/// Adds a YouTube channel by sending the channel name and author to the webhook.
+	/// When the input starts with `@` it is a channel handle — sent as `author` with an empty `show`.
+	/// The `@` prefix is preserved so the webhook always receives the full handle (e.g. `@channel`).
 	/// Returns the summary feed URL on success.
 	func addYoutube(name channelName: String, author: String? = nil) async -> AddYoutubeResult {
-		let name = channelName.replacingOccurrences(of: "@", with: "")
-		return await sendAddYoutubeRequest(show: name, author: author ?? "")
+		if channelName.hasPrefix("@") {
+			// @handle entered — send as-is (with @) as author, empty show
+			return await sendAddYoutubeRequest(show: "", author: channelName)
+		} else {
+			return await sendAddYoutubeRequest(show: channelName, author: author ?? "")
+		}
 	}
 
 	private func sendAddYoutubeRequest(show: String, author: String) async -> AddYoutubeResult {
@@ -179,7 +193,7 @@ enum AddYoutubeResult {
 			"type": "yt",
 			"show": show,
 			"author": author,
-			"authorize_unknown_sources": "YES"
+			"apple_user_id": AuthManager.shared.appleUserID ?? ""
 		]
 
 		do {

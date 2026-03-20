@@ -159,13 +159,13 @@ final class PodcastPickerViewController: UIViewController {
 
 		if query.isEmpty {
 			if !topSources.isEmpty {
-				let topPicks = SourcePickerSection.sources(NSLocalizedString("Top Picks", comment: "Top Picks"))
+				let topPicks = SourcePickerSection.sources(NSLocalizedString("Free Picks", comment: "Free Picks"))
 				snapshot.appendSections([topPicks])
 				let items = topSources.map { SourcePickerItem.podcastSource($0) }
 				snapshot.appendItems(items, toSection: topPicks)
 			}
 			if !librarySources.isEmpty {
-				let otherSection = SourcePickerSection.sources(NSLocalizedString("Other Podcasts", comment: "Other Podcasts"))
+				let otherSection = SourcePickerSection.sources(NSLocalizedString("Popular Picks (with credits)", comment: "Popular Picks (with credits)"))
 				snapshot.appendSections([otherSection])
 				let items = librarySources.map { SourcePickerItem.podcastSource($0) }
 				snapshot.appendItems(items, toSection: otherSection)

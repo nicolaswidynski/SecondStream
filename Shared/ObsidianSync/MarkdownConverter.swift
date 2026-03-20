@@ -47,21 +47,46 @@ struct MarkdownConverter {
 			frontmatter += "author: \"\(escapeYAMLString(authorName))\"\n"
 		}
 
-		// Date - try to extract from URL first, then use datePublished
-		let dateString = extractDateForFrontmatter(from: article)
-		if let dateString {
-			frontmatter += "date: \(dateString)\n"
+		// Date - topics titles already embed the date, so skip the field for them
+		if feed.feedCategory != .news {
+			let dateString = extractDateForFrontmatter(from: article)
+			if let dateString {
+				frontmatter += "date: \(dateString)\n"
+			}
 		}
 
-		// Source URL (feed URL, not article URL)
-		frontmatter += "source: \(feed.url)\n"
+		// Source URL: only for RSS feeds (for pod/yt/topics the URL is our own server, not a meaningful source)
+		if feed.feedCategory == .rss {
+			frontmatter += "source: \(feed.url)\n"
+		}
 
 		// Feed name
 		frontmatter += "feed: \"\(escapeYAMLString(feed.nameForDisplay))\"\n"
 
-		// Tags (only rss tag, no starred)
-		frontmatter += "tags:\n"
-		frontmatter += "  - rss\n"
+		// Timestamps in frontmatter for pod/yt (preferred over a body section)
+		let category = feed.feedCategory
+		if (category == .podcast || category == .youtube),
+		   let json = article.contentJSON,
+		   !json.isEmpty,
+		   let data = json.data(using: .utf8),
+		   let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+			let timestamps = (parsed["timestamps"] as? [[String: Any]]) ?? []
+			if !timestamps.isEmpty {
+				let lines = timestamps.compactMap { item -> String? in
+					let ts = (item["timestamp"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+					let content = (item["content"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+					guard !ts.isEmpty || !content.isEmpty else {
+						return nil
+					}
+					let entry = [ts, content].filter { !$0.isEmpty }.joined(separator: " - ")
+					return "  - \"\(escapeYAMLString(entry))\""
+				}
+				if !lines.isEmpty {
+					frontmatter += "timestamps:\n"
+					frontmatter += lines.joined(separator: "\n") + "\n"
+				}
+			}
+		}
 
 		frontmatter += "---\n"
 
@@ -226,21 +251,7 @@ struct MarkdownConverter {
 			}
 		}
 
-		let timestamps = (json["timestamps"] as? [[String: Any]]) ?? []
-		if !timestamps.isEmpty {
-			let lines = timestamps.compactMap { item -> String? in
-				let timestamp = (item["timestamp"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-				let content = (item["content"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-				guard !timestamp.isEmpty || !content.isEmpty else { return nil }
-				if !timestamp.isEmpty && !content.isEmpty {
-					return "- **\(timestamp)** - \(content)"
-				}
-				return "- \(timestamp)\(content)"
-			}
-			if !lines.isEmpty {
-				sections.append("## Timestamps\n" + lines.joined(separator: "\n"))
-			}
-		}
+		// Timestamps are written to YAML frontmatter instead of the body.
 
 		guard !sections.isEmpty else {
 			return nil

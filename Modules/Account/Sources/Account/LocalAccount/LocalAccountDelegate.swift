@@ -82,7 +82,27 @@ import Secrets
 			throw AccountError.invalidParameter
 		}
 
-		return try await createFeed(account: account, url: url, editedName: name, container: container)
+		if validateFeed {
+			return try await createFeed(account: account, url: url, editedName: name, container: container)
+		} else {
+			return try await createFeedWithoutValidation(account: account, url: url, editedName: name, container: container)
+		}
+	}
+
+	@MainActor private func createFeedWithoutValidation(account: Account, url: URL, editedName: String?, container: Container) async throws -> Feed {
+		guard !account.hasFeed(withURL: url.absoluteString) else {
+			throw AccountError.createErrorAlreadySubscribed
+		}
+
+		BatchUpdate.shared.start()
+		defer {
+			BatchUpdate.shared.end()
+		}
+
+		let feed = account.createFeed(with: nil, url: url.absoluteString, feedID: url.absoluteString, homePageURL: nil)
+		feed.editedName = editedName
+		container.addFeedToTreeAtTopLevel(feed)
+		return feed
 	}
 
 	@MainActor func renameFeed(for account: Account, with feed: Feed, to name: String) async throws {

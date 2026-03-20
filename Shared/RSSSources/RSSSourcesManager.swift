@@ -30,12 +30,19 @@ enum AddRSSResult {
 
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
 
-	private static let topFileName = "rss_top.json"
-	private static let libraryFileName = "rss.json"
+	private static let fileName = "rss.json"
 
 	// MARK: - Server Error
 
 	private(set) var lastServerMessage: String?
+
+	private static func extractMessage(from data: Data) -> String {
+		if let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+		   let msg = arr.first?["message"] as? String { return msg }
+		if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+		   let msg = obj["message"] as? String { return msg }
+		return String(data: data, encoding: .utf8) ?? "Unknown error"
+	}
 
 	// MARK: - Fetch State
 
@@ -44,13 +51,12 @@ enum AddRSSResult {
 
 	// MARK: - Stored RSS Sources
 
-	private let rssTopSourcesKey = "rssTopSources"
-	private let rssLibrarySourcesKey = "rssLibrarySources"
+	private let rssSourcesKey = "rssSources"
 
-	/// Top Picks sources, used by pickers.
+	/// All RSS sources, used by pickers.
 	var rssSources: [RSSSource] {
 		get {
-			guard let data = UserDefaults.standard.data(forKey: rssTopSourcesKey),
+			guard let data = UserDefaults.standard.data(forKey: rssSourcesKey),
 				  let sources = try? JSONDecoder().decode([RSSSource].self, from: data) else {
 				return []
 			}
@@ -58,35 +64,19 @@ enum AddRSSResult {
 		}
 		set {
 			if let data = try? JSONEncoder().encode(newValue) {
-				UserDefaults.standard.set(data, forKey: rssTopSourcesKey)
-			}
-		}
-	}
-
-	/// Library (non-Top Picks) sources.
-	var rssLibrarySources: [RSSSource] {
-		get {
-			guard let data = UserDefaults.standard.data(forKey: rssLibrarySourcesKey),
-				  let sources = try? JSONDecoder().decode([RSSSource].self, from: data) else {
-				return []
-			}
-			return sources
-		}
-		set {
-			if let data = try? JSONEncoder().encode(newValue) {
-				UserDefaults.standard.set(data, forKey: rssLibrarySourcesKey)
+				UserDefaults.standard.set(data, forKey: rssSourcesKey)
 			}
 		}
 	}
 
 	// MARK: - Lookup
 
-	/// Returns the configured image URL for a subscribed RSS feed URL (or its homepage URL), if present in rss_top.json or rss.json.
+	/// Returns the configured image URL for a subscribed RSS feed URL (or its homepage URL), if present in rss.json.
 	func imageURL(forFeedURL feedURL: String, homePageURL: String?) -> String? {
 		let normalizedFeedURL = normalizedURLKey(feedURL)
 		let normalizedHomePageURL = normalizedURLKey(homePageURL)
 
-		for source in rssSources + rssLibrarySources {
+		for source in rssSources {
 			let sourceURL = normalizedURLKey(source.url)
 			guard !sourceURL.isEmpty else {
 				continue
@@ -156,34 +146,19 @@ enum AddRSSResult {
 			fetchTask = nil
 		}
 
-		async let topEntries = SourceFileFetcher.fetchIfModified(fileName: Self.topFileName)
-		async let libraryEntries = SourceFileFetcher.fetchIfModified(fileName: Self.libraryFileName)
-
-		if let entries = await topEntries {
-			let sources = entries.map { RSSSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
-			let oldURLs = Set(self.rssSources.compactMap(\.imageURL))
-			let newURLs = Set(sources.compactMap(\.imageURL))
-			let libraryURLs = Set(self.rssLibrarySources.compactMap(\.imageURL))
-			let removed = Array(oldURLs.subtracting(newURLs).subtracting(libraryURLs))
-			let added = Array(newURLs.subtracting(oldURLs))
-			SourceImageCache.shared.removeImages(for: removed)
-			SourceImageCache.shared.prefetchImages(for: added)
-			self.rssSources = sources
-			Self.logger.info("Fetched \(sources.count) top RSS sources")
+		guard let entries = await SourceFileFetcher.fetchIfModified(fileName: Self.fileName) else {
+			return
 		}
 
-		if let entries = await libraryEntries {
-			let sources = entries.map { RSSSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
-			let oldURLs = Set(self.rssLibrarySources.compactMap(\.imageURL))
-			let newURLs = Set(sources.compactMap(\.imageURL))
-			let topURLs = Set(self.rssSources.compactMap(\.imageURL))
-			let removed = Array(oldURLs.subtracting(newURLs).subtracting(topURLs))
-			let added = Array(newURLs.subtracting(oldURLs))
-			SourceImageCache.shared.removeImages(for: removed)
-			SourceImageCache.shared.prefetchImages(for: added)
-			self.rssLibrarySources = sources
-			Self.logger.info("Fetched \(sources.count) library RSS sources")
-		}
+		let sources = entries.map { RSSSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
+		let oldURLs = Set(self.rssSources.compactMap(\.imageURL))
+		let newURLs = Set(sources.compactMap(\.imageURL))
+		let removed = Array(oldURLs.subtracting(newURLs))
+		let added = Array(newURLs.subtracting(oldURLs))
+		SourceImageCache.shared.removeImages(for: removed)
+		SourceImageCache.shared.prefetchImages(for: added)
+		self.rssSources = sources
+		Self.logger.info("Fetched \(sources.count) RSS sources")
 	}
 
 	/// Adds an RSS source by sending the name and author to the webhook.
@@ -206,7 +181,7 @@ enum AddRSSResult {
 			"type": "rss",
 			"show": show,
 			"author": author,
-			"authorize_unknown_sources": "YES"
+			"apple_user_id": AuthManager.shared.appleUserID ?? ""
 		]
 
 		do {

@@ -30,12 +30,19 @@ enum AddNewsResult {
 
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
 
-	private static let topFileNames = ["topic_top.json", "topics_top.json"]
-	private static let libraryFileNames = ["topic.json", "topics.json"]
+	private static let fileNames = ["topic.json", "topics.json"]
 
 	// MARK: - Server Error
 
 	private(set) var lastServerMessage: String?
+
+	private static func extractMessage(from data: Data) -> String {
+		if let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+		   let msg = arr.first?["message"] as? String { return msg }
+		if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+		   let msg = obj["message"] as? String { return msg }
+		return String(data: data, encoding: .utf8) ?? "Unknown error"
+	}
 
 	// MARK: - Fetch State
 
@@ -44,13 +51,12 @@ enum AddNewsResult {
 
 	// MARK: - Stored News Sources
 
-	private let newsTopSourcesKey = "newsTopSources"
-	private let newsLibrarySourcesKey = "newsLibrarySources"
+	private let newsSourcesKey = "newsSources"
 
-	/// Top Picks sources, used by pickers.
+	/// All topic sources, used by pickers.
 	var newsSources: [NewsSource] {
 		get {
-			guard let data = UserDefaults.standard.data(forKey: newsTopSourcesKey),
+			guard let data = UserDefaults.standard.data(forKey: newsSourcesKey),
 				  let sources = try? JSONDecoder().decode([NewsSource].self, from: data) else {
 				return []
 			}
@@ -58,23 +64,7 @@ enum AddNewsResult {
 		}
 		set {
 			if let data = try? JSONEncoder().encode(newValue) {
-				UserDefaults.standard.set(data, forKey: newsTopSourcesKey)
-			}
-		}
-	}
-
-	/// Library (non-Top Picks) sources.
-	var newsLibrarySources: [NewsSource] {
-		get {
-			guard let data = UserDefaults.standard.data(forKey: newsLibrarySourcesKey),
-				  let sources = try? JSONDecoder().decode([NewsSource].self, from: data) else {
-				return []
-			}
-			return sources
-		}
-		set {
-			if let data = try? JSONEncoder().encode(newValue) {
-				UserDefaults.standard.set(data, forKey: newsLibrarySourcesKey)
+				UserDefaults.standard.set(data, forKey: newsSourcesKey)
 			}
 		}
 	}
@@ -127,36 +117,20 @@ enum AddNewsResult {
 			fetchTask = nil
 		}
 
-		async let topEntries = fetchEntries(fileNames: Self.topFileNames, forceRefresh: forceRefresh)
-		async let libraryEntries = fetchEntries(fileNames: Self.libraryFileNames, forceRefresh: forceRefresh)
-
-		if let entries = await topEntries {
-			let mappedSources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
-			let sources = await hydrateMissingImageURLs(in: mappedSources)
-			let oldURLs = Set(self.newsSources.compactMap(\.imageURL))
-			let newURLs = Set(sources.compactMap(\.imageURL))
-			let libraryURLs = Set(self.newsLibrarySources.compactMap(\.imageURL))
-			let removed = Array(oldURLs.subtracting(newURLs).subtracting(libraryURLs))
-			let added = Array(newURLs.subtracting(oldURLs))
-			SourceImageCache.shared.removeImages(for: removed)
-			SourceImageCache.shared.prefetchImages(for: added)
-			self.newsSources = sources
-			Self.logger.info("Fetched \(sources.count) top news sources")
+		guard let entries = await fetchEntries(fileNames: Self.fileNames, forceRefresh: forceRefresh) else {
+			return
 		}
 
-		if let entries = await libraryEntries {
-			let mappedSources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
-			let sources = await hydrateMissingImageURLs(in: mappedSources)
-			let oldURLs = Set(self.newsLibrarySources.compactMap(\.imageURL))
-			let newURLs = Set(sources.compactMap(\.imageURL))
-			let topURLs = Set(self.newsSources.compactMap(\.imageURL))
-			let removed = Array(oldURLs.subtracting(newURLs).subtracting(topURLs))
-			let added = Array(newURLs.subtracting(oldURLs))
-			SourceImageCache.shared.removeImages(for: removed)
-			SourceImageCache.shared.prefetchImages(for: added)
-			self.newsLibrarySources = sources
-			Self.logger.info("Fetched \(sources.count) library news sources")
-		}
+		let mappedSources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
+		let sources = await hydrateMissingImageURLs(in: mappedSources)
+		let oldURLs = Set(self.newsSources.compactMap(\.imageURL))
+		let newURLs = Set(sources.compactMap(\.imageURL))
+		let removed = Array(oldURLs.subtracting(newURLs))
+		let added = Array(newURLs.subtracting(oldURLs))
+		SourceImageCache.shared.removeImages(for: removed)
+		SourceImageCache.shared.prefetchImages(for: added)
+		self.newsSources = sources
+		Self.logger.info("Fetched \(sources.count) news sources")
 	}
 
 	private func fetchEntries(fileNames: [String], forceRefresh: Bool) async -> [SourceFileEntry]? {
@@ -277,7 +251,7 @@ enum AddNewsResult {
 			"type": "topics",
 			"show": show,
 			"author": author,
-			"authorize_unknown_sources": "YES"
+			"apple_user_id": AuthManager.shared.appleUserID ?? ""
 		]
 
 		do {
