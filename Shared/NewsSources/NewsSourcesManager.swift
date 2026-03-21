@@ -275,15 +275,15 @@ enum AddNewsResult {
 			let statusCode = httpResponse.statusCode
 
 			switch statusCode {
-			case 201:
+			case 200, 201:
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
 				   let summaryURL = json["summary_url"] as? String {
-					Self.logger.info("News topic already exists")
+					Self.logger.info("News topic added or already exists")
 					return .successExisting(summaryURL: summaryURL)
 				}
-				Self.logger.error("Failed to parse 201 response")
+				Self.logger.error("Failed to parse \(statusCode) response")
 				return .failure(message: "Failed to parse response")
 
 			case 202:

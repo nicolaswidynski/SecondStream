@@ -244,15 +244,15 @@ enum AddPodcastResult {
 			let statusCode = httpResponse.statusCode
 
 			switch statusCode {
-			case 201:
+			case 200, 201:
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
 				   let summaryURL = json["summary_url"] as? String {
-					Self.logger.info("Podcast already exists")
+					Self.logger.info("Podcast source added or already exists")
 					return .successExisting(summaryURL: summaryURL)
 				}
-				Self.logger.error("Failed to parse 201 response")
+				Self.logger.error("Failed to parse \(statusCode) response")
 				return .failure(message: "Failed to parse response")
 
 			case 202:
