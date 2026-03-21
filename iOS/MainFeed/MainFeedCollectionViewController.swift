@@ -668,7 +668,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// metadata (e.g. from a picker).
 	/// Pass `summaryURL` to fetch canonical show name/author from the server-side JSON file
 	/// instead of relying on the user-entered string when reporting the add to update-user-stats.
-	private func addFeedDirectly(urlString: String, category: FeedCategory, sourceName: String? = nil, sourceAuthor: String? = nil, sourceImageURL: String? = nil, validateFeed: Bool = true, summaryURL: String? = nil) {
+	private func addFeedDirectly(urlString: String, category: FeedCategory, sourceName: String? = nil, sourceAuthor: String? = nil, sourceImageURL: String? = nil, validateFeed: Bool = true, summaryURL: String? = nil, completion: (() -> Void)? = nil) {
 		let normalizedURL = urlString.normalizedURL
 		guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else {
 			return
@@ -705,10 +705,18 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			Task {
 				BatchUpdate.shared.start()
 
-				account.createFeed(url: url.absoluteString, name: nil, container: account, validateFeed: validateFeed) { result in
-				// Set category before ending batch update to avoid UI flicker
+				account.createFeed(url: url.absoluteString, name: sourceName, container: account, validateFeed: validateFeed) { result in
+				// Set category and rebuild sidebar immediately so feed appears in the correct section
 				if case .success(let feed) = result {
 					feed.feedCategory = category
+					NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
+					if !validateFeed, let summaryURL {
+						Task {
+							if let iconURL = await Self.fetchFeedIconURL(summaryURL: summaryURL) {
+								await MainActor.run { feed.iconURL = iconURL }
+							}
+						}
+					}
 				}
 
 				BatchUpdate.shared.end()
@@ -739,6 +747,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 						)
 						// Expand the corresponding category section
 						self.expandCategorySectionForCategory(category)
+						completion?()
 					case .failure(let error):
 						self.presentError(error)
 					}
@@ -791,6 +800,26 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			return nil
 		}
 	}
+
+	/// Fetches the generated feed JSON at  and returns the  value.
+	/// The expected format is the generated feed header: {"title":...,"image_link":...}.
+	private static func fetchFeedIconURL(summaryURL: String) async -> String? {
+		guard let url = URL(string: summaryURL) else { return nil }
+		guard let (data, response) = try? await URLSession.shared.data(from: url),
+			  let httpResponse = response as? HTTPURLResponse,
+			  (200...299).contains(httpResponse.statusCode),
+			  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+			return nil
+		}
+		let keys = ["image_link", "icon", "favicon"]
+		for key in keys {
+			if let v = json[key] as? String, !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+				return v
+			}
+		}
+		return nil
+	}
+
 
 	private func expandCategorySectionForCategory(_ category: FeedCategory) {
 		let section: FeedSectionIdentifier
@@ -1391,8 +1420,11 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		guard let feed = note.object as? Feed, let key = note.userInfo?[Feed.SettingUserInfoKey] as? String else {
 			return
 		}
-		if key == Feed.SettingKey.homePageURL || key == Feed.SettingKey.faviconURL {
-			configureCellsForRepresentedObject(feed)
+		if key == Feed.SettingKey.homePageURL || key == Feed.SettingKey.faviconURL || key == Feed.SettingKey.iconURL {
+			// Defer so FeedIconDownloader's feedSettingDidChange (cache invalidation) runs first.
+			DispatchQueue.main.async {
+				self.applyToCellsForRepresentedObject(feed, self.configureIcon(_:_:))
+			}
 		}
 	}
 
@@ -1526,11 +1558,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				loadingAlert.dismiss(animated: true) {
 					switch result {
 					case .successExisting(let summaryURL):
-						self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, summaryURL: summaryURL)
+						self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+							appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
+						}
 
 					case .successNew(let summaryURL):
-						self.showPodcastSuccessMessage {
-							self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL)
+						self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+							self.showPodcastSuccessMessage {}
 						}
 
 					case .failure(let message):
@@ -2301,12 +2335,13 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 				loadingAlert.dismiss(animated: true) {
 					switch result {
 					case .successExisting(let summaryURL):
-						self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, summaryURL: summaryURL)
+						self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+							appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
+						}
 
 					case .successNew(let summaryURL):
-						// New channel — skip validation since CDN may not have propagated yet
-						self.showYoutubeSuccessMessage {
-							self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL)
+						self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+							self.showYoutubeSuccessMessage {}
 						}
 
 					case .failure(let message):
