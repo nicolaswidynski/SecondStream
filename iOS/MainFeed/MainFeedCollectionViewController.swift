@@ -65,12 +65,15 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	/// The floating bottom action bar with blur effect (pill-shaped)
 	private lazy var bottomActionBar: UIVisualEffectView = {
-		let blurEffect = UIBlurEffect(style: .systemMaterial)
+		let blurEffect = UIBlurEffect(style: .systemChromeMaterial)
 		let visualEffectView = UIVisualEffectView(effect: blurEffect)
 		visualEffectView.translatesAutoresizingMaskIntoConstraints = false
 		// Use half the height (35pt) for a full pill/oval shape
 		visualEffectView.layer.cornerRadius = 35
 		visualEffectView.clipsToBounds = true
+		// Thin border matching the UINavigationBar/UIToolbar separator tone
+		visualEffectView.layer.borderWidth = 0.5
+		visualEffectView.layer.borderColor = UIColor.separator.cgColor
 		return visualEffectView
 	}()
 
@@ -78,7 +81,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	private lazy var actionButtonsStack: UIStackView = {
 		let stack = UIStackView()
 		stack.axis = .horizontal
-		stack.distribution = .equalSpacing
+		stack.distribution = .fillEqually
 		stack.alignment = .center
 		stack.spacing = 24
 		stack.translatesAutoresizingMaskIntoConstraints = false
@@ -248,17 +251,26 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		bottomActionBar.contentView.addSubview(actionButtonsStack)
 
 		NSLayoutConstraint.activate([
-			// Position action bar at bottom center with a fixed compact width
+			// Position action bar at bottom center
 			bottomActionBar.centerXAnchor.constraint(equalTo: view.centerXAnchor),
 			bottomActionBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
 			bottomActionBar.heightAnchor.constraint(equalToConstant: 70),
-			bottomActionBar.widthAnchor.constraint(equalToConstant: 260),
-
-			// Stack view centered inside the action bar
-			actionButtonsStack.centerXAnchor.constraint(equalTo: bottomActionBar.contentView.centerXAnchor),
-			actionButtonsStack.centerYAnchor.constraint(equalTo: bottomActionBar.contentView.centerYAnchor),
-			actionButtonsStack.leadingAnchor.constraint(equalTo: bottomActionBar.contentView.leadingAnchor, constant: 16),
-			actionButtonsStack.trailingAnchor.constraint(equalTo: bottomActionBar.contentView.trailingAnchor, constant: -16)
+ 
+			// Stack view constraints inside the action bar
+			actionButtonsStack.leadingAnchor.constraint(equalTo: bottomActionBar.contentView.leadingAnchor, constant: 26),
+			actionButtonsStack.trailingAnchor.constraint(equalTo: bottomActionBar.contentView.trailingAnchor, constant: -20),
+			actionButtonsStack.centerYAnchor.constraint(equalTo: bottomActionBar.contentView.centerYAnchor)
+//			// Position action bar at bottom center with a fixed compact width
+//			bottomActionBar.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+//			bottomActionBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
+//			bottomActionBar.heightAnchor.constraint(equalToConstant: 70),
+//			bottomActionBar.widthAnchor.constraint(equalToConstant: 260),
+//
+//			// Stack view centered inside the action bar
+//			actionButtonsStack.centerXAnchor.constraint(equalTo: bottomActionBar.contentView.centerXAnchor),
+//			actionButtonsStack.centerYAnchor.constraint(equalTo: bottomActionBar.contentView.centerYAnchor),
+//			actionButtonsStack.leadingAnchor.constraint(equalTo: bottomActionBar.contentView.leadingAnchor, constant: 16),
+//			actionButtonsStack.trailingAnchor.constraint(equalTo: bottomActionBar.contentView.trailingAnchor, constant: -16)
 		])
 
 		// Add content insets: top for Recently Updated strip, bottom for action bar
@@ -2265,7 +2277,7 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 		// Show loading indicator
 		let loadingAlert = UIAlertController(
 			title: nil,
-			message: NSLocalizedString("Adding YouTube channel...", comment: "Adding YouTube channel..."),
+			message: NSLocalizedString("Searching for YouTube channel...", comment: "Searching for YouTube channel..."),
 			preferredStyle: .alert
 		)
 
@@ -2349,7 +2361,7 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 		// Show loading indicator
 		let loadingAlert = UIAlertController(
 			title: nil,
-			message: NSLocalizedString("Adding topic...", comment: "Adding topic..."),
+			message: NSLocalizedString("Searching for topic...", comment: "Searching for topic..."),
 			preferredStyle: .alert
 		)
 

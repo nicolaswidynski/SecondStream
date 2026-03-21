@@ -27,7 +27,7 @@ final class PodcastPickerViewController: UIViewController {
 		super.viewDidLoad()
 
 		title = NSLocalizedString("Add Podcast", comment: "Add Podcast")
-		view.backgroundColor = .systemBackground
+		view.backgroundColor = .systemGroupedBackground
 
 		navigationItem.leftBarButtonItem = UIBarButtonItem(
 			barButtonSystemItem: .cancel,
@@ -69,7 +69,7 @@ final class PodcastPickerViewController: UIViewController {
 		let layout = createLayout()
 		collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
 		collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-		collectionView.backgroundColor = .systemBackground
+		collectionView.backgroundColor = .systemGroupedBackground
 		collectionView.delegate = self
 		collectionView.register(SourcePickerCell.self, forCellWithReuseIdentifier: SourcePickerCell.reuseIdentifier)
 		collectionView.register(

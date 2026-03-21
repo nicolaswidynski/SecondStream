@@ -1629,6 +1629,7 @@ struct SidebarItemNode: Hashable, Sendable {
 
 		addNavViewController.modalPresentationStyle = .formSheet
 		addNavViewController.preferredContentSize = AddFeedViewController.preferredContentSizeForFormSheetDisplay
+		addNavViewController.view.backgroundColor = .systemGroupedBackground
 		mainFeedCollectionViewController.present(addNavViewController, animated: true)
 	}
 
@@ -1636,6 +1637,7 @@ struct SidebarItemNode: Hashable, Sendable {
 		let addNavViewController = UIStoryboard.add.instantiateViewController(withIdentifier: "AddFolderViewControllerNav") as! UINavigationController
 		addNavViewController.modalPresentationStyle = .formSheet
 		addNavViewController.preferredContentSize = AddFolderViewController.preferredContentSizeForFormSheetDisplay
+		addNavViewController.view.backgroundColor = .systemGroupedBackground
 		mainFeedCollectionViewController.present(addNavViewController, animated: true)
 	}
 

@@ -27,7 +27,7 @@ final class RSSPickerViewController: UIViewController {
 		super.viewDidLoad()
 
 		title = NSLocalizedString("Add RSS Feed", comment: "Add RSS Feed")
-		view.backgroundColor = .systemBackground
+		view.backgroundColor = .systemGroupedBackground
 
 		navigationItem.leftBarButtonItem = UIBarButtonItem(
 			barButtonSystemItem: .cancel,
@@ -70,7 +70,7 @@ final class RSSPickerViewController: UIViewController {
 		let layout = createLayout()
 		collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
 		collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-		collectionView.backgroundColor = .systemBackground
+		collectionView.backgroundColor = .systemGroupedBackground
 		collectionView.delegate = self
 		collectionView.register(SourcePickerCell.self, forCellWithReuseIdentifier: SourcePickerCell.reuseIdentifier)
 		collectionView.register(

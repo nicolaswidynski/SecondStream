@@ -588,6 +588,8 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		tableView.isPrefetchingEnabled = false
 		tableView.estimatedSectionHeaderHeight = 50
 		tableView.sectionHeaderTopPadding = 0
+		// Match the main feed's insetGrouped background (storyboard overrides this to systemBackground).
+		tableView.backgroundColor = .systemGroupedBackground
 
 		numberOfTextLines = AppDefaults.shared.timelineNumberOfLines
 		iconSize = AppDefaults.shared.timelineIconSize
@@ -825,7 +827,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 			label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
 			label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
 			label.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
-			label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6)
+			label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10)
 		])
 		return container
 	}

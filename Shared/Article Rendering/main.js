@@ -162,19 +162,13 @@ function createCollapsibleSection(headerElement, headerText, headerClass, siblin
 	wrapper.className = "nnw-collapsible";
 	wrapper.setAttribute("data-open", startCollapsed ? "false" : "true");
 
-	// Create clickable header with dropdown arrow
+	// Create clickable header
 	const headerDiv = document.createElement("div");
 	headerDiv.className = "nnw-collapsible-header " + headerClass;
-
-	// Add dropdown arrow
-	const arrow = document.createElement("span");
-	arrow.className = "nnw-collapsible-arrow";
-	arrow.innerHTML = startCollapsed ? "▶" : "▼";
 
 	const headerContent = document.createElement("span");
 	headerContent.innerHTML = headerText;
 
-	headerDiv.appendChild(arrow);
 	headerDiv.appendChild(headerContent);
 
 	// Create content div
@@ -204,11 +198,9 @@ function createCollapsibleSection(headerElement, headerText, headerClass, siblin
 		if (isOpen) {
 			section.setAttribute("data-open", "false");
 			contentDiv.style.display = "none";
-			arrowSpan.innerHTML = "▶";
 		} else {
 			section.setAttribute("data-open", "true");
 			contentDiv.style.display = "block";
-			arrowSpan.innerHTML = "▼";
 		}
 	});
 

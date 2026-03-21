@@ -234,6 +234,14 @@ private extension JSONFeedParser {
 		return nil
 	}
 
+	// MARK: - Section icons (inline SVG, currentColor → inherits header blue)
+
+	private static let iconSummary = "<svg width=\"16\" height=\"16\" viewBox=\"0 0 12 12\" fill=\"currentColor\" style=\"vertical-align:middle;margin-right:5px\"><rect x=\"1\" y=\"1.5\" width=\"10\" height=\"1.5\" rx=\"0.75\"/><rect x=\"1\" y=\"5\" width=\"10\" height=\"1.5\" rx=\"0.75\"/><rect x=\"1\" y=\"8.5\" width=\"7\" height=\"1.5\" rx=\"0.75\"/></svg>"
+
+	private static let iconPractical = "<svg width=\"16\" height=\"16\" viewBox=\"0 0 12 12\" fill=\"currentColor\" style=\"vertical-align:middle;margin-right:5px\"><path d=\"M6 0.5a3 3 0 0 0-1.8 5.4V8h3.6V5.9A3 3 0 0 0 6 0.5zm-1 8.5h2v.4a1 1 0 0 1-2 0V9z\"/></svg>"
+
+	private static let iconDeepDive = "<svg width=\"16\" height=\"16\" viewBox=\"0 0 12 12\" fill=\"currentColor\" style=\"vertical-align:middle;margin-right:5px\"><circle cx=\"9\" cy=\"2\" r=\"1.2\"/><path d=\"M1.5 5.5 5 3.5l1.5 2.5-2.5 1.5 1 2H3.5L1.5 7z\"/><path d=\"M1 9.5 Q3 8 5 9.5 Q7 11 9 9.5 Q11 8 11 8\" stroke=\"currentColor\" stroke-width=\"1.1\" fill=\"none\" stroke-linecap=\"round\"/></svg>"
+
 	static func generatedShowHTML(from dictionary: JSONDictionary) -> String? {
 		var blocks = [String]()
 
@@ -244,17 +252,17 @@ private extension JSONFeedParser {
 
 		let summaryBlocks = titledContentLinesHTML(from: dictionary[Key.summary])
 		if !summaryBlocks.isEmpty {
-			blocks.append("<h2>Summary</h2><ul class=\"nnw-generated-bullet-list\">\(summaryBlocks.joined())</ul>")
+			blocks.append("<h2>\(iconSummary)Summary</h2><ul class=\"nnw-generated-bullet-list\">\(summaryBlocks.joined())</ul>")
 		}
 
 		let practicalBlocks = titledContentLinesHTML(from: dictionary[Key.practicalApplications])
 		if !practicalBlocks.isEmpty {
-			blocks.append("<h2>Practical Applications</h2><ul class=\"nnw-generated-bullet-list\">\(practicalBlocks.joined())</ul>")
+			blocks.append("<h2>\(iconPractical)Practical Applications</h2><ul class=\"nnw-generated-bullet-list\">\(practicalBlocks.joined())</ul>")
 		}
 
 		let inDepthParagraphs = titledContentParagraphsHTML(from: dictionary[Key.deepDive])
 		if !inDepthParagraphs.isEmpty {
-			blocks.append("<h2>Deep Dive</h2>\(inDepthParagraphs.joined())")
+			blocks.append("<h2>\(iconDeepDive)Deep Dive</h2>\(inDepthParagraphs.joined())")
 		}
 
 		let html = blocks.joined(separator: "\n")
@@ -317,11 +325,12 @@ private extension JSONFeedParser {
 			let author = nonEmptyString(metadata?["author"])
 			let pubDate = nonEmptyString(metadata?[Key.pubDate])
 
+			let iconNews = "<svg width=\"16\" height=\"16\" viewBox=\"0 0 12 12\" fill=\"currentColor\" style=\"vertical-align:middle;margin-right:5px\"><rect x=\"1\" y=\"1\" width=\"10\" height=\"10\" rx=\"1.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.2\"/><rect x=\"2.5\" y=\"2.5\" width=\"7\" height=\"1.5\" rx=\"0.5\"/><rect x=\"2.5\" y=\"5\" width=\"7\" height=\"1\" rx=\"0.5\"/><rect x=\"2.5\" y=\"7\" width=\"4.5\" height=\"1\" rx=\"0.5\"/></svg>"
 			let titleHTML: String
 			if let link {
-				titleHTML = "<h3><a href=\"\(htmlEscaped(link))\">\(htmlEscaped(title))</a></h3>"
+				titleHTML = "<h3>\(iconNews)<a href=\"\(htmlEscaped(link))\">\(htmlEscaped(title))</a></h3>"
 			} else {
-				titleHTML = "<h3>\(htmlEscaped(title))</h3>"
+				titleHTML = "<h3>\(iconNews)\(htmlEscaped(title))</h3>"
 			}
 
 			var metadataLines = [String]()
@@ -331,7 +340,7 @@ private extension JSONFeedParser {
 			if let pubDate {
 				metadataLines.append("<li><strong>Published</strong>: \(htmlEscaped(pubDate))</li>")
 			}
-			let metadataHTML = metadataLines.isEmpty ? "" : "<ul>\(metadataLines.joined())</ul>"
+			let metadataHTML = metadataLines.isEmpty ? "" : "<ul class=\"nnw-topics-metadata\">\(metadataLines.joined())</ul>"
 
 			let summaryHTML = generatedTopicsSummaryHTML(item[Key.summary])
 
@@ -341,17 +350,17 @@ private extension JSONFeedParser {
 		guard !sections.isEmpty else {
 			return nil
 		}
-		return sections.joined(separator: "<hr>")
+		return sections.joined(separator: "\n")
 	}
 
 	static func generatedTopicsSummaryHTML(_ value: Any?) -> String {
 		if let list = value as? [String] {
-			let bulletLines = list
+			let items = list
 				.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
 				.filter { !$0.isEmpty }
-				.map { "• \(htmlEscaped($0))" }
-			guard !bulletLines.isEmpty else { return "<p>No summary available.</p>" }
-			return "<p>\(bulletLines.joined(separator: "<br>"))</p>"
+				.map { "<li class=\"nnw-generated-bullet-item\">\(htmlEscaped($0))</li>" }
+			guard !items.isEmpty else { return "<p>No summary available.</p>" }
+			return "<ul class=\"nnw-generated-bullet-list\">\(items.joined())</ul>"
 		}
 
 		guard let text = nonEmptyString(value) else {
@@ -363,13 +372,11 @@ private extension JSONFeedParser {
 			.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
 			.filter { !$0.isEmpty }
 		if !lines.isEmpty && lines.allSatisfy({ $0.hasPrefix("- ") || $0.hasPrefix("• ") }) {
-			let bulletLines = lines.map { line -> String in
-				if line.hasPrefix("• ") {
-					return htmlEscaped(line)
-				}
-				return "• \(htmlEscaped(String(line.dropFirst(2))))"
+			let items = lines.map { line -> String in
+				let content = line.hasPrefix("• ") ? String(line.dropFirst(2)) : String(line.dropFirst(2))
+				return "<li class=\"nnw-generated-bullet-item\">\(htmlEscaped(content))</li>"
 			}
-			return "<p>\(bulletLines.joined(separator: "<br>"))</p>"
+			return "<ul class=\"nnw-generated-bullet-list\">\(items.joined())</ul>"
 		}
 
 		return "<p>\(htmlEscaped(text))</p>"

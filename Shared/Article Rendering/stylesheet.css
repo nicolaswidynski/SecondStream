@@ -338,7 +338,7 @@ blockquote {
 	list-style-type: disc !important;
 	list-style-position: outside !important;
 }
-
+ 
 .articleBody li.nnw-generated-bullet-item {
 	margin-left: 0.28em !important;
 }
@@ -457,12 +457,15 @@ a.footnote:hover,
 	body {
 		margin-top: 3px;
 		margin-bottom: 20px;
-		padding-left: 20px;
-		padding-right: 20px;
+		padding-left: 16px;
+		padding-right: 16px;
 
 		word-break: break-word;
 		-webkit-hyphens: auto;
 		-webkit-text-size-adjust: none;
+
+		/* secondarySystemBackground / tertiarySystemBackground */
+		background-color: var(--page-bg);
 	}
 
 	:root {
@@ -474,6 +477,11 @@ a.footnote:hover,
 		--secondary-accent-color: #086AEE;
 		--block-quote-border-color: rgba(0, 0, 0, 0.25);
 		--ios-hover-color: lightgray; /* placeholder */
+
+		/* GroupBox system colors — light mode (unchanged) */
+		--page-bg:        #F2F2F7; /* secondarySystemBackground */
+		--groupbox-bg:    #FFFFFF; /* tertiarySystemBackground  */
+		--separator:      #C6C6C8; /* opaqueSeparator            */
 	}
 
 	@media(prefers-color-scheme: dark) {
@@ -483,6 +491,11 @@ a.footnote:hover,
 			--block-quote-border-color: rgba(94, 158, 244, 0.75);
 			--header-table-border-color: rgba(255, 255, 255, 0.2);
 			--ios-hover-color: #444444; /* placeholder */
+
+			/* GroupBox system colors — dark mode */
+			--page-bg:        #262628;/*#2C2C2E;       /* tertiarySystemBackground  */
+			--groupbox-bg:    #353538;
+			--separator:      #54545899; /*38383A;       /* opaqueSeparator            */
 		}
 	}
 
@@ -530,6 +543,67 @@ a.footnote:hover,
 
 	pre {
 		padding: 5px;
+	}
+
+	/* ── GroupBox card style (Health-app look) ── */
+	.nnw-collapsible {
+		background-color: var(--groupbox-bg);
+		border-radius: 12px;
+		padding: 6px 14px 10px; /* less top so title sits close to card edge */
+		margin: 12px 8px;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+	}
+
+	/* Topics metadata (Author / Published) — small, modest indent, not full bullet indent */
+	.nnw-topics-metadata {
+		list-style-type: disc;
+		padding-left: 4em;
+		font-size: 0.75em;
+		margin: 0.05em 0 0.3em 0;
+		line-height: 1.4;
+		opacity: 0.85;
+	}
+
+	/* Extra breathing room after the very last card */
+	.nnw-collapsible:last-child {
+		margin-bottom: 20px;
+	}
+
+	/* Section label — primary accent color, same size as body text. */
+	.nnw-collapsible-header {
+		color: var(--primary-accent-color);
+		font-size: 1em;
+		font-weight: bold;
+		margin-bottom: 12px;
+		padding-left: 0.3em;
+	}
+
+	/* Inside cards: zero out content indent, reduce bullet list padding to minimum
+	   needed to show the disc marker (outside positioning = marker hangs in padding). */
+	.nnw-collapsible .nnw-collapsible-content {
+		padding-left: 0.5em !important;
+	}
+
+	.nnw-collapsible .nnw-collapsible-content ul.nnw-generated-bullet-list {
+		padding-left: 1.2em !important;
+		margin-left: 0 !important;
+	}
+
+	.nnw-collapsible .nnw-collapsible-content li.nnw-generated-bullet-item {
+		margin-left: 0 !important;
+	}
+
+
+	/* Separator between paragraphs inside a section */
+	.nnw-collapsible-content p:not(:last-child) {
+		border-bottom: 1px solid var(--separator);
+		padding-bottom: 0.75em;
+		margin-bottom: 0.75em;
+	}
+
+	/* Remove default paragraph margin at the very end so the card bottom padding is consistent */
+	.nnw-collapsible-content p:last-child {
+		margin-bottom: 0;
 	}
 
 }
