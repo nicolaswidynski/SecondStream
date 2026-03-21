@@ -41,7 +41,7 @@ struct LockScreenSummaryWidgetView: View {
     }
 
 	var starredImage: some View {
-		Image(systemName: "star.fill")
+		Image(systemName: "bookmark.fill")//star.fill")
 			.resizable()
 			.frame(width: 14, height: 14)
 	}

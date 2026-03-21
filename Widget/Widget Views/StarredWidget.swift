@@ -58,7 +58,7 @@ struct StarredWidgetView: View {
 	}
 
 	var starredImage: some View {
-		Image(systemName: "star.fill")
+		Image(systemName: "bookmark.fill")//star.fill")
 			.resizable()
 			.frame(width: WidgetLayout.titleImageSize, height: WidgetLayout.titleImageSize, alignment: .top)
 			.cornerRadius(4)
@@ -80,7 +80,7 @@ struct StarredWidgetView: View {
 	var inboxZero: some View {
 		VStack(alignment: .center) {
 			Spacer()
-			Image(systemName: "star.fill")
+			Image(systemName: "bookmark.fill")//star.fill")
 				.resizable()
 				.aspectRatio(contentMode: .fit)
 				.frame(width: 30)

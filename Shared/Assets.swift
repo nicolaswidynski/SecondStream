@@ -32,8 +32,10 @@ struct Assets {
 		static var accountNewsBlur: RSImage { RSImage(named: "accountNewsBlur")! }
 		static var accountTheOldReader: RSImage { RSImage(named: "accountTheOldReader")! }
 
-		static var starOpen: RSImage { RSImage(symbol: "star")! }
-		static var starClosed: RSImage { RSImage(symbol: "star.fill")! }
+//		static var starOpen: RSImage { RSImage(symbol: "star")! }
+//		static var starClosed: RSImage { RSImage(symbol: "star.fill")! }
+		static var starOpen: RSImage { RSImage(symbol: "bookmark")! }
+		static var starClosed: RSImage { RSImage(symbol: "bookmark.fill")! }
 		static var copy: RSImage { RSImage(symbol: "document.on.document")! }
 		static var markAllAsRead: RSImage { RSImage(named: "markAllAsRead")! }
 		static var nextUnread: RSImage { RSImage(symbol: "chevron.down.circle")! }
@@ -167,7 +169,7 @@ struct Assets {
 							 preferredColor: Assets.Colors.secondaryAccent.cgColor)
 		}
 		static var timelineStar: RSImage {
-			let image = RSImage(symbol: "star.fill")!
+			let image = RSImage(symbol: "bookmark.fill")!//star.fill")!
 			return image.withTintColor(Assets.Colors.star, renderingMode: .alwaysOriginal)
 		}
 		static var unreadCellIndicator: IconImage {
