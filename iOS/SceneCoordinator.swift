@@ -134,6 +134,8 @@ struct SidebarItemNode: Hashable, Sendable {
 
 	// Which category sections are expanded (feed categories collapsed by default)
 	private var expandedCategorySections = Set<FeedSectionIdentifier>()
+	// Set to true after the first unread-based expansion so user toggles are preserved
+	private var didApplyInitialCategoryExpansion = false
 
 	private let hidingReadArticlesState = HidingReadArticlesState()
 
@@ -539,6 +541,18 @@ struct SidebarItemNode: Hashable, Sendable {
 	@objc func unreadCountDidInitialize(_ notification: Notification) {
 		guard notification.object is AccountManager else {
 			return
+		}
+
+		// Expand any category section that has at least one unread feed.
+		// Only done once per session; subsequent user toggles are preserved.
+		if !didApplyInitialCategoryExpansion {
+			didApplyInitialCategoryExpansion = true
+			let allSections: [FeedSectionIdentifier] = [.podcasts, .youtube, .news, .rssFeeds]
+			for section in allSections {
+				if unreadCountForCategorySection(section) > 0 {
+					expandedCategorySections.insert(section)
+				}
+			}
 		}
 
 		// Always rebuild after unread counts initialize to ensure category sections
