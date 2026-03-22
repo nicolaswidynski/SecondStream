@@ -148,6 +148,7 @@ enum AddYoutubeResult {
 			let added = Array(newURLs.subtracting(oldURLs))
 			SourceImageCache.shared.removeImages(for: removed)
 			SourceImageCache.shared.prefetchImages(for: added)
+			SourceImageCache.shared.prefetchImages(for: sources.compactMap(\.imageURLLight))
 			self.youtubeSources = sources
 			sources.forEach { LightFeedIconStore.shared.setLightIconURL($0.imageURLLight, for: $0.url) }
 			Self.logger.info("Fetched \(sources.count) top YouTube sources")
@@ -162,6 +163,7 @@ enum AddYoutubeResult {
 			let added = Array(newURLs.subtracting(oldURLs))
 			SourceImageCache.shared.removeImages(for: removed)
 			SourceImageCache.shared.prefetchImages(for: added)
+			SourceImageCache.shared.prefetchImages(for: sources.compactMap(\.imageURLLight))
 			self.youtubeLibrarySources = sources
 			sources.forEach { LightFeedIconStore.shared.setLightIconURL($0.imageURLLight, for: $0.url) }
 			Self.logger.info("Fetched \(sources.count) library YouTube sources")

@@ -28,6 +28,13 @@ import Foundation
 		store[feedURL]
 	}
 
+	/// Returns all feed URLs that map to the given light icon URL.
+	func feedURLs(forLightIconURL lightURL: String) -> [String] {
+		store.compactMap { feedURL, storedLightURL in
+			storedLightURL == lightURL ? feedURL : nil
+		}
+	}
+
 	func setLightIconURL(_ lightURL: String?, for feedURL: String) {
 		var current = store
 		if let lightURL, !lightURL.isEmpty {

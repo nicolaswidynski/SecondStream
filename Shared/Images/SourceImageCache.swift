@@ -21,6 +21,7 @@ extension Notification.Name {
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "SourceImageCache")
 
 	private var memoryCache = [String: UIImage]()
+	private var adaptiveCache = [String: UIImage]()
 	private var urlsInProgress = Set<String>()
 	private let cacheDirectory: URL
 
@@ -49,6 +50,33 @@ extension Notification.Name {
 		// Download async
 		startDownload(urlString)
 		return nil
+	}
+
+	/// Returns an adaptive UIImage that automatically switches between dark and light variants.
+	/// If no lightURL is provided, behaves like `image(for:)`.
+	func adaptiveImage(darkURL: String, lightURL: String?) -> UIImage? {
+		guard let lightURL else {
+			return image(for: darkURL)
+		}
+
+		let key = darkURL + "|" + lightURL
+		if let cached = adaptiveCache[key] {
+			return cached
+		}
+
+		let darkImage = image(for: darkURL)
+		let lightImage = image(for: lightURL)
+
+		guard let darkImage, let lightImage else {
+			return darkImage ?? lightImage
+		}
+
+		let asset = UIImageAsset()
+		asset.register(darkImage, with: UITraitCollection(userInterfaceStyle: .dark))
+		asset.register(lightImage, with: UITraitCollection(userInterfaceStyle: .light))
+		// darkImage is now backed by the asset and will resolve the correct variant automatically
+		adaptiveCache[key] = darkImage
+		return darkImage
 	}
 
 	private func startDownload(_ urlString: String) {
@@ -86,6 +114,12 @@ extension Notification.Name {
 				memoryCache[urlString] = image
 				urlsInProgress.remove(urlString)
 
+				// Invalidate adaptive cache entries that used this URL
+				adaptiveCache = adaptiveCache.filter { key, _ in
+					let parts = key.split(separator: "|", maxSplits: 1).map(String.init)
+					return !parts.contains(urlString)
+				}
+
 				NotificationCenter.default.post(
 					name: .sourceImageDidBecomeAvailable,
 					object: self,
@@ -104,6 +138,10 @@ extension Notification.Name {
 			memoryCache.removeValue(forKey: urlString)
 			let fileURL = diskURL(for: urlString)
 			try? FileManager.default.removeItem(at: fileURL)
+			adaptiveCache = adaptiveCache.filter { key, _ in
+				let parts = key.split(separator: "|", maxSplits: 1).map(String.init)
+				return !parts.contains(urlString)
+			}
 		}
 		if !urlStrings.isEmpty {
 			Self.logger.info("Removed \(urlStrings.count) stale source images")
@@ -148,6 +186,7 @@ extension Notification.Name {
 
 	func clearCache() {
 		memoryCache.removeAll()
+		adaptiveCache.removeAll()
 		urlsInProgress.removeAll()
 		try? FileManager.default.removeItem(at: cacheDirectory)
 		try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)

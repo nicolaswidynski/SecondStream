@@ -89,11 +89,6 @@ final class ArticleViewController: UIViewController {
 		NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
 
-		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (_: ArticleViewController, _: UITraitCollection) in
-			self?.lastNavigationIconKey = nil
-			self?.updateNavigationHeader()
-		}
-
 		let titleView = FeedNavigationChrome.makeTitleView(target: self, action: #selector(showCurrentFeedHomepage(_:)))
 		titleView.transform = CGAffineTransform(translationX: 0, y: -3)
 		navigationItem.titleView = titleView
@@ -570,8 +565,7 @@ private extension ArticleViewController {
 			return
 		}
 
-		let styleKey = traitCollection.userInterfaceStyle == .light ? "light" : "dark"
-		let iconKey = String(describing: iconSource.sidebarItemID) + styleKey
+		let iconKey = String(describing: iconSource.sidebarItemID)
 		if iconKey == lastNavigationIconKey, navigationItem.rightBarButtonItem != nil {
 			return
 		}
@@ -584,15 +578,7 @@ private extension ArticleViewController {
 			return
 		}
 
-		let iconImage: IconImage?
-		if traitCollection.userInterfaceStyle == .light,
-		   let feed = iconSource as? Feed,
-		   let lightURL = LightFeedIconStore.shared.lightIconURL(for: feed.url),
-		   let uiImage = SourceImageCache.shared.image(for: lightURL) {
-			iconImage = IconImage(uiImage)
-		} else {
-			iconImage = IconImageCache.shared.imageForFeed(iconSource)
-		}
+		let iconImage = IconImageCache.shared.imageForFeed(iconSource)
 
 		guard let iconImage else {
 			if isSmartTimeline {

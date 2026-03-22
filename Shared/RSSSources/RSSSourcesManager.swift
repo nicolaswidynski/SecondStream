@@ -97,6 +97,31 @@ enum AddRSSResult {
 		return nil
 	}
 
+	/// Returns the light-mode image URL for a subscribed RSS feed URL, if present.
+	func lightImageURL(forFeedURL feedURL: String, homePageURL: String?) -> String? {
+		let normalizedFeedURL = normalizedURLKey(feedURL)
+		let normalizedHomePageURL = normalizedURLKey(homePageURL)
+
+		for source in rssSources {
+			let sourceURL = normalizedURLKey(source.url)
+			guard !sourceURL.isEmpty else {
+				continue
+			}
+			let matchesFeed = !normalizedFeedURL.isEmpty && sourceURL == normalizedFeedURL
+			let matchesHome = !normalizedHomePageURL.isEmpty && sourceURL == normalizedHomePageURL
+			guard matchesFeed || matchesHome else {
+				continue
+			}
+			guard let lightURL = source.imageURLLight?.trimmingCharacters(in: .whitespacesAndNewlines),
+				  !lightURL.isEmpty else {
+				continue
+			}
+			return lightURL
+		}
+
+		return nil
+	}
+
 	func matches(imageURL candidateImageURL: String, feedURL: String, homePageURL: String?) -> Bool {
 		guard let matched = imageURL(forFeedURL: feedURL, homePageURL: homePageURL) else {
 			return false
@@ -158,6 +183,7 @@ enum AddRSSResult {
 		let added = Array(newURLs.subtracting(oldURLs))
 		SourceImageCache.shared.removeImages(for: removed)
 		SourceImageCache.shared.prefetchImages(for: added)
+		SourceImageCache.shared.prefetchImages(for: sources.compactMap(\.imageURLLight))
 		self.rssSources = sources
 		sources.forEach { LightFeedIconStore.shared.setLightIconURL($0.imageURLLight, for: $0.url) }
 		Self.logger.info("Fetched \(sources.count) RSS sources")

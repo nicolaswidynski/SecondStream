@@ -836,11 +836,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
 
-		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (_: MainFeedCollectionViewController, _: UITraitCollection) in
-			self?.applyToAvailableCells { (cell, indexPath) in
-				self?.configureIcon(cell, indexPath)
-			}
-		}
 	}
 
 	private func applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip() {
@@ -1167,56 +1162,32 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		guard let sidebarItemID = sidebarItem.sidebarItemID else {
 			return
 		}
-		if traitCollection.userInterfaceStyle == .light,
-		   let feed = sidebarItem as? Feed,
-		   let lightURL = LightFeedIconStore.shared.lightIconURL(for: feed.url),
-		   let uiImage = SourceImageCache.shared.image(for: lightURL) {
-			cell.iconImage = IconImage(uiImage)
-		} else {
-			cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
-		}
+		cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
 	}
 
 	func configureIcon(_ cell: MainFeedCollectionViewFolderCell, sidebarItem: SidebarItem) {
 		guard let sidebarItemID = sidebarItem.sidebarItemID else {
 			return
 		}
-		if traitCollection.userInterfaceStyle == .light,
-		   let feed = sidebarItem as? Feed,
-		   let lightURL = LightFeedIconStore.shared.lightIconURL(for: feed.url),
-		   let uiImage = SourceImageCache.shared.image(for: lightURL) {
-			cell.iconImage = IconImage(uiImage)
-		} else {
-			cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
-		}
+		cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
 	}
 
 	func configureIcon(_ cell: MainFeedCollectionViewCell, _ indexPath: IndexPath) {
-		guard let node = coordinator.nodeFor(indexPath), let sidebarItem = node.representedObject as? SidebarItem, let sidebarItemID = sidebarItem.sidebarItemID else {
+		guard let node = coordinator.nodeFor(indexPath),
+			  let sidebarItem = node.representedObject as? SidebarItem,
+			  let sidebarItemID = sidebarItem.sidebarItemID else {
 			return
 		}
-		if traitCollection.userInterfaceStyle == .light,
-		   let feed = sidebarItem as? Feed,
-		   let lightURL = LightFeedIconStore.shared.lightIconURL(for: feed.url),
-		   let uiImage = SourceImageCache.shared.image(for: lightURL) {
-			cell.iconImage = IconImage(uiImage)
-		} else {
-			cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
-		}
+		cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
 	}
 
 	func configureIcon(_ cell: MainFeedCollectionViewFolderCell, _ indexPath: IndexPath) {
-		guard let node = coordinator.nodeFor(indexPath), let sidebarItem = node.representedObject as? SidebarItem, let sidebarItemID = sidebarItem.sidebarItemID else {
+		guard let node = coordinator.nodeFor(indexPath),
+			  let sidebarItem = node.representedObject as? SidebarItem,
+			  let sidebarItemID = sidebarItem.sidebarItemID else {
 			return
 		}
-		if traitCollection.userInterfaceStyle == .light,
-		   let feed = sidebarItem as? Feed,
-		   let lightURL = LightFeedIconStore.shared.lightIconURL(for: feed.url),
-		   let uiImage = SourceImageCache.shared.image(for: lightURL) {
-			cell.iconImage = IconImage(uiImage)
-		} else {
-			cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
-		}
+		cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
 	}
 
 	func configureCellsForRepresentedObject(_ representedObject: AnyObject) {

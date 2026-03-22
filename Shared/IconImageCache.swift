@@ -98,6 +98,7 @@ import Articles
 			return
 		}
 
+		// Match RSS library feeds by dark image URL
 		for account in AccountManager.shared.activeAccounts {
 			for feed in account.flattenedFeeds() where feed.feedCategory == .rss {
 				if RSSSourcesManager.shared.matches(imageURL: imageURL, feedURL: feed.url, homePageURL: feed.homePageURL) {
@@ -108,6 +109,22 @@ import Articles
 						userInfo: [UserInfoKey.feed: feed]
 					)
 				}
+			}
+		}
+
+		// Match generated-source feeds (podcast/youtube/news) by light image URL
+		let lightFeedURLs = LightFeedIconStore.shared.feedURLs(forLightIconURL: imageURL)
+		guard !lightFeedURLs.isEmpty else {
+			return
+		}
+		for account in AccountManager.shared.activeAccounts {
+			for feed in account.flattenedFeeds() where lightFeedURLs.contains(feed.url) {
+				invalidateFeedCaches(feed)
+				NotificationCenter.default.post(
+					name: .feedIconDidBecomeAvailable,
+					object: self,
+					userInfo: [UserInfoKey.feed: feed]
+				)
 			}
 		}
 	}
@@ -155,6 +172,14 @@ private extension IconImageCache {
 			return sourceIcon
 		}
 		if let iconImage = FeedIconDownloader.shared.icon(for: feed) {
+			// For generated-source feeds, make the icon adaptive if a light URL is available
+			if let lightURL = LightFeedIconStore.shared.lightIconURL(for: feed.url),
+			   let lightImage = SourceImageCache.shared.image(for: lightURL) {
+				let asset = UIImageAsset()
+				asset.register(iconImage.image, with: UITraitCollection(userInterfaceStyle: .dark))
+				asset.register(lightImage, with: UITraitCollection(userInterfaceStyle: .light))
+				// iconImage.image is now backed by the asset and resolves automatically
+			}
 			feedIconImageCache[feedID] = iconImage
 			return iconImage
 		}
@@ -173,8 +198,11 @@ private extension IconImageCache {
 	}
 
 	func rssLibraryIcon(for feed: Feed) -> IconImage? {
-		guard let imageURL = RSSSourcesManager.shared.imageURL(forFeedURL: feed.url, homePageURL: feed.homePageURL),
-			  let image = SourceImageCache.shared.image(for: imageURL) else {
+		guard let darkURL = RSSSourcesManager.shared.imageURL(forFeedURL: feed.url, homePageURL: feed.homePageURL) else {
+			return nil
+		}
+		let lightURL = RSSSourcesManager.shared.lightImageURL(forFeedURL: feed.url, homePageURL: feed.homePageURL)
+		guard let image = SourceImageCache.shared.adaptiveImage(darkURL: darkURL, lightURL: lightURL) else {
 			return nil
 		}
 		return IconImage(image, isSymbol: false, isBackgroundSuppressed: true)
