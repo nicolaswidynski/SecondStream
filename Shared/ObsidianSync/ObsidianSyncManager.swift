@@ -72,10 +72,12 @@ import os.log
 			}
 
 			// Remove unstarred articles
-			for articleID in unstarredArticleIDs {
-				if let article = articles.first(where: { $0.articleID == articleID }) {
-					Task {
-						await removeArticle(article)
+			if AppDefaults.shared.obsidianRemoveOnUnbookmark {
+				for articleID in unstarredArticleIDs {
+					if let article = articles.first(where: { $0.articleID == articleID }) {
+						Task {
+							await removeArticle(article)
+						}
 					}
 				}
 			}
@@ -89,7 +91,7 @@ import os.log
 			for article in articles {
 				if starred {
 					await syncArticle(article)
-				} else {
+				} else if AppDefaults.shared.obsidianRemoveOnUnbookmark {
 					await removeArticle(article)
 				}
 			}

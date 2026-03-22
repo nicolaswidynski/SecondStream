@@ -80,6 +80,7 @@ final class AppDefaults: Sendable {
 		static let obsidianVaultBookmark = "obsidianVaultBookmark"
 		static let obsidianSubfolderFeedType = "obsidianSubfolderFeedType"
 		static let obsidianSubfolderFeedName = "obsidianSubfolderFeedName"
+		static let obsidianRemoveOnUnbookmark = "obsidianRemoveOnUnbookmark"
 			static let ttsVoiceIdentifier = "ttsVoiceIdentifier"
 			static let ttsEnabled = "ttsEnabled"
 		static let notifyFeeds = "notifyFeeds"
@@ -435,6 +436,15 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	var obsidianRemoveOnUnbookmark: Bool {
+		get {
+			AppDefaults.bool(for: Key.obsidianRemoveOnUnbookmark)
+		}
+		set {
+			AppDefaults.setBool(for: Key.obsidianRemoveOnUnbookmark, newValue)
+		}
+	}
+
 	var ttsVoiceIdentifier: String? {
 		get {
 			return AppDefaults.string(for: Key.ttsVoiceIdentifier)
@@ -559,6 +569,7 @@ final class AppDefaults: Sendable {
 									   Key.splitViewPreferredDisplayMode: UISplitViewController.DisplayMode.oneBesideSecondary.rawValue,
 										   Key.obsidianSubfolderFeedType: true,
 										   Key.obsidianSubfolderFeedName: true,
+										   Key.obsidianRemoveOnUnbookmark: true,
 										   Key.ttsEnabled: false,
 										   Key.showAddShowSourceFailureDialog: false,
 									   Key.showHomepageResolutionDebugDialog: false,

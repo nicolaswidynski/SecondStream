@@ -45,7 +45,7 @@ final class SettingsViewController: UITableViewController {
 	@IBOutlet var obsidianSubfolderFeedTypeSwitch: UISwitch!
 	@IBOutlet var obsidianSubfolderFeedNameSwitch: UISwitch!
 	@IBOutlet var obsidianSubfolderPreviewLabel: UILabel!
-	@IBOutlet var obsidianVaultPathLabel: UILabel!
+	@IBOutlet var obsidianRemoveOnUnbookmarkSwitch: UISwitch!
 	@IBOutlet var ttsVoiceDetailLabel: UILabel!
 
 	private var notificationsAuthorized = false
@@ -137,6 +137,7 @@ final class SettingsViewController: UITableViewController {
 		obsidianSyncSwitch.isOn = AppDefaults.shared.isObsidianSyncEnabled
 		obsidianSubfolderFeedTypeSwitch.isOn = AppDefaults.shared.obsidianSubfolderFeedType
 		obsidianSubfolderFeedNameSwitch.isOn = AppDefaults.shared.obsidianSubfolderFeedName
+		obsidianRemoveOnUnbookmarkSwitch.isOn = AppDefaults.shared.obsidianRemoveOnUnbookmark
 		updateObsidianVaultLabel()
 		updateObsidianSubfolderPreview()
 
@@ -203,7 +204,7 @@ final class SettingsViewController: UITableViewController {
 		case 4:
 			return traitCollection.userInterfaceIdiom == .phone ? 5 : 4
 		case 7:
-			// Section 7: row 0 = sync toggle, rows 1-4 = vault/subfolder/preview
+			// Section 7: row 0 = sync toggle, rows 1-5 = vault/subfolder/preview/remove
 			return shouldHideSubOptions(for: 7) ? 1 : super.tableView(tableView, numberOfRowsInSection: section)
 		case ttsSection:
 			return super.tableView(tableView, numberOfRowsInSection: section) + 1
@@ -519,6 +520,10 @@ final class SettingsViewController: UITableViewController {
 	@IBAction func switchObsidianSubfolderFeedName(_ sender: Any) {
 		AppDefaults.shared.obsidianSubfolderFeedName = obsidianSubfolderFeedNameSwitch.isOn
 		updateObsidianSubfolderPreview()
+	}
+
+	@IBAction func switchObsidianRemoveOnUnbookmark(_ sender: Any) {
+		AppDefaults.shared.obsidianRemoveOnUnbookmark = obsidianRemoveOnUnbookmarkSwitch.isOn
 	}
 
 	@IBAction func switchNotifyFeeds(_ sender: Any) {
@@ -962,14 +967,13 @@ private extension SettingsViewController {
 	}
 
 	func updateObsidianSubfolderPreview() {
-		obsidianSubfolderPreviewLabel.text = ObsidianFileManager.subfolderPreview()
+		obsidianSubfolderPreviewLabel.text = ObsidianFileManager.subfolderPreviewWithVault()
 	}
 
 	func updateObsidianVaultLabel() {
 		let displayPath = ObsidianFileManager.vaultDisplayPath()
 		let notSet = NSLocalizedString("Not Set", comment: "Obsidian vault not configured")
 		obsidianVaultLabel.text = displayPath ?? notSet
-		obsidianVaultPathLabel.text = "Vault  \(displayPath ?? notSet)"
 
 		// Enable/disable vault cell based on sync toggle
 		let isEnabled = obsidianSyncSwitch.isOn
@@ -977,6 +981,9 @@ private extension SettingsViewController {
 		obsidianVaultCell?.textLabel?.isEnabled = isEnabled
 		obsidianVaultLabel.isEnabled = isEnabled
 		obsidianVaultLabel.textColor = isEnabled ? .label : .secondaryLabel
+
+		// Refresh preview to reflect updated vault name
+		updateObsidianSubfolderPreview()
 	}
 
 	func exportOPML(sourceView: UIView, sourceRect: CGRect) {

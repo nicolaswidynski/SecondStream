@@ -177,6 +177,16 @@ enum ObsidianFileManagerError: LocalizedError {
 		return components.joined(separator: "/") + "/"
 	}
 
+	/// Preview string including the vault name prefix, e.g. "MyVault/FeedType/FeedName/"
+	static func subfolderPreviewWithVault(for feedName: String = "FeedName", feedType: String = "FeedType") -> String {
+		let vaultName = vaultDisplayPath() ?? "[Vault]"
+		let subfolder = subfolderPreview(for: feedName, feedType: feedType)
+		if subfolder == "(vault root)" {
+			return "\(vaultName)/"
+		}
+		return "\(vaultName)/\(subfolder)"
+	}
+
 	// MARK: - Security-Scoped Bookmark Handling
 
 	/// Resolve the security-scoped bookmark and return the vault URL
