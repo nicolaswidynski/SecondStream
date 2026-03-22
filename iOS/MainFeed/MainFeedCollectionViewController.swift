@@ -268,6 +268,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			vStack.centerXAnchor.constraint(equalTo: container.centerXAnchor),
 			vStack.centerYAnchor.constraint(equalTo: container.centerYAnchor),
 			container.widthAnchor.constraint(equalToConstant: 52),
+			container.heightAnchor.constraint(equalToConstant: 56),
 		])
  
 		let barButton = UIBarButtonItem(customView: container)
@@ -278,10 +279,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	@objc private func toggleAddMenu() {
 		UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 		isAddMenuOpen.toggle()
-		if isAddMenuOpen {
-			setToolbarItems([.flexibleSpace(), podcastBarButton, youtubeBarButton, newsBarButton, rssBarButton, .flexibleSpace(), closeBarButton], animated: true)
-		} else {
-			setToolbarItems([.flexibleSpace(), addBarButton], animated: true)
+		guard let toolbar = navigationController?.toolbar else { return }
+		let newItems: [UIBarButtonItem] = isAddMenuOpen
+			? [.flexibleSpace(), podcastBarButton, youtubeBarButton, newsBarButton, rssBarButton, .flexibleSpace(), closeBarButton]
+			: [.flexibleSpace(), addBarButton]
+		UIView.transition(with: toolbar, duration: 1.4, options: .transitionCrossDissolve) {
+			self.setToolbarItems(newItems, animated: false)
 		}
 	}
 
@@ -814,6 +817,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	override func viewWillAppear(_ animated: Bool) {
 		navigationController?.setToolbarHidden(false, animated: animated)
+		navigationController?.additionalSafeAreaInsets.bottom = 60
 		applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip()
 		refreshRecentlyUpdatedShowsStrip()
 		updateUI()
@@ -854,6 +858,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	override func viewWillDisappear(_ animated: Bool) {
 		super.viewWillDisappear(animated)
+		navigationController?.additionalSafeAreaInsets.bottom = 0
 	}
 
 	func registerForNotifications() {
