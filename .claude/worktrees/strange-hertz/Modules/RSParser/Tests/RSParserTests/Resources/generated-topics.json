@@ -1,0 +1,25 @@
+{
+  "title": "Artificial Intelligence",
+  "author": "",
+  "homepage": "",
+  "image_link": "https://example.com/artificial-intelligence.png",
+  "updated": "2026-03-04T03:14:47.795Z",
+  "id_file": "urn:uuid:artificial-intelligence",
+  "entries": [
+    {
+      "title": "This Is The Entry Title",
+      "id_entry": "topics/artificial-intelligence/2026-03-02.json",
+      "content": [
+        {
+          "title": "How AI can read our scrambled inner thoughts",
+          "summary": "- Researchers are decoding complex brain activity patterns.\n- Potential applications include assistive communication.",
+          "metadata": {
+            "link": "https://example.com/article",
+            "author": "BBC",
+            "pubDate": "Fri, 27 Feb 2026 10:00:00 GMT"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+// High Level Settings common to both the Mac application and any extensions we bundle with it
+MARKETING_VERSION = 7.0b4
+CURRENT_PROJECT_VERSION = 7004
+
+APP_GROUP_ID = group.$(ORGANIZATION_IDENTIFIER).NetNewsWire-Evergreen$(APP_GROUP_SUFFIX)
+
+ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
+COMBINE_HIDPI_IMAGES = YES
+SDKROOT = macosx;

@@ -281,9 +281,13 @@ struct MarkdownConverter {
 		result = result.replacingOccurrences(of: "<br[^>]*/?>", with: "\n", options: .regularExpression)
 
 		// Lists
-		// nnw-generated-bullet-list: summary bullets — prefix with a "Summary:" item and indent.
-		result = result.replacingOccurrences(of: "<ul class=\"nnw-generated-bullet-list\">", with: "- **Summary**:\n")
-		result = result.replacingOccurrences(of: "<li class=\"nnw-generated-bullet-item\">", with: "   - ")
+		// standalone summary list (topics): prefix with a "Summary:" bullet and indent items.
+		result = result.replacingOccurrences(of: "<ul class=\"nnw-generated-bullet-list nnw-generated-standalone-summary\">", with: "- **Summary**:\n")
+		// summary list nested under metadata item (topics): keep summary label on its own line.
+		result = result.replacingOccurrences(of: "<li>\\s*<strong>Summary</strong>:\\s*<ul class=\"nnw-generated-bullet-list\">", with: "- **Summary**:\n", options: .regularExpression)
+		// headed bullet lists (podcast/yt summary, practical applications): items are already under an h2, just indent.
+		result = result.replacingOccurrences(of: "<ul class=\"nnw-generated-bullet-list\">", with: "")
+		result = result.replacingOccurrences(of: "<li class=\"nnw-generated-bullet-item\">", with: "\t- ")
 		// Generic lists (must come after the specific class handlers above)
 		result = result.replacingOccurrences(of: "<ul[^>]*>", with: "", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</ul>", with: "")
@@ -291,6 +295,8 @@ struct MarkdownConverter {
 		result = result.replacingOccurrences(of: "</ol>", with: "")
 		result = result.replacingOccurrences(of: "<li[^>]*>", with: "- ", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</li>", with: "\n")
+		// If a summary line still ends up with the first bullet inline, force it onto the next line.
+		result = result.replacingOccurrences(of: "(?m)^(- \\*\\*Summary\\*\\*:)[ \\t]+- ", with: "$1\n\t- ", options: .regularExpression)
 
 		// Horizontal rule - blank lines around it
 		result = result.replacingOccurrences(of: "<hr[^>]*/?>", with: "\n\n---\n\n", options: .regularExpression)

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+	<title><![CDATA[Big Technology Podcast]]></title>
+	<author><![CDATA[Alex Kantrowitz]]></author>
+	<link>https://feeds.megaphone.fm/LI3617121267</link>
+	<image_ref>https://megaphone.imgix.net/podcasts/e70f9594-937b-11ec-bfe0-2b4c46de3cc3/image/ac86ab8de3e6d78450970f49c51a117b.png</image_ref>
+	<updated>2026-02-26T20:30:11.866Z</updated>
+	<id>urn:uuid:big-technology-podcast</id>
+	<entry>
+		<title type="html"><![CDATA[2026-02-26]]></title>
+		<id>pod/big-technology-podcast/2026-02-26.md</id>
+		<link rel="enclosure" href="https://traffic.megaphone.fm/EPISODE.mp3" type="audio/mpeg" />
+		<pub_date>2026-02-26</pub_date>
+		<updated>2026-02-26T20:25:01.564Z</updated>
+		<url_json>https://files.nwidynski.com/pod/aaa/big-technology-podcast/2026-02-26.json</url_json>
+	</entry>
+</feed>

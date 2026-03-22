@@ -1,0 +1,30 @@
+<html dir="auto">
+	<head>
+		<title>[[title]]</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+		<style>
+			[[style]]
+		</style>
+		<!-- Scripts are injected via WKUserContentController -->
+		<script type="text/javascript">
+			document.addEventListener("DOMContentLoaded", function(event) {
+				window.scrollTo(0, [[windowScrollY]]);
+				processPage();
+				if (typeof makeMetadataCollapsible === 'function') {
+					makeMetadataCollapsible();
+				}
+				if (typeof makeHeadersCollapsible === 'function') {
+					makeHeadersCollapsible();
+				}
+				if (typeof wrapUnboxedContent === 'function') {
+					wrapUnboxedContent();
+				}
+			})
+		</script>
+		<base href="[[baseURL]]">
+	</head>
+	<body>
+		[[body]]
+	</body>
+</html>
+

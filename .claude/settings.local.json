@@ -74,7 +74,16 @@
       "Bash(git push:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "WebFetch(domain:files.nwidynski.com)"
+      "WebFetch(domain:files.nwidynski.com)",
+      "Bash(git -C /Users/nwidynski/Documents/code/SecondStream branch -a)",
+      "Bash(git -C /Users/nwidynski/Documents/code/SecondStream/.claude/worktrees/strange-hertz log --oneline -5)",
+      "Bash(git -C /Users/nwidynski/Documents/code/SecondStream/.claude/worktrees/strange-hertz diff HEAD -- Shared/IconImageCache.swift iOS/IconView.swift)",
+      "Bash(git -C /Users/nwidynski/Documents/code/SecondStream/.claude/worktrees/strange-hertz/ branch --show-current)",
+      "Bash(git -C /Users/nwidynski/Documents/code/SecondStream/.claude/worktrees/strange-hertz/ status)",
+      "Bash(git worktree:*)",
+      "Bash(xxd)",
+      "Bash(python3 -:*)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []

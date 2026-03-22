@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+	<title>Big Technology Podcast</title>
+	<link rel="alternate" type="application/atom+xml" href="https://feeds.example.com/podcast.xml" />
+	<link>https://www.bigtechnology.com/</link>
+	<updated>2026-02-26T00:00:00Z</updated>
+	<entry>
+		<id>tag:example.com,2026:1</id>
+		<title>Episode One</title>
+		<updated>2026-02-26T00:00:00Z</updated>
+		<link rel="alternate" href="https://www.bigtechnology.com/episode-one" />
+		<summary>Test episode.</summary>
+	</entry>
+</feed>
