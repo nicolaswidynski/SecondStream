@@ -63,39 +63,52 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	private var isAnimating: Bool = false
 
 
-	/// The floating bottom action bar with blur effect (pill-shaped)
-	private lazy var bottomActionBar: UIVisualEffectView = {
-		let blurEffect = UIBlurEffect(style: .systemChromeMaterial)
-		let visualEffectView = UIVisualEffectView(effect: blurEffect)
-		visualEffectView.translatesAutoresizingMaskIntoConstraints = false
-		// Use half the height (35pt) for a full pill/oval shape
-		visualEffectView.layer.cornerRadius = 35
-		visualEffectView.clipsToBounds = true
-		// Thin border matching the UINavigationBar/UIToolbar separator tone
-		visualEffectView.layer.borderWidth = 0.5
-		visualEffectView.layer.borderColor = UIColor.separator.cgColor
-		return visualEffectView
-	}()
-
-	/// Stack view containing the category action buttons (Podcast, YouTube, News, RSS)
-	private lazy var actionButtonsStack: UIStackView = {
-		let stack = UIStackView()
-		stack.axis = .horizontal
-		stack.distribution = .equalSpacing
-		stack.alignment = .center
-		stack.spacing = 0
-		stack.translatesAutoresizingMaskIntoConstraints = false
-		return stack
-	}()
-
 	// MARK: - Add Menu State
 	private var isAddMenuOpen = false
-	private var addMenuIconButton: UIButton?
-	private var addMenuLabel: UILabel?
-	private var addButtonHighlightView: UIView?
-	private var barWidthConstraint: NSLayoutConstraint?
-	private var menuButtonsWidthConstraint: NSLayoutConstraint?
-	private var addMenuDivider: UIView?
+	
+	   private lazy var addBarButton: UIBarButtonItem = makeBarButton(
+		   iconName: "plus",
+		   label: NSLocalizedString("Add", comment: "Add button label"),
+		   accessibilityLabel: NSLocalizedString("Add Feed", comment: "Add Feed"),
+		   action: #selector(toggleAddMenu)
+	   )
+
+	   private lazy var closeBarButton: UIBarButtonItem = makeBarButton(
+		   iconName: "xmark",
+		   label: NSLocalizedString("Close", comment: "Close"),
+		   accessibilityLabel: NSLocalizedString("Close", comment: "Close"),
+		   action: #selector(toggleAddMenu)
+	   )
+
+	   private lazy var podcastBarButton: UIBarButtonItem = makeBarButton(
+		   iconName: "podcast_thin-symbol",
+		   label: NSLocalizedString("Podcasts", comment: "Podcasts label"),
+		   accessibilityLabel: NSLocalizedString("Add Podcast", comment: "Add Podcast"),
+		   fallbackSystemName: "mic.fill",
+		   action: #selector(addPodcast)
+	   )
+
+	   private lazy var youtubeBarButton: UIBarButtonItem = makeBarButton(
+		   iconName: "play.rectangle",
+		   label: NSLocalizedString("YouTube", comment: "YouTube label"),
+		   accessibilityLabel: NSLocalizedString("Add YouTube Channel", comment: "Add YouTube Channel"),
+		   action: #selector(addYoutube)
+	   )
+
+	   private lazy var newsBarButton: UIBarButtonItem = makeBarButton(
+		   iconName: "newspaper",
+		   label: NSLocalizedString("News", comment: "News label"),
+		   accessibilityLabel: NSLocalizedString("Add News", comment: "Add News"),
+		   action: #selector(addNews)
+	   )
+
+	   private lazy var rssBarButton: UIBarButtonItem = makeBarButton(
+		   iconName: "rss_thin-symbol",
+		   label: NSLocalizedString("RSS", comment: "RSS label"),
+		   accessibilityLabel: NSLocalizedString("Add RSS Feed", comment: "Add RSS Feed"),
+		   fallbackSystemName: "dot.radiowaves.left.and.right",
+		   action: #selector(addRSSFeed)
+	   )
 
 	/// The update status label (added directly to view, not navigation bar)
 	private lazy var updateStatusLabel: UILabel = {
@@ -176,13 +189,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}()
 
 	private lazy var starredButton: UIBarButtonItem = {
-		let image = Assets.Images.starClosed.withTintColor(Assets.Colors.star, renderingMode: .alwaysOriginal)
-		let button = FeedNavigationChrome.makeTopBarFeedBarButton(
-			image: image,
-			fillsCircularButton: false,
-			target: self,
-			action: #selector(starredTapped)
-		)
+		let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+		let image = UIImage(systemName: "bookmark", withConfiguration: config)
+		let button = UIBarButtonItem(image: image, style: .plain, target: self, action: #selector(starredTapped))
 		button.accessibilityLabel = NSLocalizedString("Starred", comment: "Starred")
 		return button
 	}()
@@ -196,7 +205,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		configureDiffableDataSource()
 		configureNavigationBar()
 		configureRecentlyUpdatedStrip()
-		configureBottomActionBar()
+		configureToolbar()
 		collectionView.dragDelegate = self
 		collectionView.dropDelegate = self
 		becomeFirstResponder()
@@ -216,230 +225,64 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
     }
 
-	private func configureBottomActionBar() {
-		view.addSubview(bottomActionBar)
-		let contentView = bottomActionBar.contentView
-
-		// ── "Add" toggle button ──────────────────────────────────────────────
-		let symbolConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
-
-		let iconBtn = UIButton(type: .system)
-		iconBtn.setImage(UIImage(systemName: "plus", withConfiguration: symbolConfig), for: .normal)
-		iconBtn.tintColor = .label
-		iconBtn.isUserInteractionEnabled = false
-		iconBtn.translatesAutoresizingMaskIntoConstraints = false
-		addMenuIconButton = iconBtn
-
-		let addLbl = UILabel()
-		addLbl.text = NSLocalizedString("Add", comment: "Add button label")
-		addLbl.font = .systemFont(ofSize: 10, weight: .medium)
-		addLbl.textColor = .label
-		addLbl.textAlignment = .center
-		addLbl.translatesAutoresizingMaskIntoConstraints = false
-		addMenuLabel = addLbl
-
-		let addVStack = UIStackView(arrangedSubviews: [iconBtn, addLbl])
-		addVStack.axis = .vertical
-		addVStack.alignment = .center
-		addVStack.spacing = 3
-		addVStack.isUserInteractionEnabled = false
-		addVStack.translatesAutoresizingMaskIntoConstraints = false
-
-		// Fills the add-button area; clipped by the pill to shape its left edge.
-		let highlight = UIView()
-		highlight.backgroundColor = .clear
-		highlight.translatesAutoresizingMaskIntoConstraints = false
-		highlight.isUserInteractionEnabled = false
-		addButtonHighlightView = highlight
-
-		let addControl = ActionControl()
-		addControl.translatesAutoresizingMaskIntoConstraints = false
-		addControl.addTarget(self, action: #selector(toggleAddMenu), for: .touchUpInside)
-		addControl.accessibilityLabel = NSLocalizedString("Add Feed", comment: "Add Feed")
-		addControl.isAccessibilityElement = true
-		addControl.accessibilityTraits = .button
-
-		// ── Divider between Add button and category buttons ──────────────────
-		let divider = UIView()
-		divider.backgroundColor = .separator
-		divider.translatesAutoresizingMaskIntoConstraints = false
-		divider.alpha = 0
-		addMenuDivider = divider
-
-		// ── Category buttons ─────────────────────────────────────────────────
-		let podcastButton = createActionButton(
-			iconName: "podcast_thin-symbol",
-			label: NSLocalizedString("Podcasts", comment: "Podcasts label"),
-			accessibilityLabel: NSLocalizedString("Add Podcast", comment: "Add Podcast"),
-			fallbackSystemName: "mic.fill",
-			action: #selector(addPodcast)
-		)
-		let youtubeButton = createActionButton(
-			iconName: "play.rectangle",
-			label: NSLocalizedString("YouTube", comment: "YouTube label"),
-			accessibilityLabel: NSLocalizedString("Add YouTube Channel", comment: "Add YouTube Channel"),
-			action: #selector(addYoutube)
-		)
-		let newsButton = createActionButton(
-			iconName: "newspaper",
-			label: NSLocalizedString("News", comment: "News label"),
-			accessibilityLabel: NSLocalizedString("Add News", comment: "Add News"),
-			action: #selector(addNews)
-		)
-		let rssButton = createActionButton(
-			iconName: "rss_thin-symbol",
-			label: NSLocalizedString("RSS", comment: "RSS label"),
-			accessibilityLabel: NSLocalizedString("Add RSS Feed", comment: "Add RSS Feed"),
-			fallbackSystemName: "dot.radiowaves.left.and.right",
-			action: #selector(addRSSFeed)
-		)
-		actionButtonsStack.addArrangedSubview(podcastButton)
-		actionButtonsStack.addArrangedSubview(youtubeButton)
-		actionButtonsStack.addArrangedSubview(newsButton)
-		actionButtonsStack.addArrangedSubview(rssButton)
-		actionButtonsStack.alpha = 0
-
-		// ── View hierarchy ───────────────────────────────────────────────────
-		contentView.addSubview(highlight)
-		contentView.addSubview(addControl)
-		addControl.addSubview(addVStack)
-		contentView.addSubview(divider)
-		contentView.addSubview(actionButtonsStack)
-
-		// ── Constraints ──────────────────────────────────────────────────────
-		// Bar: starts as a 70×70 circle (cornerRadius 35), centered horizontally.
-		let widthC = bottomActionBar.widthAnchor.constraint(equalToConstant: 70)
-		widthC.isActive = true
-		barWidthConstraint = widthC
-
-		// Category stack starts with zero width; grows on open.
-		let stackWidthC = actionButtonsStack.widthAnchor.constraint(equalToConstant: 0)
-		stackWidthC.isActive = true
-		menuButtonsWidthConstraint = stackWidthC
-
-		NSLayoutConstraint.activate([
-			bottomActionBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-			bottomActionBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
-			bottomActionBar.heightAnchor.constraint(equalToConstant: 70),
-
-			// Highlight: covers the Add-button area on the right, clipped by pill's cornerRadius.
-			highlight.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-			highlight.topAnchor.constraint(equalTo: contentView.topAnchor),
-			highlight.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-			highlight.widthAnchor.constraint(equalToConstant: 70),
-
-			// Add control: right 70pt of the bar.
-			addControl.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-			addControl.topAnchor.constraint(equalTo: contentView.topAnchor),
-			addControl.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-			addControl.widthAnchor.constraint(equalToConstant: 70),
-
-			// Icon+label stack: centered inside the control.
-			addVStack.centerXAnchor.constraint(equalTo: addControl.centerXAnchor),
-			addVStack.centerYAnchor.constraint(equalTo: addControl.centerYAnchor),
-
-			// Divider: immediately left of the Add button.
-			divider.trailingAnchor.constraint(equalTo: addControl.leadingAnchor),
-			divider.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-			divider.widthAnchor.constraint(equalToConstant: 0.5),
-			divider.heightAnchor.constraint(equalToConstant: 40),
-
-			// Category stack: left of the divider, width controlled by menuButtonsWidthConstraint.
-			actionButtonsStack.trailingAnchor.constraint(equalTo: divider.leadingAnchor, constant: -10),
-			actionButtonsStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-		])
-
-		// Add content insets: top for Recently Updated strip, bottom for action bar.
+	private func configureToolbar() {
+		setToolbarItems([.flexibleSpace(), addBarButton], animated: false)
 		collectionView.contentInset.top = defaultTopInset
-		collectionView.contentInset.bottom = 80
 		collectionView.verticalScrollIndicatorInsets.top = defaultTopInset
-		collectionView.verticalScrollIndicatorInsets.bottom = 80
 	}
-
-	@objc private func toggleAddMenu() {
-		UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-		isAddMenuOpen.toggle()
-		setAddMenuOpen(isAddMenuOpen, animated: true)
-	}
-
-	private func setAddMenuOpen(_ open: Bool, animated: Bool) {
-		isAddMenuOpen = open
-
-		// 10pt gap after divider + 10pt trailing margin inside the bar
-		let expandedBarWidth = view.bounds.width - 32
-		let stackWidth = max(0, expandedBarWidth - 70 - 0.5 - 10 - 10)
-		let accent = view.tintColor ?? .systemBlue
-
-		let changes = {
-			self.barWidthConstraint?.constant = open ? expandedBarWidth : 70
-			self.menuButtonsWidthConstraint?.constant = open ? stackWidth : 0
-			self.actionButtonsStack.alpha = open ? 1 : 0
-			self.addMenuDivider?.alpha = open ? 1 : 0
-			self.addButtonHighlightView?.backgroundColor = open ? accent : .clear
-			self.addMenuIconButton?.tintColor = open ? .white : .label
-			self.addMenuLabel?.textColor = open ? .white : .label
-			self.view.layoutIfNeeded()
-		}
-
-		if animated {
-			UIView.animate(
-				withDuration: 0.4,
-				delay: 0,
-				usingSpringWithDamping: 0.82,
-				initialSpringVelocity: 0,
-				options: [.allowUserInteraction],
-				animations: changes
-			)
-		} else {
-			changes()
-		}
-	}
-
-	private func createActionButton(iconName: String, label: String, accessibilityLabel: String, fallbackSystemName: String? = nil, action: Selector) -> UIView {
+ 
+	private func makeBarButton(iconName: String, label: String, accessibilityLabel: String, fallbackSystemName: String? = nil, action: Selector) -> UIBarButtonItem {
 		let symbolConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
 		let image = RSImage(named: iconName)?
 			.applyingSymbolConfiguration(symbolConfig)
 			?? UIImage(systemName: fallbackSystemName ?? iconName, withConfiguration: symbolConfig)
-
-		let iconButton = UIButton(type: .system)
-		iconButton.setImage(image, for: .normal)
-		iconButton.tintColor = .label
-		iconButton.isUserInteractionEnabled = false // container handles the tap
-		iconButton.translatesAutoresizingMaskIntoConstraints = false
-
+ 
+		let iconView = UIImageView(image: image?.withRenderingMode(.alwaysTemplate))
+		iconView.tintColor = .label
+		iconView.contentMode = .scaleAspectFit
+		iconView.translatesAutoresizingMaskIntoConstraints = false
+		NSLayoutConstraint.activate([
+			iconView.widthAnchor.constraint(equalToConstant: 24),
+			iconView.heightAnchor.constraint(equalToConstant: 24),
+		])
+ 
 		let titleLabel = UILabel()
 		titleLabel.text = label
 		titleLabel.font = .systemFont(ofSize: 10, weight: .medium)
 		titleLabel.textColor = .label
 		titleLabel.textAlignment = .center
-		titleLabel.numberOfLines = 1
 		titleLabel.translatesAutoresizingMaskIntoConstraints = false
-
-		let vStack = UIStackView(arrangedSubviews: [iconButton, titleLabel])
+ 
+		let vStack = UIStackView(arrangedSubviews: [iconView, titleLabel])
 		vStack.axis = .vertical
 		vStack.alignment = .center
 		vStack.spacing = 3
 		vStack.isUserInteractionEnabled = false
 		vStack.translatesAutoresizingMaskIntoConstraints = false
-
-		// Container: tappable area with native-feeling highlight on touch.
-		let container = ActionControl()
+ 
+		let container = UIButton(type: .custom)
+		container.translatesAutoresizingMaskIntoConstraints = false
 		container.addSubview(vStack)
 		container.addTarget(self, action: action, for: .touchUpInside)
-		container.translatesAutoresizingMaskIntoConstraints = false
-		container.accessibilityLabel = accessibilityLabel
-		container.isAccessibilityElement = true
-		container.accessibilityTraits = .button
 		NSLayoutConstraint.activate([
 			vStack.centerXAnchor.constraint(equalTo: container.centerXAnchor),
 			vStack.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-			vStack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-			vStack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-			vStack.topAnchor.constraint(equalTo: container.topAnchor),
-			vStack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-			container.widthAnchor.constraint(equalToConstant: 52)
+			container.widthAnchor.constraint(equalToConstant: 52),
 		])
-		return container
+ 
+		let barButton = UIBarButtonItem(customView: container)
+		barButton.accessibilityLabel = accessibilityLabel
+		return barButton
+	}
+ 
+	@objc private func toggleAddMenu() {
+		UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+		isAddMenuOpen.toggle()
+		if isAddMenuOpen {
+			setToolbarItems([.flexibleSpace(), podcastBarButton, youtubeBarButton, newsBarButton, rssBarButton, .flexibleSpace(), closeBarButton], animated: true)
+		} else {
+			setToolbarItems([.flexibleSpace(), addBarButton], animated: true)
+		}
 	}
 
 	private func configureNavigationBar() {
@@ -740,6 +583,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let picker = RSSPickerViewController()
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
+		applyPickerNavigationBarAppearance(to: navController)
 		present(navController, animated: true)
 	}
 
@@ -751,6 +595,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let picker = PodcastPickerViewController()
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
+		applyPickerNavigationBarAppearance(to: navController)
 		present(navController, animated: true)
 	}
 
@@ -762,7 +607,23 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let picker = YoutubePickerViewController()
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
+		applyPickerNavigationBarAppearance(to: navController)
 		present(navController, animated: true)
+	}
+
+	private func applyPickerNavigationBarAppearance(to navController: UINavigationController) {
+		// Prevent black flash: UINavigationController.view has no background
+		// by default, which shows as black when the nav bar goes transparent
+		// during scroll-edge transitions.
+		navController.view.backgroundColor = .systemBackground
+
+		let appearance = UINavigationBarAppearance()
+		appearance.configureWithOpaqueBackground()
+		appearance.backgroundColor = .systemBackground
+		navController.navigationBar.standardAppearance = appearance
+		navController.navigationBar.scrollEdgeAppearance = appearance
+		navController.navigationBar.compactAppearance = appearance
+		navController.navigationBar.compactScrollEdgeAppearance = appearance
 	}
 
 	@objc private func addNews() {
@@ -952,13 +813,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
-		// Apply blur to the nav bar at scroll-edge (iOS default is transparent there).
-		let blurredAppearance = UINavigationBarAppearance()
-		blurredAppearance.configureWithDefaultBackground()
-		navigationController?.navigationBar.scrollEdgeAppearance = blurredAppearance
-
-		// Hide the toolbar - all actions are now in the navigation bar
-		navigationController?.isToolbarHidden = true
+		navigationController?.setToolbarHidden(false, animated: animated)
 		applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip()
 		refreshRecentlyUpdatedShowsStrip()
 		updateUI()
@@ -999,8 +854,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	override func viewWillDisappear(_ animated: Bool) {
 		super.viewWillDisappear(animated)
-		// Reset so the nav bar appearance doesn't bleed into pushed view controllers.
-		navigationController?.navigationBar.scrollEdgeAppearance = nil
 	}
 
 	func registerForNotifications() {
@@ -1023,7 +876,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		guard let navigationBar = navigationController?.navigationBar else {
 			recentlyUpdatedBackgroundView.effect = nil//UIBlurEffect(style: .systemChromeMaterial)
 			navBarExtendedBackgroundView.effect = UIBlurEffect(style: .systemChromeMaterial)
-			navBarExtendedBackgroundView.alpha = 0.75
+			navBarExtendedBackgroundView.alpha = 0.9//1.0
 			return
 		}
 
@@ -1034,7 +887,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		} else {
 			recentlyUpdatedBackgroundView.effect = nil//UIBlurEffect(style: .systemChromeMaterial)
 			navBarExtendedBackgroundView.effect = UIBlurEffect(style: .systemChromeMaterial)
-			navBarExtendedBackgroundView.alpha = 0.75
+			navBarExtendedBackgroundView.alpha = 0.9//1.0
 		}
 
 		recentlyUpdatedBackgroundView.backgroundColor = .clear
@@ -1171,8 +1024,21 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 
 	func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<String, SidebarItemNode>, animatingDifferences: Bool, completion: (() -> Void)? = nil) {
-		dataSource.apply(snapshot, animatingDifferences: animatingDifferences) {
+		dataSource.apply(snapshot, animatingDifferences: animatingDifferences) { [weak self] in
 			completion?()
+			self?.refreshVisibleSectionHeaders()
+		}
+	}
+
+	private func refreshVisibleSectionHeaders() {
+		let sectionIdentifiers = dataSource.snapshot().sectionIdentifiers
+		for indexPath in collectionView.indexPathsForVisibleSupplementaryElements(ofKind: UICollectionView.elementKindSectionHeader) {
+			guard indexPath.section < sectionIdentifiers.count,
+				  let headerView = collectionView.supplementaryView(forElementKind: UICollectionView.elementKindSectionHeader, at: indexPath) as? MainFeedCollectionHeaderReusableView,
+				  let feedSection = FeedSectionIdentifier(rawValue: sectionIdentifiers[indexPath.section]) else {
+				continue
+			}
+			headerView.disclosureExpanded = coordinator.isCategorySectionExpanded(feedSection)
 		}
 	}
 
@@ -2621,44 +2487,6 @@ private final class RecentlyUpdatedFeedItemView: UIControl {
 			self.pressOverlayView.alpha = 0
 		} completion: { _ in
 			completion()
-		}
-	}
-}
-
-// MARK: - ActionControl
-
-/// A UIControl that shows a standard translucent highlight on touch,
-/// matching the native iOS press feedback used throughout the app.
-private final class ActionControl: UIControl {
-
-	private let highlightView: UIView = {
-		let v = UIView()
-		v.backgroundColor = UIColor.label.withAlphaComponent(0.12)
-		v.layer.cornerRadius = 10
-		v.alpha = 0
-		v.isUserInteractionEnabled = false
-		v.translatesAutoresizingMaskIntoConstraints = false
-		return v
-	}()
-
-	override init(frame: CGRect) {
-		super.init(frame: frame)
-		insertSubview(highlightView, at: 0)
-		NSLayoutConstraint.activate([
-			highlightView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: -4),
-			highlightView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 4),
-			highlightView.topAnchor.constraint(equalTo: topAnchor, constant: -4),
-			highlightView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 4),
-		])
-	}
-
-	required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-	override var isHighlighted: Bool {
-		didSet {
-			UIView.animate(withDuration: isHighlighted ? 0.0 : 0.3) {
-				self.highlightView.alpha = self.isHighlighted ? 1 : 0
-			}
 		}
 	}
 }
