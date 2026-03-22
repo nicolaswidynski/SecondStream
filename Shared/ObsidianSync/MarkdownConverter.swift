@@ -132,13 +132,12 @@ struct MarkdownConverter {
 		let doubleParagraphSpacing = (category == .podcast || category == .youtube)
 
 		// Prefer contentHTML, then contentText, then summary
-		if let html = article.contentHTML, !html.isEmpty {
+		if var html = article.contentHTML, !html.isEmpty {
 			logger.debug("Using contentHTML for body")
-			var converted = convertHTMLToMarkdown(html, doubleParagraphSpacing: doubleParagraphSpacing)
 			if doubleParagraphSpacing {
-				converted = removeTimestampsSection(from: converted)
+				html = removeTimestampsBlockFromHTML(html)
 			}
-			body = converted
+			body = convertHTMLToMarkdown(html, doubleParagraphSpacing: doubleParagraphSpacing)
 		} else if let text = article.contentText, !text.isEmpty {
 			logger.debug("Using contentText for body (not HTML)")
 			body = text
@@ -158,16 +157,18 @@ struct MarkdownConverter {
 		return nil
 	}
 
-	/// Remove a "## Timestamps" section (and all content until the next ## heading or end of string)
-	private static func removeTimestampsSection(from markdown: String) -> String {
-		let pattern = #"(?m)^## Timestamps\s*\n[\s\S]*?(?=\n## |\z)"#
-		guard let regex = try? NSRegularExpression(pattern: pattern) else {
-			return markdown
+	/// Strip the generated timestamps <details> block (and its surrounding <hr> tags) from HTML
+	/// before markdown conversion. The block looks like:
+	///   <hr><details><summary>..Timestamps..</summary><ul class="..timestamps..">...</ul></details><hr>
+	private static func removeTimestampsBlockFromHTML(_ html: String) -> String {
+		// Match an optional leading <hr>, a <details> block whose content includes the
+		// timestamps list class, and an optional trailing <hr>.
+		let pattern = #"<hr[^>]*/?>[\s]*<details>[\s\S]*?nnw-generated-timestamps-list[\s\S]*?</details>[\s]*<hr[^>]*/?>|<details>[\s\S]*?nnw-generated-timestamps-list[\s\S]*?</details>"#
+		guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
+			return html
 		}
-		let range = NSRange(markdown.startIndex..., in: markdown)
-		var result = regex.stringByReplacingMatches(in: markdown, range: range, withTemplate: "")
-		result = result.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
-		return result
+		let range = NSRange(html.startIndex..., in: html)
+		return regex.stringByReplacingMatches(in: html, range: range, withTemplate: "")
 	}
 
 	/// Convert HTML to a basic markdown-like format
@@ -242,7 +243,11 @@ struct MarkdownConverter {
 			for match in matches.reversed() {
 				if let contentRange = Range(match.range(at: 1), in: result),
 				   let fullRange = Range(match.range, in: result) {
-					let content = String(result[contentRange])
+					var inner = String(result[contentRange])
+					// Inside blockquotes, treat <p>...</p> as double-newline separated text
+					inner = inner.replacingOccurrences(of: "<p[^>]*>", with: "", options: .regularExpression)
+					inner = inner.replacingOccurrences(of: "</p>", with: "\n\n")
+					let content = inner
 						.trimmingCharacters(in: .whitespacesAndNewlines)
 						.components(separatedBy: .newlines)
 						.map { "> \($0.trimmingCharacters(in: .whitespaces))" }
