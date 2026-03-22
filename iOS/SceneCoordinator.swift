@@ -570,6 +570,11 @@ struct SidebarItemNode: Hashable, Sendable {
 
 	@objc func statusesDidChange(_ note: Notification) {
 		updateUnreadCount()
+		// When the starred feed is active, star changes affect feed membership — replace article list.
+		if timelineFeed as? SmartFeed === SmartFeedsController.shared.starredFeed {
+			fetchAndReplaceArticlesAsync(animated: true) {}
+			return
+		}
 		guard timelineUnreadFirst else {
 			return
 		}

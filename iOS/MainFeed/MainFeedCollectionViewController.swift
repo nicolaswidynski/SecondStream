@@ -64,51 +64,52 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 
 	// MARK: - Add Menu State
-	private var isAddMenuOpen = false
-	
-	   private lazy var addBarButton: UIBarButtonItem = makeBarButton(
-		   iconName: "plus",
-		   label: NSLocalizedString("Add", comment: "Add button label"),
-		   accessibilityLabel: NSLocalizedString("Add Feed", comment: "Add Feed"),
-		   action: #selector(toggleAddMenu)
-	   )
+	private lazy var addBarButton: UIBarButtonItem = {
+		let podcastAction = UIAction(
+			title: NSLocalizedString("Podcasts", comment: "Podcasts"),
+			image: RSImage(named: "podcast_thin-symbol") ?? UIImage(systemName: "mic.fill")
+		) { [weak self] _ in self?.addPodcast() }
 
-	   private lazy var closeBarButton: UIBarButtonItem = makeBarButton(
-		   iconName: "xmark",
-		   label: NSLocalizedString("Close", comment: "Close"),
-		   accessibilityLabel: NSLocalizedString("Close", comment: "Close"),
-		   action: #selector(toggleAddMenu)
-	   )
+		let youtubeAction = UIAction(
+			title: NSLocalizedString("YouTube", comment: "YouTube"),
+			image: UIImage(systemName: "play.rectangle")
+		) { [weak self] _ in self?.addYoutube() }
 
-	   private lazy var podcastBarButton: UIBarButtonItem = makeBarButton(
-		   iconName: "podcast_thin-symbol",
-		   label: NSLocalizedString("Podcasts", comment: "Podcasts label"),
-		   accessibilityLabel: NSLocalizedString("Add Podcast", comment: "Add Podcast"),
-		   fallbackSystemName: "mic.fill",
-		   action: #selector(addPodcast)
-	   )
+		let newsAction = UIAction(
+			title: NSLocalizedString("News", comment: "News"),
+			image: UIImage(systemName: "newspaper")
+		) { [weak self] _ in self?.addNews() }
 
-	   private lazy var youtubeBarButton: UIBarButtonItem = makeBarButton(
-		   iconName: "play.rectangle",
-		   label: NSLocalizedString("YouTube", comment: "YouTube label"),
-		   accessibilityLabel: NSLocalizedString("Add YouTube Channel", comment: "Add YouTube Channel"),
-		   action: #selector(addYoutube)
-	   )
+		let rssAction = UIAction(
+			title: NSLocalizedString("RSS", comment: "RSS"),
+			image: RSImage(named: "rss_thin-symbol") ?? UIImage(systemName: "dot.radiowaves.left.and.right")
+		) { [weak self] _ in self?.addRSSFeed() }
 
-	   private lazy var newsBarButton: UIBarButtonItem = makeBarButton(
-		   iconName: "newspaper",
-		   label: NSLocalizedString("News", comment: "News label"),
-		   accessibilityLabel: NSLocalizedString("Add News", comment: "Add News"),
-		   action: #selector(addNews)
-	   )
+		let menu = UIMenu(title: "", children: [podcastAction, youtubeAction, newsAction, rssAction])
 
-	   private lazy var rssBarButton: UIBarButtonItem = makeBarButton(
-		   iconName: "rss_thin-symbol",
-		   label: NSLocalizedString("RSS", comment: "RSS label"),
-		   accessibilityLabel: NSLocalizedString("Add RSS Feed", comment: "Add RSS Feed"),
-		   fallbackSystemName: "dot.radiowaves.left.and.right",
-		   action: #selector(addRSSFeed)
-	   )
+		var config = UIButton.Configuration.plain()
+		config.image = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .medium))
+		config.title = NSLocalizedString("Add", comment: "Add")
+		config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+			var updated = attributes
+			updated.font = UIFont.systemFont(ofSize: 11, weight: .medium)
+			return updated
+		}
+		config.imagePlacement = .top
+		config.imagePadding = 2
+
+		let button = UIButton(configuration: config)
+		button.menu = menu
+		button.showsMenuAsPrimaryAction = true
+		button.accessibilityLabel = NSLocalizedString("Add Feed", comment: "Add Feed")
+		button.translatesAutoresizingMaskIntoConstraints = false
+		NSLayoutConstraint.activate([
+			button.widthAnchor.constraint(equalToConstant: 56),
+			button.heightAnchor.constraint(equalToConstant: 56),
+		])
+
+		return UIBarButtonItem(customView: button)
+	}()
 
 	/// The update status label (added directly to view, not navigation bar)
 	private lazy var updateStatusLabel: UILabel = {
@@ -231,62 +232,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		collectionView.verticalScrollIndicatorInsets.top = defaultTopInset
 	}
  
-	private func makeBarButton(iconName: String, label: String, accessibilityLabel: String, fallbackSystemName: String? = nil, action: Selector) -> UIBarButtonItem {
-		let symbolConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
-		let image = RSImage(named: iconName)?
-			.applyingSymbolConfiguration(symbolConfig)
-			?? UIImage(systemName: fallbackSystemName ?? iconName, withConfiguration: symbolConfig)
- 
-		let iconView = UIImageView(image: image?.withRenderingMode(.alwaysTemplate))
-		iconView.tintColor = .label
-		iconView.contentMode = .scaleAspectFit
-		iconView.translatesAutoresizingMaskIntoConstraints = false
-		NSLayoutConstraint.activate([
-			iconView.widthAnchor.constraint(equalToConstant: 24),
-			iconView.heightAnchor.constraint(equalToConstant: 24),
-		])
- 
-		let titleLabel = UILabel()
-		titleLabel.text = label
-		titleLabel.font = .systemFont(ofSize: 10, weight: .medium)
-		titleLabel.textColor = .label
-		titleLabel.textAlignment = .center
-		titleLabel.translatesAutoresizingMaskIntoConstraints = false
- 
-		let vStack = UIStackView(arrangedSubviews: [iconView, titleLabel])
-		vStack.axis = .vertical
-		vStack.alignment = .center
-		vStack.spacing = 3
-		vStack.isUserInteractionEnabled = false
-		vStack.translatesAutoresizingMaskIntoConstraints = false
- 
-		let container = UIButton(type: .custom)
-		container.translatesAutoresizingMaskIntoConstraints = false
-		container.addSubview(vStack)
-		container.addTarget(self, action: action, for: .touchUpInside)
-		NSLayoutConstraint.activate([
-			vStack.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-			vStack.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-			container.widthAnchor.constraint(equalToConstant: 52),
-			container.heightAnchor.constraint(equalToConstant: 56),
-		])
- 
-		let barButton = UIBarButtonItem(customView: container)
-		barButton.accessibilityLabel = accessibilityLabel
-		return barButton
-	}
- 
-	@objc private func toggleAddMenu() {
-		UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-		isAddMenuOpen.toggle()
-		guard let toolbar = navigationController?.toolbar else { return }
-		let newItems: [UIBarButtonItem] = isAddMenuOpen
-			? [.flexibleSpace(), podcastBarButton, youtubeBarButton, newsBarButton, rssBarButton, .flexibleSpace(), closeBarButton]
-			: [.flexibleSpace(), addBarButton]
-		UIView.transition(with: toolbar, duration: 1.4, options: .transitionCrossDissolve) {
-			self.setToolbarItems(newItems, animated: false)
-		}
-	}
 
 	private func configureNavigationBar() {
 		navigationItem.title = nil

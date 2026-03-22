@@ -88,7 +88,9 @@ final class ArticleViewController: UIViewController {
 		NotificationCenter.default.addObserver(self, selector: #selector(feedIconDidBecomeAvailable(_:)), name: .feedIconDidBecomeAvailable, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
 
-		navigationItem.titleView = FeedNavigationChrome.makeTitleView(target: self, action: #selector(showCurrentFeedHomepage(_:)))
+		let titleView = FeedNavigationChrome.makeTitleView(target: self, action: #selector(showCurrentFeedHomepage(_:)))
+		titleView.transform = CGAffineTransform(translationX: 0, y: -3)
+		navigationItem.titleView = titleView
 		navigationItem.rightBarButtonItems = nil
 
 		// Add TTS button after share
@@ -230,11 +232,12 @@ final class ArticleViewController: UIViewController {
 			readBarButtonItem.accLabelText = NSLocalizedString("Selected - Mark Article Unread", comment: "Selected - Mark Article Unread")
 		}
 
+		let bookmarkConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
 		if article.status.starred {
-			starBarButtonItem.image = Assets.Images.starClosed
+			starBarButtonItem.image = UIImage(systemName: "bookmark.fill", withConfiguration: bookmarkConfig)
 			starBarButtonItem.accLabelText = NSLocalizedString("Selected - Star Article", comment: "Selected - Star Article")
 		} else {
-			starBarButtonItem.image = Assets.Images.starOpen
+			starBarButtonItem.image = UIImage(systemName: "bookmark", withConfiguration: bookmarkConfig)
 			starBarButtonItem.accLabelText = NSLocalizedString("Star Article", comment: "Star Article")
 		}
 

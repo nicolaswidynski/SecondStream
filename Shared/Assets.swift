@@ -51,8 +51,7 @@ struct Assets {
 		static var starredFeed: IconImage {
 			IconImage(starClosed,
 					  isSymbol: true,
-					  isBackgroundSuppressed: true,
-					  preferredColor: Assets.Colors.star.cgColor)
+					  isBackgroundSuppressed: true)
 		}
 
 #if os(macOS)
@@ -169,8 +168,12 @@ struct Assets {
 							 preferredColor: Assets.Colors.secondaryAccent.cgColor)
 		}
 		static var timelineStar: RSImage {
-			let image = RSImage(symbol: "bookmark.fill")!//star.fill")!
-			return image.withTintColor(Assets.Colors.star, renderingMode: .alwaysOriginal)
+			RSImage(symbol: "bookmark.fill")!
+		}
+		static var starredCellIndicator: IconImage {
+			let config = UIImage.SymbolConfiguration(pointSize: 30, weight: .medium)
+			let image = UIImage(systemName: "bookmark.fill", withConfiguration: config)!
+			return IconImage(image, isSymbol: true, isBackgroundSuppressed: true)
 		}
 		static var unreadCellIndicator: IconImage {
 			let image = RSImage(symbol: "circle.fill")!

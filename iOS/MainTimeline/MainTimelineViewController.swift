@@ -398,28 +398,46 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	// MARK: - Timeline Section
 
-	/// Date-based grouping for the timeline table view.
+	/// Grouping for the timeline table view.
+	/// Date-based cases are used for most feeds; feedCategory is used for the Starred feed.
 	enum TimelineSection: Hashable, Comparable {
-		case recentWeek    // published within the last 7 days
-		case recentMonth   // published 7–30 days ago
-		case year(Int)     // published more than 30 days ago, bucketed by calendar year
+		case recentWeek                  // published within the last 7 days
+		case recentMonth                 // published 7–30 days ago
+		case year(Int)                   // published more than 30 days ago, bucketed by calendar year
+		case feedCategory(FeedCategory)  // used when viewing the Starred smart feed
 
 		var title: String {
 			switch self {
 			case .recentWeek:  return NSLocalizedString("Previous 7 Days", comment: "Timeline section: last 7 days")
 			case .recentMonth: return NSLocalizedString("Previous 30 Days", comment: "Timeline section: last 30 days")
 			case .year(let y): return "\(y)"
+			case .feedCategory(let cat):
+				switch cat {
+				case .podcast: return NSLocalizedString("My Podcasts", comment: "Starred section: podcasts")
+				case .youtube: return NSLocalizedString("My YouTube Channels", comment: "Starred section: YouTube")
+				case .news:    return NSLocalizedString("News", comment: "Starred section: news")
+				case .rss:     return NSLocalizedString("My RSS Feeds", comment: "Starred section: RSS")
+				}
+			}
+		}
+
+		private var sortOrder: Int {
+			switch self {
+			case .recentWeek:            return 0
+			case .recentMonth:           return 1
+			case .year(let y):           return 10000 - y // newer years sort first
+			case .feedCategory(let cat):
+				switch cat {
+				case .podcast: return 0
+				case .youtube: return 1
+				case .news:    return 2
+				case .rss:     return 3
+				}
 			}
 		}
 
 		static func < (lhs: TimelineSection, rhs: TimelineSection) -> Bool {
-			switch (lhs, rhs) {
-			case (.recentWeek, _): return true
-			case (.recentMonth, .recentWeek): return false
-			case (.recentMonth, _): return true
-			case (.year, .recentWeek), (.year, .recentMonth): return false
-			case (.year(let a), .year(let b)): return a > b // newer year first
-			}
+			lhs.sortOrder < rhs.sortOrder
 		}
 
 		static func section(for date: Date, now: Date = Date()) -> TimelineSection {
@@ -887,6 +905,26 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	private func animateDoubleFlash(on cell: UITableViewCell) {
+		let flashView = UIView(frame: cell.bounds)
+		flashView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+		flashView.backgroundColor = UIColor(red: 45/255, green: 128/255, blue: 241/255, alpha: 1.0)//.white
+		flashView.alpha = 0
+		flashView.isUserInteractionEnabled = false
+		cell.contentView.addSubview(flashView)
+		
+		UIView.animateKeyframes(withDuration: 0.56, delay: 0, options: [.allowUserInteraction, .calculationModeLinear]) {
+			UIView.addKeyframe(withRelativeStartTime: 0.00, relativeDuration: 0.16) {
+				flashView.alpha = 0.32
+			}
+			UIView.addKeyframe(withRelativeStartTime: 0.16, relativeDuration: 0.34) {
+				flashView.alpha = 0
+			}
+		} completion: { _ in
+			Task { @MainActor in
+				flashView.removeFromSuperview()
+			}
+		}
+		/*
 		if traitCollection.userInterfaceStyle == .dark {
 			let flashView = UIView(frame: cell.bounds)
 			flashView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -944,6 +982,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 				secondFlashView.removeFromSuperview()
 			}
 		}
+		 */
 	}
 
 	override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -1151,13 +1190,27 @@ private extension MainTimelineViewController {
 		}
 
 		let isPseudoFeedIcon = timelineFeed is PseudoFeed
-		navigationItem.rightBarButtonItem = FeedNavigationChrome.makeTopBarFeedBarButton(
-			iconImage: iconImage,
-			isPseudoFeedIcon: isPseudoFeedIcon,
-			cacheKey: iconKey,
-			target: self,
-			action: #selector(showFeedInspector(_:))
-		)
+		if isPseudoFeedIcon {
+			// Pseudo feeds (Starred, Today, All Unread) use a plain template bar button — no circular
+			// container, no baked-in color — so the icon renders like any other nav bar button.
+			let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+			let image = (iconImage.image.applyingSymbolConfiguration(config) ?? iconImage.image)
+				.withRenderingMode(.alwaysTemplate)
+			navigationItem.rightBarButtonItem = UIBarButtonItem(
+				image: image,
+				style: .plain,
+				target: self,
+				action: #selector(showFeedInspector(_:))
+			)
+		} else {
+			navigationItem.rightBarButtonItem = FeedNavigationChrome.makeTopBarFeedBarButton(
+				iconImage: iconImage,
+				isPseudoFeedIcon: false,
+				cacheKey: iconKey,
+				target: self,
+				action: #selector(showFeedInspector(_:))
+			)
+		}
 		lastNavigationIconKey = iconKey
 	}
 
@@ -1388,11 +1441,20 @@ private extension MainTimelineViewController {
 
 	private func makeTimelineSnapshot(with items: [Article]) -> NSDiffableDataSourceSnapshot<TimelineSection, Article> {
 		var snapshot = NSDiffableDataSourceSnapshot<TimelineSection, Article>()
+
+		// The starred feed groups by feed type rather than by date.
+		let isStarredFeed = timelineFeed as? SmartFeed === SmartFeedsController.shared.starredFeed
+
 		let now = Date()
-		// Group articles into ordered date buckets; omit empty sections.
 		var buckets: [TimelineSection: [Article]] = [:]
 		for article in items {
-			let section = TimelineSection.section(for: article.logicalDatePublished, now: now)
+			let section: TimelineSection
+			if isStarredFeed {
+				let category = article.feed?.feedCategory ?? .rss
+				section = .feedCategory(category)
+			} else {
+				section = TimelineSection.section(for: article.logicalDatePublished, now: now)
+			}
 			buckets[section, default: []].append(article)
 		}
 		let orderedSections = buckets.keys.sorted()

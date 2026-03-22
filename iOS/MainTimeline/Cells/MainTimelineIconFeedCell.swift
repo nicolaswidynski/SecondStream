@@ -94,25 +94,34 @@ class MainTimelineIconFeedCell: UITableViewCell {
 			if indicatorView.alpha == 0.0 {
 				indicatorView.alpha = 1.0
 			}
+			setIndicatorViewSize(22)
 			UIView.animate(withDuration: 0.25) {
-				self.indicatorView.iconImage = Assets.Images.starredFeed
-				self.indicatorView.tintColor = Assets.Colors.star
+				self.indicatorView.iconImage = Assets.Images.starredCellIndicator
+				self.indicatorView.tintColor = .label
 			}
 			return
 		} else if cellData.read == false && !dimReadArticles {
 			if indicatorView.alpha == 0.0 {
 				indicatorView.alpha = 1.0
 			}
+			setIndicatorViewSize(16)
 			UIView.animate(withDuration: 0.25) {
 				self.indicatorView.iconImage = Assets.Images.unreadCellIndicator
 				self.indicatorView.tintColor = Assets.Colors.secondaryAccent
 			}
 			return
 		} else if indicatorView.alpha == 1.0 {
+			setIndicatorViewSize(16)
 			UIView.animate(withDuration: 0.25) {
 				self.indicatorView.alpha = 0.0
 				self.indicatorView.iconImage = nil
 			}
+		}
+	}
+
+	private func setIndicatorViewSize(_ size: CGFloat) {
+		for constraint in indicatorView.constraints where constraint.firstAttribute == .width || constraint.firstAttribute == .height {
+			constraint.constant = size
 		}
 	}
 
