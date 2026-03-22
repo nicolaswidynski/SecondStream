@@ -103,7 +103,10 @@ extension Notification.Name {
 
 		@MainActor func checkFeedIconURL() {
 			if let iconURL = feed.iconURL {
-				icon(forURL: iconURL, feed: feed) { (image) in
+				// RSS feed icons (itunes:image / channel image) are larger artwork; use the
+				// higher-resolution scaler so they look crisp in the recently-updated strip.
+				let useArtworkSize = feed.feedCategory == .rss
+				icon(forURL: iconURL, feed: feed, artworkSized: useArtworkSize) { (image) in
 					Task { @MainActor in
 						if let image = image {
 							self.cache[feed] = IconImage(image)
@@ -215,14 +218,18 @@ private extension FeedIconDownloader {
 		resultBlock(nil, nil)
 	}
 
-	func icon(forURL url: String, feed: Feed, _ imageResultBlock: @escaping ImageResultBlock) {
+	func icon(forURL url: String, feed: Feed, artworkSized: Bool = false, _ imageResultBlock: @escaping ImageResultBlock) {
 
 		waitingForFeedURLs[url] = feed
 		guard let imageData = imageDownloader.image(for: url) else {
 			imageResultBlock(nil)
 			return
 		}
-		RSImage.scaledForIcon(imageData, imageResultBlock: imageResultBlock)
+		if artworkSized {
+			RSImage.scaledForFeedArtwork(imageData, imageResultBlock: imageResultBlock)
+		} else {
+			RSImage.scaledForIcon(imageData, imageResultBlock: imageResultBlock)
+		}
 	}
 
 	func postFeedIconDidBecomeAvailableNotification(_ feed: Feed) {

@@ -33,6 +33,7 @@
 @property (nonatomic) BOOL parsingAuthor;
 @property (nonatomic, readonly) RSParsedArticle *currentArticle;
 @property (nonatomic) BOOL parsingChannelImage;
+@property (nonatomic) BOOL parsingChannelImageURL;
 @property (nonatomic, readonly) NSDate *currentDate;
 @property (nonatomic) BOOL endRSSFound;
 @property (nonatomic) NSString *homepageURLString;
@@ -40,6 +41,8 @@
 @property (nonatomic) NSDate *dateParsed;
 @property (nonatomic) BOOL isRDF;
 @property (nonatomic) NSString *language;
+@property (nonatomic) NSString *iconURLString;
+@property (nonatomic) NSString *channelImageURLString;
 
 @end
 
@@ -77,7 +80,8 @@
 
 	[self parse];
 
-	RSParsedFeed *parsedFeed = [[RSParsedFeed alloc] initWithURLString:self.urlString title:self.title homepageURLString:self.homepageURLString language:self.language articles:self.articles iconURLString:nil feedURLString:nil];
+	NSString *iconURL = self.iconURLString ?: self.channelImageURLString;
+	RSParsedFeed *parsedFeed = [[RSParsedFeed alloc] initWithURLString:self.urlString title:self.title homepageURLString:self.homepageURLString language:self.language articles:self.articles iconURLString:iconURL feedURLString:nil];
 
 	return parsedFeed;
 }
@@ -87,6 +91,7 @@
 
 static NSString *kIsPermaLinkKey = @"isPermaLink";
 static NSString *kURLKey = @"url";
+static NSString *kHrefKey = @"href";
 static NSString *kLengthKey = @"length";
 static NSString *kTypeKey = @"type";
 static NSString *kFalseValue = @"false";
@@ -176,6 +181,9 @@ static const NSInteger kEnclosureLength = 10;
 
 static const char *kLanguage = "language";
 static const NSInteger kLanguageLength = 9;
+
+static const char *kItunes = "itunes";
+static const NSInteger kItunesLength = 7;
 
 static const char *kMp3URL = "mp3_url";
 static const NSInteger kMp3URLLength = 8;
@@ -431,7 +439,7 @@ static const NSInteger kMp3URLLength = 8;
 	}
 
 	NSDictionary *xmlAttributes = nil;
-	if ((self.isRDF && RSSAXEqualTags(localName, kItem, kItemLength)) || RSSAXEqualTags(localName, kGuid, kGuidLength) || RSSAXEqualTags(localName, kEnclosure, kEnclosureLength)) {
+	if ((self.isRDF && RSSAXEqualTags(localName, kItem, kItemLength)) || RSSAXEqualTags(localName, kGuid, kGuidLength) || RSSAXEqualTags(localName, kEnclosure, kEnclosureLength) || RSSAXEqualTags(prefix, kItunes, kItunesLength)) {
 		xmlAttributes = [self.parser attributesDictionary:attributes numberOfAttributes:numberOfAttributes];
 	}
 	if (self.currentAttributes != xmlAttributes) {
@@ -457,8 +465,20 @@ static const NSInteger kMp3URLLength = 8;
 			self.parsingAuthor = true;
 		}
 	}
+	else if (!self.parsingArticle && RSSAXEqualTags(prefix, kItunes, kItunesLength) && RSSAXEqualTags(localName, kImage, kImageLength)) {
+		// <itunes:image href="..."> — highest-priority feed icon
+		NSString *href = xmlAttributes[kHrefKey];
+		if (!RSParserStringIsEmpty(href)) {
+			self.iconURLString = href;
+		}
+	}
 
 	if (!self.parsingChannelImage) {
+		[self.parser beginStoringCharacters];
+	}
+	else if (!self.parsingArticle && !prefix && RSSAXEqualTags(localName, kURL, kURLLength)) {
+		// Inside <image><url> — store the channel image URL string
+		self.parsingChannelImageURL = YES;
 		[self.parser beginStoringCharacters];
 	}
 }
@@ -480,6 +500,15 @@ static const NSInteger kMp3URLLength = 8;
 
 	else if (RSSAXEqualTags(localName, kImage, kImageLength)) {
 		self.parsingChannelImage = NO;
+		self.parsingChannelImageURL = NO;
+	}
+
+	else if (self.parsingChannelImageURL && !prefix && RSSAXEqualTags(localName, kURL, kURLLength)) {
+		NSString *imageURLString = [self currentString];
+		if (!RSParserStringIsEmpty(imageURLString)) {
+			self.channelImageURLString = imageURLString;
+		}
+		self.parsingChannelImageURL = NO;
 	}
 
 	else if (RSSAXEqualTags(localName, kItem, kItemLength)) {

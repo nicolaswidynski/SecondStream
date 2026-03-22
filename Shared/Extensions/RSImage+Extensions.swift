@@ -15,9 +15,14 @@ import UIKit
 
 extension RSImage {
 	static let maxIconSize = 48
+	static let feedArtworkMaxSize = 400
 
 	static func scaledForIcon(_ data: Data, imageResultBlock: @escaping ImageResultBlock) {
 		IconScalerQueue.shared.scaledForIcon(data, imageResultBlock)
+	}
+
+	static func scaledForFeedArtwork(_ data: Data, imageResultBlock: @escaping ImageResultBlock) {
+		IconScalerQueue.shared.scaledForFeedArtwork(data, imageResultBlock)
 	}
 
 	static func scaledForIcon(_ data: Data) -> RSImage? {
@@ -77,6 +82,26 @@ private final class IconScalerQueue: Sendable {
 	func scaledForIcon(_ data: Data, _ imageResultBlock: @escaping ImageResultBlock) {
 		queue.async {
 			let image = RSImage.scaledForIcon(data)
+			DispatchQueue.main.async {
+				imageResultBlock(image)
+			}
+		}
+	}
+
+	func scaledForFeedArtwork(_ data: Data, _ imageResultBlock: @escaping ImageResultBlock) {
+		queue.async {
+			let maxPixelSize = Int(ceil(CGFloat(RSImage.feedArtworkMaxSize) * RSScreen.maxScreenScale))
+			let image: RSImage?
+			if let cgImage = RSImage.scaleImage(data, maxPixelSize: maxPixelSize) {
+				#if os(iOS)
+				image = RSImage(cgImage: cgImage)
+				#else
+				let size = NSSize(width: cgImage.width, height: cgImage.height)
+				image = RSImage(cgImage: cgImage, size: size)
+				#endif
+			} else {
+				image = nil
+			}
 			DispatchQueue.main.async {
 				imageResultBlock(image)
 			}

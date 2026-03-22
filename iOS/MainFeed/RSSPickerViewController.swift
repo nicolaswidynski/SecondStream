@@ -271,7 +271,6 @@ extension RSSPickerViewController: UISearchBarDelegate {
 			preferredStyle: .alert
 		)
 		alert.addTextField { textField in
-			textField.text = "https://"
 			textField.placeholder = "https://example.com/feed.xml"
 			textField.keyboardType = .URL
 			textField.autocapitalizationType = .none

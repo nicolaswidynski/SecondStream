@@ -2158,6 +2158,17 @@ extension MainFeedCollectionViewController: RSSPickerDelegate {
 	}
 
 	func rssPicker(_ picker: RSSPickerViewController, didEnterFeedURL url: String) {
+		let normalizedURL = url.normalizedURL
+		guard !normalizedURL.isEmpty, URL(string: normalizedURL) != nil else {
+			let alert = UIAlertController(
+				title: NSLocalizedString("Invalid URL", comment: "Invalid URL"),
+				message: NSLocalizedString("Please enter a valid feed URL starting with http:// or https://.", comment: "Invalid URL message"),
+				preferredStyle: .alert
+			)
+			alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
+			picker.present(alert, animated: true)
+			return
+		}
 		picker.dismiss(animated: true) {
 			self.addFeedDirectly(urlString: url, category: .rss)
 		}
