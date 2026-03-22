@@ -282,7 +282,7 @@ struct MarkdownConverter {
 
 		// Lists
 		// nnw-generated-bullet-list: summary bullets — prefix with a "Summary:" item and indent.
-		result = result.replacingOccurrences(of: "<ul class=\"nnw-generated-bullet-list\">", with: "- Summary:\n")
+		result = result.replacingOccurrences(of: "<ul class=\"nnw-generated-bullet-list\">", with: "- **Summary**:\n")
 		result = result.replacingOccurrences(of: "<li class=\"nnw-generated-bullet-item\">", with: "   - ")
 		// Generic lists (must come after the specific class handlers above)
 		result = result.replacingOccurrences(of: "<ul[^>]*>", with: "", options: .regularExpression)
@@ -309,8 +309,8 @@ struct MarkdownConverter {
 		// Clean up leading spaces on lines (except list items and code)
 		result = result.replacingOccurrences(of: "\\n +([^-`])", with: "\n$1", options: .regularExpression)
 
-		// Clean up multiple spaces
-		result = result.replacingOccurrences(of: "[ \\t]{2,}", with: " ", options: .regularExpression)
+		// Clean up multiple spaces (only inline, not leading indentation)
+		result = result.replacingOccurrences(of: "(?<=\\S)[ \\t]{2,}", with: " ", options: .regularExpression)
 
 		// Decode common HTML entities
 		result = decodeHTMLEntities(result)
