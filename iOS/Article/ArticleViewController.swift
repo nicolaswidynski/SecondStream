@@ -87,6 +87,12 @@ final class ArticleViewController: UIViewController {
 		NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground(_:)), name: UIApplication.willEnterForegroundNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(feedIconDidBecomeAvailable(_:)), name: .feedIconDidBecomeAvailable, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
+
+		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (_: ArticleViewController, _: UITraitCollection) in
+			self?.lastNavigationIconKey = nil
+			self?.updateNavigationHeader()
+		}
 
 		let titleView = FeedNavigationChrome.makeTitleView(target: self, action: #selector(showCurrentFeedHomepage(_:)))
 		titleView.transform = CGAffineTransform(translationX: 0, y: -3)
@@ -281,6 +287,11 @@ final class ArticleViewController: UIViewController {
 		}
 		let iconKey = String(describing: feed.sidebarItemID)
 		FeedNavigationChrome.clearTopBarFeedIcon(cacheKey: iconKey)
+		lastNavigationIconKey = nil
+		updateNavigationHeader()
+	}
+
+	@objc func sourceImageDidBecomeAvailable(_ note: Notification) {
 		lastNavigationIconKey = nil
 		updateNavigationHeader()
 	}
@@ -559,7 +570,8 @@ private extension ArticleViewController {
 			return
 		}
 
-		let iconKey = String(describing: iconSource.sidebarItemID)
+		let styleKey = traitCollection.userInterfaceStyle == .light ? "light" : "dark"
+		let iconKey = String(describing: iconSource.sidebarItemID) + styleKey
 		if iconKey == lastNavigationIconKey, navigationItem.rightBarButtonItem != nil {
 			return
 		}
@@ -572,7 +584,17 @@ private extension ArticleViewController {
 			return
 		}
 
-		guard let iconImage = IconImageCache.shared.imageForFeed(iconSource) else {
+		let iconImage: IconImage?
+		if traitCollection.userInterfaceStyle == .light,
+		   let feed = iconSource as? Feed,
+		   let lightURL = LightFeedIconStore.shared.lightIconURL(for: feed.url),
+		   let uiImage = SourceImageCache.shared.image(for: lightURL) {
+			iconImage = IconImage(uiImage)
+		} else {
+			iconImage = IconImageCache.shared.imageForFeed(iconSource)
+		}
+
+		guard let iconImage else {
 			if isSmartTimeline {
 				navigationItem.rightBarButtonItem = nil
 				lastNavigationIconKey = nil

@@ -133,6 +133,7 @@ enum AddNewsResult {
 		let addedLight = Array(Set(sources.compactMap(\.imageURLLight)).subtracting(oldURLs))
 		SourceImageCache.shared.prefetchImages(for: addedLight)
 		self.newsSources = sources
+		sources.forEach { LightFeedIconStore.shared.setLightIconURL($0.imageURLLight, for: $0.url) }
 		Self.logger.info("Fetched \(sources.count) news sources")
 	}
 

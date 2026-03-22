@@ -83,6 +83,21 @@ enum FeedSectionIdentifier: String {
 			return NSLocalizedString("My Weekly News", comment: "My Weekly News section")
 		}
 	}
+
+	var sectionIcon: UIImage? {
+		switch self {
+		case .smartFeeds:
+			return nil
+		case .rssFeeds:
+			return RSImage(named: "rss_thin-symbol") ?? UIImage(systemName: "dot.radiowaves.left.and.right")
+		case .podcasts:
+			return RSImage(named: "podcast_thin-symbol") ?? UIImage(systemName: "mic.fill")
+		case .youtube:
+			return UIImage(systemName: "play.rectangle")
+		case .news:
+			return UIImage(systemName: "newspaper")
+		}
+	}
 }
 
 struct SidebarItemNode: Hashable, Sendable {

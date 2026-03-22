@@ -582,6 +582,12 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		NotificationCenter.default.addObserver(self, selector: #selector(contentSizeCategoryDidChange), name: UIContentSizeCategory.didChangeNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(displayNameDidChange), name: .DisplayNameDidChange, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground(_:)), name: UIApplication.willEnterForegroundNotification, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
+
+		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (_: MainTimelineViewController, _: UITraitCollection) in
+			self?.lastNavigationIconKey = nil
+			self?.updateNavigationFeedIcon()
+		}
 
 		// Setup the Search Controller
 		searchController.delegate = self
@@ -1078,6 +1084,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		}
 	}
 
+	@objc func sourceImageDidBecomeAvailable(_ note: Notification) {
+		lastNavigationIconKey = nil
+		updateNavigationFeedIcon()
+	}
+
 	func userDefaultsDidChange() {
 		if self.numberOfTextLines != AppDefaults.shared.timelineNumberOfLines || self.iconSize != AppDefaults.shared.timelineIconSize {
 			self.numberOfTextLines = AppDefaults.shared.timelineNumberOfLines
@@ -1165,7 +1176,13 @@ private extension MainTimelineViewController {
 		let iconImage: IconImage?
 		let iconSource: SidebarItem?
 		if let feed = timelineFeed as? Feed {
-			iconImage = IconImageCache.shared.imageForFeed(feed)
+			if traitCollection.userInterfaceStyle == .light,
+			   let lightURL = LightFeedIconStore.shared.lightIconURL(for: feed.url),
+			   let uiImage = SourceImageCache.shared.image(for: lightURL) {
+				iconImage = IconImage(uiImage)
+			} else {
+				iconImage = IconImageCache.shared.imageForFeed(feed)
+			}
 			iconSource = feed
 		} else if let pseudoFeed = timelineFeed as? PseudoFeed {
 			iconImage = pseudoFeed.smallIcon
@@ -1184,7 +1201,8 @@ private extension MainTimelineViewController {
 			return
 		}
 
-		let iconKey = String(describing: iconSource?.sidebarItemID)
+		let styleKey = traitCollection.userInterfaceStyle == .light ? "light" : "dark"
+		let iconKey = String(describing: iconSource?.sidebarItemID) + styleKey
 		if iconKey == lastNavigationIconKey, navigationItem.rightBarButtonItem != nil {
 			return
 		}

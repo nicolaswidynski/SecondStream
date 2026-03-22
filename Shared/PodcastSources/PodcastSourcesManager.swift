@@ -187,6 +187,7 @@ enum AddPodcastResult {
 			SourceImageCache.shared.removeImages(for: removed)
 			SourceImageCache.shared.prefetchImages(for: added)
 			self.podcastSources = sources
+			sources.forEach { LightFeedIconStore.shared.setLightIconURL($0.imageURLLight, for: $0.url) }
 			Self.logger.info("Fetched \(sources.count) top podcast sources")
 		}
 
@@ -200,6 +201,7 @@ enum AddPodcastResult {
 			SourceImageCache.shared.removeImages(for: removed)
 			SourceImageCache.shared.prefetchImages(for: added)
 			self.podcastLibrarySources = sources
+			sources.forEach { LightFeedIconStore.shared.setLightIconURL($0.imageURLLight, for: $0.url) }
 			Self.logger.info("Fetched \(sources.count) library podcast sources")
 		}
 	}

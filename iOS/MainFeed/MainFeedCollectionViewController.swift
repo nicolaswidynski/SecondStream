@@ -87,6 +87,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		) { [weak self] _ in self?.addRSSFeed() }
 
 		let menu = UIMenu(title: "", children: [rssAction, newsAction, youtubeAction, podcastAction])
+		if #available(iOS 16.0, *) {
+			menu.preferredElementSize = .large
+		}
 
 		var config = UIButton.Configuration.plain()
 		config.image = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .medium))
@@ -638,7 +641,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 					if !validateFeed, let summaryURL {
 						Task {
 							if let icons = await Self.fetchFeedIconURL(summaryURL: summaryURL) {
-								await MainActor.run { feed.iconURL = icons.dark }
+								await MainActor.run {
+									feed.iconURL = icons.dark
+									LightFeedIconStore.shared.setLightIconURL(icons.light, for: feed.url)
+								}
 							}
 						}
 					}
@@ -828,6 +834,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 			registerForTraitChanges([UITraitPreferredContentSizeCategory.self], target: self, action: #selector(preferredContentSizeCategoryDidChange))
 		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
+
+		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (_: MainFeedCollectionViewController, _: UITraitCollection) in
+			self?.applyToAvailableCells { (cell, indexPath) in
+				self?.configureIcon(cell, indexPath)
+			}
+		}
 	}
 
 	private func applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip() {
@@ -940,7 +953,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			if let feedSection = FeedSectionIdentifier(rawValue: sectionID) {
 				headerView.delegate = self
 				headerView.sectionID = sectionID
-				headerView.headerTitle.text = feedSection.displayName
+				let icon = AppDefaults.shared.showSectionHeaderIcons ? feedSection.sectionIcon : nil
+			headerView.configure(title: feedSection.displayName, icon: icon)
 				headerView.unreadCount = self.unreadCountForSection(feedSection)
 				headerView.disclosureExpanded = self.coordinator.isCategorySectionExpanded(feedSection)
 				// Don't add context menu to category headers (no account actions apply)
@@ -953,7 +967,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			}
 
 			headerView.delegate = self
-			headerView.headerTitle.text = nameProvider.nameForDisplay
+			headerView.configure(title: nameProvider.nameForDisplay)
 
 			guard let sectionNode = self.coordinator.rootNode.childAtIndex(indexPath.section) else {
 				return headerView
@@ -1153,28 +1167,56 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		guard let sidebarItemID = sidebarItem.sidebarItemID else {
 			return
 		}
-		cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
+		if traitCollection.userInterfaceStyle == .light,
+		   let feed = sidebarItem as? Feed,
+		   let lightURL = LightFeedIconStore.shared.lightIconURL(for: feed.url),
+		   let uiImage = SourceImageCache.shared.image(for: lightURL) {
+			cell.iconImage = IconImage(uiImage)
+		} else {
+			cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
+		}
 	}
 
 	func configureIcon(_ cell: MainFeedCollectionViewFolderCell, sidebarItem: SidebarItem) {
 		guard let sidebarItemID = sidebarItem.sidebarItemID else {
 			return
 		}
-		cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
+		if traitCollection.userInterfaceStyle == .light,
+		   let feed = sidebarItem as? Feed,
+		   let lightURL = LightFeedIconStore.shared.lightIconURL(for: feed.url),
+		   let uiImage = SourceImageCache.shared.image(for: lightURL) {
+			cell.iconImage = IconImage(uiImage)
+		} else {
+			cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
+		}
 	}
 
 	func configureIcon(_ cell: MainFeedCollectionViewCell, _ indexPath: IndexPath) {
 		guard let node = coordinator.nodeFor(indexPath), let sidebarItem = node.representedObject as? SidebarItem, let sidebarItemID = sidebarItem.sidebarItemID else {
 			return
 		}
-		cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
+		if traitCollection.userInterfaceStyle == .light,
+		   let feed = sidebarItem as? Feed,
+		   let lightURL = LightFeedIconStore.shared.lightIconURL(for: feed.url),
+		   let uiImage = SourceImageCache.shared.image(for: lightURL) {
+			cell.iconImage = IconImage(uiImage)
+		} else {
+			cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
+		}
 	}
 
 	func configureIcon(_ cell: MainFeedCollectionViewFolderCell, _ indexPath: IndexPath) {
 		guard let node = coordinator.nodeFor(indexPath), let sidebarItem = node.representedObject as? SidebarItem, let sidebarItemID = sidebarItem.sidebarItemID else {
 			return
 		}
-		cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
+		if traitCollection.userInterfaceStyle == .light,
+		   let feed = sidebarItem as? Feed,
+		   let lightURL = LightFeedIconStore.shared.lightIconURL(for: feed.url),
+		   let uiImage = SourceImageCache.shared.image(for: lightURL) {
+			cell.iconImage = IconImage(uiImage)
+		} else {
+			cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
+		}
 	}
 
 	func configureCellsForRepresentedObject(_ representedObject: AnyObject) {
@@ -1381,6 +1423,21 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	@objc func sourceImageDidBecomeAvailable(_ note: Notification) {
 		refreshRecentlyUpdatedShowsStrip()
+		applyToAvailableCells { (cell, indexPath) in
+			configureIcon(cell, indexPath)
+		}
+	}
+
+	@objc func userDefaultsDidChange(_ note: Notification) {
+		let snapshot = dataSource.snapshot()
+		for (sectionIndex, sectionID) in snapshot.sectionIdentifiers.enumerated() {
+			guard let feedSection = FeedSectionIdentifier(rawValue: sectionID),
+				  let headerView = collectionView.supplementaryView(forElementKind: UICollectionView.elementKindSectionHeader, at: IndexPath(item: 0, section: sectionIndex)) as? MainFeedCollectionHeaderReusableView else {
+				continue
+			}
+			let icon = AppDefaults.shared.showSectionHeaderIcons ? feedSection.sectionIcon : nil
+			headerView.configure(title: feedSection.displayName, icon: icon)
+		}
 	}
 
 	// MARK: - Actions

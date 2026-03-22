@@ -159,6 +159,7 @@ enum AddRSSResult {
 		SourceImageCache.shared.removeImages(for: removed)
 		SourceImageCache.shared.prefetchImages(for: added)
 		self.rssSources = sources
+		sources.forEach { LightFeedIconStore.shared.setLightIconURL($0.imageURLLight, for: $0.url) }
 		Self.logger.info("Fetched \(sources.count) RSS sources")
 	}
 

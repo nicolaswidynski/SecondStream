@@ -43,6 +43,11 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 
 	private var _unreadCount: Int = 0
 	private var hasBeenConfigured = false
+	private var sectionTitleText: String = ""
+
+	var sectionIcon: UIImage? {
+		didSet { updateAttributedTitle() }
+	}
 
 	var unreadCount: Int {
 		get {
@@ -87,10 +92,14 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 		unreadCountLabel.alpha = 0
 		hasBeenConfigured = false
 		sectionID = nil
+		sectionTitleText = ""
+		sectionIcon = nil
+		headerTitle.attributedText = nil
 	}
 
 	func configureUI() {
 		headerTitle.textColor = traitCollection.userInterfaceIdiom == .pad ? .tertiaryLabel : .label
+		updateAttributedTitle()
 	}
 
 	private func tightenUnreadChevronSpacing() {
@@ -123,9 +132,50 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 		delegate?.mainFeedCollectionHeaderReusableViewDidTapDisclosureIndicator(self)
 	}
 
-	func configureContainer(withTitle title: String) {
-		headerTitle.text = title
+	func configure(title: String, icon: UIImage? = nil) {
+		sectionTitleText = title
+		sectionIcon = icon
 		disclosureIndicator.transform = .identity
+	}
+
+	func configureContainer(withTitle title: String) {
+		configure(title: title)
+	}
+
+	private func updateAttributedTitle() {
+		guard !sectionTitleText.isEmpty else {
+			return
+		}
+		guard let icon = sectionIcon else {
+			headerTitle.attributedText = nil
+			headerTitle.text = sectionTitleText
+			return
+		}
+
+		let font = headerTitle.font ?? UIFont.systemFont(ofSize: 15, weight: .semibold)
+		let color = headerTitle.textColor ?? .label
+		let height = font.pointSize * 1.4
+		let imgSize = icon.size
+		let width = imgSize.height > 0 ? height * (imgSize.width / imgSize.height) : height
+
+		let attachment = NSTextAttachment()
+		attachment.bounds = CGRect(x: 0, y: (font.capHeight - height) / 2, width: width, height: height)
+		attachment.image = icon.withTintColor(color, renderingMode: .alwaysOriginal)
+
+		let attrs: [NSAttributedString.Key: Any] = [
+			.font: font,
+			.foregroundColor: color
+		]
+		let iconString = NSAttributedString(attachment: attachment)
+		let space = NSAttributedString(string: "  ", attributes: attrs)
+		let title = NSAttributedString(string: sectionTitleText, attributes: attrs)
+
+		let result = NSMutableAttributedString()
+		result.append(iconString)
+		result.append(space)
+		result.append(title)
+
+		headerTitle.attributedText = result
 	}
 
 	func updateExpandedState(animate: Bool) {
