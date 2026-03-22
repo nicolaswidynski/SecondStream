@@ -281,10 +281,9 @@ struct MarkdownConverter {
 		result = result.replacingOccurrences(of: "<br[^>]*/?>", with: "\n", options: .regularExpression)
 
 		// Lists
-		// nnw-generated-bullet-list: nested summary items — inject a newline so items start on
-		// their own line, then indent them with two spaces to make sub-bullets.
-		result = result.replacingOccurrences(of: "<ul class=\"nnw-generated-bullet-list\">", with: "\n")
-		result = result.replacingOccurrences(of: "<li class=\"nnw-generated-bullet-item\">", with: "  - ")
+		// nnw-generated-bullet-list: summary bullets — prefix with a "Summary:" item and indent.
+		result = result.replacingOccurrences(of: "<ul class=\"nnw-generated-bullet-list\">", with: "- Summary:\n")
+		result = result.replacingOccurrences(of: "<li class=\"nnw-generated-bullet-item\">", with: "   - ")
 		// Generic lists (must come after the specific class handlers above)
 		result = result.replacingOccurrences(of: "<ul[^>]*>", with: "", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</ul>", with: "")

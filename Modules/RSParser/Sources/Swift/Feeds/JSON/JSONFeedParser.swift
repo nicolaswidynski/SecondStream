@@ -340,13 +340,11 @@ private extension JSONFeedParser {
 			if let pubDate {
 				metadataLines.append("<li><strong>Published</strong>: \(htmlEscaped(pubDate))</li>")
 			}
-			let summaryItem = generatedTopicsSummaryListItem(item[Key.summary])
-			if !summaryItem.isEmpty {
-				metadataLines.append(summaryItem)
-			}
 			let metadataHTML = metadataLines.isEmpty ? "" : "<ul class=\"nnw-topics-metadata\">\(metadataLines.joined())</ul>"
 
-			return "\(titleHTML)\(metadataHTML)"
+			let summaryHTML = generatedTopicsSummaryHTML(item[Key.summary])
+
+			return "\(titleHTML)\(metadataHTML)\(summaryHTML)"
 		}
 
 		guard !sections.isEmpty else {
@@ -355,34 +353,33 @@ private extension JSONFeedParser {
 		return sections.joined(separator: "\n")
 	}
 
-	/// Returns a `<li>Summary: <ul>…</ul></li>` item for nesting inside the metadata list,
-	/// or an empty string if there is no summary to show.
-	static func generatedTopicsSummaryListItem(_ value: Any?) -> String {
-		func bulletList(_ liItems: [String]) -> String {
-			"<li><strong>Summary</strong>:<ul class=\"nnw-generated-bullet-list\">\(liItems.joined())</ul></li>"
-		}
-
+	static func generatedTopicsSummaryHTML(_ value: Any?) -> String {
 		if let list = value as? [String] {
 			let items = list
 				.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
 				.filter { !$0.isEmpty }
 				.map { "<li class=\"nnw-generated-bullet-item\">\(htmlEscaped($0))</li>" }
-			guard !items.isEmpty else { return "" }
-			return bulletList(items)
+			guard !items.isEmpty else { return "<p>No summary available.</p>" }
+			return "<ul class=\"nnw-generated-bullet-list\">\(items.joined())</ul>"
 		}
 
-		guard let text = nonEmptyString(value) else { return "" }
+		guard let text = nonEmptyString(value) else {
+			return "<p>No summary available.</p>"
+		}
 
 		let lines = text
 			.components(separatedBy: .newlines)
 			.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
 			.filter { !$0.isEmpty }
 		if !lines.isEmpty && lines.allSatisfy({ $0.hasPrefix("- ") || $0.hasPrefix("• ") }) {
-			let items = lines.map { "<li class=\"nnw-generated-bullet-item\">\(htmlEscaped(String($0.dropFirst(2))))</li>" }
-			return bulletList(items)
+			let items = lines.map { line -> String in
+				let content = line.hasPrefix("• ") ? String(line.dropFirst(2)) : String(line.dropFirst(2))
+				return "<li class=\"nnw-generated-bullet-item\">\(htmlEscaped(content))</li>"
+			}
+			return "<ul class=\"nnw-generated-bullet-list\">\(items.joined())</ul>"
 		}
 
-		return "<li><strong>Summary</strong>: \(htmlEscaped(text))</li>"
+		return "<p>\(htmlEscaped(text))</p>"
 	}
 
 	static func htmlEscaped(_ string: String) -> String {
