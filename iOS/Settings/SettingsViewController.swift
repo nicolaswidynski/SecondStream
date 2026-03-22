@@ -934,17 +934,17 @@ private extension SettingsViewController {
 				}
 
 				let switches = [
-					self.notifyFeedsSwitch,
 					self.notifyPodcastsSwitch,
 					self.notifyYouTubeSwitch,
-					self.notifyWeeklyNewsSwitch
+					self.notifyWeeklyNewsSwitch,
+					self.notifyFeedsSwitch
 				]
 
 				let values = [
-					AppDefaults.shared.notifyFeeds,
 					AppDefaults.shared.notifyPodcasts,
 					AppDefaults.shared.notifyYouTube,
-					AppDefaults.shared.notifyWeeklyNews
+					AppDefaults.shared.notifyWeeklyNews,
+					AppDefaults.shared.notifyFeeds
 				]
 
 				for (toggle, value) in zip(switches, values) {

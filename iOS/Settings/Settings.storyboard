@@ -37,37 +37,6 @@
                                             </subviews>
                                         </tableViewCellContentView>
                                     </tableViewCell>
-                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="none" indentationWidth="10" id="Notif-Cell-001" customClass="VibrantTableViewCell" customModule="NetNewsWire" customModuleProvider="target">
-                                        <rect key="frame" x="20" y="106.5" width="374" height="51.5"/>
-                                        <autoresizingMask key="autoresizingMask"/>
-                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="Notif-Cell-001" id="Notif-Con-001">
-                                            <rect key="frame" x="0.0" y="0.0" width="374" height="51.5"/>
-                                            <autoresizingMask key="autoresizingMask"/>
-                                            <subviews>
-                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" horizontalCompressionResistancePriority="250" text="Notify Feeds" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Notif-Lbl-001" customClass="VibrantLabel" customModule="NetNewsWire" customModuleProvider="target">
-                                                    <rect key="frame" x="20" y="15" width="97" height="21.5"/>
-                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
-                                                    <nil key="textColor"/>
-                                                    <nil key="highlightedColor"/>
-                                                </label>
-                                                <switch opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="Notif-Switch-001">
-                                                    <rect key="frame" x="295" y="12" width="63" height="28"/>
-                                                    <color key="onTintColor" name="primaryAccentColor"/>
-                                                    <connections>
-                                                        <action selector="switchNotifyFeeds:" destination="a0p-rk-skQ" eventType="valueChanged" id="Notif-Act-001"/>
-                                                    </connections>
-                                                </switch>
-                                            </subviews>
-                                            <constraints>
-                                                <constraint firstItem="Notif-Switch-001" firstAttribute="centerY" secondItem="Notif-Con-001" secondAttribute="centerY" id="Notif-C01"/>
-                                                <constraint firstItem="Notif-Lbl-001" firstAttribute="top" secondItem="Notif-Con-001" secondAttribute="topMargin" id="Notif-C02"/>
-                                                <constraint firstAttribute="bottomMargin" secondItem="Notif-Lbl-001" secondAttribute="bottom" id="Notif-C03"/>
-                                                <constraint firstAttribute="trailing" secondItem="Notif-Switch-001" secondAttribute="trailing" constant="18" id="Notif-C04"/>
-                                                <constraint firstItem="Notif-Switch-001" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="Notif-Lbl-001" secondAttribute="trailing" constant="8" id="Notif-C05"/>
-                                                <constraint firstItem="Notif-Lbl-001" firstAttribute="leading" secondItem="Notif-Con-001" secondAttribute="leadingMargin" id="Notif-C06"/>
-                                            </constraints>
-                                        </tableViewCellContentView>
-                                    </tableViewCell>
                                     <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="none" indentationWidth="10" id="Notif-Cell-002" customClass="VibrantTableViewCell" customModule="NetNewsWire" customModuleProvider="target">
                                         <rect key="frame" x="20" y="158" width="374" height="51.5"/>
                                         <autoresizingMask key="autoresizingMask"/>
@@ -158,6 +127,37 @@
                                                 <constraint firstAttribute="trailing" secondItem="Notif-Switch-004" secondAttribute="trailing" constant="18" id="Notif-C22"/>
                                                 <constraint firstItem="Notif-Switch-004" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="Notif-Lbl-004" secondAttribute="trailing" constant="8" id="Notif-C23"/>
                                                 <constraint firstItem="Notif-Lbl-004" firstAttribute="leading" secondItem="Notif-Con-004" secondAttribute="leadingMargin" id="Notif-C24"/>
+                                            </constraints>
+                                        </tableViewCellContentView>
+                                    </tableViewCell>
+                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="none" indentationWidth="10" id="Notif-Cell-001" customClass="VibrantTableViewCell" customModule="NetNewsWire" customModuleProvider="target">
+                                        <rect key="frame" x="20" y="312.5" width="374" height="51.5"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="Notif-Cell-001" id="Notif-Con-001">
+                                            <rect key="frame" x="0.0" y="0.0" width="374" height="51.5"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                            <subviews>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" horizontalCompressionResistancePriority="250" text="Notify RSS Feeds" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Notif-Lbl-001" customClass="VibrantLabel" customModule="NetNewsWire" customModuleProvider="target">
+                                                    <rect key="frame" x="20" y="15" width="97" height="21.5"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                                <switch opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="Notif-Switch-001">
+                                                    <rect key="frame" x="295" y="12" width="63" height="28"/>
+                                                    <color key="onTintColor" name="primaryAccentColor"/>
+                                                    <connections>
+                                                        <action selector="switchNotifyFeeds:" destination="a0p-rk-skQ" eventType="valueChanged" id="Notif-Act-001"/>
+                                                    </connections>
+                                                </switch>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstItem="Notif-Switch-001" firstAttribute="centerY" secondItem="Notif-Con-001" secondAttribute="centerY" id="Notif-C01"/>
+                                                <constraint firstItem="Notif-Lbl-001" firstAttribute="top" secondItem="Notif-Con-001" secondAttribute="topMargin" id="Notif-C02"/>
+                                                <constraint firstAttribute="bottomMargin" secondItem="Notif-Lbl-001" secondAttribute="bottom" id="Notif-C03"/>
+                                                <constraint firstAttribute="trailing" secondItem="Notif-Switch-001" secondAttribute="trailing" constant="18" id="Notif-C04"/>
+                                                <constraint firstItem="Notif-Switch-001" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="Notif-Lbl-001" secondAttribute="trailing" constant="8" id="Notif-C05"/>
+                                                <constraint firstItem="Notif-Lbl-001" firstAttribute="leading" secondItem="Notif-Con-001" secondAttribute="leadingMargin" id="Notif-C06"/>
                                             </constraints>
                                         </tableViewCellContentView>
                                     </tableViewCell>

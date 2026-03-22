@@ -561,7 +561,7 @@ final class AppDefaults: Sendable {
 										   Key.obsidianSubfolderFeedName: true,
 										   Key.ttsEnabled: false,
 										   Key.showAddShowSourceFailureDialog: false,
-									   Key.showHomepageResolutionDebugDialog: true,
+									   Key.showHomepageResolutionDebugDialog: false,
 									   Key.timelineDimReadArticles: true,
 									   Key.timelineUnreadFirst: false,
 									   Key.showSectionHeaderIcons: false]
