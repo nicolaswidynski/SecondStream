@@ -280,7 +280,12 @@ struct MarkdownConverter {
 		// Line breaks
 		result = result.replacingOccurrences(of: "<br[^>]*/?>", with: "\n", options: .regularExpression)
 
-		// Lists - tight formatting, no blank lines
+		// Lists
+		// nnw-generated-bullet-list: nested summary items — inject a newline so items start on
+		// their own line, then indent them with two spaces to make sub-bullets.
+		result = result.replacingOccurrences(of: "<ul class=\"nnw-generated-bullet-list\">", with: "\n")
+		result = result.replacingOccurrences(of: "<li class=\"nnw-generated-bullet-item\">", with: "  - ")
+		// Generic lists (must come after the specific class handlers above)
 		result = result.replacingOccurrences(of: "<ul[^>]*>", with: "", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</ul>", with: "")
 		result = result.replacingOccurrences(of: "<ol[^>]*>", with: "", options: .regularExpression)
