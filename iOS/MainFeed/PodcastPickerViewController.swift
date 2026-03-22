@@ -27,7 +27,8 @@ final class PodcastPickerViewController: UIViewController {
 		super.viewDidLoad()
 
 		title = NSLocalizedString("Add Podcast", comment: "Add Podcast")
-		view.backgroundColor = .systemBackground
+		view.backgroundColor = .systemGroupedBackground
+	//	edgesForExtendedLayout = []
 
 		navigationItem.leftBarButtonItem = UIBarButtonItem(
 			barButtonSystemItem: .cancel,
@@ -36,6 +37,7 @@ final class PodcastPickerViewController: UIViewController {
 		)
 
 		configureSearch()
+		configureOpaqueNavigationBar()
 		configureCollectionView()
 		configureDataSource()
 
@@ -50,6 +52,30 @@ final class PodcastPickerViewController: UIViewController {
 	}
 
 	// MARK: - Configuration
+
+	/// Forces an opaque nav bar at every scroll position. Must be called AFTER
+	/// configureSearch() because setting navigationItem.searchController can
+	/// reset scrollEdgeAppearance to nil (transparent).
+	private func configureOpaqueNavigationBar() {
+		let appearance = UINavigationBarAppearance()
+		appearance.configureWithOpaqueBackground()
+		let adaptiveBackground = UIColor { traitCollection in
+			// Check if the current mode is dark
+			if traitCollection.userInterfaceStyle == .dark {
+				return UIColor(red: 0.14, green: 0.14, blue: 0.15, alpha: 1.0)
+			} else {
+				return UIColor(red: 0.96, green: 0.96, blue: 0.98, alpha: 1.0)
+			}
+		}
+		appearance.backgroundColor = adaptiveBackground.resolvedColor(with: self.traitCollection)
+		let textColor = UIColor.label.resolvedColor(with: self.traitCollection)
+		appearance.titleTextAttributes = [.foregroundColor: textColor]
+		appearance.largeTitleTextAttributes = [.foregroundColor: textColor]
+		navigationItem.standardAppearance = appearance
+		navigationItem.scrollEdgeAppearance = appearance
+		navigationItem.compactAppearance = appearance
+		navigationItem.compactScrollEdgeAppearance = appearance
+	}
 
 	private func configureSearch() {
 		searchController.obscuresBackgroundDuringPresentation = false
@@ -69,7 +95,7 @@ final class PodcastPickerViewController: UIViewController {
 		let layout = createLayout()
 		collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
 		collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-		collectionView.backgroundColor = .systemBackground
+		collectionView.backgroundColor = .systemGroupedBackground
 		collectionView.delegate = self
 		collectionView.register(SourcePickerCell.self, forCellWithReuseIdentifier: SourcePickerCell.reuseIdentifier)
 		collectionView.register(
@@ -114,7 +140,7 @@ final class PodcastPickerViewController: UIViewController {
 			case .customEntryName:
 				cell.configure(name: NSLocalizedString("Add Podcast", comment: "Add Podcast"), imageURL: nil, isCustomEntry: true)
 			case .podcastSource(let source):
-				cell.configure(name: source.name, imageURL: source.imageURL)
+				cell.configure(name: source.name, imageURL: source.imageURL, imageURLLight: source.imageURLLight)
 			default:
 				break
 			}

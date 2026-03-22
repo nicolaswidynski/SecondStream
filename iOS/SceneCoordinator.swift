@@ -83,6 +83,21 @@ enum FeedSectionIdentifier: String {
 			return NSLocalizedString("My Weekly News", comment: "My Weekly News section")
 		}
 	}
+
+	var sectionIcon: UIImage? {
+		switch self {
+		case .smartFeeds:
+			return nil
+		case .rssFeeds:
+			return RSImage(named: "rss_thin-symbol") ?? UIImage(systemName: "dot.radiowaves.left.and.right")
+		case .podcasts:
+			return RSImage(named: "podcast_thin-symbol") ?? UIImage(systemName: "mic.fill")
+		case .youtube:
+			return UIImage(systemName: "play.rectangle")
+		case .news:
+			return UIImage(systemName: "newspaper")
+		}
+	}
 }
 
 struct SidebarItemNode: Hashable, Sendable {
@@ -134,6 +149,8 @@ struct SidebarItemNode: Hashable, Sendable {
 
 	// Which category sections are expanded (feed categories collapsed by default)
 	private var expandedCategorySections = Set<FeedSectionIdentifier>()
+	// Set to true after the first unread-based expansion so user toggles are preserved
+	private var didApplyInitialCategoryExpansion = false
 
 	private let hidingReadArticlesState = HidingReadArticlesState()
 
@@ -541,6 +558,18 @@ struct SidebarItemNode: Hashable, Sendable {
 			return
 		}
 
+		// Expand any category section that has at least one unread feed.
+		// Only done once per session; subsequent user toggles are preserved.
+		if !didApplyInitialCategoryExpansion {
+			didApplyInitialCategoryExpansion = true
+			let allSections: [FeedSectionIdentifier] = [.podcasts, .youtube, .news, .rssFeeds]
+			for section in allSections {
+				if unreadCountForCategorySection(section) > 0 {
+					expandedCategorySections.insert(section)
+				}
+			}
+		}
+
 		// Always rebuild after unread counts initialize to ensure category sections
 		// display correct unread counts (not just when filtering read feeds)
 		rebuildBackingStores()
@@ -556,6 +585,11 @@ struct SidebarItemNode: Hashable, Sendable {
 
 	@objc func statusesDidChange(_ note: Notification) {
 		updateUnreadCount()
+		// When the starred feed is active, star changes affect feed membership — replace article list.
+		if timelineFeed as? SmartFeed === SmartFeedsController.shared.starredFeed {
+			fetchAndReplaceArticlesAsync(animated: true) {}
+			return
+		}
 		guard timelineUnreadFirst else {
 			return
 		}
@@ -1629,6 +1663,7 @@ struct SidebarItemNode: Hashable, Sendable {
 
 		addNavViewController.modalPresentationStyle = .formSheet
 		addNavViewController.preferredContentSize = AddFeedViewController.preferredContentSizeForFormSheetDisplay
+		addNavViewController.view.backgroundColor = .systemGroupedBackground
 		mainFeedCollectionViewController.present(addNavViewController, animated: true)
 	}
 
@@ -1636,6 +1671,7 @@ struct SidebarItemNode: Hashable, Sendable {
 		let addNavViewController = UIStoryboard.add.instantiateViewController(withIdentifier: "AddFolderViewControllerNav") as! UINavigationController
 		addNavViewController.modalPresentationStyle = .formSheet
 		addNavViewController.preferredContentSize = AddFolderViewController.preferredContentSizeForFormSheetDisplay
+		addNavViewController.view.backgroundColor = .systemGroupedBackground
 		mainFeedCollectionViewController.present(addNavViewController, animated: true)
 	}
 

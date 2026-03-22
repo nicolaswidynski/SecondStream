@@ -26,6 +26,7 @@ private struct DiscoverSourceItem {
 	let author: String?
 	let url: String
 	let imageURL: String?
+	let imageURLLight: String?
 	let category: FeedCategory
 }
 
@@ -63,26 +64,55 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	private var isAnimating: Bool = false
 
 
-	/// The floating bottom action bar with blur effect (pill-shaped)
-	private lazy var bottomActionBar: UIVisualEffectView = {
-		let blurEffect = UIBlurEffect(style: .systemMaterial)
-		let visualEffectView = UIVisualEffectView(effect: blurEffect)
-		visualEffectView.translatesAutoresizingMaskIntoConstraints = false
-		// Use half the height (26pt) for a full pill/oval shape
-		visualEffectView.layer.cornerRadius = 26
-		visualEffectView.clipsToBounds = true
-		return visualEffectView
-	}()
+	// MARK: - Add Menu State
+	private lazy var addBarButton: UIBarButtonItem = {
+		let podcastAction = UIAction(
+			title: NSLocalizedString("Podcasts", comment: "Podcasts"),
+			image: RSImage(named: "podcast_thin-symbol") ?? UIImage(systemName: "mic.fill")
+		) { [weak self] _ in self?.addPodcast() }
 
-	/// Stack view containing the action buttons
-	private lazy var actionButtonsStack: UIStackView = {
-		let stack = UIStackView()
-		stack.axis = .horizontal
-		stack.distribution = .equalSpacing
-		stack.alignment = .center
-		stack.spacing = 24
-		stack.translatesAutoresizingMaskIntoConstraints = false
-		return stack
+		let youtubeAction = UIAction(
+			title: NSLocalizedString("YouTube", comment: "YouTube"),
+			image: UIImage(systemName: "play.rectangle")
+		) { [weak self] _ in self?.addYoutube() }
+
+		let newsAction = UIAction(
+			title: NSLocalizedString("News", comment: "News"),
+			image: UIImage(systemName: "newspaper")
+		) { [weak self] _ in self?.addNews() }
+
+		let rssAction = UIAction(
+			title: NSLocalizedString("RSS", comment: "RSS"),
+			image: RSImage(named: "rss_thin-symbol") ?? UIImage(systemName: "dot.radiowaves.left.and.right")
+		) { [weak self] _ in self?.addRSSFeed() }
+
+		let menu = UIMenu(title: "", children: [rssAction, newsAction, youtubeAction, podcastAction])
+		if #available(iOS 16.0, *) {
+			menu.preferredElementSize = .large
+		}
+
+		var config = UIButton.Configuration.plain()
+		config.image = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .medium))
+		config.title = NSLocalizedString("Add", comment: "Add")
+		config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+			var updated = attributes
+			updated.font = UIFont.systemFont(ofSize: 11, weight: .medium)
+			return updated
+		}
+		config.imagePlacement = .top
+		config.imagePadding = 2
+
+		let button = UIButton(configuration: config)
+		button.menu = menu
+		button.showsMenuAsPrimaryAction = true
+		button.accessibilityLabel = NSLocalizedString("Add Feed", comment: "Add Feed")
+		button.translatesAutoresizingMaskIntoConstraints = false
+		NSLayoutConstraint.activate([
+			button.widthAnchor.constraint(equalToConstant: 56),
+			button.heightAnchor.constraint(equalToConstant: 56),
+		])
+
+		return UIBarButtonItem(customView: button)
 	}()
 
 	/// The update status label (added directly to view, not navigation bar)
@@ -164,13 +194,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}()
 
 	private lazy var starredButton: UIBarButtonItem = {
-		let image = Assets.Images.starClosed.withTintColor(Assets.Colors.star, renderingMode: .alwaysOriginal)
-		let button = FeedNavigationChrome.makeTopBarFeedBarButton(
-			image: image,
-			fillsCircularButton: false,
-			target: self,
-			action: #selector(starredTapped)
-		)
+		let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+		let image = UIImage(systemName: "bookmark", withConfiguration: config)
+		let button = UIBarButtonItem(image: image, style: .plain, target: self, action: #selector(starredTapped))
 		button.accessibilityLabel = NSLocalizedString("Starred", comment: "Starred")
 		return button
 	}()
@@ -184,7 +210,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		configureDiffableDataSource()
 		configureNavigationBar()
 		configureRecentlyUpdatedStrip()
-		configureBottomActionBar()
+		configureToolbar()
 		collectionView.dragDelegate = self
 		collectionView.dropDelegate = self
 		becomeFirstResponder()
@@ -204,81 +230,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
     }
 
-	private func configureBottomActionBar() {
-		view.addSubview(bottomActionBar)
-
-		// Create action buttons
-		let rssButton = createActionButton(
-			iconName: "rss_thin-symbol",
-			accessibilityLabel: NSLocalizedString("Add RSS Feed", comment: "Add RSS Feed"),
-			fallbackSystemName: "dot.radiowaves.left.and.right",
-			action: #selector(addRSSFeed)
-		)
-
-		let podcastButton = createActionButton(
-			iconName: "podcast_thin-symbol",
-			accessibilityLabel: NSLocalizedString("Add Podcast", comment: "Add Podcast"),
-			fallbackSystemName: "mic.fill",
-			action: #selector(addPodcast)
-		)
-
-		let youtubeButton = createActionButton(
-			iconName: "play.rectangle",
-			accessibilityLabel: NSLocalizedString("Add YouTube Channel", comment: "Add YouTube Channel"),
-			action: #selector(addYoutube)
-		)
-
-		let newsButton = createActionButton(
-			iconName: "newspaper",
-			accessibilityLabel: NSLocalizedString("Add News", comment: "Add News"),
-			action: #selector(addNews)
-		)
-
-		// Add buttons to stack
-		actionButtonsStack.addArrangedSubview(podcastButton)
-		actionButtonsStack.addArrangedSubview(youtubeButton)
-		actionButtonsStack.addArrangedSubview(newsButton)
-		actionButtonsStack.addArrangedSubview(rssButton)
-
-		// Add stack to the content view of the visual effect view
-		bottomActionBar.contentView.addSubview(actionButtonsStack)
-
-		NSLayoutConstraint.activate([
-			// Position action bar at bottom center
-			bottomActionBar.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-			bottomActionBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
-			bottomActionBar.heightAnchor.constraint(equalToConstant: 52),
-
-			// Stack view constraints inside the action bar
-			actionButtonsStack.leadingAnchor.constraint(equalTo: bottomActionBar.contentView.leadingAnchor, constant: 20),
-			actionButtonsStack.trailingAnchor.constraint(equalTo: bottomActionBar.contentView.trailingAnchor, constant: -20),
-			actionButtonsStack.centerYAnchor.constraint(equalTo: bottomActionBar.contentView.centerYAnchor)
-		])
-
-		// Add content insets: top for Recently Updated strip, bottom for action bar
+	private func configureToolbar() {
+		setToolbarItems([.flexibleSpace(), addBarButton], animated: false)
 		collectionView.contentInset.top = defaultTopInset
-		collectionView.contentInset.bottom = 80
 		collectionView.verticalScrollIndicatorInsets.top = defaultTopInset
-		collectionView.verticalScrollIndicatorInsets.bottom = 80
 	}
-
-	private func createActionButton(iconName: String, accessibilityLabel: String, fallbackSystemName: String? = nil, action: Selector) -> UIButton {
-		let button = UIButton(type: .system)
-		let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
-		let image = RSImage(named: iconName)?
-			.applyingSymbolConfiguration(config)
-			?? UIImage(systemName: fallbackSystemName ?? iconName, withConfiguration: config)
-		button.setImage(image, for: .normal)
-		button.tintColor = .label
-		button.accessibilityLabel = accessibilityLabel
-		button.addTarget(self, action: action, for: .touchUpInside)
-		button.translatesAutoresizingMaskIntoConstraints = false
-		NSLayoutConstraint.activate([
-			button.widthAnchor.constraint(equalToConstant: 44),
-			button.heightAnchor.constraint(equalToConstant: 44)
-		])
-		return button
-	}
+ 
 
 	private func configureNavigationBar() {
 		navigationItem.title = nil
@@ -476,22 +433,22 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		let randomPodcastSources = Array(PodcastSourcesManager.shared.podcastSources.shuffled().prefix(2))
 		for source in randomPodcastSources {
-			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, category: .podcast))
+			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, imageURLLight: source.imageURLLight, category: .podcast))
 		}
 
 		let randomYoutubeSources = Array(YoutubeSourcesManager.shared.youtubeSources.shuffled().prefix(2))
 		for source in randomYoutubeSources {
-			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, category: .youtube))
+			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, imageURLLight: source.imageURLLight, category: .youtube))
 		}
 
 		let randomNewsSources = Array(NewsSourcesManager.shared.newsSources.shuffled().prefix(2))
 		for source in randomNewsSources {
-			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, category: .news))
+			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, imageURLLight: source.imageURLLight, category: .news))
 		}
 
 		let randomRSSSources = Array(RSSSourcesManager.shared.rssSources.shuffled().prefix(2))
 		for source in randomRSSSources {
-			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, category: .rss))
+			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, imageURLLight: source.imageURLLight, category: .rss))
 		}
 
 		return discoverItems
@@ -578,6 +535,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let picker = RSSPickerViewController()
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
+		applyPickerNavigationBarAppearance(to: navController)
 		present(navController, animated: true)
 	}
 
@@ -589,6 +547,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let picker = PodcastPickerViewController()
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
+		applyPickerNavigationBarAppearance(to: navController)
 		present(navController, animated: true)
 	}
 
@@ -600,7 +559,23 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let picker = YoutubePickerViewController()
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
+		applyPickerNavigationBarAppearance(to: navController)
 		present(navController, animated: true)
+	}
+
+	private func applyPickerNavigationBarAppearance(to navController: UINavigationController) {
+		// Prevent black flash: UINavigationController.view has no background
+		// by default, which shows as black when the nav bar goes transparent
+		// during scroll-edge transitions.
+		navController.view.backgroundColor = .systemBackground
+
+		let appearance = UINavigationBarAppearance()
+		appearance.configureWithOpaqueBackground()
+		appearance.backgroundColor = .systemBackground
+		navController.navigationBar.standardAppearance = appearance
+		navController.navigationBar.scrollEdgeAppearance = appearance
+		navController.navigationBar.compactAppearance = appearance
+		navController.navigationBar.compactScrollEdgeAppearance = appearance
 	}
 
 	@objc private func addNews() {
@@ -621,7 +596,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// metadata (e.g. from a picker).
 	/// Pass `summaryURL` to fetch canonical show name/author from the server-side JSON file
 	/// instead of relying on the user-entered string when reporting the add to update-user-stats.
-	private func addFeedDirectly(urlString: String, category: FeedCategory, sourceName: String? = nil, sourceAuthor: String? = nil, sourceImageURL: String? = nil, validateFeed: Bool = true, summaryURL: String? = nil) {
+	private func addFeedDirectly(urlString: String, category: FeedCategory, sourceName: String? = nil, sourceAuthor: String? = nil, sourceImageURL: String? = nil, validateFeed: Bool = true, summaryURL: String? = nil, completion: (() -> Void)? = nil) {
 		let normalizedURL = urlString.normalizedURL
 		guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else {
 			return
@@ -658,10 +633,21 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			Task {
 				BatchUpdate.shared.start()
 
-				account.createFeed(url: url.absoluteString, name: nil, container: account, validateFeed: validateFeed) { result in
-				// Set category before ending batch update to avoid UI flicker
+				account.createFeed(url: url.absoluteString, name: sourceName, container: account, validateFeed: validateFeed) { result in
+				// Set category and rebuild sidebar immediately so feed appears in the correct section
 				if case .success(let feed) = result {
 					feed.feedCategory = category
+					NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
+					if !validateFeed, let summaryURL {
+						Task {
+							if let icons = await Self.fetchFeedIconURL(summaryURL: summaryURL) {
+								await MainActor.run {
+									feed.iconURL = icons.dark
+									LightFeedIconStore.shared.setLightIconURL(icons.light, for: feed.url)
+								}
+							}
+						}
+					}
 				}
 
 				BatchUpdate.shared.end()
@@ -692,6 +678,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 						)
 						// Expand the corresponding category section
 						self.expandCategorySectionForCategory(category)
+						completion?()
 					case .failure(let error):
 						self.presentError(error)
 					}
@@ -745,6 +732,33 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 	}
 
+	/// Fetches the generated feed JSON at  and returns the  value.
+	/// The expected format is the generated feed header: {"title":...,"image_link":...}.
+	private static func fetchFeedIconURL(summaryURL: String) async -> (dark: String?, light: String?)? {
+		guard let url = URL(string: summaryURL) else { return nil }
+		guard let (data, response) = try? await URLSession.shared.data(from: url),
+			  let httpResponse = response as? HTTPURLResponse,
+			  (200...299).contains(httpResponse.statusCode),
+			  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+			return nil
+		}
+		var dark: String? = nil
+		var light: String? = nil
+		let keys = ["image_link", "icon", "favicon"]
+		for key in keys {
+			if let v = json[key] as? String, !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+				dark = v
+				break
+			}
+		}
+		if let v = json["image_link_light"] as? String, !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+			light = v
+		}
+		if dark == nil && light == nil { return nil }
+		return (dark, light)
+	}
+
+
 	private func expandCategorySectionForCategory(_ category: FeedCategory) {
 		let section: FeedSectionIdentifier
 		switch category {
@@ -761,13 +775,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
-		// Apply blur to the nav bar at scroll-edge (iOS default is transparent there).
-		let blurredAppearance = UINavigationBarAppearance()
-		blurredAppearance.configureWithDefaultBackground()
-		navigationController?.navigationBar.scrollEdgeAppearance = blurredAppearance
-
-		// Hide the toolbar - all actions are now in the navigation bar
-		navigationController?.isToolbarHidden = true
+		navigationController?.setToolbarHidden(false, animated: animated)
+		navigationController?.additionalSafeAreaInsets.bottom = 60
 		applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip()
 		refreshRecentlyUpdatedShowsStrip()
 		updateUI()
@@ -808,8 +817,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	override func viewWillDisappear(_ animated: Bool) {
 		super.viewWillDisappear(animated)
-		// Reset so the nav bar appearance doesn't bleed into pushed view controllers.
-		navigationController?.navigationBar.scrollEdgeAppearance = nil
+		navigationController?.additionalSafeAreaInsets.bottom = 0
 	}
 
 	func registerForNotifications() {
@@ -826,13 +834,15 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 			registerForTraitChanges([UITraitPreferredContentSizeCategory.self], target: self, action: #selector(preferredContentSizeCategoryDidChange))
 		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
+
 	}
 
 	private func applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip() {
 		guard let navigationBar = navigationController?.navigationBar else {
 			recentlyUpdatedBackgroundView.effect = nil//UIBlurEffect(style: .systemChromeMaterial)
 			navBarExtendedBackgroundView.effect = UIBlurEffect(style: .systemChromeMaterial)
-			navBarExtendedBackgroundView.alpha = 0.75
+			navBarExtendedBackgroundView.alpha = 0.9//1.0
 			return
 		}
 
@@ -843,7 +853,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		} else {
 			recentlyUpdatedBackgroundView.effect = nil//UIBlurEffect(style: .systemChromeMaterial)
 			navBarExtendedBackgroundView.effect = UIBlurEffect(style: .systemChromeMaterial)
-			navBarExtendedBackgroundView.alpha = 0.75
+			navBarExtendedBackgroundView.alpha = 0.9//1.0
 		}
 
 		recentlyUpdatedBackgroundView.backgroundColor = .clear
@@ -938,7 +948,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			if let feedSection = FeedSectionIdentifier(rawValue: sectionID) {
 				headerView.delegate = self
 				headerView.sectionID = sectionID
-				headerView.headerTitle.text = feedSection.displayName
+				let icon = AppDefaults.shared.showSectionHeaderIcons ? feedSection.sectionIcon : nil
+			headerView.configure(title: feedSection.displayName, icon: icon)
 				headerView.unreadCount = self.unreadCountForSection(feedSection)
 				headerView.disclosureExpanded = self.coordinator.isCategorySectionExpanded(feedSection)
 				// Don't add context menu to category headers (no account actions apply)
@@ -951,7 +962,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			}
 
 			headerView.delegate = self
-			headerView.headerTitle.text = nameProvider.nameForDisplay
+			headerView.configure(title: nameProvider.nameForDisplay)
 
 			guard let sectionNode = self.coordinator.rootNode.childAtIndex(indexPath.section) else {
 				return headerView
@@ -980,8 +991,21 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 
 	func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<String, SidebarItemNode>, animatingDifferences: Bool, completion: (() -> Void)? = nil) {
-		dataSource.apply(snapshot, animatingDifferences: animatingDifferences) {
+		dataSource.apply(snapshot, animatingDifferences: animatingDifferences) { [weak self] in
 			completion?()
+			self?.refreshVisibleSectionHeaders()
+		}
+	}
+
+	private func refreshVisibleSectionHeaders() {
+		let sectionIdentifiers = dataSource.snapshot().sectionIdentifiers
+		for indexPath in collectionView.indexPathsForVisibleSupplementaryElements(ofKind: UICollectionView.elementKindSectionHeader) {
+			guard indexPath.section < sectionIdentifiers.count,
+				  let headerView = collectionView.supplementaryView(forElementKind: UICollectionView.elementKindSectionHeader, at: indexPath) as? MainFeedCollectionHeaderReusableView,
+				  let feedSection = FeedSectionIdentifier(rawValue: sectionIdentifiers[indexPath.section]) else {
+				continue
+			}
+			headerView.disclosureExpanded = coordinator.isCategorySectionExpanded(feedSection)
 		}
 	}
 
@@ -1149,14 +1173,18 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	func configureIcon(_ cell: MainFeedCollectionViewCell, _ indexPath: IndexPath) {
-		guard let node = coordinator.nodeFor(indexPath), let sidebarItem = node.representedObject as? SidebarItem, let sidebarItemID = sidebarItem.sidebarItemID else {
+		guard let node = coordinator.nodeFor(indexPath),
+			  let sidebarItem = node.representedObject as? SidebarItem,
+			  let sidebarItemID = sidebarItem.sidebarItemID else {
 			return
 		}
 		cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
 	}
 
 	func configureIcon(_ cell: MainFeedCollectionViewFolderCell, _ indexPath: IndexPath) {
-		guard let node = coordinator.nodeFor(indexPath), let sidebarItem = node.representedObject as? SidebarItem, let sidebarItemID = sidebarItem.sidebarItemID else {
+		guard let node = coordinator.nodeFor(indexPath),
+			  let sidebarItem = node.representedObject as? SidebarItem,
+			  let sidebarItemID = sidebarItem.sidebarItemID else {
 			return
 		}
 		cell.iconImage = IconImageCache.shared.imageFor(sidebarItemID)
@@ -1344,8 +1372,11 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		guard let feed = note.object as? Feed, let key = note.userInfo?[Feed.SettingUserInfoKey] as? String else {
 			return
 		}
-		if key == Feed.SettingKey.homePageURL || key == Feed.SettingKey.faviconURL {
-			configureCellsForRepresentedObject(feed)
+		if key == Feed.SettingKey.homePageURL || key == Feed.SettingKey.faviconURL || key == Feed.SettingKey.iconURL {
+			// Defer so FeedIconDownloader's feedSettingDidChange (cache invalidation) runs first.
+			DispatchQueue.main.async {
+				self.applyToCellsForRepresentedObject(feed, self.configureIcon(_:_:))
+			}
 		}
 	}
 
@@ -1363,6 +1394,21 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	@objc func sourceImageDidBecomeAvailable(_ note: Notification) {
 		refreshRecentlyUpdatedShowsStrip()
+		applyToAvailableCells { (cell, indexPath) in
+			configureIcon(cell, indexPath)
+		}
+	}
+
+	@objc func userDefaultsDidChange(_ note: Notification) {
+		let snapshot = dataSource.snapshot()
+		for (sectionIndex, sectionID) in snapshot.sectionIdentifiers.enumerated() {
+			guard let feedSection = FeedSectionIdentifier(rawValue: sectionID),
+				  let headerView = collectionView.supplementaryView(forElementKind: UICollectionView.elementKindSectionHeader, at: IndexPath(item: 0, section: sectionIndex)) as? MainFeedCollectionHeaderReusableView else {
+				continue
+			}
+			let icon = AppDefaults.shared.showSectionHeaderIcons ? feedSection.sectionIcon : nil
+			headerView.configure(title: feedSection.displayName, icon: icon)
+		}
 	}
 
 	// MARK: - Actions
@@ -1479,11 +1525,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				loadingAlert.dismiss(animated: true) {
 					switch result {
 					case .successExisting(let summaryURL):
-						self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, summaryURL: summaryURL)
+						self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+							appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
+						}
 
 					case .successNew(let summaryURL):
-						self.showPodcastSuccessMessage {
-							self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL)
+						self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+							self.showPodcastSuccessMessage {}
 						}
 
 					case .failure(let message):
@@ -2230,7 +2278,7 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 		// Show loading indicator
 		let loadingAlert = UIAlertController(
 			title: nil,
-			message: NSLocalizedString("Adding YouTube channel...", comment: "Adding YouTube channel..."),
+			message: NSLocalizedString("Searching for YouTube channel...", comment: "Searching for YouTube channel..."),
 			preferredStyle: .alert
 		)
 
@@ -2254,12 +2302,13 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 				loadingAlert.dismiss(animated: true) {
 					switch result {
 					case .successExisting(let summaryURL):
-						self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, summaryURL: summaryURL)
+						self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+							appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
+						}
 
 					case .successNew(let summaryURL):
-						// New channel — skip validation since CDN may not have propagated yet
-						self.showYoutubeSuccessMessage {
-							self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL)
+						self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+							self.showYoutubeSuccessMessage {}
 						}
 
 					case .failure(let message):
@@ -2314,7 +2363,7 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 		// Show loading indicator
 		let loadingAlert = UIAlertController(
 			title: nil,
-			message: NSLocalizedString("Adding topic...", comment: "Adding topic..."),
+			message: NSLocalizedString("Searching for topic...", comment: "Searching for topic..."),
 			preferredStyle: .alert
 		)
 

@@ -32,8 +32,10 @@ struct Assets {
 		static var accountNewsBlur: RSImage { RSImage(named: "accountNewsBlur")! }
 		static var accountTheOldReader: RSImage { RSImage(named: "accountTheOldReader")! }
 
-		static var starOpen: RSImage { RSImage(symbol: "star")! }
-		static var starClosed: RSImage { RSImage(symbol: "star.fill")! }
+//		static var starOpen: RSImage { RSImage(symbol: "star")! }
+//		static var starClosed: RSImage { RSImage(symbol: "star.fill")! }
+		static var starOpen: RSImage { RSImage(symbol: "bookmark")! }
+		static var starClosed: RSImage { RSImage(symbol: "bookmark.fill")! }
 		static var copy: RSImage { RSImage(symbol: "document.on.document")! }
 		static var markAllAsRead: RSImage { RSImage(named: "markAllAsRead")! }
 		static var nextUnread: RSImage { RSImage(symbol: "chevron.down.circle")! }
@@ -49,8 +51,7 @@ struct Assets {
 		static var starredFeed: IconImage {
 			IconImage(starClosed,
 					  isSymbol: true,
-					  isBackgroundSuppressed: true,
-					  preferredColor: Assets.Colors.star.cgColor)
+					  isBackgroundSuppressed: true)
 		}
 
 #if os(macOS)
@@ -167,8 +168,12 @@ struct Assets {
 							 preferredColor: Assets.Colors.secondaryAccent.cgColor)
 		}
 		static var timelineStar: RSImage {
-			let image = RSImage(symbol: "star.fill")!
-			return image.withTintColor(Assets.Colors.star, renderingMode: .alwaysOriginal)
+			RSImage(symbol: "bookmark.fill")!
+		}
+		static var starredCellIndicator: IconImage {
+			let config = UIImage.SymbolConfiguration(pointSize: 30, weight: .medium)
+			let image = UIImage(systemName: "bookmark.fill", withConfiguration: config)!
+			return IconImage(image, isSymbol: true, isBackgroundSuppressed: true)
 		}
 		static var unreadCellIndicator: IconImage {
 			let image = RSImage(symbol: "circle.fill")!

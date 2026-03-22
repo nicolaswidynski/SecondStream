@@ -162,19 +162,13 @@ function createCollapsibleSection(headerElement, headerText, headerClass, siblin
 	wrapper.className = "nnw-collapsible";
 	wrapper.setAttribute("data-open", startCollapsed ? "false" : "true");
 
-	// Create clickable header with dropdown arrow
+	// Create clickable header
 	const headerDiv = document.createElement("div");
 	headerDiv.className = "nnw-collapsible-header " + headerClass;
-
-	// Add dropdown arrow
-	const arrow = document.createElement("span");
-	arrow.className = "nnw-collapsible-arrow";
-	arrow.innerHTML = startCollapsed ? "▶" : "▼";
 
 	const headerContent = document.createElement("span");
 	headerContent.innerHTML = headerText;
 
-	headerDiv.appendChild(arrow);
 	headerDiv.appendChild(headerContent);
 
 	// Create content div
@@ -204,11 +198,9 @@ function createCollapsibleSection(headerElement, headerText, headerClass, siblin
 		if (isOpen) {
 			section.setAttribute("data-open", "false");
 			contentDiv.style.display = "none";
-			arrowSpan.innerHTML = "▶";
 		} else {
 			section.setAttribute("data-open", "true");
 			contentDiv.style.display = "block";
-			arrowSpan.innerHTML = "▼";
 		}
 	});
 
@@ -336,6 +328,51 @@ function makeHeadersCollapsible() {
 		// Replace the header with the wrapper
 		header.parentNode.replaceChild(wrapper, header);
 	}
+}
+
+// Wrap unboxed content in a plain card (no header/title bar).
+// Handles two cases:
+//   1. No headers at all — wraps everything.
+//   2. Content before the first header section — wraps those leading nodes.
+function wrapUnboxedContent() {
+	const articleBody = document.querySelector(".articleBody");
+	if (!articleBody) {
+		return;
+	}
+
+	const firstSection = articleBody.querySelector(".nnw-collapsible");
+
+	// Collect nodes to wrap: everything if no sections exist, or nodes before the first section.
+	const nodesToWrap = [];
+	for (const child of Array.from(articleBody.childNodes)) {
+		if (child === firstSection) {
+			break;
+		}
+		// Skip pure whitespace text nodes
+		if (child.nodeType === Node.TEXT_NODE && child.textContent.trim() === "") {
+			continue;
+		}
+		nodesToWrap.push(child);
+	}
+
+	if (nodesToWrap.length === 0) {
+		return;
+	}
+
+	const wrapper = document.createElement("div");
+	wrapper.className = "nnw-collapsible";
+	wrapper.setAttribute("data-open", "true");
+
+	const content = document.createElement("div");
+	content.className = "nnw-collapsible-content";
+	content.style.display = "block";
+
+	for (const child of nodesToWrap) {
+		content.appendChild(child);
+	}
+
+	wrapper.appendChild(content);
+	articleBody.insertBefore(wrapper, firstSection);
 }
 
 // Parse timestamp string like "[01:50]" or "[1:23:45]" to seconds

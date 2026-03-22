@@ -24,7 +24,7 @@ final class NewsPickerViewController: UIViewController {
 		super.viewDidLoad()
 
 		title = NSLocalizedString("Add Weekly News", comment: "Add Weekly News")
-		view.backgroundColor = .systemBackground
+		view.backgroundColor = .systemGroupedBackground
 
 		navigationItem.leftBarButtonItem = UIBarButtonItem(
 			barButtonSystemItem: .cancel,
@@ -32,6 +32,7 @@ final class NewsPickerViewController: UIViewController {
 			action: #selector(cancelTapped)
 		)
 
+		configureOpaqueNavigationBar()
 		configureCollectionView()
 		configureDataSource()
 
@@ -49,6 +50,30 @@ final class NewsPickerViewController: UIViewController {
 			self?.applySnapshot()
 		}
 	}
+	
+	/// Forces an opaque nav bar at every scroll position. Must be called AFTER
+	/// configureSearch() because setting navigationItem.searchController can
+	/// reset scrollEdgeAppearance to nil (transparent).
+	private func configureOpaqueNavigationBar() {
+		let appearance = UINavigationBarAppearance()
+		appearance.configureWithOpaqueBackground()
+		let adaptiveBackground = UIColor { traitCollection in
+			// Check if the current mode is dark
+			if traitCollection.userInterfaceStyle == .dark {
+				return UIColor(red: 0.14, green: 0.14, blue: 0.15, alpha: 1.0)
+			} else {
+				return UIColor(red: 0.96, green: 0.96, blue: 0.98, alpha: 1.0)
+			}
+		}
+		appearance.backgroundColor = adaptiveBackground.resolvedColor(with: self.traitCollection)
+		let textColor = UIColor.label.resolvedColor(with: self.traitCollection)
+		appearance.titleTextAttributes = [.foregroundColor: textColor]
+		appearance.largeTitleTextAttributes = [.foregroundColor: textColor]
+		navigationItem.standardAppearance = appearance
+		navigationItem.scrollEdgeAppearance = appearance
+		navigationItem.compactAppearance = appearance
+		navigationItem.compactScrollEdgeAppearance = appearance
+	}
 
 	// MARK: - Configuration
 
@@ -56,7 +81,7 @@ final class NewsPickerViewController: UIViewController {
 		let layout = createLayout()
 		collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
 		collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-		collectionView.backgroundColor = .systemBackground
+		collectionView.backgroundColor = .systemGroupedBackground
 		collectionView.delegate = self
 		collectionView.register(SourcePickerCell.self, forCellWithReuseIdentifier: SourcePickerCell.reuseIdentifier)
 		collectionView.register(
@@ -99,7 +124,7 @@ final class NewsPickerViewController: UIViewController {
 
 			switch item {
 			case .newsSource(let source):
-				cell.configure(name: source.name, imageURL: source.imageURL)
+				cell.configure(name: source.name, imageURL: source.imageURL, imageURLLight: source.imageURLLight)
 			default:
 				break
 			}

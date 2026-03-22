@@ -90,6 +90,7 @@ final class AppDefaults: Sendable {
 		static let showHomepageResolutionDebugDialog = "showHomepageResolutionDebugDialog"
 		static let timelineDimReadArticles = "timelineDimReadArticles"
 		static let timelineUnreadFirst = "timelineUnreadFirst"
+		static let showSectionHeaderIcons = "showSectionHeaderIcons"
 	}
 
 	let isDeveloperBuild: Bool = {
@@ -532,6 +533,15 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	var showSectionHeaderIcons: Bool {
+		get {
+			AppDefaults.bool(for: Key.showSectionHeaderIcons)
+		}
+		set {
+			AppDefaults.setBool(for: Key.showSectionHeaderIcons, newValue)
+		}
+	}
+
 
 
 	@MainActor static func registerDefaults() {
@@ -553,7 +563,8 @@ final class AppDefaults: Sendable {
 										   Key.showAddShowSourceFailureDialog: false,
 									   Key.showHomepageResolutionDebugDialog: true,
 									   Key.timelineDimReadArticles: true,
-									   Key.timelineUnreadFirst: false]
+									   Key.timelineUnreadFirst: false,
+									   Key.showSectionHeaderIcons: false]
 		AppDefaults.store.register(defaults: defaults)
 	}
 }

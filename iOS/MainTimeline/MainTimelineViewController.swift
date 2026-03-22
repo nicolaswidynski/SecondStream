@@ -395,6 +395,62 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}()
 
 	private lazy var dataSource = makeDataSource()
+
+	// MARK: - Timeline Section
+
+	/// Grouping for the timeline table view.
+	/// Date-based cases are used for most feeds; feedCategory is used for the Starred feed.
+	enum TimelineSection: Hashable, Comparable {
+		case recentWeek                  // published within the last 7 days
+		case recentMonth                 // published 7–30 days ago
+		case year(Int)                   // published more than 30 days ago, bucketed by calendar year
+		case feedCategory(FeedCategory)  // used when viewing the Starred smart feed
+
+		var title: String {
+			switch self {
+			case .recentWeek:  return NSLocalizedString("Previous 7 Days", comment: "Timeline section: last 7 days")
+			case .recentMonth: return NSLocalizedString("Previous 30 Days", comment: "Timeline section: last 30 days")
+			case .year(let y): return "\(y)"
+			case .feedCategory(let cat):
+				switch cat {
+				case .podcast: return NSLocalizedString("My Podcasts", comment: "Starred section: podcasts")
+				case .youtube: return NSLocalizedString("My YouTube Channels", comment: "Starred section: YouTube")
+				case .news:    return NSLocalizedString("News", comment: "Starred section: news")
+				case .rss:     return NSLocalizedString("My RSS Feeds", comment: "Starred section: RSS")
+				}
+			}
+		}
+
+		private var sortOrder: Int {
+			switch self {
+			case .recentWeek:            return 0
+			case .recentMonth:           return 1
+			case .year(let y):           return 10000 - y // newer years sort first
+			case .feedCategory(let cat):
+				switch cat {
+				case .podcast: return 0
+				case .youtube: return 1
+				case .news:    return 2
+				case .rss:     return 3
+				}
+			}
+		}
+
+		static func < (lhs: TimelineSection, rhs: TimelineSection) -> Bool {
+			lhs.sortOrder < rhs.sortOrder
+		}
+
+		static func section(for date: Date, now: Date = Date()) -> TimelineSection {
+			let elapsed = now.timeIntervalSince(date)
+			if elapsed <= 7 * 24 * 3600 {
+				return .recentWeek
+			} else if elapsed <= 30 * 24 * 3600 {
+				return .recentMonth
+			} else {
+				return .year(Calendar.current.component(.year, from: date))
+			}
+		}
+	}
 	private let searchController = UISearchController(searchResultsController: nil)
 
 	weak var coordinator: SceneCoordinator?
@@ -526,6 +582,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		NotificationCenter.default.addObserver(self, selector: #selector(contentSizeCategoryDidChange), name: UIContentSizeCategory.didChangeNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(displayNameDidChange), name: .DisplayNameDidChange, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground(_:)), name: UIApplication.willEnterForegroundNotification, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
 
 		// Setup the Search Controller
 		searchController.delegate = self
@@ -548,6 +605,10 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		// Configure the table
 		tableView.dataSource = dataSource
 		tableView.isPrefetchingEnabled = false
+		tableView.estimatedSectionHeaderHeight = 50
+		tableView.sectionHeaderTopPadding = 0
+		// Match the main feed's insetGrouped background (storyboard overrides this to systemBackground).
+		tableView.backgroundColor = .systemGroupedBackground
 
 		numberOfTextLines = AppDefaults.shared.timelineNumberOfLines
 		iconSize = AppDefaults.shared.timelineIconSize
@@ -767,6 +828,33 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 	// MARK: - Table view
 
+	override func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+		let sections = dataSource.snapshot().sectionIdentifiers
+		guard section < sections.count else {
+			return nil
+		}
+		let sectionID = sections[section]
+		let container = UIView()
+		container.backgroundColor = .clear
+		let label = UILabel()
+		label.text = sectionID.title
+		label.font = UIFont.systemFont(ofSize: 22, weight: .bold)
+		label.textColor = .label
+		label.translatesAutoresizingMaskIntoConstraints = false
+		container.addSubview(label)
+		NSLayoutConstraint.activate([
+			label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+			label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
+			label.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
+			label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10)
+		])
+		return container
+	}
+
+	override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+		return UITableView.automaticDimension
+	}
+
 	override func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
 		// Allow native iOS back-swipe from the leading edge.
 		return nil
@@ -818,6 +906,26 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	private func animateDoubleFlash(on cell: UITableViewCell) {
+		let flashView = UIView(frame: cell.bounds)
+		flashView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+		flashView.backgroundColor = UIColor(red: 45/255, green: 128/255, blue: 241/255, alpha: 1.0)//.white
+		flashView.alpha = 0
+		flashView.isUserInteractionEnabled = false
+		cell.contentView.addSubview(flashView)
+		
+		UIView.animateKeyframes(withDuration: 0.56, delay: 0, options: [.allowUserInteraction, .calculationModeLinear]) {
+			UIView.addKeyframe(withRelativeStartTime: 0.00, relativeDuration: 0.16) {
+				flashView.alpha = 0.32
+			}
+			UIView.addKeyframe(withRelativeStartTime: 0.16, relativeDuration: 0.34) {
+				flashView.alpha = 0
+			}
+		} completion: { _ in
+			Task { @MainActor in
+				flashView.removeFromSuperview()
+			}
+		}
+		/*
 		if traitCollection.userInterfaceStyle == .dark {
 			let flashView = UIView(frame: cell.bounds)
 			flashView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -875,6 +983,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 				secondFlashView.removeFromSuperview()
 			}
 		}
+		 */
 	}
 
 	override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -968,6 +1077,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		if showIcons {
 			queueReloadAvailableCells()
 		}
+	}
+
+	@objc func sourceImageDidBecomeAvailable(_ note: Notification) {
+		lastNavigationIconKey = nil
+		updateNavigationFeedIcon()
 	}
 
 	func userDefaultsDidChange() {
@@ -1082,13 +1196,33 @@ private extension MainTimelineViewController {
 		}
 
 		let isPseudoFeedIcon = timelineFeed is PseudoFeed
-		navigationItem.rightBarButtonItem = FeedNavigationChrome.makeTopBarFeedBarButton(
-			iconImage: iconImage,
-			isPseudoFeedIcon: isPseudoFeedIcon,
-			cacheKey: iconKey,
-			target: self,
-			action: #selector(showFeedInspector(_:))
-		)
+		if isPseudoFeedIcon {
+			// Pseudo feeds (Starred, Today, All Unread) use a plain template bar button — no circular
+			// container, no baked-in color — so the icon renders like any other nav bar button.
+			let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+			let isStarredFeed = timelineFeed as? SmartFeed === SmartFeedsController.shared.starredFeed
+			let image: UIImage
+			if isStarredFeed, let outlineIcon = UIImage(systemName: "bookmark", withConfiguration: config) {
+				image = outlineIcon.withRenderingMode(.alwaysTemplate)
+			} else {
+				image = (iconImage.image.applyingSymbolConfiguration(config) ?? iconImage.image)
+					.withRenderingMode(.alwaysTemplate)
+			}
+			navigationItem.rightBarButtonItem = UIBarButtonItem(
+				image: image,
+				style: .plain,
+				target: self,
+				action: #selector(showFeedInspector(_:))
+			)
+		} else {
+			navigationItem.rightBarButtonItem = FeedNavigationChrome.makeTopBarFeedBarButton(
+				iconImage: iconImage,
+				isPseudoFeedIcon: false,
+				cacheKey: iconKey,
+				target: self,
+				action: #selector(showFeedInspector(_:))
+			)
+		}
 		lastNavigationIconKey = iconKey
 	}
 
@@ -1128,7 +1262,8 @@ private extension MainTimelineViewController {
 
 		if resetScroll {
 			let snapshot = dataSource.snapshot()
-			if snapshot.sectionIdentifiers.count > 0 && snapshot.itemIdentifiers(inSection: 0).count > 0 {
+			if let firstSection = snapshot.sectionIdentifiers.first,
+			   !snapshot.itemIdentifiers(inSection: firstSection).isEmpty {
 				tableView.scrollToRow(at: IndexPath(row: 0, section: 0), at: .top, animated: false)
 			}
 		}
@@ -1139,17 +1274,26 @@ private extension MainTimelineViewController {
 	func updateToolbar() {
 		firstUnreadButton.isEnabled = isTimelineUnreadAvailable
 
+		// Show filter button instead of firstUnread in the toolbar.
 		if isRootSplitCollapsed {
-			if let toolbarItems = toolbarItems, toolbarItems.last != firstUnreadButton {
+			if let toolbarItems = toolbarItems, toolbarItems.last != filterButton {
 				var items = toolbarItems
-				items.append(firstUnreadButton)
+				items.append(filterButton)
 				setToolbarItems(items, animated: false)
 			}
 		} else {
-			if let toolbarItems = toolbarItems, toolbarItems.last == firstUnreadButton {
+			if let toolbarItems = toolbarItems, toolbarItems.last == filterButton {
 				let items = Array(toolbarItems[0..<toolbarItems.count - 1])
 				setToolbarItems(items, animated: false)
 			}
+		}
+
+		// Style filter button to reflect active state.
+		if isReadArticlesFiltered {
+			filterButton.image = Assets.Images.filter.withTintColor(Assets.Colors.primaryAccent, renderingMode: .alwaysOriginal)
+		} else {
+			filterButton.image = Assets.Images.filter
+			filterButton.tintColor = nil
 		}
 	}
 
@@ -1307,10 +1451,29 @@ private extension MainTimelineViewController {
 		return finalDuration
 	}
 
-	private func makeTimelineSnapshot(with items: [Article]) -> NSDiffableDataSourceSnapshot<Int, Article> {
-		var snapshot = NSDiffableDataSourceSnapshot<Int, Article>()
-		snapshot.appendSections([0])
-		snapshot.appendItems(items, toSection: 0)
+	private func makeTimelineSnapshot(with items: [Article]) -> NSDiffableDataSourceSnapshot<TimelineSection, Article> {
+		var snapshot = NSDiffableDataSourceSnapshot<TimelineSection, Article>()
+
+		// The starred feed groups by feed type rather than by date.
+		let isStarredFeed = timelineFeed as? SmartFeed === SmartFeedsController.shared.starredFeed
+
+		let now = Date()
+		var buckets: [TimelineSection: [Article]] = [:]
+		for article in items {
+			let section: TimelineSection
+			if isStarredFeed {
+				let category = article.feed?.feedCategory ?? .rss
+				section = .feedCategory(category)
+			} else {
+				section = TimelineSection.section(for: article.logicalDatePublished, now: now)
+			}
+			buckets[section, default: []].append(article)
+		}
+		let orderedSections = buckets.keys.sorted()
+		snapshot.appendSections(orderedSections)
+		for section in orderedSections {
+			snapshot.appendItems(buckets[section]!, toSection: section)
+		}
 		return snapshot
 	}
 
@@ -1372,8 +1535,8 @@ private extension MainTimelineViewController {
 		rowDistanceReferenceArticleID = articleID
 	}
 
-	func makeDataSource() -> UITableViewDiffableDataSource<Int, Article> {
-		let dataSource: UITableViewDiffableDataSource<Int, Article> =
+	func makeDataSource() -> UITableViewDiffableDataSource<TimelineSection, Article> {
+		let dataSource: UITableViewDiffableDataSource<TimelineSection, Article> =
 			MainTimelineDataSource(tableView: tableView, cellProvider: { [weak self] tableView, indexPath, article in
 				let cellData = self!.configure(article: article)
 				if self!.showIcons {
@@ -1387,11 +1550,10 @@ private extension MainTimelineViewController {
 					cell.accessoryType = .disclosureIndicator
 					return cell
 				}
-
 			})
 		dataSource.defaultRowAnimation = .middle
 		return dataSource
-    }
+	}
 
 	@discardableResult
 	func configure(article: Article) -> MainTimelineCellData {

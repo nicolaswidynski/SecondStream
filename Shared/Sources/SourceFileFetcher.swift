@@ -18,6 +18,7 @@ struct SourceFileEntry {
 	let author: String?
 	let feedURL: String
 	let imageURL: String?
+	let imageURLLight: String?
 }
 
 enum SourceFileFetcher {
@@ -139,7 +140,8 @@ enum SourceFileFetcher {
 			let feedURL = firstNonEmptyString(in: item, keys: ["RSS URL", "My Feed URL", "my_feed_url", "myFeedURL"]) ?? ""
 			let author = firstNonEmptyString(in: item, keys: ["Author", "author"])
 			let imageURL = firstNonEmptyString(in: item, keys: ["Image URL", "image_url", "imageURL", "image_ref", "icon_url", "icon"])
-			entries.append(SourceFileEntry(name: name, author: author, feedURL: feedURL, imageURL: imageURL))
+			let imageURLLight = firstNonEmptyString(in: item, keys: ["Image URL Light", "image_url_light", "imageURLLight"])
+			entries.append(SourceFileEntry(name: name, author: author, feedURL: feedURL, imageURL: imageURL, imageURLLight: imageURLLight))
 		}
 
 		logger.info("Parsed \(entries.count) entries from \(fileName)")

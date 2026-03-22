@@ -56,6 +56,7 @@ final class SettingsViewController: UITableViewController {
 	private let ttsVoiceRow = 1
 	private let timelineUnreadFirstRow = 1
 	private let timelineReadStylingRow = 2
+	private let sectionHeaderIconsRow = 3
 	// Debug section rows
 	private let debugCleanTempRow = 0
 	private let debugDialogRow = 1
@@ -206,8 +207,8 @@ final class SettingsViewController: UITableViewController {
 		case ttsSection:
 			return super.tableView(tableView, numberOfRowsInSection: section) + 1
 		case displaySection:
-			// Adds Unread First and Gray Read Articles rows; Debug Dialog moved to Debug section
-			return super.tableView(tableView, numberOfRowsInSection: section) + 2
+			// Adds Unread First, Gray Read Articles, and Show Category Icons rows
+			return super.tableView(tableView, numberOfRowsInSection: section) + 3
 		case debugSection:
 			// Clean Temporary Files, Debug Dialog
 			return 2
@@ -269,6 +270,8 @@ final class SettingsViewController: UITableViewController {
 			}
 		case displaySection where indexPath.row == timelineReadStylingRow:
 			cell = makeTimelineReadStylingCell(tableView)
+		case displaySection where indexPath.row == sectionHeaderIconsRow:
+			cell = makeSectionHeaderIconsCell(tableView)
 		case displaySection where indexPath.row == timelineUnreadFirstRow:
 			cell = makeTimelineUnreadFirstCell(tableView)
 		case ttsSection where indexPath.row == ttsEnabledRow:
@@ -541,6 +544,11 @@ final class SettingsViewController: UITableViewController {
 		AppDefaults.shared.timelineUnreadFirst = sender.isOn
 	}
 
+	@objc func switchSectionHeaderIcons(_ sender: UISwitch) {
+		AppDefaults.shared.showSectionHeaderIcons = sender.isOn
+		NotificationCenter.default.post(name: UserDefaults.didChangeNotification, object: nil)
+	}
+
 	@objc func switchDebugDialog(_ sender: UISwitch) {
 		AppDefaults.shared.showHomepageResolutionDebugDialog = sender.isOn
 	}
@@ -628,6 +636,21 @@ private extension SettingsViewController {
 		toggle.removeTarget(self, action: #selector(switchTimelineUnreadFirst(_:)), for: .valueChanged)
 		toggle.addTarget(self, action: #selector(switchTimelineUnreadFirst(_:)), for: .valueChanged)
 		toggle.isOn = AppDefaults.shared.timelineUnreadFirst
+		cell.accessoryView = toggle
+		return cell
+	}
+
+	func makeSectionHeaderIconsCell(_ tableView: UITableView) -> UITableViewCell {
+		let cell = tableView.dequeueReusableCell(withIdentifier: "SectionHeaderIconsCell") ??
+			UITableViewCell(style: .default, reuseIdentifier: "SectionHeaderIconsCell")
+		var content = cell.defaultContentConfiguration()
+		content.text = NSLocalizedString("Show Category Icons", comment: "Section header icons toggle")
+		cell.contentConfiguration = content
+		cell.selectionStyle = .none
+		let toggle = (cell.accessoryView as? UISwitch) ?? UISwitch(frame: .zero)
+		toggle.removeTarget(self, action: #selector(switchSectionHeaderIcons(_:)), for: .valueChanged)
+		toggle.addTarget(self, action: #selector(switchSectionHeaderIcons(_:)), for: .valueChanged)
+		toggle.isOn = AppDefaults.shared.showSectionHeaderIcons
 		cell.accessoryView = toggle
 		return cell
 	}

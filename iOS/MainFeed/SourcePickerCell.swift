@@ -13,6 +13,8 @@ final class SourcePickerCell: UICollectionViewCell {
 	static let reuseIdentifier = "SourcePickerCell"
 
 	private(set) var currentImageURL: String?
+	private var imageURLDark: String?
+	private var imageURLLight: String?
 
 	private let iconImageView: UIImageView = {
 		let iv = UIImageView()
@@ -48,6 +50,25 @@ final class SourcePickerCell: UICollectionViewCell {
 			nameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 2),
 			nameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -2),
 		])
+
+		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (cell: SourcePickerCell, _: UITraitCollection) in
+			guard let self, self.imageURLLight != nil else {
+				return
+			}
+			let newURL = self.activeImageURL
+			self.currentImageURL = newURL
+			guard let newURL else {
+				self.showPlaceholder()
+				return
+			}
+			if let image = SourceImageCache.shared.image(for: newURL) {
+				self.iconImageView.image = image
+				self.iconImageView.tintColor = nil
+				self.iconImageView.contentMode = .scaleAspectFill
+			} else {
+				self.showPlaceholder()
+			}
+		}
 	}
 
 	@available(*, unavailable)
@@ -64,11 +85,12 @@ final class SourcePickerCell: UICollectionViewCell {
 		nameLabel.text = nil
 		nameLabel.textColor = .label
 		currentImageURL = nil
+		imageURLDark = nil
+		imageURLLight = nil
 	}
 
-	func configure(name: String, imageURL: String?, isCustomEntry: Bool = false) {
+	func configure(name: String, imageURL: String?, imageURLLight: String? = nil, isCustomEntry: Bool = false) {
 		nameLabel.text = name
-		currentImageURL = imageURL
 
 		if isCustomEntry {
 			nameLabel.textColor = Assets.Colors.primaryAccent
@@ -84,16 +106,28 @@ final class SourcePickerCell: UICollectionViewCell {
 		iconImageView.contentMode = .scaleAspectFill
 		iconImageView.tintColor = nil
 
-		guard let imageURL else {
+		self.imageURLDark = imageURL
+		self.imageURLLight = imageURLLight
+		let effectiveURL = activeImageURL
+		currentImageURL = effectiveURL
+
+		guard let effectiveURL else {
 			showPlaceholder()
 			return
 		}
 
-		if let image = SourceImageCache.shared.image(for: imageURL) {
+		if let image = SourceImageCache.shared.image(for: effectiveURL) {
 			iconImageView.image = image
 		} else {
 			showPlaceholder()
 		}
+	}
+
+	private var activeImageURL: String? {
+		if traitCollection.userInterfaceStyle == .light, let light = imageURLLight {
+			return light
+		}
+		return imageURLDark
 	}
 
 	func updateImageIfNeeded(for downloadedURL: String) {

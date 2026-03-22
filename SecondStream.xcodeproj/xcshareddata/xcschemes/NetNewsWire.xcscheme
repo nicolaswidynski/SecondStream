@@ -17,7 +17,7 @@
                      BlueprintIdentifier = "849C645F1ED37A5D003D8FC0"
                      BuildableName = "NetNewsWire.app"
                      BlueprintName = "NetNewsWire"
-                     ReferencedContainer = "container:NetNewsWire.xcodeproj">
+                     ReferencedContainer = "container:SecondStream.xcodeproj">
                   </BuildableReference>
                </EnvironmentBuildable>
             </ActionContent>
@@ -35,7 +35,7 @@
                BlueprintIdentifier = "849C645F1ED37A5D003D8FC0"
                BuildableName = "NetNewsWire.app"
                BlueprintName = "NetNewsWire"
-               ReferencedContainer = "container:NetNewsWire.xcodeproj">
+               ReferencedContainer = "container:SecondStream.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -59,7 +59,7 @@
                BlueprintIdentifier = "849C64701ED37A5D003D8FC0"
                BuildableName = "NetNewsWireTests.xctest"
                BlueprintName = "NetNewsWireTests"
-               ReferencedContainer = "container:NetNewsWire.xcodeproj">
+               ReferencedContainer = "container:SecondStream.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -121,7 +121,7 @@
             BlueprintIdentifier = "849C645F1ED37A5D003D8FC0"
             BuildableName = "NetNewsWire.app"
             BlueprintName = "NetNewsWire"
-            ReferencedContainer = "container:NetNewsWire.xcodeproj">
+            ReferencedContainer = "container:SecondStream.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -138,7 +138,7 @@
             BlueprintIdentifier = "849C645F1ED37A5D003D8FC0"
             BuildableName = "NetNewsWire.app"
             BlueprintName = "NetNewsWire"
-            ReferencedContainer = "container:NetNewsWire.xcodeproj">
+            ReferencedContainer = "container:SecondStream.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

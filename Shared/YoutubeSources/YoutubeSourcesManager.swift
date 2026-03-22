@@ -14,6 +14,7 @@ struct YoutubeSource: Codable, Hashable {
 	let author: String?
 	let url: String
 	let imageURL: String?
+	let imageURLLight: String?
 }
 
 enum AddYoutubeResult {
@@ -139,7 +140,7 @@ enum AddYoutubeResult {
 		async let libraryEntries = SourceFileFetcher.fetchIfModified(fileName: Self.libraryFileName)
 
 		if let entries = await topEntries {
-			let sources = entries.map { YoutubeSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
+			let sources = entries.map { YoutubeSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL, imageURLLight: $0.imageURLLight) }
 			let oldURLs = Set(self.youtubeSources.compactMap(\.imageURL))
 			let newURLs = Set(sources.compactMap(\.imageURL))
 			let libraryURLs = Set(self.youtubeLibrarySources.compactMap(\.imageURL))
@@ -147,12 +148,14 @@ enum AddYoutubeResult {
 			let added = Array(newURLs.subtracting(oldURLs))
 			SourceImageCache.shared.removeImages(for: removed)
 			SourceImageCache.shared.prefetchImages(for: added)
+			SourceImageCache.shared.prefetchImages(for: sources.compactMap(\.imageURLLight))
 			self.youtubeSources = sources
+			sources.forEach { LightFeedIconStore.shared.setLightIconURL($0.imageURLLight, for: $0.url) }
 			Self.logger.info("Fetched \(sources.count) top YouTube sources")
 		}
 
 		if let entries = await libraryEntries {
-			let sources = entries.map { YoutubeSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
+			let sources = entries.map { YoutubeSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL, imageURLLight: $0.imageURLLight) }
 			let oldURLs = Set(self.youtubeLibrarySources.compactMap(\.imageURL))
 			let newURLs = Set(sources.compactMap(\.imageURL))
 			let topURLs = Set(self.youtubeSources.compactMap(\.imageURL))
@@ -160,7 +163,9 @@ enum AddYoutubeResult {
 			let added = Array(newURLs.subtracting(oldURLs))
 			SourceImageCache.shared.removeImages(for: removed)
 			SourceImageCache.shared.prefetchImages(for: added)
+			SourceImageCache.shared.prefetchImages(for: sources.compactMap(\.imageURLLight))
 			self.youtubeLibrarySources = sources
+			sources.forEach { LightFeedIconStore.shared.setLightIconURL($0.imageURLLight, for: $0.url) }
 			Self.logger.info("Fetched \(sources.count) library YouTube sources")
 		}
 	}
@@ -217,15 +222,15 @@ enum AddYoutubeResult {
 			let statusCode = httpResponse.statusCode
 
 			switch statusCode {
-			case 201:
+			case 200, 201:
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
 				   let summaryURL = json["summary_url"] as? String {
-					Self.logger.info("YouTube channel already exists")
+					Self.logger.info("YouTube channel added or already exists")
 					return .successExisting(summaryURL: summaryURL)
 				}
-				Self.logger.error("Failed to parse 201 response")
+				Self.logger.error("Failed to parse \(statusCode) response")
 				return .failure(message: "Failed to parse response")
 
 			case 202:
