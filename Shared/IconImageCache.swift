@@ -97,7 +97,6 @@ import Articles
 		guard let imageURL = note.userInfo?["url"] as? String else {
 			return
 		}
-
 		// Match RSS library feeds by dark image URL
 		for account in AccountManager.shared.activeAccounts {
 			for feed in account.flattenedFeeds() where feed.feedCategory == .rss {
@@ -112,19 +111,27 @@ import Articles
 			}
 		}
 
-		// Match generated-source feeds (podcast/youtube/news) by light image URL
+		// Match generated-source feeds (podcast/youtube/news) by light image URL.
+		// Path 1: LightFeedIconStore — for webhook-sourced feeds where the feed URL was stored at add time.
 		let lightFeedURLs = LightFeedIconStore.shared.feedURLs(forLightIconURL: imageURL)
-		guard !lightFeedURLs.isEmpty else {
-			return
-		}
 		for account in AccountManager.shared.activeAccounts {
 			for feed in account.flattenedFeeds() where lightFeedURLs.contains(feed.url) {
 				invalidateFeedCaches(feed)
-				NotificationCenter.default.post(
-					name: .feedIconDidBecomeAvailable,
-					object: self,
-					userInfo: [UserInfoKey.feed: feed]
-				)
+				NotificationCenter.default.post(name: .feedIconDidBecomeAvailable, object: self, userInfo: [UserInfoKey.feed: feed])
+			}
+		}
+
+		// Path 2: Source managers — for library-sourced feeds whose source.url is empty.
+		// Find the dark icon URL that corresponds to this light URL, then match feeds by iconURL.
+		let darkIconURL = NewsSourcesManager.shared.iconURL(forLightImageURL: imageURL)
+			?? PodcastSourcesManager.shared.iconURL(forLightImageURL: imageURL)
+			?? YoutubeSourcesManager.shared.iconURL(forLightImageURL: imageURL)
+		if let darkIconURL {
+			for account in AccountManager.shared.activeAccounts {
+				for feed in account.flattenedFeeds() where feed.iconURL == darkIconURL {
+					invalidateFeedCaches(feed)
+					NotificationCenter.default.post(name: .feedIconDidBecomeAvailable, object: self, userInfo: [UserInfoKey.feed: feed])
+				}
 			}
 		}
 	}
@@ -172,13 +179,29 @@ private extension IconImageCache {
 			return sourceIcon
 		}
 		if let iconImage = FeedIconDownloader.shared.icon(for: feed) {
-			// For generated-source feeds, make the icon adaptive if a light URL is available
-			if let lightURL = LightFeedIconStore.shared.lightIconURL(for: feed.url),
-			   let lightImage = SourceImageCache.shared.image(for: lightURL) {
-				let asset = UIImageAsset()
-				asset.register(iconImage.image, with: UITraitCollection(userInterfaceStyle: .dark))
-				asset.register(lightImage, with: UITraitCollection(userInterfaceStyle: .light))
-				// iconImage.image is now backed by the asset and resolves automatically
+			// Resolve light URL: prefer LightFeedIconStore (webhook-sourced feeds),
+			// then fall back to source managers matched by iconURL (library-sourced feeds).
+			var lightURL = LightFeedIconStore.shared.lightIconURL(for: feed.url)
+			if lightURL == nil, let iconURL = feed.iconURL {
+				switch feed.feedCategory {
+				case .news:
+					lightURL = NewsSourcesManager.shared.lightImageURL(forIconURL: iconURL)
+				case .podcast:
+					lightURL = PodcastSourcesManager.shared.lightImageURL(forIconURL: iconURL)
+				case .youtube:
+					lightURL = YoutubeSourcesManager.shared.lightImageURL(forIconURL: iconURL)
+				case .rss:
+					break
+				}
+			}
+			if let lightURL,
+			   let lightImg = SourceImageCache.shared.image(for: lightURL) {
+				// Return a NEW IconImage object (different identity) so the IconView identity guard
+				// doesn't short-circuit the cell update. lightImage is carried so IconView can
+				// pick the correct variant for the current trait.
+				let adaptive = IconImage(iconImage.image, isSymbol: iconImage.isSymbol, isBackgroundSuppressed: iconImage.isBackgroundSuppressed, preferredColor: iconImage.preferredColor, lightImage: lightImg)
+				feedIconImageCache[feedID] = adaptive
+				return adaptive
 			}
 			feedIconImageCache[feedID] = iconImage
 			return iconImage

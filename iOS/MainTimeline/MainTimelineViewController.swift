@@ -150,7 +150,9 @@ import Articles
 		// Render non-smart feed icons as full-bleed circular images.
 		// Match the actual compact nav-bar custom-view height to avoid 44x44->44x36 squeeze.
 		let canvasSize = CGSize(width: 36, height: 36)
-		let sourceImage = iconImage.image
+		// Pick the source image for the current interface style.
+		let isLight = UITraitCollection.current.userInterfaceStyle == .light
+		let sourceImage = (isLight ? iconImage.lightImage : nil) ?? iconImage.image
 		let result = UIGraphicsImageRenderer(size: canvasSize).image { _ in
 			UIBezierPath(ovalIn: CGRect(origin: .zero, size: canvasSize)).addClip()
 			let sourceSize = sourceImage.size
@@ -583,6 +585,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		NotificationCenter.default.addObserver(self, selector: #selector(displayNameDidChange), name: .DisplayNameDidChange, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground(_:)), name: UIApplication.willEnterForegroundNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
+
+		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (self: MainTimelineViewController, _: UITraitCollection) in
+			self.lastNavigationIconKey = nil
+			self.updateNavigationFeedIcon()
+		}
 
 		// Setup the Search Controller
 		searchController.delegate = self

@@ -54,6 +54,16 @@ enum AddNewsResult {
 
 	private let newsSourcesKey = "newsSources"
 
+	/// Returns the light image URL for a news source whose dark `imageURL` matches `iconURL`.
+	func lightImageURL(forIconURL iconURL: String) -> String? {
+		newsSources.first(where: { $0.imageURL == iconURL })?.imageURLLight
+	}
+
+	/// Returns the dark image URL for a news source whose `imageURLLight` matches `lightURL`.
+	func iconURL(forLightImageURL lightURL: String) -> String? {
+		newsSources.first(where: { $0.imageURLLight == lightURL })?.imageURL
+	}
+
 	/// All topic sources, used by pickers.
 	var newsSources: [NewsSource] {
 		get {

@@ -89,6 +89,11 @@ final class ArticleViewController: UIViewController {
 		NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
 
+		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (self: ArticleViewController, _: UITraitCollection) in
+			self.lastNavigationIconKey = nil
+			self.updateNavigationHeader()
+		}
+
 		let titleView = FeedNavigationChrome.makeTitleView(target: self, action: #selector(showCurrentFeedHomepage(_:)))
 		titleView.transform = CGAffineTransform(translationX: 0, y: -3)
 		navigationItem.titleView = titleView

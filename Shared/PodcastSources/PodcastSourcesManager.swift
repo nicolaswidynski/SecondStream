@@ -94,6 +94,16 @@ enum AddPodcastResult {
 	private let podcastTopSourcesKey = "podcastTopSources"
 	private let podcastLibrarySourcesKey = "podcastLibrarySources"
 
+	/// Returns the light image URL for the podcast source whose dark `imageURL` matches `iconURL`.
+	func lightImageURL(forIconURL iconURL: String) -> String? {
+		(podcastSources + podcastLibrarySources).first(where: { $0.imageURL == iconURL })?.imageURLLight
+	}
+
+	/// Returns the dark image URL for the podcast source whose `imageURLLight` matches `lightURL`.
+	func iconURL(forLightImageURL lightURL: String) -> String? {
+		(podcastSources + podcastLibrarySources).first(where: { $0.imageURLLight == lightURL })?.imageURL
+	}
+
 	/// Top Picks sources, used by pickers.
 	var podcastSources: [PodcastSource] {
 		get {

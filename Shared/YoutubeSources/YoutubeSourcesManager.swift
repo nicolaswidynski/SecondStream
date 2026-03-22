@@ -56,6 +56,16 @@ enum AddYoutubeResult {
 	private let youtubeTopSourcesKey = "youtubeTopSources"
 	private let youtubeLibrarySourcesKey = "youtubeLibrarySources"
 
+	/// Returns the light image URL for the YouTube source whose dark `imageURL` matches `iconURL`.
+	func lightImageURL(forIconURL iconURL: String) -> String? {
+		(youtubeSources + youtubeLibrarySources).first(where: { $0.imageURL == iconURL })?.imageURLLight
+	}
+
+	/// Returns the dark image URL for the YouTube source whose `imageURLLight` matches `lightURL`.
+	func iconURL(forLightImageURL lightURL: String) -> String? {
+		(youtubeSources + youtubeLibrarySources).first(where: { $0.imageURLLight == lightURL })?.imageURL
+	}
+
 	/// Top Picks sources, used by pickers.
 	var youtubeSources: [YoutubeSource] {
 		get {

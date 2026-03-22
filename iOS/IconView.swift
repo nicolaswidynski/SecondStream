@@ -17,7 +17,7 @@ final class IconView: UIView {
 			guard iconImage !== oldValue else {
 				return
 			}
-			imageView.image = iconImage?.image
+			updateDisplayedImage()
 			if traitCollection.userInterfaceStyle == .dark {
 				let isDark = iconImage?.isDark ?? false
 				isDiscernable = !isDark
@@ -82,6 +82,18 @@ private extension IconView {
 		layer.cornerRadius = 4
 		clipsToBounds = true
 		addSubview(imageView)
+		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (self: IconView, _: UITraitCollection) in
+			self.updateDisplayedImage()
+			self.setNeedsLayout()
+		}
+	}
+
+	func updateDisplayedImage() {
+		if traitCollection.userInterfaceStyle == .light, let lightImage = iconImage?.lightImage {
+			imageView.image = lightImage
+		} else {
+			imageView.image = iconImage?.image
+		}
 	}
 
 	func rectForImageView() -> CGRect {

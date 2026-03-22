@@ -456,62 +456,51 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	private func recentlyUpdatedIconImage(for feed: Feed) -> UIImage {
 		let fallback = Assets.Images.nnwFeedIcon
-		let sourceImage = IconImageCache.shared.imageForFeed(feed)?.image ?? fallback
-		let canvasSize = CGSize(width: 68, height: 68)
-		return UIGraphicsImageRenderer(size: canvasSize).image { _ in
-			let sourceSize = sourceImage.size
-			guard sourceSize.width > 0, sourceSize.height > 0 else {
-				return
-			}
-			let scale = max(canvasSize.width / sourceSize.width, canvasSize.height / sourceSize.height)
-			let drawSize = CGSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
-			let origin = CGPoint(x: (canvasSize.width - drawSize.width) / 2, y: (canvasSize.height - drawSize.height) / 2)
-			sourceImage.draw(in: CGRect(origin: origin, size: drawSize))
-		}.withRenderingMode(.alwaysOriginal)
+		guard let iconImage = IconImageCache.shared.imageForFeed(feed) else {
+			return fallback
+		}
+		guard let lightImage = iconImage.lightImage else {
+			return iconImage.image
+		}
+		let asset = UIImageAsset()
+		asset.register(iconImage.image, with: UITraitCollection(userInterfaceStyle: .dark))
+		asset.register(lightImage, with: UITraitCollection(userInterfaceStyle: .light))
+		return iconImage.image
 	}
 
 	private func discoverSourceIconImage(for source: DiscoverSourceItem) -> UIImage {
-		let sourceImage: UIImage
-		if let imageURL = source.imageURL,
-		   let downloadedImage = SourceImageCache.shared.image(for: imageURL) {
-			sourceImage = downloadedImage
-		} else {
-			let config = UIImage.SymbolConfiguration(pointSize: 34, weight: .regular)
-			let fallback: UIImage
-			switch source.category {
-			case .podcast:
-				fallback = RSImage(named: "podcast_thin-symbol")?.applyingSymbolConfiguration(config)
-					?? UIImage(systemName: "mic.fill", withConfiguration: config)
-					?? Assets.Images.nnwFeedIcon
-			case .youtube:
-				fallback = UIImage(systemName: "play.rectangle", withConfiguration: config) ?? Assets.Images.nnwFeedIcon
-			case .news:
-				fallback = UIImage(systemName: "newspaper", withConfiguration: config) ?? Assets.Images.nnwFeedIcon
-			case .rss:
-				fallback = RSImage(named: "rss_thin-symbol")?.applyingSymbolConfiguration(config)
-					?? UIImage(systemName: "dot.radiowaves.left.and.right", withConfiguration: config)
-					?? Assets.Images.nnwFeedIcon
+		if let imageURL = source.imageURL {
+			// Rule 1: library feeds carry imageURLLight directly in the source entry.
+			// Rule 2: webhook-only feeds store their light URL in LightFeedIconStore.
+			let lightURL = source.imageURLLight
+				?? (!source.url.isEmpty ? LightFeedIconStore.shared.lightIconURL(for: source.url) : nil)
+			if let image = SourceImageCache.shared.adaptiveImage(darkURL: imageURL, lightURL: lightURL) {
+				return image
 			}
-			sourceImage = fallback.withTintColor(.secondaryLabel, renderingMode: .alwaysOriginal)
 		}
-
-		let canvasSize = CGSize(width: 68, height: 68)
-		return UIGraphicsImageRenderer(size: canvasSize).image { _ in
-			let sourceSize = sourceImage.size
-			guard sourceSize.width > 0, sourceSize.height > 0 else {
-				return
-			}
-			let scale = max(canvasSize.width / sourceSize.width, canvasSize.height / sourceSize.height)
-			let drawSize = CGSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
-			let origin = CGPoint(x: (canvasSize.width - drawSize.width) / 2, y: (canvasSize.height - drawSize.height) / 2)
-			sourceImage.draw(in: CGRect(origin: origin, size: drawSize))
-		}.withRenderingMode(.alwaysOriginal)
+		let config = UIImage.SymbolConfiguration(pointSize: 34, weight: .regular)
+		let fallback: UIImage
+		switch source.category {
+		case .podcast:
+			fallback = RSImage(named: "podcast_thin-symbol")?.applyingSymbolConfiguration(config)
+				?? UIImage(systemName: "mic.fill", withConfiguration: config)
+				?? Assets.Images.nnwFeedIcon
+		case .youtube:
+			fallback = UIImage(systemName: "play.rectangle", withConfiguration: config) ?? Assets.Images.nnwFeedIcon
+		case .news:
+			fallback = UIImage(systemName: "newspaper", withConfiguration: config) ?? Assets.Images.nnwFeedIcon
+		case .rss:
+			fallback = RSImage(named: "rss_thin-symbol")?.applyingSymbolConfiguration(config)
+				?? UIImage(systemName: "dot.radiowaves.left.and.right", withConfiguration: config)
+				?? Assets.Images.nnwFeedIcon
+		}
+		return fallback.withTintColor(.secondaryLabel, renderingMode: .alwaysOriginal)
 	}
 
 	private func addDiscoverSource(_ source: DiscoverSourceItem) {
 		let urlString = source.url.trimmingCharacters(in: .whitespacesAndNewlines)
 		if !urlString.isEmpty {
-			addFeedDirectly(urlString: urlString, category: source.category, sourceName: source.name, sourceAuthor: source.author, sourceImageURL: source.imageURL)
+			addFeedDirectly(urlString: urlString, category: source.category, sourceName: source.name, sourceAuthor: source.author, sourceImageURL: source.imageURL, sourceImageURLLight: source.imageURLLight)
 			return
 		}
 
@@ -596,7 +585,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// metadata (e.g. from a picker).
 	/// Pass `summaryURL` to fetch canonical show name/author from the server-side JSON file
 	/// instead of relying on the user-entered string when reporting the add to update-user-stats.
-	private func addFeedDirectly(urlString: String, category: FeedCategory, sourceName: String? = nil, sourceAuthor: String? = nil, sourceImageURL: String? = nil, validateFeed: Bool = true, summaryURL: String? = nil, completion: (() -> Void)? = nil) {
+	private func addFeedDirectly(urlString: String, category: FeedCategory, sourceName: String? = nil, sourceAuthor: String? = nil, sourceImageURL: String? = nil, sourceImageURLLight: String? = nil, validateFeed: Bool = true, summaryURL: String? = nil, completion: (() -> Void)? = nil) {
 		let normalizedURL = urlString.normalizedURL
 		guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else {
 			return
@@ -638,6 +627,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				if case .success(let feed) = result {
 					feed.feedCategory = category
 					NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
+					// Store light icon URL from library source (picker flow).
+					if let lightURL = sourceImageURLLight {
+						LightFeedIconStore.shared.setLightIconURL(lightURL, for: feed.url)
+					}
 					if !validateFeed, let summaryURL {
 						Task {
 							if let icons = await Self.fetchFeedIconURL(summaryURL: summaryURL) {

@@ -19,6 +19,7 @@ final class IconImage: @unchecked Sendable {
 	let isSymbol: Bool
 	let isBackgroundSuppressed: Bool
 	let preferredColor: CGColor?
+	let lightImage: RSImage?
 
 	private lazy var luminanceType: ImageLuminanceType = {
 		#if os(macOS)
@@ -37,11 +38,12 @@ final class IconImage: @unchecked Sendable {
 		luminanceType == .bright
 	}
 
-	init(_ image: RSImage, isSymbol: Bool = false, isBackgroundSuppressed: Bool = false, preferredColor: CGColor? = nil) {
+	init(_ image: RSImage, isSymbol: Bool = false, isBackgroundSuppressed: Bool = false, preferredColor: CGColor? = nil, lightImage: RSImage? = nil) {
 		self.image = image
 		self.isSymbol = isSymbol
 		self.preferredColor = preferredColor
 		self.isBackgroundSuppressed = isBackgroundSuppressed
+		self.lightImage = lightImage
 	}
 }
 
