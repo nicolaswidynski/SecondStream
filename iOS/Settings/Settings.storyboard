@@ -761,6 +761,27 @@
                                             </constraints>
                                         </tableViewCellContentView>
                                     </tableViewCell>
+                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="none" indentationWidth="10" id="Obs-Cell-006" customClass="VibrantTableViewCell" customModule="NetNewsWire" customModuleProvider="target">
+                                        <rect key="frame" x="20" y="1771.5" width="374" height="44"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="Obs-Cell-006" id="Obs-Con-006">
+                                            <rect key="frame" x="0.0" y="0.0" width="374" height="44"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                            <subviews>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" ambiguous="YES" text="Vault  Not Set" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Obs-Vault-Path-001">
+                                                    <rect key="frame" x="20" y="11.5" width="334" height="21"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleSubhead"/>
+                                                    <color key="textColor" systemColor="secondaryLabelColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstItem="Obs-Vault-Path-001" firstAttribute="leading" secondItem="Obs-Con-006" secondAttribute="leadingMargin" id="Obs-C29"/>
+                                                <constraint firstItem="Obs-Vault-Path-001" firstAttribute="centerY" secondItem="Obs-Con-006" secondAttribute="centerY" id="Obs-C30"/>
+                                                <constraint firstAttribute="trailingMargin" secondItem="Obs-Vault-Path-001" secondAttribute="trailing" id="Obs-C31"/>
+                                            </constraints>
+                                        </tableViewCellContentView>
+                                    </tableViewCell>
                                 </cells>
                             </tableViewSection>
                             <tableViewSection headerTitle="Storage" id="Storage-Section-001">
@@ -831,6 +852,7 @@
                         <outlet property="obsidianSubfolderFeedNameSwitch" destination="Obs-Switch-003" id="Obs-Out-008"/>
                         <outlet property="obsidianSubfolderFeedTypeSwitch" destination="Obs-Switch-002" id="Obs-Out-007"/>
                         <outlet property="obsidianSubfolderPreviewLabel" destination="Obs-Preview-001" id="Obs-Out-009"/>
+                        <outlet property="obsidianVaultPathLabel" destination="Obs-Vault-Path-001" id="Obs-Out-010"/>
                         <outlet property="obsidianSyncSwitch" destination="Obs-Switch-001" id="Obs-Out-004"/>
                         <outlet property="obsidianVaultCell" destination="Obs-Cell-002" id="Obs-Out-006"/>
                         <outlet property="obsidianVaultLabel" destination="Obs-Detail-001" id="Obs-Out-005"/>

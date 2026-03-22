@@ -45,6 +45,7 @@ final class SettingsViewController: UITableViewController {
 	@IBOutlet var obsidianSubfolderFeedTypeSwitch: UISwitch!
 	@IBOutlet var obsidianSubfolderFeedNameSwitch: UISwitch!
 	@IBOutlet var obsidianSubfolderPreviewLabel: UILabel!
+	@IBOutlet var obsidianVaultPathLabel: UILabel!
 	@IBOutlet var ttsVoiceDetailLabel: UILabel!
 
 	private var notificationsAuthorized = false
@@ -965,11 +966,10 @@ private extension SettingsViewController {
 	}
 
 	func updateObsidianVaultLabel() {
-		if let displayPath = ObsidianFileManager.vaultDisplayPath() {
-			obsidianVaultLabel.text = displayPath
-		} else {
-			obsidianVaultLabel.text = NSLocalizedString("Not Set", comment: "Obsidian vault not configured")
-		}
+		let displayPath = ObsidianFileManager.vaultDisplayPath()
+		let notSet = NSLocalizedString("Not Set", comment: "Obsidian vault not configured")
+		obsidianVaultLabel.text = displayPath ?? notSet
+		obsidianVaultPathLabel.text = "Vault  \(displayPath ?? notSet)"
 
 		// Enable/disable vault cell based on sync toggle
 		let isEnabled = obsidianSyncSwitch.isOn
