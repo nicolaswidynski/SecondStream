@@ -16,7 +16,7 @@
                      BuildableIdentifier = "primary"
                      BlueprintIdentifier = "849C645F1ED37A5D003D8FC0"
                      BuildableName = "NetNewsWire.app"
-                     BlueprintName = "NetNewsWire"
+                     BlueprintName = "SecondStream"
                      ReferencedContainer = "container:SecondStream.xcodeproj">
                   </BuildableReference>
                </EnvironmentBuildable>
@@ -34,7 +34,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "849C645F1ED37A5D003D8FC0"
                BuildableName = "NetNewsWire.app"
-               BlueprintName = "NetNewsWire"
+               BlueprintName = "SecondStream"
                ReferencedContainer = "container:SecondStream.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -58,7 +58,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "849C64701ED37A5D003D8FC0"
                BuildableName = "NetNewsWireTests.xctest"
-               BlueprintName = "NetNewsWireTests"
+               BlueprintName = "SecondStreamTests"
                ReferencedContainer = "container:SecondStream.xcodeproj">
             </BuildableReference>
          </TestableReference>
@@ -120,7 +120,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "849C645F1ED37A5D003D8FC0"
             BuildableName = "NetNewsWire.app"
-            BlueprintName = "NetNewsWire"
+            BlueprintName = "SecondStream"
             ReferencedContainer = "container:SecondStream.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -137,7 +137,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "849C645F1ED37A5D003D8FC0"
             BuildableName = "NetNewsWire.app"
-            BlueprintName = "NetNewsWire"
+            BlueprintName = "SecondStream"
             ReferencedContainer = "container:SecondStream.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

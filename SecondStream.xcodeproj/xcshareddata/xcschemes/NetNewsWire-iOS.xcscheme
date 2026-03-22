@@ -16,7 +16,7 @@
                      BuildableIdentifier = "primary"
                      BlueprintIdentifier = "840D617B2029031C009BC708"
                      BuildableName = "Second Stream.app"
-                     BlueprintName = "NetNewsWire-iOS"
+                     BlueprintName = "SecondStream-iOS"
                      ReferencedContainer = "container:SecondStream.xcodeproj">
                   </BuildableReference>
                </EnvironmentBuildable>
@@ -34,7 +34,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "840D617B2029031C009BC708"
                BuildableName = "Second Stream.app"
-               BlueprintName = "NetNewsWire-iOS"
+               BlueprintName = "SecondStream-iOS"
                ReferencedContainer = "container:SecondStream.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -57,8 +57,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "518B2ED12351B3DD00400001"
-               BuildableName = "NetNewsWire-iOSTests.xctest"
-               BlueprintName = "NetNewsWire-iOSTests"
+               BuildableName = "SecondStream-iOSTests.xctest"
+               BlueprintName = "SecondStream-iOSTests"
                ReferencedContainer = "container:SecondStream.xcodeproj">
             </BuildableReference>
          </TestableReference>
@@ -80,7 +80,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "840D617B2029031C009BC708"
             BuildableName = "Second Stream.app"
-            BlueprintName = "NetNewsWire-iOS"
+            BlueprintName = "SecondStream-iOS"
             ReferencedContainer = "container:SecondStream.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -97,7 +97,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "840D617B2029031C009BC708"
             BuildableName = "Second Stream.app"
-            BlueprintName = "NetNewsWire-iOS"
+            BlueprintName = "SecondStream-iOS"
             ReferencedContainer = "container:SecondStream.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
