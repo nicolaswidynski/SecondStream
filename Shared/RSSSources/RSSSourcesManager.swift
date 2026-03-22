@@ -14,6 +14,7 @@ struct RSSSource: Codable, Hashable {
 	let author: String?
 	let url: String
 	let imageURL: String?
+	let imageURLLight: String?
 }
 
 enum AddRSSResult {
@@ -150,7 +151,7 @@ enum AddRSSResult {
 			return
 		}
 
-		let sources = entries.map { RSSSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
+		let sources = entries.map { RSSSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL, imageURLLight: $0.imageURLLight) }
 		let oldURLs = Set(self.rssSources.compactMap(\.imageURL))
 		let newURLs = Set(sources.compactMap(\.imageURL))
 		let removed = Array(oldURLs.subtracting(newURLs))

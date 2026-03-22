@@ -14,20 +14,23 @@ struct PodcastSource: Codable, Hashable {
 	let author: String?
 	let url: String
 	let imageURL: String?
+	let imageURLLight: String?
 
 	private enum CodingKeys: String, CodingKey {
 		case name
 		case author
 		case url
 		case imageURL
+		case imageURLLight
 		case legacyRSSURL = "rssURL"
 	}
 
-	init(name: String, author: String?, url: String, imageURL: String?) {
+	init(name: String, author: String?, url: String, imageURL: String?, imageURLLight: String? = nil) {
 		self.name = name
 		self.author = author
 		self.url = url
 		self.imageURL = imageURL
+		self.imageURLLight = imageURLLight
 	}
 
 	init(from decoder: Decoder) throws {
@@ -37,6 +40,7 @@ struct PodcastSource: Codable, Hashable {
 		url = try container.decodeIfPresent(String.self, forKey: .url)
 			?? container.decode(String.self, forKey: .legacyRSSURL)
 		imageURL = try container.decodeIfPresent(String.self, forKey: .imageURL)
+		imageURLLight = try container.decodeIfPresent(String.self, forKey: .imageURLLight)
 	}
 
 	func encode(to encoder: Encoder) throws {
@@ -45,6 +49,7 @@ struct PodcastSource: Codable, Hashable {
 		try container.encodeIfPresent(author, forKey: .author)
 		try container.encode(url, forKey: .url)
 		try container.encodeIfPresent(imageURL, forKey: .imageURL)
+		try container.encodeIfPresent(imageURLLight, forKey: .imageURLLight)
 	}
 }
 
@@ -173,7 +178,7 @@ enum AddPodcastResult {
 		async let libraryEntries = SourceFileFetcher.fetchIfModified(fileName: Self.libraryFileName)
 
 		if let entries = await topEntries {
-			let sources = entries.map { PodcastSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
+			let sources = entries.map { PodcastSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL, imageURLLight: $0.imageURLLight) }
 			let oldURLs = Set(self.podcastSources.compactMap(\.imageURL))
 			let newURLs = Set(sources.compactMap(\.imageURL))
 			let libraryURLs = Set(self.podcastLibrarySources.compactMap(\.imageURL))
@@ -186,7 +191,7 @@ enum AddPodcastResult {
 		}
 
 		if let entries = await libraryEntries {
-			let sources = entries.map { PodcastSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
+			let sources = entries.map { PodcastSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL, imageURLLight: $0.imageURLLight) }
 			let oldURLs = Set(self.podcastLibrarySources.compactMap(\.imageURL))
 			let newURLs = Set(sources.compactMap(\.imageURL))
 			let topURLs = Set(self.podcastSources.compactMap(\.imageURL))

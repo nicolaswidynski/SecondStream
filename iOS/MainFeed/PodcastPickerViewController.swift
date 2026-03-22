@@ -140,7 +140,7 @@ final class PodcastPickerViewController: UIViewController {
 			case .customEntryName:
 				cell.configure(name: NSLocalizedString("Add Podcast", comment: "Add Podcast"), imageURL: nil, isCustomEntry: true)
 			case .podcastSource(let source):
-				cell.configure(name: source.name, imageURL: source.imageURL)
+				cell.configure(name: source.name, imageURL: source.imageURL, imageURLLight: source.imageURLLight)
 			default:
 				break
 			}

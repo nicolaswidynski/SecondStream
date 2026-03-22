@@ -26,6 +26,7 @@ private struct DiscoverSourceItem {
 	let author: String?
 	let url: String
 	let imageURL: String?
+	let imageURLLight: String?
 	let category: FeedCategory
 }
 
@@ -85,7 +86,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			image: RSImage(named: "rss_thin-symbol") ?? UIImage(systemName: "dot.radiowaves.left.and.right")
 		) { [weak self] _ in self?.addRSSFeed() }
 
-		let menu = UIMenu(title: "", children: [podcastAction, youtubeAction, newsAction, rssAction])
+		let menu = UIMenu(title: "", children: [rssAction, newsAction, youtubeAction, podcastAction])
 
 		var config = UIButton.Configuration.plain()
 		config.image = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .medium))
@@ -190,7 +191,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}()
 
 	private lazy var starredButton: UIBarButtonItem = {
-		let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+		let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
 		let image = UIImage(systemName: "bookmark", withConfiguration: config)
 		let button = UIBarButtonItem(image: image, style: .plain, target: self, action: #selector(starredTapped))
 		button.accessibilityLabel = NSLocalizedString("Starred", comment: "Starred")
@@ -429,22 +430,22 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		let randomPodcastSources = Array(PodcastSourcesManager.shared.podcastSources.shuffled().prefix(2))
 		for source in randomPodcastSources {
-			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, category: .podcast))
+			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, imageURLLight: source.imageURLLight, category: .podcast))
 		}
 
 		let randomYoutubeSources = Array(YoutubeSourcesManager.shared.youtubeSources.shuffled().prefix(2))
 		for source in randomYoutubeSources {
-			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, category: .youtube))
+			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, imageURLLight: source.imageURLLight, category: .youtube))
 		}
 
 		let randomNewsSources = Array(NewsSourcesManager.shared.newsSources.shuffled().prefix(2))
 		for source in randomNewsSources {
-			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, category: .news))
+			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, imageURLLight: source.imageURLLight, category: .news))
 		}
 
 		let randomRSSSources = Array(RSSSourcesManager.shared.rssSources.shuffled().prefix(2))
 		for source in randomRSSSources {
-			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, category: .rss))
+			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, imageURLLight: source.imageURLLight, category: .rss))
 		}
 
 		return discoverItems
@@ -636,8 +637,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 					NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
 					if !validateFeed, let summaryURL {
 						Task {
-							if let iconURL = await Self.fetchFeedIconURL(summaryURL: summaryURL) {
-								await MainActor.run { feed.iconURL = iconURL }
+							if let icons = await Self.fetchFeedIconURL(summaryURL: summaryURL) {
+								await MainActor.run { feed.iconURL = icons.dark }
 							}
 						}
 					}
@@ -727,7 +728,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	/// Fetches the generated feed JSON at  and returns the  value.
 	/// The expected format is the generated feed header: {"title":...,"image_link":...}.
-	private static func fetchFeedIconURL(summaryURL: String) async -> String? {
+	private static func fetchFeedIconURL(summaryURL: String) async -> (dark: String?, light: String?)? {
 		guard let url = URL(string: summaryURL) else { return nil }
 		guard let (data, response) = try? await URLSession.shared.data(from: url),
 			  let httpResponse = response as? HTTPURLResponse,
@@ -735,13 +736,20 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
 			return nil
 		}
+		var dark: String? = nil
+		var light: String? = nil
 		let keys = ["image_link", "icon", "favicon"]
 		for key in keys {
 			if let v = json[key] as? String, !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-				return v
+				dark = v
+				break
 			}
 		}
-		return nil
+		if let v = json["image_link_light"] as? String, !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+			light = v
+		}
+		if dark == nil && light == nil { return nil }
+		return (dark, light)
 	}
 
 

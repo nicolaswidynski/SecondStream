@@ -140,7 +140,7 @@ final class RSSPickerViewController: UIViewController {
 			case .customEntryURL:
 				cell.configure(name: NSLocalizedString("Add RSS URL", comment: "Add RSS URL"), imageURL: nil, isCustomEntry: true)
 			case .rssSource(let source):
-				cell.configure(name: source.name, imageURL: source.imageURL)
+				cell.configure(name: source.name, imageURL: source.imageURL, imageURLLight: source.imageURLLight)
 			default:
 				break
 			}

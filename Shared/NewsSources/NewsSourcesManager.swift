@@ -14,6 +14,7 @@ struct NewsSource: Codable, Hashable {
 	let author: String?
 	let url: String
 	let imageURL: String?
+	let imageURLLight: String?
 }
 
 enum AddNewsResult {
@@ -121,7 +122,7 @@ enum AddNewsResult {
 			return
 		}
 
-		let mappedSources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
+		let mappedSources = entries.map { NewsSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL, imageURLLight: $0.imageURLLight) }
 		let sources = await hydrateMissingImageURLs(in: mappedSources)
 		let oldURLs = Set(self.newsSources.compactMap(\.imageURL))
 		let newURLs = Set(sources.compactMap(\.imageURL))
@@ -129,6 +130,8 @@ enum AddNewsResult {
 		let added = Array(newURLs.subtracting(oldURLs))
 		SourceImageCache.shared.removeImages(for: removed)
 		SourceImageCache.shared.prefetchImages(for: added)
+		let addedLight = Array(Set(sources.compactMap(\.imageURLLight)).subtracting(oldURLs))
+		SourceImageCache.shared.prefetchImages(for: addedLight)
 		self.newsSources = sources
 		Self.logger.info("Fetched \(sources.count) news sources")
 	}
@@ -156,7 +159,7 @@ enum AddNewsResult {
 			guard currentImageURL.isEmpty else {
 				continue
 			}
-			guard let imageRef = await Self.fetchImageURLFromSource(feedURLString: hydrated[index].url) else {
+			guard let result = await Self.fetchImageURLFromSource(feedURLString: hydrated[index].url) else {
 				continue
 			}
 
@@ -164,14 +167,15 @@ enum AddNewsResult {
 				name: hydrated[index].name,
 				author: hydrated[index].author,
 				url: hydrated[index].url,
-				imageURL: imageRef
+				imageURL: result.dark,
+				imageURLLight: hydrated[index].imageURLLight ?? result.light
 			)
 		}
 
 		return hydrated
 	}
 
-	private static func fetchImageURLFromSource(feedURLString: String) async -> String? {
+	private static func fetchImageURLFromSource(feedURLString: String) async -> (dark: String?, light: String?)? {
 		let trimmed = feedURLString.trimmingCharacters(in: .whitespacesAndNewlines)
 		guard let url = URL(string: trimmed) else {
 			return nil
@@ -184,22 +188,38 @@ enum AddNewsResult {
 				return nil
 			}
 
+			var dark: String? = nil
+			var light: String? = nil
+
 			if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
 				let imageKeys = ["image_link", "imageURL", "image_url", "icon", "icon_url", "image_ref"]
 				for key in imageKeys {
 					if let value = json[key] as? String {
 						let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
 						if !trimmedValue.isEmpty {
-							return trimmedValue
+							dark = trimmedValue
+							break
 						}
 					}
+				}
+				if let value = json["image_link_light"] as? String {
+					let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+					if !trimmedValue.isEmpty {
+						light = trimmedValue
+					}
+				}
+				if dark != nil || light != nil {
+					return (dark, light)
 				}
 			}
 
 			guard let xml = String(data: data, encoding: .utf8) else {
 				return nil
 			}
-			return parseImageRef(fromXML: xml)
+			if let imageRef = parseImageRef(fromXML: xml) {
+				return (imageRef, nil)
+			}
+			return nil
 		} catch {
 			return nil
 		}

@@ -141,7 +141,7 @@ final class YoutubePickerViewController: UIViewController {
 			case .customEntryName:
 				cell.configure(name: NSLocalizedString("Add Channel", comment: "Add Channel"), imageURL: nil, isCustomEntry: true)
 			case .youtubeSource(let source):
-				cell.configure(name: source.name, imageURL: source.imageURL)
+				cell.configure(name: source.name, imageURL: source.imageURL, imageURLLight: source.imageURLLight)
 			default:
 				break
 			}

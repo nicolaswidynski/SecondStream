@@ -1193,9 +1193,15 @@ private extension MainTimelineViewController {
 		if isPseudoFeedIcon {
 			// Pseudo feeds (Starred, Today, All Unread) use a plain template bar button — no circular
 			// container, no baked-in color — so the icon renders like any other nav bar button.
-			let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
-			let image = (iconImage.image.applyingSymbolConfiguration(config) ?? iconImage.image)
-				.withRenderingMode(.alwaysTemplate)
+			let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+			let isStarredFeed = timelineFeed as? SmartFeed === SmartFeedsController.shared.starredFeed
+			let image: UIImage
+			if isStarredFeed, let outlineIcon = UIImage(systemName: "bookmark", withConfiguration: config) {
+				image = outlineIcon.withRenderingMode(.alwaysTemplate)
+			} else {
+				image = (iconImage.image.applyingSymbolConfiguration(config) ?? iconImage.image)
+					.withRenderingMode(.alwaysTemplate)
+			}
 			navigationItem.rightBarButtonItem = UIBarButtonItem(
 				image: image,
 				style: .plain,

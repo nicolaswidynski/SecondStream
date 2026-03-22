@@ -14,6 +14,7 @@ struct YoutubeSource: Codable, Hashable {
 	let author: String?
 	let url: String
 	let imageURL: String?
+	let imageURLLight: String?
 }
 
 enum AddYoutubeResult {
@@ -139,7 +140,7 @@ enum AddYoutubeResult {
 		async let libraryEntries = SourceFileFetcher.fetchIfModified(fileName: Self.libraryFileName)
 
 		if let entries = await topEntries {
-			let sources = entries.map { YoutubeSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
+			let sources = entries.map { YoutubeSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL, imageURLLight: $0.imageURLLight) }
 			let oldURLs = Set(self.youtubeSources.compactMap(\.imageURL))
 			let newURLs = Set(sources.compactMap(\.imageURL))
 			let libraryURLs = Set(self.youtubeLibrarySources.compactMap(\.imageURL))
@@ -152,7 +153,7 @@ enum AddYoutubeResult {
 		}
 
 		if let entries = await libraryEntries {
-			let sources = entries.map { YoutubeSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL) }
+			let sources = entries.map { YoutubeSource(name: $0.name, author: $0.author, url: $0.feedURL, imageURL: $0.imageURL, imageURLLight: $0.imageURLLight) }
 			let oldURLs = Set(self.youtubeLibrarySources.compactMap(\.imageURL))
 			let newURLs = Set(sources.compactMap(\.imageURL))
 			let topURLs = Set(self.youtubeSources.compactMap(\.imageURL))

@@ -124,7 +124,7 @@ final class NewsPickerViewController: UIViewController {
 
 			switch item {
 			case .newsSource(let source):
-				cell.configure(name: source.name, imageURL: source.imageURL)
+				cell.configure(name: source.name, imageURL: source.imageURL, imageURLLight: source.imageURLLight)
 			default:
 				break
 			}
