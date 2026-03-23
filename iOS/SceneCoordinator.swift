@@ -1215,6 +1215,7 @@ struct SidebarItemNode: Hashable, Sendable {
 				iconImage: iconImage,
 				isPseudoFeedIcon: false,
 				cacheKey: String(describing: feed.sidebarItemID),
+				userInterfaceStyle: articleViewController?.traitCollection.userInterfaceStyle ?? .unspecified,
 				target: articleViewController,
 				action: #selector(ArticleViewController.showCurrentFeedHomepage(_:))
 			)

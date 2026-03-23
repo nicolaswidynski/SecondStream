@@ -598,6 +598,7 @@ private extension ArticleViewController {
 			iconImage: iconImage,
 			isPseudoFeedIcon: isPseudoFeedIcon,
 			cacheKey: iconKey,
+			userInterfaceStyle: traitCollection.userInterfaceStyle,
 			target: self,
 			action: #selector(showCurrentFeedHomepage(_:))
 		)

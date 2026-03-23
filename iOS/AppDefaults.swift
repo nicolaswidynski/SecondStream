@@ -92,6 +92,7 @@ final class AppDefaults: Sendable {
 		static let timelineDimReadArticles = "timelineDimReadArticles"
 		static let timelineUnreadFirst = "timelineUnreadFirst"
 		static let showSectionHeaderIcons = "showSectionHeaderIcons"
+		static let collapsibleArticleSectionsEnabled = "collapsibleArticleSectionsEnabled"
 	}
 
 	let isDeveloperBuild: Bool = {
@@ -552,6 +553,15 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	var collapsibleArticleSectionsEnabled: Bool {
+		get {
+			AppDefaults.bool(for: Key.collapsibleArticleSectionsEnabled)
+		}
+		set {
+			AppDefaults.setBool(for: Key.collapsibleArticleSectionsEnabled, newValue)
+		}
+	}
+
 
 
 	@MainActor static func registerDefaults() {
@@ -575,7 +585,8 @@ final class AppDefaults: Sendable {
 									   Key.showHomepageResolutionDebugDialog: false,
 									   Key.timelineDimReadArticles: true,
 									   Key.timelineUnreadFirst: false,
-									   Key.showSectionHeaderIcons: false]
+									   Key.showSectionHeaderIcons: false,
+									   Key.collapsibleArticleSectionsEnabled: false]
 		AppDefaults.store.register(defaults: defaults)
 	}
 }

@@ -33,8 +33,17 @@ final class ArticleIconSchemeHandler: NSObject, WKURLSchemeHandler {
 			return
 		}
 
+		let style = webView.traitCollection.userInterfaceStyle
+		let resolvedImage = (style == .light ? iconImage.lightImage : nil) ?? iconImage.image
+		let resolvedIconImage = IconImage(
+			resolvedImage,
+			isSymbol: iconImage.isSymbol,
+			isBackgroundSuppressed: iconImage.isBackgroundSuppressed,
+			preferredColor: iconImage.preferredColor
+		)
 		let iconView = IconView(frame: CGRect(x: 0, y: 0, width: 48, height: 48))
-		iconView.iconImage = iconImage
+		iconView.overrideUserInterfaceStyle = style
+		iconView.iconImage = resolvedIconImage
 		let renderedImage = iconView.asImage()
 
 		guard let data = renderedImage.dataRepresentation() else {

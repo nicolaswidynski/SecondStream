@@ -46,18 +46,20 @@ import Articles
 	private static let titleContainerWidth: CGFloat = 242
 	private static let titleContainerHeight: CGFloat = 34
 	private static let topBarIconCache = NSCache<NSString, UIImage>()
-	private static let topBarIconCacheVersion = "v10-nav-height-square"
+	private static let topBarIconCacheVersion = "v11-nav-height-square-style-aware"
 
 	static func clearTopBarFeedIcon(cacheKey: String?) {
 		guard let cacheKey else {
 			return
 		}
 		topBarIconCache.removeObject(forKey: cacheKey as NSString)
-		topBarIconCache.removeObject(forKey: namespacedTopBarIconCacheKey(cacheKey))
+		topBarIconCache.removeObject(forKey: namespacedTopBarIconCacheKey(cacheKey, userInterfaceStyle: .unspecified))
+		topBarIconCache.removeObject(forKey: namespacedTopBarIconCacheKey(cacheKey, userInterfaceStyle: .light))
+		topBarIconCache.removeObject(forKey: namespacedTopBarIconCacheKey(cacheKey, userInterfaceStyle: .dark))
 	}
 
-	private static func namespacedTopBarIconCacheKey(_ cacheKey: String) -> NSString {
-		"\(topBarIconCacheVersion)|\(cacheKey)" as NSString
+	private static func namespacedTopBarIconCacheKey(_ cacheKey: String, userInterfaceStyle: UIUserInterfaceStyle) -> NSString {
+		"\(topBarIconCacheVersion)|\(userInterfaceStyle.rawValue)|\(cacheKey)" as NSString
 	}
 
 	static func makeTitleView(target: Any?, action: Selector) -> UIView {
@@ -129,8 +131,14 @@ import Articles
 		return rendered.withRenderingMode(.alwaysOriginal)
 	}
 
-	static func makeTopBarFeedIcon(from iconImage: IconImage, isPseudoFeedIcon: Bool, cacheKey: String? = nil) -> UIImage {
-		let namespacedCacheKey = cacheKey.map(namespacedTopBarIconCacheKey)
+	static func makeTopBarFeedIcon(from iconImage: IconImage, isPseudoFeedIcon: Bool, cacheKey: String? = nil, userInterfaceStyle: UIUserInterfaceStyle = .unspecified) -> UIImage {
+		let effectiveStyle: UIUserInterfaceStyle
+		if userInterfaceStyle == .unspecified {
+			effectiveStyle = UITraitCollection.current.userInterfaceStyle
+		} else {
+			effectiveStyle = userInterfaceStyle
+		}
+		let namespacedCacheKey = cacheKey.map { namespacedTopBarIconCacheKey($0, userInterfaceStyle: effectiveStyle) }
 		if let namespacedCacheKey, let cached = topBarIconCache.object(forKey: namespacedCacheKey) {
 			return cached
 		}
@@ -151,7 +159,7 @@ import Articles
 		// Match the actual compact nav-bar custom-view height to avoid 44x44->44x36 squeeze.
 		let canvasSize = CGSize(width: 36, height: 36)
 		// Pick the source image for the current interface style.
-		let isLight = UITraitCollection.current.userInterfaceStyle == .light
+		let isLight = effectiveStyle == .light
 		let sourceImage = (isLight ? iconImage.lightImage : nil) ?? iconImage.image
 		let result = UIGraphicsImageRenderer(size: canvasSize).image { _ in
 			UIBezierPath(ovalIn: CGRect(origin: .zero, size: canvasSize)).addClip()
@@ -342,8 +350,8 @@ import Articles
 		return UIImage(cgImage: cropped, scale: image.scale, orientation: .up)
 	}
 
-	static func makeTopBarFeedBarButton(iconImage: IconImage, isPseudoFeedIcon: Bool, cacheKey: String? = nil, target: Any?, action: Selector?) -> UIBarButtonItem {
-		let icon = makeTopBarFeedIcon(from: iconImage, isPseudoFeedIcon: isPseudoFeedIcon, cacheKey: cacheKey).withRenderingMode(.alwaysOriginal)
+	static func makeTopBarFeedBarButton(iconImage: IconImage, isPseudoFeedIcon: Bool, cacheKey: String? = nil, userInterfaceStyle: UIUserInterfaceStyle = .unspecified, target: Any?, action: Selector?) -> UIBarButtonItem {
+		let icon = makeTopBarFeedIcon(from: iconImage, isPseudoFeedIcon: isPseudoFeedIcon, cacheKey: cacheKey, userInterfaceStyle: userInterfaceStyle).withRenderingMode(.alwaysOriginal)
 		return makeTopBarFeedBarButton(image: icon, fillsCircularButton: !isPseudoFeedIcon, target: target, action: action)
 	}
 
@@ -1226,6 +1234,7 @@ private extension MainTimelineViewController {
 				iconImage: iconImage,
 				isPseudoFeedIcon: false,
 				cacheKey: iconKey,
+				userInterfaceStyle: traitCollection.userInterfaceStyle,
 				target: self,
 				action: #selector(showFeedInspector(_:))
 			)

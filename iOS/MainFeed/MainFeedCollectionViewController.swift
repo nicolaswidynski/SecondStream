@@ -105,6 +105,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let button = UIButton(configuration: config)
 		button.menu = menu
 		button.showsMenuAsPrimaryAction = true
+		button.addAction(UIAction { _ in
+			UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+		}, for: .touchDown)
 		button.accessibilityLabel = NSLocalizedString("Add Feed", comment: "Add Feed")
 		button.translatesAutoresizingMaskIntoConstraints = false
 		NSLayoutConstraint.activate([

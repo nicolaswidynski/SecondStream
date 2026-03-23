@@ -1397,11 +1397,11 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSapp_target.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CURRENT_PROJECT_VERSION = 0002;
+				CURRENT_PROJECT_VERSION = 0003;
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				MARKETING_VERSION = 0.2;
+				MARKETING_VERSION = 0.21;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -1416,11 +1416,11 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSapp_target.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CURRENT_PROJECT_VERSION = 0002;
+				CURRENT_PROJECT_VERSION = 0003;
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				MARKETING_VERSION = 0.2;
+				MARKETING_VERSION = 0.21;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
