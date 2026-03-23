@@ -158,6 +158,7 @@ function removeWpSmiley() {
 
 // Create a collapsible section with dropdown arrow
 function createCollapsibleSection(headerElement, headerText, headerClass, siblings, startCollapsed) {
+	if (!window.nnwCollapsibleSectionsEnabled) startCollapsed = false;
 	const wrapper = document.createElement("div");
 	wrapper.className = "nnw-collapsible";
 	wrapper.setAttribute("data-open", startCollapsed ? "false" : "true");
@@ -188,6 +189,7 @@ function createCollapsibleSection(headerElement, headerText, headerClass, siblin
 
 	// Add click handler
 	headerDiv.addEventListener("click", function(e) {
+		if (!window.nnwCollapsibleSectionsEnabled) return;
 		e.preventDefault();
 		e.stopPropagation();
 		const section = this.closest(".nnw-collapsible");
