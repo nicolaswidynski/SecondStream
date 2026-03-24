@@ -83,7 +83,9 @@
       "Bash(git worktree:*)",
       "Bash(xxd)",
       "Bash(python3 -:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh repo:*)"
     ],
     "deny": [],
     "ask": []

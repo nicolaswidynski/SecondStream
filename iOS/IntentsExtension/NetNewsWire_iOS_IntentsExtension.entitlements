@@ -4,7 +4,7 @@
 <dict>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.stdn.SecondStream.iOS.IE</string>
+		<string>group.com.stdn.SecondStream.iOS</string>
 	</array>
 	<key>keychain-access-groups</key>
 	<array>

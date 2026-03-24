@@ -25,15 +25,19 @@ import os.log
 	private let creditsURL = URL(string: "https://n8n.nwidynski.com/webhook/get-number-of-credits")!
 	private let outboxKey = "feedStats_deletionOutbox"
 	private let creditsKey = "feedStats_cachedCredits"
+	private let weeklyUpdateLastSentAtKey = "feedStats_weeklyUpdateLastSentAt"
+	private let oneWeekInterval: TimeInterval = 7 * 24 * 60 * 60
+	private var isDrainingOutbox = false
 
 	// MARK: - Outbox record
 
-	struct OutboxRecord: Codable {
+	struct OutboxRecord: Codable, Equatable {
 		let appleUserID: String
 		let type: String
 		let operation: String
 		let show: String
 		let author: String
+		let queuedAt: Date?
 	}
 
 	// MARK: - Error helpers
@@ -165,20 +169,21 @@ import os.log
 	/// `count_free` for pod/yt is resolved at send time by fetching the live free-lib files.
 	/// rss and topics are always considered free.
 	/// Non-blocking: errors are only logged.
-	func reportUpdate() async {
+	@discardableResult
+	func reportUpdate() async -> Bool {
 
 		guard let token = bearerToken else {
 			Self.logger.error("reportUpdate: no bearer token")
-			return
+			return false
 		}
 		let appleUserID = AuthManager.shared.appleUserID ?? ""
 		guard !appleUserID.isEmpty else {
-			return
+			return false
 		}
 
 		// Collect feeds from the first active account
 		guard let account = AccountManager.shared.activeAccounts.first else {
-			return
+			return false
 		}
 
 		let allFeeds = account.flattenedFeeds()
@@ -247,11 +252,26 @@ import os.log
 			   !(200...299).contains(httpResponse.statusCode) {
 				let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
 				Self.logger.error("update-user-stats failed [\(httpResponse.statusCode)]: \(rawBody)")
+				return false
 			} else {
 				Self.logger.info("update-user-stats sent: pod=\(podSources.count) free=\(podFreeCount) yt=\(ytSources.count) free=\(ytFreeCount) topics=\(topicSources.count) rss=\(rssCount)")
+				return true
 			}
 		} catch {
 			Self.logger.error("update-user-stats error: \(error.localizedDescription)")
+			return false
+		}
+	}
+
+	/// Sends `operation: "update"` at most once per week.
+	func reportWeeklyUpdateIfNeeded() async {
+		let now = Date()
+		if let lastSentAt = UserDefaults.standard.object(forKey: weeklyUpdateLastSentAtKey) as? Date,
+		   now.timeIntervalSince(lastSentAt) < oneWeekInterval {
+			return
+		}
+		if await reportUpdate() {
+			UserDefaults.standard.set(now, forKey: weeklyUpdateLastSentAtKey)
 		}
 	}
 
@@ -265,7 +285,8 @@ import os.log
 			type: typeString(for: type),
 			operation: "del",
 			show: name,
-			author: author ?? ""
+			author: author ?? "",
+			queuedAt: Date()
 		)
 
 		var outbox = loadOutbox()
@@ -278,7 +299,13 @@ import os.log
 
 	/// Attempts to send all queued delete events to the server.
 	func drainOutbox() async {
-		let outbox = loadOutbox()
+		guard !isDrainingOutbox else {
+			return
+		}
+		isDrainingOutbox = true
+		defer { isDrainingOutbox = false }
+
+		let outbox = pruneStaleOutboxRecords()
 		guard !outbox.isEmpty else {
 			return
 		}
@@ -290,18 +317,18 @@ import os.log
 			return
 		}
 
-		var remaining = [OutboxRecord]()
+		var drainedAny = false
 		for record in outbox {
 			do {
 				try await send(record: record, token: token)
 				Self.logger.info("Drained delete: \(record.show)")
+				removeFromOutbox(record)
+				drainedAny = true
 			} catch {
 				Self.logger.error("Failed to drain delete for \(record.show): \(error.localizedDescription)")
-				remaining.append(record)
 			}
 		}
-		saveOutbox(remaining)
-		if remaining.count < outbox.count {
+		if drainedAny {
 			await fetchCredits()
 		}
 	}
@@ -341,7 +368,24 @@ import os.log
 			  let records = try? JSONDecoder().decode([OutboxRecord].self, from: data) else {
 			return []
 		}
-		return records
+		let now = Date()
+		let migratedRecords = records.map { record in
+			guard record.queuedAt == nil else {
+				return record
+			}
+			return OutboxRecord(
+				appleUserID: record.appleUserID,
+				type: record.type,
+				operation: record.operation,
+				show: record.show,
+				author: record.author,
+				queuedAt: now
+			)
+		}
+		if migratedRecords != records {
+			saveOutbox(migratedRecords)
+		}
+		return migratedRecords
 	}
 
 	private func saveOutbox(_ records: [OutboxRecord]) {
@@ -349,6 +393,32 @@ import os.log
 			return
 		}
 		UserDefaults.standard.set(data, forKey: outboxKey)
+	}
+
+	private func pruneStaleOutboxRecords() -> [OutboxRecord] {
+		let records = loadOutbox()
+		let now = Date()
+		let freshRecords = records.filter { record in
+			guard let queuedAt = record.queuedAt else {
+				return true
+			}
+			return now.timeIntervalSince(queuedAt) <= oneWeekInterval
+		}
+		let staleCount = records.count - freshRecords.count
+		if staleCount > 0 {
+			Self.logger.info("Dropped \(staleCount) stale feed stats delete events from outbox")
+			saveOutbox(freshRecords)
+		}
+		return freshRecords
+	}
+
+	private func removeFromOutbox(_ record: OutboxRecord) {
+		var records = loadOutbox()
+		guard let index = records.firstIndex(of: record) else {
+			return
+		}
+		records.remove(at: index)
+		saveOutbox(records)
 	}
 }
 

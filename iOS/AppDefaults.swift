@@ -92,6 +92,7 @@ final class AppDefaults: Sendable {
 		static let timelineDimReadArticles = "timelineDimReadArticles"
 		static let timelineUnreadFirst = "timelineUnreadFirst"
 		static let showSectionHeaderIcons = "showSectionHeaderIcons"
+		static let collapsibleArticleSectionsEnabled = "collapsibleArticleSectionsEnabled"
 		static let faceIDEnabled = "faceIDEnabled"
 	}
 
@@ -553,6 +554,15 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	var collapsibleArticleSectionsEnabled: Bool {
+		get {
+			AppDefaults.bool(for: Key.collapsibleArticleSectionsEnabled)
+		}
+		set {
+			AppDefaults.setBool(for: Key.collapsibleArticleSectionsEnabled, newValue)
+		}
+	}
+
 	var faceIDEnabled: Bool {
 		get {
 			AppDefaults.bool(for: Key.faceIDEnabled)
@@ -586,6 +596,7 @@ final class AppDefaults: Sendable {
 									   Key.timelineDimReadArticles: true,
 									   Key.timelineUnreadFirst: false,
 									   Key.showSectionHeaderIcons: false,
+									   Key.collapsibleArticleSectionsEnabled: false,
 									   Key.faceIDEnabled: false]
 		AppDefaults.store.register(defaults: defaults)
 	}

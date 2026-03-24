@@ -16,10 +16,14 @@ final class ExtensionFeedAddRequestFile: NSObject, NSFilePresenter, Sendable {
 
 	static private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "ExtensionFeedAddRequestFile")
 
-	private static let filePath: String = {
-		let appGroup = Bundle.main.object(forInfoDictionaryKey: "AppGroup") as! String
-		let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)
-		return containerURL!.appendingPathComponent("extension_feed_add_request.plist").path
+	private static let filePath: String? = {
+		guard let appGroup = Bundle.main.object(forInfoDictionaryKey: "AppGroup") as? String else {
+			return nil
+		}
+		guard let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) else {
+			return nil
+		}
+		return containerURL.appendingPathComponent("extension_feed_add_request.plist").path
 	}()
 
 	private let operationQueue = {
@@ -29,7 +33,10 @@ final class ExtensionFeedAddRequestFile: NSObject, NSFilePresenter, Sendable {
 	}()
 
 	var presentedItemURL: URL? {
-		URL(fileURLWithPath: ExtensionFeedAddRequestFile.filePath)
+		guard let filePath = ExtensionFeedAddRequestFile.filePath else {
+			return nil
+		}
+		return URL(fileURLWithPath: filePath)
 	}
 
 	var presentedItemOperationQueue: OperationQueue {
@@ -85,6 +92,10 @@ final class ExtensionFeedAddRequestFile: NSObject, NSFilePresenter, Sendable {
 	}
 
 	static func save(_ feedAddRequest: ExtensionFeedAddRequest) {
+		guard let filePath else {
+			Self.logger.error("ExtensionFeedAddRequestFile: missing app group container")
+			return
+		}
 
 		let decoder = PropertyListDecoder()
 		let encoder = PropertyListEncoder()
@@ -92,7 +103,7 @@ final class ExtensionFeedAddRequestFile: NSObject, NSFilePresenter, Sendable {
 
 		let errorPointer: NSErrorPointer = nil
 		let fileCoordinator = NSFileCoordinator()
-		let fileURL = URL(fileURLWithPath: ExtensionFeedAddRequestFile.filePath)
+		let fileURL = URL(fileURLWithPath: filePath)
 
 		fileCoordinator.coordinate(writingItemAt: fileURL, options: [.forMerging], error: errorPointer, byAccessor: { url in
 			do {
@@ -124,6 +135,10 @@ final class ExtensionFeedAddRequestFile: NSObject, NSFilePresenter, Sendable {
 @MainActor private extension ExtensionFeedAddRequestFile {
 
 	func process() {
+		guard let filePath = ExtensionFeedAddRequestFile.filePath else {
+			Self.logger.error("ExtensionFeedAddRequestFile: missing app group container")
+			return
+		}
 
 		let decoder = PropertyListDecoder()
 		let encoder = PropertyListEncoder()
@@ -131,7 +146,7 @@ final class ExtensionFeedAddRequestFile: NSObject, NSFilePresenter, Sendable {
 
 		let errorPointer: NSErrorPointer = nil
 		let fileCoordinator = NSFileCoordinator(filePresenter: self)
-		let fileURL = URL(fileURLWithPath: ExtensionFeedAddRequestFile.filePath)
+		let fileURL = URL(fileURLWithPath: filePath)
 
 		var requests: [ExtensionFeedAddRequest]?
 

@@ -59,6 +59,7 @@ final class SettingsViewController: UITableViewController {
 	private let timelineUnreadFirstRow = 1
 	private let timelineReadStylingRow = 2
 	private let sectionHeaderIconsRow = 3
+	private let collapsibleSectionsRow = 4
 	// Debug section rows
 	private let debugCleanTempRow = 0
 	private let debugDialogRow = 1
@@ -84,6 +85,7 @@ final class SettingsViewController: UITableViewController {
 
 		tableView.register(UINib(nibName: "SettingsComboTableViewCell", bundle: nil), forCellReuseIdentifier: "SettingsComboTableViewCell")
 		tableView.register(UINib(nibName: "SettingsTableViewCell", bundle: nil), forCellReuseIdentifier: "SettingsTableViewCell")
+		UISwitch.appearance(whenContainedInInstancesOf: [SettingsViewController.self]).onTintColor = .systemBlue
 
 		tableView.rowHeight = UITableView.automaticDimension
 		tableView.estimatedRowHeight = 44
@@ -211,8 +213,8 @@ final class SettingsViewController: UITableViewController {
 		case ttsSection:
 			return super.tableView(tableView, numberOfRowsInSection: section) + 1
 		case displaySection:
-			// Adds Unread First, Gray Read Articles, and Show Category Icons rows
-			return super.tableView(tableView, numberOfRowsInSection: section) + 3
+			// Adds Unread First, Gray Read Articles, Show Category Icons, and Collapsible Sections rows
+			return super.tableView(tableView, numberOfRowsInSection: section) + 4
 		case debugSection:
 			// Clean Temporary Files, Debug Dialog
 			return 2
@@ -276,6 +278,8 @@ final class SettingsViewController: UITableViewController {
 			cell = makeTimelineReadStylingCell(tableView)
 		case displaySection where indexPath.row == sectionHeaderIconsRow:
 			cell = makeSectionHeaderIconsCell(tableView)
+		case displaySection where indexPath.row == collapsibleSectionsRow:
+			cell = makeCollapsibleSectionsCell(tableView)
 		case displaySection where indexPath.row == timelineUnreadFirstRow:
 			cell = makeTimelineUnreadFirstCell(tableView)
 		case ttsSection where indexPath.row == ttsEnabledRow:
@@ -559,6 +563,10 @@ final class SettingsViewController: UITableViewController {
 		NotificationCenter.default.post(name: UserDefaults.didChangeNotification, object: nil)
 	}
 
+	@objc func switchCollapsibleSections(_ sender: UISwitch) {
+		AppDefaults.shared.collapsibleArticleSectionsEnabled = sender.isOn
+	}
+
 	@objc func switchDebugDialog(_ sender: UISwitch) {
 		AppDefaults.shared.showHomepageResolutionDebugDialog = sender.isOn
 	}
@@ -704,6 +712,21 @@ private extension SettingsViewController {
 		toggle.removeTarget(self, action: #selector(switchTimelineReadStyling(_:)), for: .valueChanged)
 		toggle.addTarget(self, action: #selector(switchTimelineReadStyling(_:)), for: .valueChanged)
 		toggle.isOn = AppDefaults.shared.timelineDimReadArticles
+		cell.accessoryView = toggle
+		return cell
+	}
+
+	func makeCollapsibleSectionsCell(_ tableView: UITableView) -> UITableViewCell {
+		let cell = tableView.dequeueReusableCell(withIdentifier: "CollapsibleSectionsCell") ??
+			UITableViewCell(style: .default, reuseIdentifier: "CollapsibleSectionsCell")
+		var content = cell.defaultContentConfiguration()
+		content.text = NSLocalizedString("Collapsible Article Sections", comment: "Article sections collapsible toggle")
+		cell.contentConfiguration = content
+		cell.selectionStyle = .none
+		let toggle = (cell.accessoryView as? UISwitch) ?? UISwitch(frame: .zero)
+		toggle.removeTarget(self, action: #selector(switchCollapsibleSections(_:)), for: .valueChanged)
+		toggle.addTarget(self, action: #selector(switchCollapsibleSections(_:)), for: .valueChanged)
+		toggle.isOn = AppDefaults.shared.collapsibleArticleSectionsEnabled
 		cell.accessoryView = toggle
 		return cell
 	}

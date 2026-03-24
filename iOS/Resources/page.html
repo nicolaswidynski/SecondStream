@@ -8,6 +8,7 @@
 		<!-- Scripts are injected via WKUserContentController -->
 		<script type="text/javascript">
 			document.addEventListener("DOMContentLoaded", function(event) {
+				window.nnwCollapsibleSectionsEnabled = [[collapsibleSectionsEnabled]];
 				window.scrollTo(0, [[windowScrollY]]);
 				processPage();
 				if (typeof makeMetadataCollapsible === 'function') {
@@ -27,4 +28,3 @@
 		[[body]]
 	</body>
 </html>
-
