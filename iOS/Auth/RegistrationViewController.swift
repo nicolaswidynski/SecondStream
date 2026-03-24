@@ -264,10 +264,14 @@ final class RegistrationViewController: UIViewController {
 		}
 	}
 
-	private func showError(_ message: String) {
-		let alert = UIAlertController(title: "Failed", message: message, preferredStyle: .alert)
+	private func showError(_ message: String, title: String = "Failed") {
+		let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
 		alert.addAction(UIAlertAction(title: "OK", style: .default))
 		present(alert, animated: true)
+	}
+
+	private func showError(title: String, message: String) {
+		showError(message, title: title)
 	}
 }
 
@@ -328,7 +332,10 @@ extension RegistrationViewController: ASAuthorizationControllerDelegate {
 					}
 				}
 			} else {
-				showError("Your email address wasn't shared. Please go to Settings > Apple ID > Password & Security > Apps Using Apple ID, remove this app, and try again.")
+				showError(
+					title: "Account Setup Incomplete",
+					message: "It looks like you previously started signing up but the account wasn't created. To try again, go to Settings → your name → Sign-In & Security → Apps Using Apple ID, find Second Stream, tap it, and select Stop Using Apple ID. Then come back and sign up again."
+				)
 			}
 			return
 		}

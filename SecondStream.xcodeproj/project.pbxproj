@@ -1260,7 +1260,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSwidgetextension_target.xcconfig;
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 0004;
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				MARKETING_VERSION = 0.22;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.WE;
 			};
@@ -1271,7 +1273,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSwidgetextension_target.xcconfig;
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 0004;
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				MARKETING_VERSION = 0.22;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.WE;
 			};
@@ -1282,7 +1286,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_shareextension_target.xcconfig;
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 0004;
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				MARKETING_VERSION = 0.22;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.SE;
 			};
@@ -1293,7 +1299,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_shareextension_target.xcconfig;
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 0004;
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				MARKETING_VERSION = 0.22;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.SE;
 			};
@@ -1304,7 +1312,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSintentextension_target.xcconfig;
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 0004;
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				MARKETING_VERSION = 0.22;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.IE;
 			};
@@ -1315,7 +1325,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSintentextension_target.xcconfig;
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 0004;
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				MARKETING_VERSION = 0.22;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.IE;
 			};
@@ -1326,7 +1338,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSshareextension_target.xcconfig;
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 0004;
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				MARKETING_VERSION = 0.22;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.SE;
 			};
@@ -1337,7 +1351,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSshareextension_target.xcconfig;
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 0004;
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				MARKETING_VERSION = 0.22;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.SE;
 			};
@@ -1370,8 +1386,10 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_safariextension_target.xcconfig;
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 0004;
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
+				MARKETING_VERSION = 0.22;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
 			};
@@ -1382,8 +1400,10 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_safariextension_target.xcconfig;
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 0004;
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
+				MARKETING_VERSION = 0.22;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
 			};
@@ -1449,9 +1469,11 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_macapp_target.xcconfig;
 			buildSettings = {
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CURRENT_PROJECT_VERSION = 0004;
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
+				MARKETING_VERSION = 0.22;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
 			};
@@ -1463,9 +1485,11 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_macapp_target.xcconfig;
 			buildSettings = {
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CURRENT_PROJECT_VERSION = 0004;
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
+				MARKETING_VERSION = 0.22;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
 			};
