@@ -1578,6 +1578,16 @@ struct SidebarItemNode: Hashable, Sendable {
 			markExpanded(parentFolder)
 		}
 
+		let categorySection: FeedSectionIdentifier = {
+			switch feed.feedCategory {
+			case .rss: return .rssFeeds
+			case .podcast: return .podcasts
+			case .youtube: return .youtube
+			case .news: return .news
+			}
+		}()
+		expandedCategorySections.insert(categorySection)
+
 		if let feedSidebarItemID = feed.sidebarItemID {
 			self.treeControllerDelegate.addFilterException(feedSidebarItemID)
 		}
