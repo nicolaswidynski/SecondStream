@@ -17,10 +17,14 @@ import Account
 
 	static private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "ExtensionContainersFile")
 
-	private static var filePath: String = {
-		let appGroup = Bundle.main.object(forInfoDictionaryKey: "AppGroup") as! String
-		let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)
-		return containerURL!.appendingPathComponent("extension_containers.plist").path
+	private static var filePath: String? = {
+		guard let appGroup = Bundle.main.object(forInfoDictionaryKey: "AppGroup") as? String else {
+			return nil
+		}
+		guard let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) else {
+			return nil
+		}
+		return containerURL.appendingPathComponent("extension_containers.plist").path
 	}()
 
 	private var isActive = false
@@ -38,7 +42,7 @@ import Account
 		}
 		isActive = true
 
-		if !FileManager.default.fileExists(atPath: ExtensionContainersFile.filePath) {
+		if let filePath = ExtensionContainersFile.filePath, !FileManager.default.fileExists(atPath: filePath) {
 			save()
 		}
 
@@ -50,9 +54,13 @@ import Account
 
 	/// Reads and decodes the shared plist file.
 	static func read() -> ExtensionContainers? {
+		guard let filePath else {
+			Self.logger.error("ExtensionContainersFile: missing app group container")
+			return nil
+		}
 		let errorPointer: NSErrorPointer = nil
 		let fileCoordinator = NSFileCoordinator()
-		let fileURL = URL(fileURLWithPath: ExtensionContainersFile.filePath)
+		let fileURL = URL(fileURLWithPath: filePath)
 		var extensionContainers: ExtensionContainers?
 
 		fileCoordinator.coordinate(readingItemAt: fileURL, options: [], error: errorPointer, byAccessor: { readURL in
@@ -89,12 +97,16 @@ import Account
 	}
 
 	func save() {
+		guard let filePath = ExtensionContainersFile.filePath else {
+			Self.logger.error("ExtensionContainersFile: missing app group container")
+			return
+		}
 		let encoder = PropertyListEncoder()
 		encoder.outputFormat = .binary
 
 		let errorPointer: NSErrorPointer = nil
 		let fileCoordinator = NSFileCoordinator()
-		let fileURL = URL(fileURLWithPath: ExtensionContainersFile.filePath)
+		let fileURL = URL(fileURLWithPath: filePath)
 
 		fileCoordinator.coordinate(writingItemAt: fileURL, options: [], error: errorPointer, byAccessor: { writeURL in
 			do {
