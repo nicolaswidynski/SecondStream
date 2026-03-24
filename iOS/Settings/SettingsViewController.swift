@@ -12,6 +12,7 @@ import SafariServices
 import SwiftUI
 import UniformTypeIdentifiers
 import AVFoundation
+import LocalAuthentication
 import RSCore
 import Account
 import UserNotifications
@@ -64,8 +65,9 @@ final class SettingsViewController: UITableViewController {
 	// About section rows
 	private let aboutAppRow = 0
 	private let aboutCreditsRow = 1
-	private let aboutDisconnectRow = 2
-	private let aboutDeleteRow = 3
+	private let aboutFaceIDRow = 2
+	private let aboutDisconnectRow = 3
+	private let aboutDeleteRow = 4
 
 	var scrollToArticlesSection = false
 	weak var presentingParentController: UIViewController?
@@ -215,8 +217,8 @@ final class SettingsViewController: UITableViewController {
 			// Clean Temporary Files, Debug Dialog
 			return 2
 		case aboutSection:
-			// About Second Stream, Credits remaining, Disconnect Account, Delete Account
-			return 4
+			// About Second Stream, Credits remaining, Enable Face ID, Disconnect Account, Delete Account
+			return 5
 		default:
 			return super.tableView(tableView, numberOfRowsInSection: section)
 		}
@@ -303,6 +305,8 @@ final class SettingsViewController: UITableViewController {
 				} else {
 					cell.detailTextLabel?.text = "—"
 				}
+			case aboutFaceIDRow:
+				cell = makeFaceIDCell(tableView)
 			case aboutDisconnectRow:
 				cell = UITableViewCell(style: .default, reuseIdentifier: "DisconnectAccountCell")
 				cell.textLabel?.text = NSLocalizedString("Disconnect Account", comment: "Disconnect Account")
@@ -565,6 +569,34 @@ final class SettingsViewController: UITableViewController {
 		NotificationCenter.default.post(name: UserDefaults.didChangeNotification, object: nil)
 	}
 
+	@objc func switchFaceID(_ sender: UISwitch) {
+		guard sender.isOn else {
+			AppDefaults.shared.faceIDEnabled = false
+			return
+		}
+		let context = LAContext()
+		var error: NSError?
+		guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+			sender.setOn(false, animated: true)
+			let message = error?.localizedDescription ?? NSLocalizedString("Face ID is not available on this device.", comment: "Face ID unavailable")
+			presentError(title: NSLocalizedString("Face ID Unavailable", comment: "Face ID unavailable title"), message: message)
+			return
+		}
+		let reason = NSLocalizedString("Enable Face ID for Second Stream", comment: "Face ID enrollment reason")
+		context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { [weak self] success, authError in
+			DispatchQueue.main.async {
+				if success {
+					AppDefaults.shared.faceIDEnabled = true
+				} else {
+					sender.setOn(false, animated: true)
+					if let authError, (authError as NSError).code != LAError.userCancel.rawValue {
+						self?.presentError(title: NSLocalizedString("Face ID Failed", comment: "Face ID failed title"), message: authError.localizedDescription)
+					}
+				}
+			}
+		}
+	}
+
 	// MARK: - Notifications
 
 	@objc func contentSizeCategoryDidChange() {
@@ -691,6 +723,21 @@ private extension SettingsViewController {
 		return cell
 	}
 
+
+	func makeFaceIDCell(_ tableView: UITableView) -> UITableViewCell {
+		let cell = tableView.dequeueReusableCell(withIdentifier: "FaceIDCell") ??
+			UITableViewCell(style: .default, reuseIdentifier: "FaceIDCell")
+		var content = cell.defaultContentConfiguration()
+		content.text = NSLocalizedString("Enable Face ID", comment: "Face ID toggle")
+		cell.contentConfiguration = content
+		cell.selectionStyle = .none
+		let toggle = (cell.accessoryView as? UISwitch) ?? UISwitch(frame: .zero)
+		toggle.removeTarget(self, action: #selector(switchFaceID(_:)), for: .valueChanged)
+		toggle.addTarget(self, action: #selector(switchFaceID(_:)), for: .valueChanged)
+		toggle.isOn = AppDefaults.shared.faceIDEnabled
+		cell.accessoryView = toggle
+		return cell
+	}
 
 	func makeTTSEnabledCell(_ tableView: UITableView) -> UITableViewCell {
 		let cell = tableView.dequeueReusableCell(withIdentifier: "TTSEnabledCell") ??

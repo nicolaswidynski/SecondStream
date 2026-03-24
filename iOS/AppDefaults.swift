@@ -92,6 +92,7 @@ final class AppDefaults: Sendable {
 		static let timelineDimReadArticles = "timelineDimReadArticles"
 		static let timelineUnreadFirst = "timelineUnreadFirst"
 		static let showSectionHeaderIcons = "showSectionHeaderIcons"
+		static let faceIDEnabled = "faceIDEnabled"
 	}
 
 	let isDeveloperBuild: Bool = {
@@ -552,6 +553,15 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	var faceIDEnabled: Bool {
+		get {
+			AppDefaults.bool(for: Key.faceIDEnabled)
+		}
+		set {
+			AppDefaults.setBool(for: Key.faceIDEnabled, newValue)
+		}
+	}
+
 
 
 	@MainActor static func registerDefaults() {
@@ -575,7 +585,8 @@ final class AppDefaults: Sendable {
 									   Key.showHomepageResolutionDebugDialog: false,
 									   Key.timelineDimReadArticles: true,
 									   Key.timelineUnreadFirst: false,
-									   Key.showSectionHeaderIcons: false]
+									   Key.showSectionHeaderIcons: false,
+									   Key.faceIDEnabled: false]
 		AppDefaults.store.register(defaults: defaults)
 	}
 }
