@@ -93,6 +93,7 @@ final class AppDefaults: Sendable {
 		static let timelineUnreadFirst = "timelineUnreadFirst"
 		static let showSectionHeaderIcons = "showSectionHeaderIcons"
 		static let collapsibleArticleSectionsEnabled = "collapsibleArticleSectionsEnabled"
+		static let faceIDEnabled = "faceIDEnabled"
 	}
 
 	let isDeveloperBuild: Bool = {
@@ -562,6 +563,15 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	var faceIDEnabled: Bool {
+		get {
+			AppDefaults.bool(for: Key.faceIDEnabled)
+		}
+		set {
+			AppDefaults.setBool(for: Key.faceIDEnabled, newValue)
+		}
+	}
+
 
 
 	@MainActor static func registerDefaults() {
@@ -586,7 +596,8 @@ final class AppDefaults: Sendable {
 									   Key.timelineDimReadArticles: true,
 									   Key.timelineUnreadFirst: false,
 									   Key.showSectionHeaderIcons: false,
-									   Key.collapsibleArticleSectionsEnabled: false]
+									   Key.collapsibleArticleSectionsEnabled: false,
+									   Key.faceIDEnabled: false]
 		AppDefaults.store.register(defaults: defaults)
 	}
 }

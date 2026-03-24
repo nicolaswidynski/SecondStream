@@ -8,6 +8,7 @@
 
 import UIKit
 import AuthenticationServices
+import LocalAuthentication
 import os.log
 
 /// Handles both reconnection and new-user registration (Sign in with Apple).
@@ -117,6 +118,13 @@ final class RegistrationViewController: UIViewController {
 	}
 
 	// MARK: - Lifecycle
+
+	override func viewDidAppear(_ animated: Bool) {
+		super.viewDidAppear(animated)
+		if AppDefaults.shared.faceIDEnabled && AuthManager.shared.isRegistered {
+			authenticateWithFaceID()
+		}
+	}
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -233,6 +241,26 @@ final class RegistrationViewController: UIViewController {
 			activityIndicator.startAnimating()
 		} else {
 			activityIndicator.stopAnimating()
+		}
+	}
+
+	private func authenticateWithFaceID() {
+		let context = LAContext()
+		var error: NSError?
+		guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+			Self.logger.info("Biometrics unavailable: \(error?.localizedDescription ?? "unknown")")
+			return
+		}
+		let reason = NSLocalizedString("Reconnect to your Second Stream account", comment: "Face ID reason")
+		context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { [weak self] success, authError in
+			DispatchQueue.main.async {
+				guard let self else { return }
+				if success {
+					self.handleReconnect()
+				} else {
+					Self.logger.info("Face ID not completed: \(authError?.localizedDescription ?? "cancelled")")
+				}
+			}
 		}
 	}
 
