@@ -1375,6 +1375,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_safariextension_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
 			};
@@ -1386,6 +1387,7 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_safariextension_target.xcconfig;
 			buildSettings = {
 				DEVELOPMENT_TEAM = TA7LM6E222;
+				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
 			};
