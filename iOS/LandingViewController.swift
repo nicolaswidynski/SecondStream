@@ -63,8 +63,8 @@ final class LandingViewController: UIViewController {
 		// Gradient background
 		let gradient = CAGradientLayer()
 		gradient.colors = [
-			UIColor.systemIndigo.cgColor,
-			UIColor.systemPurple.cgColor
+			UIColor.systemBlue.cgColor,
+			UIColor.systemCyan.cgColor
 		]
 		gradient.startPoint = CGPoint(x: 0, y: 0)
 		gradient.endPoint = CGPoint(x: 1, y: 1)

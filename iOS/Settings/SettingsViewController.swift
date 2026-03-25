@@ -417,7 +417,7 @@ final class SettingsViewController: UITableViewController {
 			case debugDialogRow:
 				break // handled by switch
 			case debugLandingPageRow:
-				break // handled by switch
+				showDebugLandingPage()
 			default:
 				break
 			}
@@ -576,8 +576,17 @@ final class SettingsViewController: UITableViewController {
 		AppDefaults.shared.showHomepageResolutionDebugDialog = sender.isOn
 	}
 
-	@objc func switchDebugLandingPage(_ sender: UISwitch) {
-		AppDefaults.shared.debugShowLandingPage = sender.isOn
+	func showDebugLandingPage() {
+		let landingVC = LandingViewController()
+		landingVC.modalPresentationStyle = .fullScreen
+		landingVC.isModalInPresentation = true
+		dismiss(animated: true) {
+			guard let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+				  let root = windowScene.windows.first?.rootViewController else {
+				return
+			}
+			root.present(landingVC, animated: true)
+		}
 	}
 
 
@@ -759,14 +768,10 @@ private extension SettingsViewController {
 		let cell = tableView.dequeueReusableCell(withIdentifier: "DebugLandingPageCell") ??
 			UITableViewCell(style: .default, reuseIdentifier: "DebugLandingPageCell")
 		var content = cell.defaultContentConfiguration()
-		content.text = NSLocalizedString("Start Landing Page", comment: "Debug landing page toggle")
+		content.text = NSLocalizedString("Start Landing Page", comment: "Debug: show landing page")
 		cell.contentConfiguration = content
-		cell.selectionStyle = .none
-		let toggle = (cell.accessoryView as? UISwitch) ?? UISwitch(frame: .zero)
-		toggle.removeTarget(self, action: #selector(switchDebugLandingPage(_:)), for: .valueChanged)
-		toggle.addTarget(self, action: #selector(switchDebugLandingPage(_:)), for: .valueChanged)
-		toggle.isOn = AppDefaults.shared.debugShowLandingPage
-		cell.accessoryView = toggle
+		cell.accessoryView = nil
+		cell.selectionStyle = .default
 		return cell
 	}
 
