@@ -205,11 +205,13 @@ enum AddRSSResult {
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
+		let requestID = UUID().uuidString
 		let body: [String: String] = [
 			"type": "rss",
 			"show": show,
 			"author": author,
-			"apple_user_id": AuthManager.shared.appleUserID ?? ""
+			"apple_user_id": AuthManager.shared.appleUserID ?? "",
+			"request_id": requestID
 		]
 
 		do {
@@ -230,6 +232,9 @@ enum AddRSSResult {
 			let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
 			let serverMessage = json?["message"] as? String
 			lastServerMessage = serverMessage
+			if let echoed = json?["request_id"] as? String, echoed != requestID {
+				Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
+			}
 			let statusCode = httpResponse.statusCode
 
 			switch statusCode {
