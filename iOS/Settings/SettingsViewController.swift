@@ -578,6 +578,7 @@ final class SettingsViewController: UITableViewController {
 
 	func showDebugLandingPage() {
 		let landingVC = LandingViewController()
+		landingVC.reason = .debug
 		landingVC.modalPresentationStyle = .fullScreen
 		landingVC.isModalInPresentation = true
 		dismiss(animated: true) {

@@ -13,6 +13,14 @@ import UIKit
 @MainActor
 final class LandingViewController: UIViewController {
 
+	enum Reason {
+		case debug       // triggered from debug settings
+		case newAccount  // user just completed registration
+		case reinstall   // existing account, app reinstalled (hasShownLandingPage reset)
+	}
+
+	var reason: Reason = .reinstall
+
 	private let minimumDisplaySeconds: Double = 5
 
 	// MARK: - UI
@@ -107,9 +115,16 @@ final class LandingViewController: UIViewController {
 
 	private func startLoading() {
 		Task {
+			let shouldAddDefaults = reason == .debug || reason == .newAccount
+
 			await withTaskGroup(of: Void.self) { group in
 				group.addTask {
 					await SourcesRefreshManager.shared.forceRefreshAndWait()
+				}
+				if shouldAddDefaults {
+					group.addTask {
+						await self.addDefaultFeeds()
+					}
 				}
 				group.addTask {
 					try? await Task.sleep(nanoseconds: UInt64(self.minimumDisplaySeconds * 1_000_000_000))
@@ -117,10 +132,25 @@ final class LandingViewController: UIViewController {
 				await group.waitForAll()
 			}
 
+			if shouldAddDefaults {
+				await FeedStatsManager.shared.reportUpdate()
+			}
+
 			AppDefaults.shared.hasShownLandingPage = true
 			AppDefaults.shared.debugShowLandingPage = false
 
 			dismiss(animated: true)
+		}
+	}
+
+	/// Adds the four default feeds concurrently. Fails silently if any feed cannot be found or added.
+	private func addDefaultFeeds() async {
+		await withTaskGroup(of: Void.self) { group in
+			group.addTask { _ = await PodcastSourcesManager.shared.addPodcast(name: "The Tim Ferris Show") }
+			group.addTask { _ = await YoutubeSourcesManager.shared.addYoutube(name: "Veritasium") }
+			group.addTask { _ = await NewsSourcesManager.shared.addNews(name: "Artificial Intelligence") }
+			group.addTask { _ = await RSSSourcesManager.shared.addRSS(name: "Ars Technica") }
+			await group.waitForAll()
 		}
 	}
 }

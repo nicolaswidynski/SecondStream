@@ -237,16 +237,17 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 			registrationVC.isModalInPresentation = true // prevents swipe-to-dismiss
 			if AppDefaults.shared.shouldShowLandingPage {
 				registrationVC.didSucceedHandler = { [weak self] in
-					self?.presentLandingPage()
+					self?.presentLandingPage(reason: .newAccount)
 				}
 			}
 			self.window?.rootViewController?.present(registrationVC, animated: false)
 		}
 	}
 
-	func presentLandingPage() {
+	func presentLandingPage(reason: LandingViewController.Reason = .reinstall) {
 		DispatchQueue.main.async {
 			let landingVC = LandingViewController()
+			landingVC.reason = reason
 			landingVC.modalPresentationStyle = .fullScreen
 			landingVC.isModalInPresentation = true
 			self.window?.rootViewController?.present(landingVC, animated: true)
