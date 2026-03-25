@@ -2419,6 +2419,93 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 	}
 }
 
+// MARK: - Default sources (first-launch setup)
+
+extension MainFeedCollectionViewController {
+
+	/// Silently subscribes to the four default sources after first account setup.
+	/// Looks up URLs from the already-loaded source library; falls back to the webhook
+	/// for Podcast and YouTube if they aren't in the library yet.
+	/// Uses the same `account.createFeed` call that every other add path ultimately uses.
+	func addDefaultSourcesIfNeeded() {
+		Task { @MainActor in
+			guard let account = AccountManager.shared.activeAccounts.first else { return }
+
+			// RSS: Ars Technica — URL lives in the library
+			if let s = RSSSourcesManager.shared.rssSources.first(where: { $0.name.localizedCaseInsensitiveContains("Ars Technica") }),
+			   !account.hasFeed(withURL: s.url),
+			   let feed = try? await account.createFeedForDefaultSetup(url: s.url, name: s.name) {
+				feed.feedCategory = .rss
+				if let light = s.imageURLLight { LightFeedIconStore.shared.setLightIconURL(light, for: feed.url) }
+				NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
+			}
+
+			// News: Artificial Intelligence — URL lives in the library
+			if let s = NewsSourcesManager.shared.newsSources.first(where: { $0.name.localizedCaseInsensitiveContains("Artificial Intelligence") }),
+			   !account.hasFeed(withURL: s.url),
+			   let feed = try? await account.createFeedForDefaultSetup(url: s.url, name: s.name) {
+				feed.feedCategory = .news
+				if let light = s.imageURLLight { LightFeedIconStore.shared.setLightIconURL(light, for: feed.url) }
+				NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
+			}
+
+			// YouTube: check library first (by author handle or name), else webhook
+			let ytURL: String?
+			let allYT = YoutubeSourcesManager.shared.youtubeSources + YoutubeSourcesManager.shared.youtubeLibrarySources
+			if let s = allYT.first(where: {
+				$0.author?.localizedCaseInsensitiveContains("veritasium") == true
+					|| $0.name.localizedCaseInsensitiveContains("veritasium")
+			}) {
+				ytURL = s.url
+			} else {
+				let result = await YoutubeSourcesManager.shared.addYoutube(name: "@veritasium")
+				switch result {
+				case .successExisting(let url), .successNew(let url): ytURL = url
+				case .failure: ytURL = nil
+				}
+			}
+			if let url = ytURL, !account.hasFeed(withURL: url),
+			   let feed = try? await account.createFeedForDefaultSetup(url: url, name: "Veritasium") {
+				feed.feedCategory = .youtube
+				NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
+			}
+
+			// Podcast: check library first, else webhook
+			let podURL: String?
+			let allPod = PodcastSourcesManager.shared.podcastSources + PodcastSourcesManager.shared.podcastLibrarySources
+			if let s = allPod.first(where: { $0.name.localizedCaseInsensitiveContains("Tim Ferriss") }) {
+				podURL = s.url
+			} else {
+				let result = await PodcastSourcesManager.shared.addPodcast(name: "The Tim Ferriss Show")
+				switch result {
+				case .successExisting(let url), .successNew(let url): podURL = url
+				case .failure: podURL = nil
+				}
+			}
+			if let url = podURL, !account.hasFeed(withURL: url),
+			   let feed = try? await account.createFeedForDefaultSetup(url: url, name: "The Tim Ferriss Show") {
+				feed.feedCategory = .podcast
+				NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
+			}
+
+			await FeedStatsManager.shared.reportUpdate()
+		}
+	}
+}
+
+private extension Account {
+	/// Async wrapper around `createFeed(url:name:container:validateFeed:completion:)`.
+	/// Lets callers use structured concurrency without duplicating the underlying logic.
+	@MainActor
+	func createFeedForDefaultSetup(url: String, name: String) async throws -> Feed {
+		try await withCheckedThrowingContinuation { continuation in
+			createFeed(url: url, name: name, container: self, validateFeed: false) {
+				continuation.resume(with: $0)
+			}
+		}
+	}
+}
+
 private final class RecentlyUpdatedFeedItemView: UIControl {
 	var payload: RecentlyUpdatedStripPayload?
 

@@ -250,6 +250,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 			landingVC.reason = reason
 			landingVC.modalPresentationStyle = .fullScreen
 			landingVC.isModalInPresentation = true
+			if reason == .debug || reason == .newAccount {
+				landingVC.onReady = { [weak self] in
+					self?.coordinator.addDefaultSourcesIfNeeded()
+				}
+			}
 			self.window?.rootViewController?.present(landingVC, animated: true)
 		}
 	}

@@ -7,7 +7,6 @@
 //
 
 import UIKit
-import Account
 
 /// Shown on first launch (and on demand via debug setting) while source lists and
 /// images are downloaded. Stays on screen for at least 5 seconds.
@@ -21,6 +20,10 @@ final class LandingViewController: UIViewController {
 	}
 
 	var reason: Reason = .reinstall
+
+	/// Called in the dismiss completion block after the landing page finishes.
+	/// Set by the presenter (SceneDelegate) to perform any post-setup work.
+	var onReady: (() -> Void)?
 
 	private let minimumDisplaySeconds: Double = 5
 
@@ -116,15 +119,10 @@ final class LandingViewController: UIViewController {
 
 	private func startLoading() {
 		Task {
-			let shouldAddDefaults = reason == .debug || reason == .newAccount
-
+			// Run source refresh and minimum display timer concurrently.
 			await withTaskGroup(of: Void.self) { group in
-				// Refresh source library first, then add defaults (news/RSS need loaded sources).
 				group.addTask {
 					await SourcesRefreshManager.shared.forceRefreshAndWait()
-					if shouldAddDefaults {
-						await self.addDefaultFeeds()
-					}
 				}
 				group.addTask {
 					try? await Task.sleep(nanoseconds: UInt64(self.minimumDisplaySeconds * 1_000_000_000))
@@ -132,80 +130,11 @@ final class LandingViewController: UIViewController {
 				await group.waitForAll()
 			}
 
-			if shouldAddDefaults {
-				await FeedStatsManager.shared.reportUpdate()
-			}
-
 			AppDefaults.shared.hasShownLandingPage = true
 			AppDefaults.shared.debugShowLandingPage = false
 
-			dismiss(animated: true)
-		}
-	}
-
-	/// Adds four default feeds. Podcast and YouTube go via webhook; News and RSS use their
-	/// already-loaded source URL. All four run concurrently and fail silently on error.
-	private func addDefaultFeeds() async {
-		guard let account = AccountManager.shared.activeAccounts.first else { return }
-
-		await withTaskGroup(of: Void.self) { group in
-			// Podcast via webhook
-			group.addTask {
-				let result = await PodcastSourcesManager.shared.addPodcast(name: "The Tim Ferriss Show")
-				switch result {
-				case .successExisting(let url), .successNew(let url):
-					await self.createFeedIfNeeded(url: url, name: "The Tim Ferriss Show", category: .podcast, account: account)
-				case .failure:
-					break
-				}
-			}
-
-			// YouTube via webhook — must use @handle
-			group.addTask {
-				let result = await YoutubeSourcesManager.shared.addYoutube(name: "@veritasium")
-				switch result {
-				case .successExisting(let url), .successNew(let url):
-					await self.createFeedIfNeeded(url: url, name: "Veritasium", category: .youtube, account: account)
-				case .failure:
-					break
-				}
-			}
-
-			// News: find URL directly from the loaded source list
-			group.addTask {
-				if let source = NewsSourcesManager.shared.newsSources.first(where: {
-					$0.name.localizedCaseInsensitiveContains("Artificial Intelligence")
-				}) {
-					await self.createFeedIfNeeded(url: source.url, name: source.name, category: .news, account: account)
-				}
-			}
-
-			// RSS: find URL directly from the loaded source list
-			group.addTask {
-				if let source = RSSSourcesManager.shared.rssSources.first(where: {
-					$0.name.localizedCaseInsensitiveContains("Ars Technica")
-				}) {
-					await self.createFeedIfNeeded(url: source.url, name: source.name, category: .rss, account: account)
-				}
-			}
-
-			await group.waitForAll()
-		}
-	}
-
-	private func createFeedIfNeeded(url: String, name: String, category: FeedCategory, account: Account) async {
-		let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
-		guard !trimmed.isEmpty, URL(string: trimmed) != nil, !account.hasFeed(withURL: trimmed) else {
-			return
-		}
-
-		await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-			account.createFeed(url: trimmed, name: name, container: account, validateFeed: false) { result in
-				if case .success(let feed) = result {
-					feed.feedCategory = category
-					NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
-				}
-				continuation.resume()
+			dismiss(animated: true) { [weak self] in
+				self?.onReady?()
 			}
 		}
 	}
