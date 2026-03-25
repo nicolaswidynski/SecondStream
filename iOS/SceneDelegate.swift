@@ -37,6 +37,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 		if !AuthManager.shared.isConnected {
 			presentRegistration()
+		} else if AppDefaults.shared.shouldShowLandingPage {
+			presentLandingPage()
 		}
 
 		NotificationCenter.default.addObserver(self, selector: #selector(handleUserInterfaceColorPaletteDidUpdate(_:)), name: .userInterfaceColorPaletteDidUpdate, object: AppDefaults.self)
@@ -233,7 +235,21 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 			let registrationVC = RegistrationViewController()
 			registrationVC.modalPresentationStyle = .fullScreen
 			registrationVC.isModalInPresentation = true // prevents swipe-to-dismiss
+			if AppDefaults.shared.shouldShowLandingPage {
+				registrationVC.didSucceedHandler = { [weak self] in
+					self?.presentLandingPage()
+				}
+			}
 			self.window?.rootViewController?.present(registrationVC, animated: false)
+		}
+	}
+
+	func presentLandingPage() {
+		DispatchQueue.main.async {
+			let landingVC = LandingViewController()
+			landingVC.modalPresentationStyle = .fullScreen
+			landingVC.isModalInPresentation = true
+			self.window?.rootViewController?.present(landingVC, animated: true)
 		}
 	}
 }

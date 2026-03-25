@@ -25,6 +25,9 @@ final class RegistrationViewController: UIViewController {
 		didSet { applyMode() }
 	}
 
+	/// Called after a successful sign-in or reconnect, just before dismissal.
+	var didSucceedHandler: (() -> Void)?
+
 	// MARK: - UI
 
 	private let stackView: UIStackView = {
@@ -202,6 +205,7 @@ final class RegistrationViewController: UIViewController {
 			defer { setLoading(false) }
 			do {
 				try await AuthManager.shared.reconnect()
+				didSucceedHandler?()
 				dismiss(animated: true)
 			} catch {
 				Self.logger.error("Reconnect error: \(error.localizedDescription)")
@@ -291,6 +295,7 @@ extension RegistrationViewController: ASAuthorizationControllerDelegate {
 				defer { setLoading(false) }
 				do {
 					try await AuthManager.shared.reconnect(overrideAppleUserID: credential.user)
+					didSucceedHandler?()
 					dismiss(animated: true)
 				} catch {
 					Self.logger.error("Reconnect (Apple) error: \(error.localizedDescription)")
@@ -317,6 +322,7 @@ extension RegistrationViewController: ASAuthorizationControllerDelegate {
 
 		guard !email.isEmpty else {
 			if AuthManager.shared.isConnected {
+				didSucceedHandler?()
 				dismiss(animated: true)
 			} else if AuthManager.shared.isRegistered {
 				// Identity stored — fall back to reconnect().
@@ -326,6 +332,7 @@ extension RegistrationViewController: ASAuthorizationControllerDelegate {
 					defer { setLoading(false) }
 					do {
 						try await AuthManager.shared.reconnect()
+						didSucceedHandler?()
 						dismiss(animated: true)
 					} catch {
 						showError(error.localizedDescription)
@@ -353,6 +360,7 @@ extension RegistrationViewController: ASAuthorizationControllerDelegate {
 					identityToken: identityToken,
 					realUserStatus: realUserStatus
 				)
+				didSucceedHandler?()
 				dismiss(animated: true)
 			} catch {
 				Self.logger.error("Registration error: \(error.localizedDescription)")

@@ -94,6 +94,8 @@ final class AppDefaults: Sendable {
 		static let showSectionHeaderIcons = "showSectionHeaderIcons"
 		static let collapsibleArticleSectionsEnabled = "collapsibleArticleSectionsEnabled"
 		static let faceIDEnabled = "faceIDEnabled"
+		static let hasShownLandingPage = "hasShownLandingPage"
+		static let debugShowLandingPage = "debugShowLandingPage"
 	}
 
 	let isDeveloperBuild: Bool = {
@@ -572,6 +574,22 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	/// Set to true once the landing page has been shown; skipped on subsequent launches.
+	var hasShownLandingPage: Bool {
+		get { AppDefaults.bool(for: Key.hasShownLandingPage) }
+		set { AppDefaults.setBool(for: Key.hasShownLandingPage, newValue) }
+	}
+
+	/// Debug toggle: when true the landing page is shown on next launch even if already seen.
+	var debugShowLandingPage: Bool {
+		get { AppDefaults.bool(for: Key.debugShowLandingPage) }
+		set { AppDefaults.setBool(for: Key.debugShowLandingPage, newValue) }
+	}
+
+	/// Whether the landing page should be presented this session.
+	var shouldShowLandingPage: Bool {
+		debugShowLandingPage || !hasShownLandingPage
+	}
 
 
 	@MainActor static func registerDefaults() {
@@ -597,7 +615,9 @@ final class AppDefaults: Sendable {
 									   Key.timelineUnreadFirst: false,
 									   Key.showSectionHeaderIcons: false,
 									   Key.collapsibleArticleSectionsEnabled: false,
-									   Key.faceIDEnabled: false]
+									   Key.faceIDEnabled: false,
+								   Key.hasShownLandingPage: false,
+								   Key.debugShowLandingPage: false]
 		AppDefaults.store.register(defaults: defaults)
 	}
 }
