@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import Account
 
 /// Shown on first launch (and on demand via debug setting) while source lists and
 /// images are downloaded. Stays on screen for at least 5 seconds.
@@ -71,8 +72,8 @@ final class LandingViewController: UIViewController {
 		// Gradient background
 		let gradient = CAGradientLayer()
 		gradient.colors = [
-			UIColor.systemBlue.cgColor,
-			UIColor.systemCyan.cgColor
+			UIColor(red: 0.04, green: 0.11, blue: 0.45, alpha: 1).cgColor,
+			UIColor(red: 0.0, green: 0.35, blue: 0.70, alpha: 1).cgColor
 		]
 		gradient.startPoint = CGPoint(x: 0, y: 0)
 		gradient.endPoint = CGPoint(x: 1, y: 1)
@@ -91,7 +92,7 @@ final class LandingViewController: UIViewController {
 			messageLabel.widthAnchor.constraint(lessThanOrEqualTo: stackView.widthAnchor),
 
 			stackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-			stackView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+			stackView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -60),
 			stackView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 40),
 			stackView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -40)
 		])
@@ -118,11 +119,10 @@ final class LandingViewController: UIViewController {
 			let shouldAddDefaults = reason == .debug || reason == .newAccount
 
 			await withTaskGroup(of: Void.self) { group in
+				// Refresh source library first, then add defaults (news/RSS need loaded sources).
 				group.addTask {
 					await SourcesRefreshManager.shared.forceRefreshAndWait()
-				}
-				if shouldAddDefaults {
-					group.addTask {
+					if shouldAddDefaults {
 						await self.addDefaultFeeds()
 					}
 				}
@@ -143,14 +143,70 @@ final class LandingViewController: UIViewController {
 		}
 	}
 
-	/// Adds the four default feeds concurrently. Fails silently if any feed cannot be found or added.
+	/// Adds four default feeds. Podcast and YouTube go via webhook; News and RSS use their
+	/// already-loaded source URL. All four run concurrently and fail silently on error.
 	private func addDefaultFeeds() async {
+		guard let account = AccountManager.shared.activeAccounts.first else { return }
+
 		await withTaskGroup(of: Void.self) { group in
-			group.addTask { _ = await PodcastSourcesManager.shared.addPodcast(name: "The Tim Ferris Show") }
-			group.addTask { _ = await YoutubeSourcesManager.shared.addYoutube(name: "Veritasium") }
-			group.addTask { _ = await NewsSourcesManager.shared.addNews(name: "Artificial Intelligence") }
-			group.addTask { _ = await RSSSourcesManager.shared.addRSS(name: "Ars Technica") }
+			// Podcast via webhook
+			group.addTask {
+				let result = await PodcastSourcesManager.shared.addPodcast(name: "The Tim Ferriss Show")
+				switch result {
+				case .successExisting(let url), .successNew(let url):
+					await self.createFeedIfNeeded(url: url, name: "The Tim Ferriss Show", category: .podcast, account: account)
+				case .failure:
+					break
+				}
+			}
+
+			// YouTube via webhook — must use @handle
+			group.addTask {
+				let result = await YoutubeSourcesManager.shared.addYoutube(name: "@veritasium")
+				switch result {
+				case .successExisting(let url), .successNew(let url):
+					await self.createFeedIfNeeded(url: url, name: "Veritasium", category: .youtube, account: account)
+				case .failure:
+					break
+				}
+			}
+
+			// News: find URL directly from the loaded source list
+			group.addTask {
+				if let source = NewsSourcesManager.shared.newsSources.first(where: {
+					$0.name.localizedCaseInsensitiveContains("Artificial Intelligence")
+				}) {
+					await self.createFeedIfNeeded(url: source.url, name: source.name, category: .news, account: account)
+				}
+			}
+
+			// RSS: find URL directly from the loaded source list
+			group.addTask {
+				if let source = RSSSourcesManager.shared.rssSources.first(where: {
+					$0.name.localizedCaseInsensitiveContains("Ars Technica")
+				}) {
+					await self.createFeedIfNeeded(url: source.url, name: source.name, category: .rss, account: account)
+				}
+			}
+
 			await group.waitForAll()
+		}
+	}
+
+	private func createFeedIfNeeded(url: String, name: String, category: FeedCategory, account: Account) async {
+		let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard !trimmed.isEmpty, URL(string: trimmed) != nil, !account.hasFeed(withURL: trimmed) else {
+			return
+		}
+
+		await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+			account.createFeed(url: trimmed, name: name, container: account, validateFeed: false) { result in
+				if case .success(let feed) = result {
+					feed.feedCategory = category
+					NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
+				}
+				continuation.resume()
+			}
 		}
 	}
 }
