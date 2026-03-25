@@ -411,6 +411,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	/// Grouping for the timeline table view.
 	/// Date-based cases are used for most feeds; feedCategory is used for the Starred feed.
 	enum TimelineSection: Hashable, Comparable {
+		case justIn                      // unread, added within the last 24 hours
 		case recentWeek                  // published within the last 7 days
 		case recentMonth                 // published 7–30 days ago
 		case year(Int)                   // published more than 30 days ago, bucketed by calendar year
@@ -418,6 +419,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 		var title: String {
 			switch self {
+			case .justIn:      return NSLocalizedString("Just In", comment: "Timeline section: last 24 hours unread")
 			case .recentWeek:  return NSLocalizedString("Previous 7 Days", comment: "Timeline section: last 7 days")
 			case .recentMonth: return NSLocalizedString("Previous 30 Days", comment: "Timeline section: last 30 days")
 			case .year(let y): return "\(y)"
@@ -431,8 +433,16 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 			}
 		}
 
+		var titleColor: UIColor {
+			switch self {
+			case .justIn: return .systemBlue
+			default:      return .label
+			}
+		}
+
 		private var sortOrder: Int {
 			switch self {
+			case .justIn:                return -1
 			case .recentWeek:            return 0
 			case .recentMonth:           return 1
 			case .year(let y):           return 10000 - y // newer years sort first
@@ -450,9 +460,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 			lhs.sortOrder < rhs.sortOrder
 		}
 
-		static func section(for date: Date, now: Date = Date()) -> TimelineSection {
+		static func section(for date: Date, isRead: Bool, now: Date = Date()) -> TimelineSection {
 			let elapsed = now.timeIntervalSince(date)
-			if elapsed <= 7 * 24 * 3600 {
+			if elapsed <= 24 * 3600 && !isRead {
+				return .justIn
+			} else if elapsed <= 7 * 24 * 3600 {
 				return .recentWeek
 			} else if elapsed <= 30 * 24 * 3600 {
 				return .recentMonth
@@ -854,7 +866,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		let label = UILabel()
 		label.text = sectionID.title
 		label.font = UIFont.systemFont(ofSize: 22, weight: .bold)
-		label.textColor = .label
+		label.textColor = sectionID.titleColor
 		label.translatesAutoresizingMaskIntoConstraints = false
 		container.addSubview(label)
 		NSLayoutConstraint.activate([
@@ -1481,7 +1493,7 @@ private extension MainTimelineViewController {
 				let category = article.feed?.feedCategory ?? .rss
 				section = .feedCategory(category)
 			} else {
-				section = TimelineSection.section(for: article.logicalDatePublished, now: now)
+				section = TimelineSection.section(for: article.logicalDatePublished, isRead: article.status.read, now: now)
 			}
 			buckets[section, default: []].append(article)
 		}

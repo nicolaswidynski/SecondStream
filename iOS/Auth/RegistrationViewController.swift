@@ -96,6 +96,18 @@ final class RegistrationViewController: UIViewController {
 		return button
 	}()
 
+	/// Retry Face ID — shown in reconnect mode when Face ID is enabled.
+	private let retryFaceIDButton: UIButton = {
+		var config = UIButton.Configuration.tinted()
+		config.title = "Use Face ID"
+		config.image = UIImage(systemName: "faceid")
+		config.imagePadding = 8
+		config.cornerStyle = .medium
+		let button = UIButton(configuration: config)
+		button.translatesAutoresizingMaskIntoConstraints = false
+		return button
+	}()
+
 	/// Shown in sign-in mode — switches back to reconnect mode.
 	private let backToReconnectButton: UIButton = {
 		let button = UIButton(type: .system)
@@ -133,11 +145,13 @@ final class RegistrationViewController: UIViewController {
 		reconnectButton.addTarget(self, action: #selector(handleReconnect), for: .touchUpInside)
 		reconnectAppleButton.addTarget(self, action: #selector(handleReconnectApple), for: .touchUpInside)
 		createAppleButton.addTarget(self, action: #selector(handleCreateApple), for: .touchUpInside)
+		retryFaceIDButton.addTarget(self, action: #selector(handleRetryFaceID), for: .touchUpInside)
 		switchModeButton.addTarget(self, action: #selector(switchToSignIn), for: .touchUpInside)
 		backToReconnectButton.addTarget(self, action: #selector(switchToReconnect), for: .touchUpInside)
 
 		stackView.addArrangedSubview(titleLabel)
 		stackView.addArrangedSubview(subtitleLabel)
+		stackView.addArrangedSubview(retryFaceIDButton)
 		stackView.addArrangedSubview(reconnectButton)
 		stackView.addArrangedSubview(reconnectAppleButton)
 		stackView.addArrangedSubview(createAppleButton)
@@ -150,6 +164,8 @@ final class RegistrationViewController: UIViewController {
 			stackView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -40),
 			stackView.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
 			stackView.trailingAnchor.constraint(equalTo: view.layoutMarginsGuide.trailingAnchor),
+			retryFaceIDButton.widthAnchor.constraint(equalTo: stackView.widthAnchor),
+			retryFaceIDButton.heightAnchor.constraint(equalToConstant: 50),
 			reconnectButton.widthAnchor.constraint(equalTo: stackView.widthAnchor),
 			reconnectButton.heightAnchor.constraint(equalToConstant: 50),
 			reconnectAppleButton.widthAnchor.constraint(equalTo: stackView.widthAnchor),
@@ -169,6 +185,7 @@ final class RegistrationViewController: UIViewController {
 		case .reconnect:
 			titleLabel.text = "Welcome back"
 			subtitleLabel.text = "Sign in with Apple to restore access to your account."
+			retryFaceIDButton.isHidden = !(AppDefaults.shared.faceIDEnabled && AuthManager.shared.isRegistered)
 			reconnectButton.isHidden = !AuthManager.shared.isRegistered
 			reconnectAppleButton.isHidden = false
 			createAppleButton.isHidden = true
@@ -177,6 +194,7 @@ final class RegistrationViewController: UIViewController {
 		case .signIn:
 			titleLabel.text = "Create your account"
 			subtitleLabel.text = "Sign in with Apple to get started.\nNo password needed."
+			retryFaceIDButton.isHidden = true
 			reconnectButton.isHidden = true
 			reconnectAppleButton.isHidden = true
 			createAppleButton.isHidden = false
@@ -210,6 +228,10 @@ final class RegistrationViewController: UIViewController {
 		}
 	}
 
+	@objc private func handleRetryFaceID() {
+		authenticateWithFaceID()
+	}
+
 	@objc private func handleReconnectApple() {
 		triggerAppleSignIn()
 	}
@@ -232,6 +254,7 @@ final class RegistrationViewController: UIViewController {
 	// MARK: - State helpers
 
 	private func setLoading(_ loading: Bool) {
+		retryFaceIDButton.isEnabled = !loading
 		reconnectButton.isEnabled = !loading
 		reconnectAppleButton.isEnabled = !loading
 		createAppleButton.isEnabled = !loading

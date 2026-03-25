@@ -99,6 +99,7 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 
 	func configureUI() {
 		headerTitle.textColor = traitCollection.userInterfaceIdiom == .pad ? .tertiaryLabel : .label
+		disclosureIndicator.tintColor = .systemBlue
 		updateAttributedTitle()
 	}
 
