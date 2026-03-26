@@ -76,10 +76,10 @@ final class LandingViewController: UIViewController {
 		let gradient = CAGradientLayer()
 		gradient.colors = [
 			UIColor(red: 0.04, green: 0.11, blue: 0.45, alpha: 1).cgColor,
-			UIColor(red: 0.0, green: 0.35, blue: 0.70, alpha: 1).cgColor
+			UIColor(red: 0.02, green: 0.06, blue: 0.28, alpha: 1).cgColor
 		]
-		gradient.startPoint = CGPoint(x: 0, y: 0)
-		gradient.endPoint = CGPoint(x: 1, y: 1)
+		gradient.startPoint = CGPoint(x: 0.5, y: 0)
+		gradient.endPoint = CGPoint(x: 0.5, y: 1)
 		gradient.frame = view.bounds
 		view.layer.insertSublayer(gradient, at: 0)
 
