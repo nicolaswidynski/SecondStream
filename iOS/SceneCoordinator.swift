@@ -534,7 +534,6 @@ struct SidebarItemNode: Hashable, Sendable {
 	}
 
 	func addDefaultSourcesIfNeeded() {
-		Self.logger.info("SceneCoordinator.addDefaultSourcesIfNeeded called")
 		mainFeedCollectionViewController.addDefaultSourcesIfNeeded()
 	}
 

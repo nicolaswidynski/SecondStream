@@ -2426,123 +2426,76 @@ extension MainFeedCollectionViewController {
 	/// Subscribes to the four default sources after first account setup.
 	/// Mirrors the existing `addDiscoverSource` / `addFeedDirectly` flow exactly:
 	/// uses the library URL when available and non-empty, otherwise calls the webhook.
+	private var isAddingDefaultSources = false
+
 	func addDefaultSourcesIfNeeded() {
-		let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "DefaultFeeds")
-		log.info("addDefaultSourcesIfNeeded called")
+		guard !isAddingDefaultSources else { return }
+		isAddingDefaultSources = true
 
 		Task { @MainActor in
-			log.info("Task started")
+			defer { isAddingDefaultSources = false }
 
-			guard let account = AccountManager.shared.activeAccounts.first else {
-				log.error("No active account — aborting")
-				return
-			}
-			log.info("Active account found: \(account.accountID)")
+			guard let account = AccountManager.shared.activeAccounts.first else { return }
 
 			@MainActor func addAndWait(urlString: String, category: FeedCategory, name: String, author: String? = nil, imageURL: String? = nil, imageURLLight: String? = nil, summaryURL: String? = nil) async {
 				let normalizedURL = urlString.normalizedURL
-				guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else {
-					log.error("[\(name)] bad URL '\(urlString)' — skipping")
-					return
-				}
-				guard !account.hasFeed(withURL: url.absoluteString) else {
-					log.info("[\(name)] already subscribed — skipping")
-					return
-				}
-				log.info("[\(name)] calling addFeedDirectly url=\(url.absoluteString)")
+				guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else { return }
+				guard !account.hasFeed(withURL: url.absoluteString) else { return }
 				await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
 					Task { @MainActor [self] in
 						addFeedDirectly(urlString: urlString, category: category, sourceName: name, sourceAuthor: author, sourceImageURL: imageURL, sourceImageURLLight: imageURLLight, validateFeed: false, summaryURL: summaryURL) {
-							log.info("[\(name)] addFeedDirectly completion fired")
 							continuation.resume()
 						}
 					}
 				}
-				log.info("[\(name)] addAndWait done")
 			}
 
 			// RSS: Ars Technica
-			let rssCount = RSSSourcesManager.shared.rssSources.count
-			log.info("rssSources count: \(rssCount)")
 			if let s = RSSSourcesManager.shared.rssSources.first(where: { $0.name.localizedCaseInsensitiveContains("Ars Technica") }) {
-				log.info("RSS source found: \(s.name) url='\(s.url)'")
 				await addAndWait(urlString: s.url, category: .rss, name: s.name, author: s.author, imageURL: s.imageURL, imageURLLight: s.imageURLLight)
-			} else {
-				log.warning("RSS: Ars Technica not found in \(rssCount) sources")
 			}
 
 			// News: Artificial Intelligence
-			let newsCount = NewsSourcesManager.shared.newsSources.count
-			log.info("newsSources count: \(newsCount)")
 			if let s = NewsSourcesManager.shared.newsSources.first(where: { $0.name.localizedCaseInsensitiveContains("Artificial Intelligence") }) {
-				log.info("News source found: \(s.name) url='\(s.url)'")
 				await addAndWait(urlString: s.url, category: .news, name: s.name, author: s.author, imageURL: s.imageURL, imageURLLight: s.imageURLLight)
-			} else {
-				log.warning("News: Artificial Intelligence not found in \(newsCount) sources")
 			}
 
 			// YouTube: use library URL if non-empty, else call webhook
 			let allYT = YoutubeSourcesManager.shared.youtubeSources + YoutubeSourcesManager.shared.youtubeLibrarySources
-			log.info("YouTube sources total: \(allYT.count) (top=\(YoutubeSourcesManager.shared.youtubeSources.count) lib=\(YoutubeSourcesManager.shared.youtubeLibrarySources.count))")
 			let ytSource = allYT.first(where: {
 				$0.author?.localizedCaseInsensitiveContains("veritasium") == true
 					|| $0.name.localizedCaseInsensitiveContains("veritasium")
 			})
 			let ytURL: String?
 			if let s = ytSource, !s.url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-				log.info("YouTube: found in library name='\(s.name)' url='\(s.url)'")
 				ytURL = s.url
 			} else {
-				log.info("YouTube: not in library (found=\(ytSource != nil) emptyURL=\(ytSource?.url == "" || ytSource == nil)) — calling webhook")
 				let result = await YoutubeSourcesManager.shared.addYoutube(name: "@veritasium")
 				switch result {
-				case .successExisting(let url):
-					log.info("YouTube webhook: successExisting url='\(url)'")
-					ytURL = url
-				case .successNew(let url):
-					log.info("YouTube webhook: successNew url='\(url)'")
-					ytURL = url
-				case .failure(let msg):
-					log.error("YouTube webhook failed: \(msg)")
-					ytURL = nil
+				case .successExisting(let url), .successNew(let url): ytURL = url
+				case .failure: ytURL = nil
 				}
 			}
 			if let url = ytURL {
 				await addAndWait(urlString: url, category: .youtube, name: ytSource?.name ?? "Veritasium", author: ytSource?.author, imageURL: ytSource?.imageURL, imageURLLight: ytSource?.imageURLLight, summaryURL: url)
-			} else {
-				log.error("YouTube: no URL — skipping add")
 			}
 
 			// Podcast: use library URL if non-empty, else call webhook
 			let allPod = PodcastSourcesManager.shared.podcastSources + PodcastSourcesManager.shared.podcastLibrarySources
-			log.info("Podcast sources total: \(allPod.count) (top=\(PodcastSourcesManager.shared.podcastSources.count) lib=\(PodcastSourcesManager.shared.podcastLibrarySources.count))")
 			let podSource = allPod.first(where: { $0.name.localizedCaseInsensitiveContains("Tim Ferriss") })
 			let podURL: String?
 			if let s = podSource, !s.url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-				log.info("Podcast: found in library name='\(s.name)' url='\(s.url)'")
 				podURL = s.url
 			} else {
-				log.info("Podcast: not in library (found=\(podSource != nil) emptyURL=\(podSource?.url == "" || podSource == nil)) — calling webhook")
 				let result = await PodcastSourcesManager.shared.addPodcast(name: "The Tim Ferriss Show")
 				switch result {
-				case .successExisting(let url):
-					log.info("Podcast webhook: successExisting url='\(url)'")
-					podURL = url
-				case .successNew(let url):
-					log.info("Podcast webhook: successNew url='\(url)'")
-					podURL = url
-				case .failure(let msg):
-					log.error("Podcast webhook failed: \(msg)")
-					podURL = nil
+				case .successExisting(let url), .successNew(let url): podURL = url
+				case .failure: podURL = nil
 				}
 			}
 			if let url = podURL {
 				await addAndWait(urlString: url, category: .podcast, name: podSource?.name ?? "The Tim Ferriss Show", author: podSource?.author, imageURL: podSource?.imageURL, imageURLLight: podSource?.imageURLLight, summaryURL: url)
-			} else {
-				log.error("Podcast: no URL — skipping add")
 			}
-
-			log.info("addDefaultSourcesIfNeeded complete")
 		}
 	}
 }

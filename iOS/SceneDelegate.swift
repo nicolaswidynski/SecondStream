@@ -247,20 +247,14 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 	func presentLandingPage(reason: LandingViewController.Reason = .reinstall) {
 		DispatchQueue.main.async {
-			let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "DefaultFeeds")
-			log.info("presentLandingPage reason=\(String(describing: reason))")
 			let landingVC = LandingViewController()
 			landingVC.reason = reason
 			landingVC.modalPresentationStyle = .fullScreen
 			landingVC.isModalInPresentation = true
 			if reason == .debug || reason == .newAccount {
-				log.info("presentLandingPage: setting onReady")
 				landingVC.onReady = { [weak self] in
-					log.info("onReady fired — calling coordinator.addDefaultSourcesIfNeeded")
 					self?.coordinator.addDefaultSourcesIfNeeded()
 				}
-			} else {
-				log.info("presentLandingPage: reason=\(String(describing: reason)) — onReady NOT set")
 			}
 			self.window?.rootViewController?.present(landingVC, animated: true)
 		}
