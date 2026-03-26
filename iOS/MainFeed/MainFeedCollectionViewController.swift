@@ -2423,39 +2423,46 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 
 extension MainFeedCollectionViewController {
 
-	/// Silently subscribes to the four default sources after first account setup.
-	/// Looks up URLs from the already-loaded source library; falls back to the webhook
-	/// for Podcast and YouTube if they aren't in the library yet.
-	/// Uses the same `account.createFeed` call that every other add path ultimately uses.
+	/// Subscribes to the four default sources after first account setup.
+	/// Mirrors the existing `addDiscoverSource` / `addFeedDirectly` flow exactly:
+	/// uses the library URL when available and non-empty, otherwise calls the webhook.
 	func addDefaultSourcesIfNeeded() {
 		Task { @MainActor in
 			guard let account = AccountManager.shared.activeAccounts.first else { return }
 
+			// Wraps addFeedDirectly in an async call so we can sequence them without
+			// presenting multiple alerts at the same time. Pre-checks hasFeed using the
+			// same URL normalization that addFeedDirectly uses, so the "Already Subscribed"
+			// branch (which never calls the completion) is never hit.
+			func addAndWait(urlString: String, category: FeedCategory, name: String, author: String? = nil, imageURL: String? = nil, imageURLLight: String? = nil, summaryURL: String? = nil) async {
+				let normalizedURL = urlString.normalizedURL
+				guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else { return }
+				guard !account.hasFeed(withURL: url.absoluteString) else { return }
+				await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+					addFeedDirectly(urlString: urlString, category: category, sourceName: name, sourceAuthor: author, sourceImageURL: imageURL, sourceImageURLLight: imageURLLight, validateFeed: false, summaryURL: summaryURL) {
+						continuation.resume()
+					}
+				}
+			}
+
 			// RSS: Ars Technica — URL lives in the library
-			if let s = RSSSourcesManager.shared.rssSources.first(where: { $0.name.localizedCaseInsensitiveContains("Ars Technica") }),
-			   !account.hasFeed(withURL: s.url),
-			   let feed = try? await account.createFeedForDefaultSetup(url: s.url, name: s.name) {
-				feed.feedCategory = .rss
-				if let light = s.imageURLLight { LightFeedIconStore.shared.setLightIconURL(light, for: feed.url) }
-				NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
+			if let s = RSSSourcesManager.shared.rssSources.first(where: { $0.name.localizedCaseInsensitiveContains("Ars Technica") }) {
+				await addAndWait(urlString: s.url, category: .rss, name: s.name, author: s.author, imageURL: s.imageURL, imageURLLight: s.imageURLLight)
 			}
 
 			// News: Artificial Intelligence — URL lives in the library
-			if let s = NewsSourcesManager.shared.newsSources.first(where: { $0.name.localizedCaseInsensitiveContains("Artificial Intelligence") }),
-			   !account.hasFeed(withURL: s.url),
-			   let feed = try? await account.createFeedForDefaultSetup(url: s.url, name: s.name) {
-				feed.feedCategory = .news
-				if let light = s.imageURLLight { LightFeedIconStore.shared.setLightIconURL(light, for: feed.url) }
-				NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
+			if let s = NewsSourcesManager.shared.newsSources.first(where: { $0.name.localizedCaseInsensitiveContains("Artificial Intelligence") }) {
+				await addAndWait(urlString: s.url, category: .news, name: s.name, author: s.author, imageURL: s.imageURL, imageURLLight: s.imageURLLight)
 			}
 
-			// YouTube: check library first (by author handle or name), else webhook
-			let ytURL: String?
+			// YouTube: use library URL if non-empty, else call webhook for summaryURL
 			let allYT = YoutubeSourcesManager.shared.youtubeSources + YoutubeSourcesManager.shared.youtubeLibrarySources
-			if let s = allYT.first(where: {
+			let ytSource = allYT.first(where: {
 				$0.author?.localizedCaseInsensitiveContains("veritasium") == true
 					|| $0.name.localizedCaseInsensitiveContains("veritasium")
-			}) {
+			})
+			let ytURL: String?
+			if let s = ytSource, !s.url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
 				ytURL = s.url
 			} else {
 				let result = await YoutubeSourcesManager.shared.addYoutube(name: "@veritasium")
@@ -2464,16 +2471,15 @@ extension MainFeedCollectionViewController {
 				case .failure: ytURL = nil
 				}
 			}
-			if let url = ytURL, !account.hasFeed(withURL: url),
-			   let feed = try? await account.createFeedForDefaultSetup(url: url, name: "Veritasium") {
-				feed.feedCategory = .youtube
-				NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
+			if let url = ytURL {
+				await addAndWait(urlString: url, category: .youtube, name: ytSource?.name ?? "Veritasium", author: ytSource?.author, imageURL: ytSource?.imageURL, imageURLLight: ytSource?.imageURLLight, summaryURL: url)
 			}
 
-			// Podcast: check library first, else webhook
-			let podURL: String?
+			// Podcast: use library URL if non-empty, else call webhook for summaryURL
 			let allPod = PodcastSourcesManager.shared.podcastSources + PodcastSourcesManager.shared.podcastLibrarySources
-			if let s = allPod.first(where: { $0.name.localizedCaseInsensitiveContains("Tim Ferriss") }) {
+			let podSource = allPod.first(where: { $0.name.localizedCaseInsensitiveContains("Tim Ferriss") })
+			let podURL: String?
+			if let s = podSource, !s.url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
 				podURL = s.url
 			} else {
 				let result = await PodcastSourcesManager.shared.addPodcast(name: "The Tim Ferriss Show")
@@ -2482,25 +2488,8 @@ extension MainFeedCollectionViewController {
 				case .failure: podURL = nil
 				}
 			}
-			if let url = podURL, !account.hasFeed(withURL: url),
-			   let feed = try? await account.createFeedForDefaultSetup(url: url, name: "The Tim Ferriss Show") {
-				feed.feedCategory = .podcast
-				NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
-			}
-
-			await FeedStatsManager.shared.reportUpdate()
-		}
-	}
-}
-
-private extension Account {
-	/// Async wrapper around `createFeed(url:name:container:validateFeed:completion:)`.
-	/// Lets callers use structured concurrency without duplicating the underlying logic.
-	@MainActor
-	func createFeedForDefaultSetup(url: String, name: String) async throws -> Feed {
-		try await withCheckedThrowingContinuation { continuation in
-			createFeed(url: url, name: name, container: self, validateFeed: false) {
-				continuation.resume(with: $0)
+			if let url = podURL {
+				await addAndWait(urlString: url, category: .podcast, name: podSource?.name ?? "The Tim Ferriss Show", author: podSource?.author, imageURL: podSource?.imageURL, imageURLLight: podSource?.imageURLLight, summaryURL: url)
 			}
 		}
 	}
