@@ -10,6 +10,7 @@ import UIKit
 import UserNotifications
 import Account
 import AuthenticationServices
+import os
 
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
