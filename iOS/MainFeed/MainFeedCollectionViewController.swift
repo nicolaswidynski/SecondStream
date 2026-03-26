@@ -2439,8 +2439,12 @@ extension MainFeedCollectionViewController {
 				guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else { return }
 				guard !account.hasFeed(withURL: url.absoluteString) else { return }
 				await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-					addFeedDirectly(urlString: urlString, category: category, sourceName: name, sourceAuthor: author, sourceImageURL: imageURL, sourceImageURLLight: imageURLLight, validateFeed: false, summaryURL: summaryURL) {
-						continuation.resume()
+					// withCheckedContinuation's closure is nonisolated; hop back to
+					// MainActor so we can call the @MainActor-isolated addFeedDirectly.
+					Task { @MainActor in
+						self.addFeedDirectly(urlString: urlString, category: category, sourceName: name, sourceAuthor: author, sourceImageURL: imageURL, sourceImageURLLight: imageURLLight, validateFeed: false, summaryURL: summaryURL) {
+							continuation.resume()
+						}
 					}
 				}
 			}
