@@ -62,6 +62,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// The value is set to `true` in `viewWillAppear(_:)` if a feed is selected, and reset to `false` in
 	/// `viewDidAppear(_:)` after a delay to allow the deselection animation to complete.
 	private var isAnimating: Bool = false
+	private var isAddingDefaultSources = false
 
 
 	// MARK: - Add Menu State
@@ -2416,6 +2417,50 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 		)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
 		present(alert, animated: true)
+	}
+}
+
+// MARK: - Default sources (first-launch setup)
+
+extension MainFeedCollectionViewController {
+
+	/// Subscribes to the four default sources after first account setup.
+	/// Mirrors the existing `addDiscoverSource` / `addFeedDirectly` flow exactly:
+	/// uses the library URL when available and non-empty, otherwise calls the webhook.
+	func addDefaultSourcesIfNeeded() {
+		guard !isAddingDefaultSources else { return }
+		isAddingDefaultSources = true
+
+		Task { @MainActor in
+			defer { isAddingDefaultSources = false }
+
+			guard let account = AccountManager.shared.activeAccounts.first else { return }
+
+			// Podcast: use library URL if non-empty, else call webhook
+			let allPod = PodcastSourcesManager.shared.podcastSources + PodcastSourcesManager.shared.podcastLibrarySources
+			let podSource = allPod.first(where: { $0.name.localizedCaseInsensitiveContains("Tim Ferriss") })
+			let podURL: String?
+			if let s = podSource, !s.url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+				podURL = s.url
+			} else {
+				let result = await PodcastSourcesManager.shared.addPodcast(name: "The Tim Ferriss Show")
+				switch result {
+				case .successExisting(let url), .successNew(let url): podURL = url
+				case .failure: podURL = nil
+				}
+			}
+			guard let url = podURL else { return }
+			let normalizedURL = url.normalizedURL
+			guard !normalizedURL.isEmpty, let feedURL = URL(string: normalizedURL) else { return }
+			guard !account.hasFeed(withURL: feedURL.absoluteString) else { return }
+			await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+				Task { @MainActor [self] in
+					addFeedDirectly(urlString: url, category: .podcast, sourceName: podSource?.name ?? "The Tim Ferriss Show", sourceAuthor: podSource?.author, sourceImageURL: podSource?.imageURL, sourceImageURLLight: podSource?.imageURLLight, validateFeed: false, summaryURL: url) {
+						continuation.resume()
+					}
+				}
+			}
+		}
 	}
 }
 

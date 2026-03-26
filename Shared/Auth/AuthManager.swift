@@ -94,12 +94,14 @@ import os.log
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
+		let requestID = UUID().uuidString
 		var body: [String: Any] = [
 			"apple_user_id": appleUserID,
 			"email": email,
 			"is_private_email": isPrivateEmail,
 			"real_user_status": realUserStatus,
-			"operation": "creation"
+			"operation": "creation",
+			"request_id": requestID
 		]
 		if let firstName { body["first_name"] = firstName }
 		if let lastName { body["last_name"] = lastName }
@@ -116,6 +118,11 @@ import os.log
 			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
 			Self.logger.error("Registration failed [\(httpResponse.statusCode)]: \(rawBody)")
 			throw AuthError.serverError(statusCode: httpResponse.statusCode, body: Self.webhookMessage(from: data))
+		}
+
+		let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+		if let echoed = json?["request_id"] as? String, echoed != requestID {
+			Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
 		}
 
 		// Persist the Apple user ID locally only after a successful server response.
@@ -149,7 +156,8 @@ import os.log
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-		let body: [String: Any] = ["apple_user_id": storedID, "operation": "reconnection"]
+		let requestID = UUID().uuidString
+		let body: [String: Any] = ["apple_user_id": storedID, "operation": "reconnection", "request_id": requestID]
 		request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
 		let (data, response) = try await URLSession.shared.data(for: request)
@@ -161,6 +169,11 @@ import os.log
 			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
 			Self.logger.error("Reconnect failed [\(httpResponse.statusCode)]: \(rawBody)")
 			throw AuthError.serverError(statusCode: httpResponse.statusCode, body: Self.webhookMessage(from: data))
+		}
+
+		let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+		if let echoed = json?["request_id"] as? String, echoed != requestID {
+			Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
 		}
 
 		// Persist the ID when reconnecting via a fresh Apple sign-in (no prior Keychain entry).
@@ -186,7 +199,8 @@ import os.log
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-		let body: [String: Any] = ["apple_user_id": storedID, "operation": "deletion"]
+		let requestID = UUID().uuidString
+		let body: [String: Any] = ["apple_user_id": storedID, "operation": "deletion", "request_id": requestID]
 		request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
 		let (data, response) = try await URLSession.shared.data(for: request)
@@ -198,6 +212,11 @@ import os.log
 			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
 			Self.logger.error("Delete account failed [\(httpResponse.statusCode)]: \(rawBody)")
 			throw AuthError.serverError(statusCode: httpResponse.statusCode, body: Self.webhookMessage(from: data))
+		}
+
+		let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+		if let echoed = json?["request_id"] as? String, echoed != requestID {
+			Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
 		}
 
 		clearStoredIdentity()

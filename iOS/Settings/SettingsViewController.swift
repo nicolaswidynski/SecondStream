@@ -63,6 +63,7 @@ final class SettingsViewController: UITableViewController {
 	// Debug section rows
 	private let debugCleanTempRow = 0
 	private let debugDialogRow = 1
+	private let debugLandingPageRow = 2
 	// About section rows
 	private let aboutAppRow = 0
 	private let aboutCreditsRow = 1
@@ -216,8 +217,8 @@ final class SettingsViewController: UITableViewController {
 			// Adds Unread First, Gray Read Articles, Show Category Icons, and Collapsible Sections rows
 			return super.tableView(tableView, numberOfRowsInSection: section) + 4
 		case debugSection:
-			// Clean Temporary Files, Debug Dialog
-			return 2
+			// Clean Temporary Files, Debug Dialog, Start Landing Page
+			return 3
 		case aboutSection:
 			// About Second Stream, Credits remaining, Enable Face ID, Disconnect Account, Delete Account
 			return 5
@@ -291,6 +292,8 @@ final class SettingsViewController: UITableViewController {
 				cell.textLabel?.text = NSLocalizedString("Clean Temporary Files", comment: "Clean Temporary Files")
 			case debugDialogRow:
 				cell = makeDebugDialogCell(tableView)
+			case debugLandingPageRow:
+				cell = makeDebugLandingPageCell(tableView)
 			default:
 				cell = super.tableView(tableView, cellForRowAt: indexPath)
 			}
@@ -413,6 +416,8 @@ final class SettingsViewController: UITableViewController {
 				cleanTemporaryFiles()
 			case debugDialogRow:
 				break // handled by switch
+			case debugLandingPageRow:
+				showDebugLandingPage()
 			default:
 				break
 			}
@@ -569,6 +574,16 @@ final class SettingsViewController: UITableViewController {
 
 	@objc func switchDebugDialog(_ sender: UISwitch) {
 		AppDefaults.shared.showHomepageResolutionDebugDialog = sender.isOn
+	}
+
+	func showDebugLandingPage() {
+		dismiss(animated: true) {
+			guard let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+				  let sceneDelegate = windowScene.delegate as? SceneDelegate else {
+				return
+			}
+			sceneDelegate.presentLandingPage(reason: .debug)
+		}
 	}
 
 
@@ -743,6 +758,17 @@ private extension SettingsViewController {
 		toggle.addTarget(self, action: #selector(switchDebugDialog(_:)), for: .valueChanged)
 		toggle.isOn = AppDefaults.shared.showHomepageResolutionDebugDialog
 		cell.accessoryView = toggle
+		return cell
+	}
+
+	func makeDebugLandingPageCell(_ tableView: UITableView) -> UITableViewCell {
+		let cell = tableView.dequeueReusableCell(withIdentifier: "DebugLandingPageCell") ??
+			UITableViewCell(style: .default, reuseIdentifier: "DebugLandingPageCell")
+		var content = cell.defaultContentConfiguration()
+		content.text = NSLocalizedString("Start Landing Page", comment: "Debug: show landing page")
+		cell.contentConfiguration = content
+		cell.accessoryView = nil
+		cell.selectionStyle = .default
 		return cell
 	}
 

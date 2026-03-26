@@ -34,6 +34,16 @@ import os.log
 		refreshNow()
 	}
 
+	/// Forces a refresh and awaits completion. Used by the landing page.
+	func forceRefreshAndWait() async {
+		async let podcastFetch: () = PodcastSourcesManager.shared.fetchFresh()
+		async let youtubeFetch: () = YoutubeSourcesManager.shared.fetchFresh()
+		async let newsFetch: () = NewsSourcesManager.shared.fetchFresh()
+		async let rssFetch: () = RSSSourcesManager.shared.fetchFresh()
+		_ = await (podcastFetch, youtubeFetch, newsFetch, rssFetch)
+		lastRefreshDate = Date()
+	}
+
 	private func refreshNow() {
 		guard refreshTask == nil else {
 			Self.logger.info("Sources refresh already in progress")

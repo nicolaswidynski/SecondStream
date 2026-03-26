@@ -134,12 +134,14 @@ import os.log
 
 		let appleUserID = AuthManager.shared.appleUserID ?? ""
 
+		let requestID = UUID().uuidString
 		let body: [String: Any] = [
 			"apple_user_id": appleUserID,
 			"type": typeString(for: type),
 			"operation": "add",
 			"show": name,
-			"author": author ?? ""
+			"author": author ?? "",
+			"request_id": requestID
 		]
 
 		var request = URLRequest(url: statsURL)
@@ -155,6 +157,10 @@ import os.log
 				let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
 				Self.logger.error("update-feed-stats add failed [\(httpResponse.statusCode)]: \(rawBody)")
 			} else {
+				let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+				if let echoed = json?["request_id"] as? String, echoed != requestID {
+					Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
+				}
 				Self.logger.info("update-feed-stats add reported: \(name)")
 				await fetchCredits()
 			}
@@ -216,9 +222,11 @@ import os.log
 		let podFreeCount = podSources.filter { podFreeNames.contains($0.lowercased()) }.count
 		let ytFreeCount = ytSources.filter { ytFreeNames.contains($0.lowercased()) }.count
 
+		let requestID = UUID().uuidString
 		let body: [String: Any] = [
 			"apple_user_id": appleUserID,
 			"operation": "update",
+			"request_id": requestID,
 			"pod": [
 				"count": String(podSources.count),
 				"count_free": String(podFreeCount),
@@ -254,6 +262,10 @@ import os.log
 				Self.logger.error("update-user-stats failed [\(httpResponse.statusCode)]: \(rawBody)")
 				return false
 			} else {
+				let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+				if let echoed = json?["request_id"] as? String, echoed != requestID {
+					Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
+				}
 				Self.logger.info("update-user-stats sent: pod=\(podSources.count) free=\(podFreeCount) yt=\(ytSources.count) free=\(ytFreeCount) topics=\(topicSources.count) rss=\(rssCount)")
 				return true
 			}
@@ -334,12 +346,14 @@ import os.log
 	}
 
 	private func send(record: OutboxRecord, token: String) async throws {
+		let requestID = UUID().uuidString
 		let body: [String: Any] = [
 			"apple_user_id": record.appleUserID,
 			"type": record.type,
 			"operation": record.operation,
 			"show": record.show,
-			"author": record.author
+			"author": record.author,
+			"request_id": requestID
 		]
 
 		var request = URLRequest(url: statsURL)
@@ -358,6 +372,11 @@ import os.log
 				statusCode: (response as? HTTPURLResponse)?.statusCode ?? 0,
 				body: Self.webhookMessage(from: data)
 			)
+		}
+
+		let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+		if let echoed = json?["request_id"] as? String, echoed != requestID {
+			Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
 		}
 	}
 
