@@ -577,16 +577,12 @@ final class SettingsViewController: UITableViewController {
 	}
 
 	func showDebugLandingPage() {
-		let landingVC = LandingViewController()
-		landingVC.reason = .debug
-		landingVC.modalPresentationStyle = .fullScreen
-		landingVC.isModalInPresentation = true
 		dismiss(animated: true) {
 			guard let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
-				  let root = windowScene.windows.first?.rootViewController else {
+				  let sceneDelegate = windowScene.delegate as? SceneDelegate else {
 				return
 			}
-			root.present(landingVC, animated: true)
+			sceneDelegate.presentLandingPage(reason: .debug)
 		}
 	}
 
