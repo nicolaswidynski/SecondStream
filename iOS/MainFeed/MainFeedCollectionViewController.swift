@@ -2434,15 +2434,15 @@ extension MainFeedCollectionViewController {
 			// presenting multiple alerts at the same time. Pre-checks hasFeed using the
 			// same URL normalization that addFeedDirectly uses, so the "Already Subscribed"
 			// branch (which never calls the completion) is never hit.
-			func addAndWait(urlString: String, category: FeedCategory, name: String, author: String? = nil, imageURL: String? = nil, imageURLLight: String? = nil, summaryURL: String? = nil) async {
+			@MainActor func addAndWait(urlString: String, category: FeedCategory, name: String, author: String? = nil, imageURL: String? = nil, imageURLLight: String? = nil, summaryURL: String? = nil) async {
 				let normalizedURL = urlString.normalizedURL
 				guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else { return }
 				guard !account.hasFeed(withURL: url.absoluteString) else { return }
 				await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
 					// withCheckedContinuation's closure is nonisolated; hop back to
 					// MainActor so we can call the @MainActor-isolated addFeedDirectly.
-					Task { @MainActor in
-						self.addFeedDirectly(urlString: urlString, category: category, sourceName: name, sourceAuthor: author, sourceImageURL: imageURL, sourceImageURLLight: imageURLLight, validateFeed: false, summaryURL: summaryURL) {
+					Task { @MainActor [self] in
+						addFeedDirectly(urlString: urlString, category: category, sourceName: name, sourceAuthor: author, sourceImageURL: imageURL, sourceImageURLLight: imageURLLight, validateFeed: false, summaryURL: summaryURL) {
 							continuation.resume()
 						}
 					}
