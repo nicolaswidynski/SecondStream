@@ -2436,49 +2436,6 @@ extension MainFeedCollectionViewController {
 
 			guard let account = AccountManager.shared.activeAccounts.first else { return }
 
-			@MainActor func addAndWait(urlString: String, category: FeedCategory, name: String, author: String? = nil, imageURL: String? = nil, imageURLLight: String? = nil, summaryURL: String? = nil) async {
-				let normalizedURL = urlString.normalizedURL
-				guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else { return }
-				guard !account.hasFeed(withURL: url.absoluteString) else { return }
-				await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-					Task { @MainActor [self] in
-						addFeedDirectly(urlString: urlString, category: category, sourceName: name, sourceAuthor: author, sourceImageURL: imageURL, sourceImageURLLight: imageURLLight, validateFeed: false, summaryURL: summaryURL) {
-							continuation.resume()
-						}
-					}
-				}
-			}
-
-			// RSS: Ars Technica
-			if let s = RSSSourcesManager.shared.rssSources.first(where: { $0.name.localizedCaseInsensitiveContains("Ars Technica") }) {
-				await addAndWait(urlString: s.url, category: .rss, name: s.name, author: s.author, imageURL: s.imageURL, imageURLLight: s.imageURLLight)
-			}
-
-			// News: Artificial Intelligence
-			if let s = NewsSourcesManager.shared.newsSources.first(where: { $0.name.localizedCaseInsensitiveContains("Artificial Intelligence") }) {
-				await addAndWait(urlString: s.url, category: .news, name: s.name, author: s.author, imageURL: s.imageURL, imageURLLight: s.imageURLLight)
-			}
-
-			// YouTube: use library URL if non-empty, else call webhook
-			let allYT = YoutubeSourcesManager.shared.youtubeSources + YoutubeSourcesManager.shared.youtubeLibrarySources
-			let ytSource = allYT.first(where: {
-				$0.author?.localizedCaseInsensitiveContains("veritasium") == true
-					|| $0.name.localizedCaseInsensitiveContains("veritasium")
-			})
-			let ytURL: String?
-			if let s = ytSource, !s.url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-				ytURL = s.url
-			} else {
-				let result = await YoutubeSourcesManager.shared.addYoutube(name: "@veritasium")
-				switch result {
-				case .successExisting(let url), .successNew(let url): ytURL = url
-				case .failure: ytURL = nil
-				}
-			}
-			if let url = ytURL {
-				await addAndWait(urlString: url, category: .youtube, name: ytSource?.name ?? "Veritasium", author: ytSource?.author, imageURL: ytSource?.imageURL, imageURLLight: ytSource?.imageURLLight, summaryURL: url)
-			}
-
 			// Podcast: use library URL if non-empty, else call webhook
 			let allPod = PodcastSourcesManager.shared.podcastSources + PodcastSourcesManager.shared.podcastLibrarySources
 			let podSource = allPod.first(where: { $0.name.localizedCaseInsensitiveContains("Tim Ferriss") })
@@ -2492,8 +2449,16 @@ extension MainFeedCollectionViewController {
 				case .failure: podURL = nil
 				}
 			}
-			if let url = podURL {
-				await addAndWait(urlString: url, category: .podcast, name: podSource?.name ?? "The Tim Ferriss Show", author: podSource?.author, imageURL: podSource?.imageURL, imageURLLight: podSource?.imageURLLight, summaryURL: url)
+			guard let url = podURL else { return }
+			let normalizedURL = url.normalizedURL
+			guard !normalizedURL.isEmpty, let feedURL = URL(string: normalizedURL) else { return }
+			guard !account.hasFeed(withURL: feedURL.absoluteString) else { return }
+			await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+				Task { @MainActor [self] in
+					addFeedDirectly(urlString: url, category: .podcast, sourceName: podSource?.name ?? "The Tim Ferriss Show", sourceAuthor: podSource?.author, sourceImageURL: podSource?.imageURL, sourceImageURLLight: podSource?.imageURLLight, validateFeed: false, summaryURL: url) {
+						continuation.resume()
+					}
+				}
 			}
 		}
 	}
