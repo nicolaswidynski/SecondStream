@@ -62,6 +62,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// The value is set to `true` in `viewWillAppear(_:)` if a feed is selected, and reset to `false` in
 	/// `viewDidAppear(_:)` after a delay to allow the deselection animation to complete.
 	private var isAnimating: Bool = false
+	private var isAddingDefaultSources = false
 
 
 	// MARK: - Add Menu State
@@ -2426,8 +2427,6 @@ extension MainFeedCollectionViewController {
 	/// Subscribes to the four default sources after first account setup.
 	/// Mirrors the existing `addDiscoverSource` / `addFeedDirectly` flow exactly:
 	/// uses the library URL when available and non-empty, otherwise calls the webhook.
-	private var isAddingDefaultSources = false
-
 	func addDefaultSourcesIfNeeded() {
 		guard !isAddingDefaultSources else { return }
 		isAddingDefaultSources = true
