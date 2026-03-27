@@ -134,6 +134,11 @@ final class RegistrationViewController: UIViewController {
 
 	// MARK: - Lifecycle
 
+	override func viewWillAppear(_ animated: Bool) {
+		super.viewWillAppear(animated)
+		applyMode()
+	}
+
 	override func viewDidAppear(_ animated: Bool) {
 		super.viewDidAppear(animated)
 		if AppDefaults.shared.faceIDEnabled && AuthManager.shared.isRegistered {

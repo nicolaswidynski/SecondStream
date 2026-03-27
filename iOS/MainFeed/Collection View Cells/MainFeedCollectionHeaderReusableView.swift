@@ -98,8 +98,9 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 	}
 
 	func configureUI() {
-		headerTitle.textColor = traitCollection.userInterfaceIdiom == .pad ? .tertiaryLabel : .label
-		disclosureIndicator.tintColor = .systemBlue
+		let accentColor = UIColor(named: "secondaryAccentColor") ?? .systemBlue
+		headerTitle.textColor = accentColor
+		disclosureIndicator.tintColor = accentColor
 		updateAttributedTitle()
 	}
 
@@ -156,12 +157,14 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 		let font = headerTitle.font ?? UIFont.systemFont(ofSize: 15, weight: .semibold)
 		let color = headerTitle.textColor ?? .label
 		let height = font.pointSize * 1.4
-		let imgSize = icon.size
+		let config = UIImage.SymbolConfiguration(pointSize: font.pointSize, weight: .semibold)
+		let scaledIcon = icon.applyingSymbolConfiguration(config) ?? icon
+		let imgSize = scaledIcon.size
 		let width = imgSize.height > 0 ? height * (imgSize.width / imgSize.height) : height
 
 		let attachment = NSTextAttachment()
 		attachment.bounds = CGRect(x: 0, y: (font.capHeight - height) / 2, width: width, height: height)
-		attachment.image = icon.withTintColor(color, renderingMode: .alwaysOriginal)
+		attachment.image = scaledIcon.withTintColor(color, renderingMode: .alwaysOriginal)
 
 		let attrs: [NSAttributedString.Key: Any] = [
 			.font: font,

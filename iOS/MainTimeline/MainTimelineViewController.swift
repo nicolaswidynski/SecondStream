@@ -865,7 +865,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		container.backgroundColor = .clear
 		let label = UILabel()
 		label.text = sectionID.title
-		label.font = UIFont.systemFont(ofSize: 22, weight: .bold)
+		label.font = UIFont.systemFont(ofSize: 18, weight: .semibold)
 		label.textColor = sectionID.titleColor
 		label.translatesAutoresizingMaskIntoConstraints = false
 		container.addSubview(label)
