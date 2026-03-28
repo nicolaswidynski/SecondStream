@@ -37,7 +37,7 @@ final class ModernTimelineSliderCell: UITableViewCell {
 
 	private func setup() {
 		container.layer.cornerRadius = contentView.frame.height/2
-		container.backgroundColor = .systemBackground
+		container.backgroundColor = Assets.Colors.foreground
 		container.translatesAutoresizingMaskIntoConstraints = false
 		contentView.addSubview(container)
 		contentView.sendSubviewToBack(container)
@@ -48,7 +48,7 @@ final class ModernTimelineSliderCell: UITableViewCell {
 			container.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
 			container.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
 		])
-		contentView.backgroundColor = .systemGroupedBackground
+		contentView.backgroundColor = Assets.Colors.background
 	}
 
 	var sliderConfiguration: SliderConfiguration! {

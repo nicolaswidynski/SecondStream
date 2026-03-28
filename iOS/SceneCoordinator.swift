@@ -1678,7 +1678,7 @@ struct SidebarItemNode: Hashable, Sendable {
 
 		addNavViewController.modalPresentationStyle = .formSheet
 		addNavViewController.preferredContentSize = AddFeedViewController.preferredContentSizeForFormSheetDisplay
-		addNavViewController.view.backgroundColor = .systemGroupedBackground
+		addNavViewController.view.backgroundColor = Assets.Colors.background
 		mainFeedCollectionViewController.present(addNavViewController, animated: true)
 	}
 
@@ -1686,7 +1686,7 @@ struct SidebarItemNode: Hashable, Sendable {
 		let addNavViewController = UIStoryboard.add.instantiateViewController(withIdentifier: "AddFolderViewControllerNav") as! UINavigationController
 		addNavViewController.modalPresentationStyle = .formSheet
 		addNavViewController.preferredContentSize = AddFolderViewController.preferredContentSizeForFormSheetDisplay
-		addNavViewController.view.backgroundColor = .systemGroupedBackground
+		addNavViewController.view.backgroundColor = Assets.Colors.background
 		mainFeedCollectionViewController.present(addNavViewController, animated: true)
 	}
 
@@ -2438,6 +2438,15 @@ private extension SceneCoordinator {
 		fetchAndReplaceArticlesAsync(animated: animated) {
 			self.mainTimelineViewController?.reinitializeArticles(resetScroll: true)
 			completion?()
+
+			// If the feed has no articles it has never been fetched — refresh it now.
+			if self.articles.isEmpty, sidebarItem is Feed {
+				Task {
+					for account in AccountManager.shared.activeAccounts {
+						try? await account.refreshAll()
+					}
+				}
+			}
 		}
 	}
 

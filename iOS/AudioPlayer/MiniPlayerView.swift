@@ -108,7 +108,7 @@ final class MiniPlayerView: UIView {
 	}
 
 	private func setupView() {
-		backgroundColor = .secondarySystemBackground
+		backgroundColor = Assets.Colors.foreground
 
 		// Add shadow
 		layer.shadowColor = UIColor.black.cgColor

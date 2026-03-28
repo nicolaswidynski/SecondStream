@@ -82,7 +82,7 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 
 		switch (state.isHighlighted || state.isSelected || state.isFocused, traitCollection.userInterfaceIdiom) {
 		case (true, .pad):
-			backgroundConfig.backgroundColor = .tertiarySystemFill
+			backgroundConfig.backgroundColor = Assets.Colors.primaryAccent.withAlphaComponent(0.12)
 			feedTitle.textColor = Assets.Colors.primaryAccent
 			feedTitle.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize,
 											   weight: .semibold)
@@ -95,6 +95,7 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 				faviconView.tintColor = .white
 			}
 		default:
+			backgroundConfig.backgroundColor = Assets.Colors.foreground
 			feedTitle.textColor = .label
 			feedTitle.font = UIFont.preferredFont(forTextStyle: .body)
 			unreadCountLabel.font = UIFont.preferredFont(forTextStyle: .body)

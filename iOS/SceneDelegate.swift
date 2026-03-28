@@ -91,6 +91,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 			await FeedStatsManager.shared.drainOutbox()
 			await FeedStatsManager.shared.reportWeeklyUpdateIfNeeded()
 		}
+		if !AuthManager.shared.isConnected {
+			presentRegistration()
+		}
 	}
 
 	func stateRestorationActivity(for scene: UIScene) -> NSUserActivity? {
@@ -233,6 +236,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 	func presentRegistration() {
 		// Defer to the next run loop so the window is visible before we present.
 		DispatchQueue.main.async {
+			guard !(self.window?.rootViewController?.presentedViewController is RegistrationViewController) else {
+				return
+			}
 			let registrationVC = RegistrationViewController()
 			registrationVC.modalPresentationStyle = .fullScreen
 			registrationVC.isModalInPresentation = true // prevents swipe-to-dismiss

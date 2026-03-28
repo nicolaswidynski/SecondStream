@@ -27,6 +27,8 @@ final class LandingViewController: UIViewController {
 
 	private let minimumDisplaySeconds: Double = 5
 
+	private var gradientLayer: CAGradientLayer?
+
 	// MARK: - UI
 
 	private let stackView: UIStackView = {
@@ -54,13 +56,13 @@ final class LandingViewController: UIViewController {
 		label.font = .systemFont(ofSize: 20, weight: .semibold)
 		label.textAlignment = .center
 		label.numberOfLines = 0
-		label.textColor = .white
+		label.textColor = .label
 		return label
 	}()
 
 	private let spinner: UIActivityIndicatorView = {
 		let indicator = UIActivityIndicatorView(style: .large)
-		indicator.color = .white
+		indicator.color = .label
 		indicator.hidesWhenStopped = true
 		return indicator
 	}()
@@ -70,18 +72,15 @@ final class LandingViewController: UIViewController {
 	override func viewDidLoad() {
 		super.viewDidLoad()
 
-		view.backgroundColor = .systemBackground
+		view.backgroundColor = Assets.Colors.background
 
-		// Gradient background
 		let gradient = CAGradientLayer()
-		gradient.colors = [
-			UIColor(red: 0.04, green: 0.11, blue: 0.45, alpha: 1).cgColor,
-			UIColor(red: 0.02, green: 0.06, blue: 0.28, alpha: 1).cgColor
-		]
 		gradient.startPoint = CGPoint(x: 0.5, y: 0)
 		gradient.endPoint = CGPoint(x: 0.5, y: 1)
 		gradient.frame = view.bounds
 		view.layer.insertSublayer(gradient, at: 0)
+		gradientLayer = gradient
+		updateGradientColors()
 
 		stackView.addArrangedSubview(iconImageView)
 		stackView.addArrangedSubview(messageLabel)
@@ -99,20 +98,30 @@ final class LandingViewController: UIViewController {
 			stackView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 40),
 			stackView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -40)
 		])
+
+		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (self: Self, _: UITraitCollection) in
+			self.updateGradientColors()
+		}
 	}
 
 	override func viewDidLayoutSubviews() {
 		super.viewDidLayoutSubviews()
-		// Keep gradient in sync with view size (e.g. after rotation)
-		if let gradient = view.layer.sublayers?.first as? CAGradientLayer {
-			gradient.frame = view.bounds
-		}
+		gradientLayer?.frame = view.bounds
 	}
 
 	override func viewDidAppear(_ animated: Bool) {
 		super.viewDidAppear(animated)
 		spinner.startAnimating()
 		startLoading()
+	}
+
+	// MARK: - Private
+
+	private func updateGradientColors() {
+		gradientLayer?.colors = [
+			Assets.Colors.foreground.resolvedColor(with: traitCollection).cgColor,
+			Assets.Colors.background.resolvedColor(with: traitCollection).cgColor
+		]
 	}
 
 	// MARK: - Loading

@@ -228,13 +228,13 @@ class MainTimelineIconFeedCell: UITableViewCell {
 			articleDate.textColor = .lightText
 			authorByLine.textColor = .lightText
 		} else {
+			backgroundConfig.backgroundColor = Assets.Colors.foreground
 			articleTitle.textColor = titleTextColor(for: state)
 			articleDate.textColor = .secondaryLabel
 			authorByLine.textColor = .secondaryLabel
 		}
 
 		self.backgroundConfiguration = backgroundConfig
-
 	}
 
 }

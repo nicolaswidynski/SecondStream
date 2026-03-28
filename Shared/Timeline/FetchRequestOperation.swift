@@ -89,13 +89,11 @@ typealias FetchRequestOperationResultBlock = (Set<Article>, FetchRequestOperatio
 
 			for fetcher in fetchers {
 				if (fetcher as? SidebarItem)?.readFiltered(readFilterEnabledTable: readFilterEnabledTable) ?? true {
-					if let articles = try? await fetcher.fetchUnreadArticlesAsync() {
-						process(articles)
-					}
+					let articles = (try? await fetcher.fetchUnreadArticlesAsync()) ?? []
+					process(articles)
 				} else {
-					if let articles = try? await fetcher.fetchArticlesAsync() {
-						process(articles)
-					}
+					let articles = (try? await fetcher.fetchArticlesAsync()) ?? []
+					process(articles)
 				}
 			}
 		}
@@ -178,13 +176,11 @@ typealias FetchRequestOperationResultBlock = (Set<Article>, FetchRequestOperatio
 
 			for fetcher in fetchers {
 				if fetcherHidesReadArticles(fetcher) {
-					if let articles = try? await fetcher.fetchUnreadArticlesAsync() {
-						process(articles)
-					}
+					let articles = (try? await fetcher.fetchUnreadArticlesAsync()) ?? []
+					process(articles)
 				} else {
-					if let articles = try? await fetcher.fetchArticlesAsync() {
-						process(articles)
-					}
+					let articles = (try? await fetcher.fetchArticlesAsync()) ?? []
+					process(articles)
 				}
 			}
 		}

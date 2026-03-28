@@ -10,6 +10,17 @@ import UIKit
 
 final class ColorPaletteTableViewController: UITableViewController {
 
+	override func viewDidLoad() {
+		super.viewDidLoad()
+		tableView.backgroundColor = Assets.Colors.background
+	}
+
+	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+		var bg = UIBackgroundConfiguration.listCell()
+		bg.backgroundColor = Assets.Colors.foreground
+		cell.backgroundConfiguration = bg
+	}
+
     // MARK: - Table view data source
 
     override func numberOfSections(in tableView: UITableView) -> Int {
