@@ -88,6 +88,7 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 	override func prepareForReuse() {
 		super.prepareForReuse()
 		_unreadCount = 0
+		hasBeenConfigured = false
 		disclosureExpanded = true
 		unreadCountLabel.alpha = 0
 		hasBeenConfigured = false

@@ -65,62 +65,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	private var isAddingDefaultSources = false
 
 
-	// MARK: - Add Menu State
-	private lazy var addBarButton: UIBarButtonItem = {
-		let podcastAction = UIAction(
-			title: NSLocalizedString("Podcasts", comment: "Podcasts"),
-			image: RSImage(named: "podcast_thin-symbol") ?? UIImage(systemName: "mic.fill")
-		) { [weak self] _ in self?.addPodcast() }
-
-		let youtubeAction = UIAction(
-			title: NSLocalizedString("YouTube", comment: "YouTube"),
-			image: UIImage(systemName: "play.rectangle")
-		) { [weak self] _ in self?.addYoutube() }
-
-		let newsAction = UIAction(
-			title: NSLocalizedString("News", comment: "News"),
-			image: UIImage(systemName: "newspaper")
-		) { [weak self] _ in self?.addNews() }
-
-		let rssAction = UIAction(
-			title: NSLocalizedString("RSS", comment: "RSS"),
-			image: RSImage(named: "rss_thin-symbol") ?? UIImage(systemName: "dot.radiowaves.left.and.right")
-		) { [weak self] _ in self?.addRSSFeed() }
-
-		let menu = UIMenu(title: "", children: [rssAction, newsAction, youtubeAction, podcastAction])
-		if #available(iOS 16.0, *) {
-			menu.preferredElementSize = .large
-		}
-
-		var config = UIButton.Configuration.plain()
-		config.image = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .medium))
-		config.title = NSLocalizedString("Add", comment: "Add")
-		config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
-			var updated = attributes
-			updated.font = UIFont.systemFont(ofSize: 11, weight: .medium)
-			return updated
-		}
-		config.imagePlacement = .top
-		config.imagePadding = 2
-		config.background.backgroundColor = Assets.Colors.interactionBackground
-		config.background.cornerRadius = 14
-		config.baseForegroundColor = Assets.Colors.primaryAccent
-
-		let button = UIButton(configuration: config)
-		button.menu = menu
-		button.showsMenuAsPrimaryAction = true
-		button.addAction(UIAction { _ in
-			UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-		}, for: .touchDown)
-		button.accessibilityLabel = NSLocalizedString("Add Feed", comment: "Add Feed")
-		button.translatesAutoresizingMaskIntoConstraints = false
-		NSLayoutConstraint.activate([
-			button.widthAnchor.constraint(equalToConstant: 56),
-			button.heightAnchor.constraint(equalToConstant: 56),
-		])
-
-		return UIBarButtonItem(customView: button)
-	}()
 
 	/// The update status label (added directly to view, not navigation bar)
 	private lazy var updateStatusLabel: UILabel = {
@@ -192,14 +136,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 	}
 
-	private lazy var creditsLabel: UILabel = {
-		let label = UILabel()
-		label.font = .preferredFont(forTextStyle: .caption2)
-		label.textColor = .secondaryLabel
-		label.translatesAutoresizingMaskIntoConstraints = false
-		return label
-	}()
-
 	private lazy var starredButton: UIBarButtonItem = {
 		let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
 		let image = UIImage(systemName: "bookmark", withConfiguration: config)
@@ -221,8 +157,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 		configureDiffableDataSource()
 		configureNavigationBar()
+		configureCollectionViewInsets()
 		configureRecentlyUpdatedStrip()
-		configureToolbar()
 		collectionView.dragDelegate = self
 		collectionView.dropDelegate = self
 		becomeFirstResponder()
@@ -231,36 +167,34 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		// Fetch sources on launch
 		SourcesRefreshManager.shared.forceRefresh()
 
-		// Credits: observe updates and fetch on first launch
-		NotificationCenter.default.addObserver(self, selector: #selector(creditsDidUpdate), name: .creditsDidUpdate, object: nil)
-		updateCreditsLabel()
-		if FeedStatsManager.shared.cachedCredits == nil {
-			Task { await FeedStatsManager.shared.fetchCredits() }
-		}
 
 		// Refresh sources when app comes to foreground
 		NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
     }
 
-	private func configureToolbar() {
-		setToolbarItems([.flexibleSpace(), addBarButton], animated: false)
+	private func configureCollectionViewInsets() {
 		collectionView.contentInset.top = defaultTopInset
 		collectionView.verticalScrollIndicatorInsets.top = defaultTopInset
 	}
- 
+
 
 	private func configureNavigationBar() {
 		navigationItem.title = nil
 
-		// Left bar button: Settings
-		let settingsButton = UIBarButtonItem(
-			image: UIImage(systemName: "gearshape"),
+		// Left bar button: Open left side menu
+		let menuButton = UIBarButtonItem(
+			image: UIImage(systemName: "line.3.horizontal"),
 			style: .plain,
 			target: self,
-			action: #selector(settingsTapped)
+			action: #selector(hamburgerTapped)
 		)
-		settingsButton.accessibilityLabel = NSLocalizedString("Settings", comment: "Settings")
-		navigationItem.leftBarButtonItem = settingsButton
+		menuButton.accessibilityLabel = NSLocalizedString("Menu", comment: "Menu")
+		navigationItem.leftBarButtonItem = menuButton
+
+		// Right swipe to open left menu
+		let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(hamburgerTapped))
+		swipeRight.direction = .right
+		collectionView.addGestureRecognizer(swipeRight)
 
 		// Right bar button: Starred smart feed shortcut
 		navigationItem.rightBarButtonItem = starredButton
@@ -274,13 +208,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			trailingConstraint
 		])
 
-		// Credits label is hidden; the value is shown in Settings instead.
-		creditsLabel.isHidden = true
-		view.addSubview(creditsLabel)
-		NSLayoutConstraint.activate([
-			creditsLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 72),
-			creditsLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -40)
-		])
 	}
 
 	private func configureRecentlyUpdatedStrip() {
@@ -323,8 +250,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		])
 	}
 
-	@objc private func settingsTapped() {
-		coordinator.showSettings()
+	@objc private func hamburgerTapped() {
+		coordinator.showLeftMenu()
 	}
 
 	@objc private func starredTapped() {
@@ -529,10 +456,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc private func addRSSFeed() {
-		presentRSSPicker()
+		showRSSPicker()
 	}
 
-	private func presentRSSPicker() {
+	func showRSSPicker() {
 		let picker = RSSPickerViewController()
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
@@ -541,10 +468,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc private func addPodcast() {
-		presentPodcastPicker()
+		showPodcastPicker()
 	}
 
-	private func presentPodcastPicker() {
+	func showPodcastPicker() {
 		let picker = PodcastPickerViewController()
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
@@ -553,10 +480,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc private func addYoutube() {
-		presentYoutubePicker()
+		showYoutubePicker()
 	}
 
-	private func presentYoutubePicker() {
+	func showYoutubePicker() {
 		let picker = YoutubePickerViewController()
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
@@ -580,10 +507,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc private func addNews() {
-		presentNewsPicker()
+		showNewsPicker()
 	}
 
-	private func presentNewsPicker() {
+	func showNewsPicker() {
 		let picker = NewsPickerViewController()
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
@@ -1436,18 +1363,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		SourcesRefreshManager.shared.refreshIfNeeded()
 		refreshRecentlyUpdatedShowsStrip()
 		Task { await FeedStatsManager.shared.fetchCredits() }
-	}
-
-	@objc private func creditsDidUpdate() {
-		updateCreditsLabel()
-	}
-
-	private func updateCreditsLabel() {
-		if let credits = FeedStatsManager.shared.cachedCredits {
-			creditsLabel.text = "credits: \(credits)"
-		} else {
-			creditsLabel.text = nil
-		}
 	}
 
 	private func showEnterRSSURLDialog() {

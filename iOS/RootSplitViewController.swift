@@ -11,10 +11,22 @@ import Account
 
 final class RootSplitViewController: UISplitViewController {
 
-	var coordinator: SceneCoordinator!
+	var coordinator: SceneCoordinator! {
+		didSet {
+			leftMenuViewController?.coordinator = coordinator
+		}
+	}
 
 	private var miniPlayerView: MiniPlayerView?
 	private var miniPlayerBottomConstraint: NSLayoutConstraint?
+
+	// MARK: - Left Side Menu Drawer
+
+	private let leftMenuWidth: CGFloat = 280
+	private var leftMenuViewController: LeftSideMenuViewController?
+	private var leftMenuDimView: UIView?
+	private var leftMenuLeadingConstraint: NSLayoutConstraint?
+	private var isLeftMenuOpen = false
 
 	override var prefersStatusBarHidden: Bool {
 		return coordinator.prefersStatusBarHidden
@@ -28,6 +40,7 @@ final class RootSplitViewController: UISplitViewController {
 		super.viewDidLoad()
 		view.backgroundColor = Assets.Colors.background
 		setupMiniPlayer()
+		setupLeftMenuDrawer()
 	}
 
 	override func viewDidAppear(_ animated: Bool) {
@@ -76,6 +89,79 @@ final class RootSplitViewController: UISplitViewController {
 		}
 
 		super.show(column)
+	}
+
+	// MARK: - Left Menu Drawer
+
+	private func setupLeftMenuDrawer() {
+		let dimView = UIView()
+		dimView.translatesAutoresizingMaskIntoConstraints = false
+		dimView.backgroundColor = UIColor.black.withAlphaComponent(0.4)
+		dimView.alpha = 0
+		dimView.isHidden = true
+		let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dimViewTapped))
+		dimView.addGestureRecognizer(tapGesture)
+		view.addSubview(dimView)
+		NSLayoutConstraint.activate([
+			dimView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+			dimView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+			dimView.topAnchor.constraint(equalTo: view.topAnchor),
+			dimView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+		])
+		leftMenuDimView = dimView
+
+		let menuVC = LeftSideMenuViewController()
+		menuVC.coordinator = coordinator
+		addChild(menuVC)
+		menuVC.view.translatesAutoresizingMaskIntoConstraints = false
+		menuVC.view.layer.shadowColor = UIColor.black.cgColor
+		menuVC.view.layer.shadowOpacity = 0.2
+		menuVC.view.layer.shadowRadius = 8
+		menuVC.view.layer.shadowOffset = CGSize(width: 4, height: 0)
+		view.addSubview(menuVC.view)
+		let leadingConstraint = menuVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: -leftMenuWidth)
+		NSLayoutConstraint.activate([
+			leadingConstraint,
+			menuVC.view.widthAnchor.constraint(equalToConstant: leftMenuWidth),
+			menuVC.view.topAnchor.constraint(equalTo: view.topAnchor),
+			menuVC.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+		])
+		leftMenuLeadingConstraint = leadingConstraint
+		leftMenuViewController = menuVC
+		menuVC.didMove(toParent: self)
+	}
+
+	func showLeftMenu() {
+		guard !isLeftMenuOpen else {
+			return
+		}
+		isLeftMenuOpen = true
+		leftMenuDimView?.isHidden = false
+		leftMenuLeadingConstraint?.constant = 0
+		UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseOut) {
+			self.view.layoutIfNeeded()
+			self.leftMenuDimView?.alpha = 1
+		}
+	}
+
+	func hideLeftMenu(completion: (() -> Void)? = nil) {
+		guard isLeftMenuOpen else {
+			completion?()
+			return
+		}
+		isLeftMenuOpen = false
+		leftMenuLeadingConstraint?.constant = -leftMenuWidth
+		UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseIn) {
+			self.view.layoutIfNeeded()
+			self.leftMenuDimView?.alpha = 0
+		} completion: { _ in
+			self.leftMenuDimView?.isHidden = true
+			completion?()
+		}
+	}
+
+	@objc private func dimViewTapped() {
+		hideLeftMenu()
 	}
 
 	// MARK: Keyboard Shortcuts
