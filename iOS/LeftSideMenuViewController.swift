@@ -81,11 +81,11 @@ final class LeftSideMenuViewController: UIViewController {
 
 	private func setupViews() {
 		// Add row items
-		let items: [(icon: String, title: String, action: Selector)] = [
-			("mic.fill",          NSLocalizedString("Podcasts", comment: "Podcasts"),  #selector(addPodcastTapped)),
-			("play.rectangle",    NSLocalizedString("YouTube",  comment: "YouTube"),   #selector(addYoutubeTapped)),
-			("newspaper",         NSLocalizedString("News",     comment: "News"),      #selector(addNewsTapped)),
-			("dot.radiowaves.left.and.right", NSLocalizedString("RSS", comment: "RSS"), #selector(addRSSTapped)),
+		let items: [(icon: UIImage?, title: String, action: Selector)] = [
+			(UIImage(systemName: "mic.fill"),       NSLocalizedString("Podcasts", comment: "Podcasts"), #selector(addPodcastTapped)),
+			(UIImage(systemName: "play.rectangle"), NSLocalizedString("YouTube",  comment: "YouTube"),  #selector(addYoutubeTapped)),
+			(UIImage(systemName: "newspaper"),      NSLocalizedString("News",     comment: "News"),     #selector(addNewsTapped)),
+			(RSImage(named: "rss_thin-symbol") ?? UIImage(systemName: "dot.radiowaves.left.and.right"), NSLocalizedString("RSS", comment: "RSS"), #selector(addRSSTapped)),
 		]
 
 		for item in items {
@@ -121,12 +121,12 @@ final class LeftSideMenuViewController: UIViewController {
 		])
 	}
 
-	private func makeAddRow(icon: String, title: String, action: Selector) -> UIControl {
+	private func makeAddRow(icon: UIImage?, title: String, action: Selector) -> UIControl {
 		let row = UIControl()
-		row.heightAnchor.constraint(equalToConstant: 50).isActive = true
+		row.heightAnchor.constraint(equalToConstant: 40).isActive = true
 
 		let iconView = UIImageView()
-		iconView.image = UIImage(systemName: icon, withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .medium))
+		iconView.image = icon
 		iconView.contentMode = .center
 		iconView.tintColor = .label
 		iconView.translatesAutoresizingMaskIntoConstraints = false
