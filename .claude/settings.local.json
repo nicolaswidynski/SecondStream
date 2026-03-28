@@ -85,7 +85,9 @@
       "Bash(python3 -:*)",
       "Bash(python3:*)",
       "Bash(gh pr:*)",
-      "Bash(gh repo:*)"
+      "Bash(gh repo:*)",
+      "Bash(git rebase:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []
