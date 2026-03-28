@@ -613,7 +613,7 @@ final class AppDefaults: Sendable {
 									   Key.showHomepageResolutionDebugDialog: false,
 									   Key.timelineDimReadArticles: true,
 									   Key.timelineUnreadFirst: false,
-									   Key.showSectionHeaderIcons: false,
+									   Key.showSectionHeaderIcons: true,
 									   Key.collapsibleArticleSectionsEnabled: false,
 									   Key.faceIDEnabled: false,
 								   Key.hasShownLandingPage: false,
