@@ -1627,6 +1627,14 @@ struct SidebarItemNode: Hashable, Sendable {
 		}
 	}
 
+	func showLeftMenu() {
+		rootSplitViewController.showLeftMenu()
+	}
+
+	func hideLeftMenu(completion: (() -> Void)? = nil) {
+		rootSplitViewController.hideLeftMenu(completion: completion)
+	}
+
 	func showSettings(scrollToArticlesSection: Bool = false) {
 		let settingsNavController = UIStoryboard.settings.instantiateInitialViewController() as! UINavigationController
 		let settingsViewController = settingsNavController.topViewController as! SettingsViewController

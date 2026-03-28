@@ -252,15 +252,20 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	private func configureNavigationBar() {
 		navigationItem.title = nil
 
-		// Left bar button: Settings
-		let settingsButton = UIBarButtonItem(
-			image: UIImage(systemName: "gearshape"),
+		// Left bar button: Open left side menu
+		let menuButton = UIBarButtonItem(
+			image: UIImage(systemName: "line.3.horizontal"),
 			style: .plain,
 			target: self,
-			action: #selector(settingsTapped)
+			action: #selector(hamburgerTapped)
 		)
-		settingsButton.accessibilityLabel = NSLocalizedString("Settings", comment: "Settings")
-		navigationItem.leftBarButtonItem = settingsButton
+		menuButton.accessibilityLabel = NSLocalizedString("Menu", comment: "Menu")
+		navigationItem.leftBarButtonItem = menuButton
+
+		// Right swipe to open left menu
+		let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(hamburgerTapped))
+		swipeRight.direction = .right
+		collectionView.addGestureRecognizer(swipeRight)
 
 		// Right bar button: Starred smart feed shortcut
 		navigationItem.rightBarButtonItem = starredButton
@@ -323,8 +328,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		])
 	}
 
-	@objc private func settingsTapped() {
-		coordinator.showSettings()
+	@objc private func hamburgerTapped() {
+		coordinator.showLeftMenu()
 	}
 
 	@objc private func starredTapped() {
