@@ -1635,6 +1635,22 @@ struct SidebarItemNode: Hashable, Sendable {
 		rootSplitViewController.hideLeftMenu(completion: completion)
 	}
 
+	func showPodcastPicker() {
+		mainFeedCollectionViewController.showPodcastPicker()
+	}
+
+	func showYoutubePicker() {
+		mainFeedCollectionViewController.showYoutubePicker()
+	}
+
+	func showNewsPicker() {
+		mainFeedCollectionViewController.showNewsPicker()
+	}
+
+	func showRSSPicker() {
+		mainFeedCollectionViewController.showRSSPicker()
+	}
+
 	func showSettings(scrollToArticlesSection: Bool = false) {
 		let settingsNavController = UIStoryboard.settings.instantiateInitialViewController() as! UINavigationController
 		let settingsViewController = settingsNavController.topViewController as! SettingsViewController

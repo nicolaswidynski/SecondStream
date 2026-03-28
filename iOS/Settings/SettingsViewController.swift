@@ -66,10 +66,9 @@ final class SettingsViewController: UITableViewController {
 	private let debugLandingPageRow = 2
 	// About section rows
 	private let aboutAppRow = 0
-	private let aboutCreditsRow = 1
-	private let aboutFaceIDRow = 2
-	private let aboutDisconnectRow = 3
-	private let aboutDeleteRow = 4
+	private let aboutFaceIDRow = 1
+	private let aboutDisconnectRow = 2
+	private let aboutDeleteRow = 3
 
 	var scrollToArticlesSection = false
 	weak var presentingParentController: UIViewController?
@@ -86,7 +85,6 @@ final class SettingsViewController: UITableViewController {
 		NotificationCenter.default.addObserver(self, selector: #selector(accountsDidChange), name: .UserDidAddAccount, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(accountsDidChange), name: .UserDidDeleteAccount, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(displayNameDidChange), name: .DisplayNameDidChange, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(creditsDidUpdate), name: .creditsDidUpdate, object: nil)
 
 		tableView.register(UINib(nibName: "SettingsComboTableViewCell", bundle: nil), forCellReuseIdentifier: "SettingsComboTableViewCell")
 		tableView.register(UINib(nibName: "SettingsTableViewCell", bundle: nil), forCellReuseIdentifier: "SettingsTableViewCell")
@@ -238,8 +236,8 @@ final class SettingsViewController: UITableViewController {
 			// Clean Temporary Files, Debug Dialog, Start Landing Page
 			return 3
 		case aboutSection:
-			// About Second Stream, Credits remaining, Enable Face ID, Disconnect Account, Delete Account
-			return 5
+			// About Second Stream, Enable Face ID, Disconnect Account, Delete Account
+			return 4
 		default:
 			return super.tableView(tableView, numberOfRowsInSection: section)
 		}
@@ -321,15 +319,6 @@ final class SettingsViewController: UITableViewController {
 				cell = UITableViewCell(style: .default, reuseIdentifier: "AboutAppCell")
 				cell.textLabel?.text = NSLocalizedString("About Second Stream", comment: "About Second Stream")
 				cell.accessoryType = .disclosureIndicator
-			case aboutCreditsRow:
-				cell = UITableViewCell(style: .value1, reuseIdentifier: "CreditsCell")
-				cell.textLabel?.text = NSLocalizedString("Credits remaining", comment: "Credits remaining")
-				cell.selectionStyle = .none
-				if let credits = FeedStatsManager.shared.cachedCredits {
-					cell.detailTextLabel?.text = "\(credits)"
-				} else {
-					cell.detailTextLabel?.text = "—"
-				}
 			case aboutFaceIDRow:
 				cell = makeFaceIDCell(tableView)
 			case aboutDisconnectRow:
@@ -650,11 +639,6 @@ final class SettingsViewController: UITableViewController {
 
 	@objc func displayNameDidChange() {
 		tableView.reloadData()
-	}
-
-	@objc func creditsDidUpdate() {
-		let creditsIndexPath = IndexPath(row: aboutCreditsRow, section: aboutSection)
-		tableView.reloadRows(at: [creditsIndexPath], with: .none)
 	}
 
 	@objc func browserPreferenceDidChange() {
