@@ -4,6 +4,7 @@
 //
 
 import UIKit
+import RSCore
 
 final class LeftSideMenuViewController: UIViewController {
 
