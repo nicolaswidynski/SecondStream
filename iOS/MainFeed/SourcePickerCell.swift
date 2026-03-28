@@ -21,7 +21,7 @@ final class SourcePickerCell: UICollectionViewCell {
 		iv.contentMode = .scaleAspectFill
 		iv.clipsToBounds = true
 		iv.layer.cornerRadius = 12
-		iv.backgroundColor = .secondarySystemFill
+		iv.backgroundColor = Assets.Colors.interactionBackground
 		iv.translatesAutoresizingMaskIntoConstraints = false
 		return iv
 	}()
@@ -37,6 +37,7 @@ final class SourcePickerCell: UICollectionViewCell {
 
 	override init(frame: CGRect) {
 		super.init(frame: frame)
+		backgroundColor = Assets.Colors.background
 		contentView.addSubview(iconImageView)
 		contentView.addSubview(nameLabel)
 
@@ -79,7 +80,7 @@ final class SourcePickerCell: UICollectionViewCell {
 	override func prepareForReuse() {
 		super.prepareForReuse()
 		iconImageView.image = nil
-		iconImageView.backgroundColor = .secondarySystemFill
+		iconImageView.backgroundColor = Assets.Colors.interactionBackground
 		iconImageView.contentMode = .scaleAspectFill
 		iconImageView.tintColor = nil
 		nameLabel.text = nil

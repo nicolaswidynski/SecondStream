@@ -26,6 +26,7 @@ final class RootSplitViewController: UISplitViewController {
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
+		view.backgroundColor = Assets.Colors.background
 		setupMiniPlayer()
 	}
 

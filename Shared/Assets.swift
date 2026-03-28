@@ -224,17 +224,155 @@ struct Assets {
 		static var iconDarkBackground: RSColor { NSColor(named: "iconDarkBackgroundColor")! }
 		static var star: RSColor { RSColor(named: "StarColor")! }
 #else // iOS
-		static var primaryAccent: RSColor { RSColor(named: "primaryAccentColor")! }
-		static var secondaryAccent: RSColor { RSColor(named: "secondaryAccentColor")! }
-		static var star: RSColor { RSColor(named: "starColor")! }
-		static var vibrantText: RSColor { RSColor(named: "vibrantTextColor")! }
-		static var controlBackground: RSColor { RSColor(named: "controlBackgroundColor")! }
-		static var iconBackground: RSColor { RSColor(named: "iconBackgroundColor")! }
-		static var fullScreenBackground: RSColor { RSColor(named: "fullScreenBackgroundColor")! }
-		static var sectionHeader: RSColor { RSColor(named: "sectionHeaderColor")! }
+
+		// MARK: - Color palette
+		//
+		// Single source of truth — edit values here only.
+		//
+		//  accent     #086AEE / #0A85FF  (blue)
+		//  background #F1F3F8 / #1F1E1D
+		//  foreground #F7F8FC / #262624
+
+		static var primaryAccent: RSColor {
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark
+				? RSColor(red: 0.04, green: 0.52, blue: 1.0, alpha: 1)
+				: RSColor(red: 0.0, green: 0.48, blue:  1.0, alpha: 1)
+//				? RSColor(red: 232/255, green: 134/255, blue: 106/255, alpha: 1)
+//				: RSColor(red: 217/255, green: 119/255, blue:  87/255, alpha: 1)
+			}
+		}
+
+		static var secondaryAccent: RSColor {
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark
+				? RSColor(red: 0.04, green: 0.52, blue: 1.0, alpha: 1)
+				: RSColor(red: 0.0, green: 0.48, blue:  1.0, alpha: 1)
+//				? RSColor(red: 212/255, green: 149/255, blue: 110/255, alpha: 1)
+//				: RSColor(red: 217/255, green: 119/255, blue:  87/255, alpha: 1)
+			}
+		}
+
+		static var background: RSColor {
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark
+					? RSColor(red:  31/255, green:  30/255, blue:  29/255, alpha: 1)
+					: RSColor(red: 241/255, green: 243/255, blue: 248/255, alpha: 1)
+			}
+		}
+
+		static var foreground: RSColor {
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark
+					? RSColor(red:  38/255, green:  38/255, blue:  36/255, alpha: 1)
+					: RSColor(red: 251/255, green: 252/255, blue: 255/255, alpha: 1)
+			}
+		}
+
+		static var sectionHeader: RSColor         { background }
+		static var iconBackground: RSColor        { foreground }
+		static var fullScreenBackground: RSColor  { background }
+
+		static var star: RSColor {
+			RSColor(red: 249/255, green: 198/255, blue: 52/255, alpha: 1)
+		}
+
+		static var vibrantText: RSColor {
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark ? .label : .white
+			}
+		}
+
+		static var controlBackground: RSColor {
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark
+					? RSColor.white.withAlphaComponent(0.25)
+					: RSColor.black.withAlphaComponent(0.25)
+			}
+		}
+
+		/// Background for interactive input elements (text fields, search bars, icon tiles).
+		/// Full white in light mode; black in dark mode.
+		static var interactionBackground: RSColor {
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark ? .black : .white
+			}
+		}
+
+		// MARK: - Geometry
+		/// Corner radius for the shadow path on table/collection section cards.
+		/// UIKit controls the actual cell corners in insetGrouped — this only affects the shadow.
+		static let shadowTablesCornerRadius: CGFloat = 20
+		/// Corner radius for article reading boxes (CSS border-radius — fully controllable).
+		static let boxCornerRadius: CGFloat = 20
+
+		// MARK: - Shadow — single source of truth
+		//
+		// All shadow appearances (native CALayer and CSS box-shadow) are derived
+		// from these constants.  Change here, it propagates everywhere.
+
+		// Table / collection section card shadows (native CALayer)
+		private static let tableShadowColorLight = UIColor.black
+		private static let tableShadowColorDark  = UIColor.clear  // no shadow in dark mode
+		private static let tableShadowOpacityLight: Float  = 0.1
+		private static let tableShadowOpacityDark:  Float  = 0
+		private static let tableShadowRadius:  CGFloat = 2
+		private static let tableShadowOffsetX: CGFloat = 3
+		private static let tableShadowOffsetY: CGFloat = 3
+
+		// Article reading box shadows (CSS)
+		// Note: CSS box-shadow has no corner radius — it follows border-radius automatically.
+		private static let boxShadowOpacityLight: Float = 0.1
+		private static let boxShadowOpacityDark:  Float = 0
+		private static let boxShadowRadius:  CGFloat = 3
+		private static let boxShadowOffsetX: CGFloat = 3
+		private static let boxShadowOffsetY: CGFloat = 3
+
+		private static func cssBoxShadow(opacity: Float) -> String {
+			let blur    = Int(boxShadowRadius * 2)
+			let offsetX = Int(boxShadowOffsetX)
+			let offsetY = Int(boxShadowOffsetY)
+			return "\(offsetX)px \(offsetY)px \(blur)px rgba(0, 0, 0, \(opacity))"
+		}
+
+		/// CSS box-shadow for light mode — injected via [[groupbox-box-shadow]].
+		static let groupboxBoxShadow:     String = cssBoxShadow(opacity: boxShadowOpacityLight)
+		/// CSS box-shadow for dark mode  — injected via [[groupbox-box-shadow-dark]].
+		static let groupboxBoxShadowDark: String = cssBoxShadow(opacity: boxShadowOpacityDark)
+
+		@MainActor static var tableShadowEnabled = true
+
+		@MainActor static func applyForegroundShadow(to layer: CALayer, traitCollection: UITraitCollection) {
+			let isDark = traitCollection.userInterfaceStyle == .dark
+			guard tableShadowEnabled, !isDark else {
+				layer.shadowOpacity = 0
+				return
+			}
+			layer.masksToBounds = false
+			layer.shadowColor   = tableShadowColorLight.cgColor
+			layer.shadowOpacity = tableShadowOpacityLight
+			layer.shadowRadius  = tableShadowRadius
+			layer.shadowOffset  = CGSize(width: tableShadowOffsetX, height: tableShadowOffsetY)
+		}
 #endif
 	}
 }
+
+#if os(iOS)
+extension UIColor {
+
+	enum InterfaceStyle { case light, dark }
+
+	/// Resolves a dynamic colour for a given light/dark style and returns a CSS hex string.
+	func hexString(forStyle style: InterfaceStyle) -> String {
+		let tc = UITraitCollection(userInterfaceStyle: style == .dark ? .dark : .light)
+		let resolved = resolvedColor(with: tc)
+		var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+		resolved.getRed(&r, green: &g, blue: &b, alpha: &a)
+		return String(format: "#%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255))
+	}
+}
+#endif
 
 extension RSImage {
 

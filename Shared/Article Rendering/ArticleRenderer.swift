@@ -399,6 +399,16 @@ private extension ArticleRenderer {
 		var d = [String: String]()
 		let bodyFont = UIFont.preferredFont(forTextStyle: .body)
 		d["font-size"] = String(describing: bodyFont.pointSize)
+		d["color-page-bg-light"]      = Assets.Colors.background.hexString(forStyle: .light)
+		d["color-page-bg-dark"]       = Assets.Colors.background.hexString(forStyle: .dark)
+		d["color-groupbox-bg-light"]  = Assets.Colors.foreground.hexString(forStyle: .light)
+		d["color-groupbox-bg-dark"]   = Assets.Colors.foreground.hexString(forStyle: .dark)
+		d["color-accent-light"]       = Assets.Colors.primaryAccent.hexString(forStyle: .light)
+		d["color-accent-dark"]        = Assets.Colors.primaryAccent.hexString(forStyle: .dark)
+		d["color-accent2-dark"]       = Assets.Colors.secondaryAccent.hexString(forStyle: .dark)
+		d["groupbox-box-shadow"]      = Assets.Colors.groupboxBoxShadow
+		d["groupbox-box-shadow-dark"] = Assets.Colors.groupboxBoxShadowDark
+		d["groupbox-border-radius"]   = "\(Int(Assets.Colors.boxCornerRadius))px"
 		return d
 	}
 	#else

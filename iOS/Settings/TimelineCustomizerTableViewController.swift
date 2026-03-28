@@ -40,6 +40,7 @@ final class TimelineCustomizerTableViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 		title = NSLocalizedString("Timeline Customizer", comment: "Timeline Customizer")
+		tableView.backgroundColor = Assets.Colors.background
 
 		NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
 			Task { @MainActor in
@@ -47,6 +48,12 @@ final class TimelineCustomizerTableViewController: UITableViewController {
 			}
 		}
     }
+
+	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+		var bg = UIBackgroundConfiguration.listCell()
+		bg.backgroundColor = Assets.Colors.foreground
+		cell.backgroundConfiguration = bg
+	}
 
 	override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
 		tableView.reloadSections(IndexSet(integer: 2), with: .fade)

@@ -49,14 +49,14 @@ a:hover {
 
 @media(prefers-color-scheme: dark) {
 	:root {
-		--header-color: rgba(94, 158, 244, 1);
+		--header-color: [[color-accent-dark]];
 		--body-code-color: #dcdcdc;
 		--system-message-color: #5f5f5f;
-		--feedlink-color: rgba(94, 158, 244, 1);
-		--article-title-color: #e0e0e0;
+		--feedlink-color: [[color-accent-dark]];
+		--article-title-color: #e8eaf2;
 		--article-date-color: rgba(255, 255, 255, 0.5);
 		--table-cell-border-color: dimgray;
-		--code-background-color: #333;
+		--code-background-color: [[color-groupbox-bg-dark]];
 	}
 }
 
@@ -473,29 +473,33 @@ a.footnote:hover,
 		font: -apple-system-body;
 		/* The font-size is replaced at runtime by the dynamic type size */
 		font-size: [[font-size]]px;
-		--primary-accent-color: #086AEE;
-		--secondary-accent-color: #086AEE;
-		--block-quote-border-color: rgba(0, 0, 0, 0.25);
-		--ios-hover-color: lightgray; /* placeholder */
+		--primary-accent-color:   [[color-accent-light]];
+		--secondary-accent-color: [[color-accent-light]];
+		--block-quote-border-color: rgba(0, 0, 0, 0.15);
+		--ios-hover-color: #dde3f0;
 
-		/* GroupBox system colors — light mode (unchanged) */
-		--page-bg:        #F2F2F7; /* secondarySystemBackground */
-		--groupbox-bg:    #FFFFFF; /* tertiarySystemBackground  */
-		--separator:      #C6C6C8; /* opaqueSeparator            */
+		/* Palette — injected from Assets.Colors at render time */
+		--page-bg:     [[color-page-bg-light]];
+		--groupbox-bg: [[color-groupbox-bg-light]];
+		--separator:   #C6C6C8;
 	}
 
 	@media(prefers-color-scheme: dark) {
 		:root {
-			--primary-accent-color: #2D80F1;
-			--secondary-accent-color: #5E9EF4;
-			--block-quote-border-color: rgba(94, 158, 244, 0.75);
+			--primary-accent-color:   [[color-accent-dark]];
+			--secondary-accent-color: [[color-accent2-dark]];
+			--block-quote-border-color: rgba(255, 255, 255, 0.15);
 			--header-table-border-color: rgba(255, 255, 255, 0.2);
-			--ios-hover-color: #444444; /* placeholder */
+			--ios-hover-color: #1e2a3a;
 
-			/* GroupBox system colors — dark mode */
-			--page-bg:        #262628;/*#2C2C2E;       /* tertiarySystemBackground  */
-			--groupbox-bg:    #353538;
-			--separator:      #54545899; /*38383A;       /* opaqueSeparator            */
+			/* Palette — injected from Assets.Colors at render time */
+			--page-bg:     [[color-page-bg-dark]];
+			--groupbox-bg: [[color-groupbox-bg-dark]];
+			--separator:   #3D3B3699;
+		}
+
+		.nnw-collapsible {
+			box-shadow: [[groupbox-box-shadow-dark]];
 		}
 	}
 
@@ -548,10 +552,10 @@ a.footnote:hover,
 	/* ── GroupBox card style (Health-app look) ── */
 	.nnw-collapsible {
 		background-color: var(--groupbox-bg);
-		border-radius: 12px;
+		border-radius: [[groupbox-border-radius]];
 		padding: 6px 14px 10px; /* less top so title sits close to card edge */
 		margin: 12px 8px;
-		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+		box-shadow: [[groupbox-box-shadow]];
 	}
 
 	/* Header-less cards (plain RSS wrap) need more top breathing room */
@@ -646,19 +650,19 @@ a.footnote:hover,
 
 	:root {
 		color-scheme: light dark;
-		--accent-color: rgba( 8, 106, 238, 1);
+		--accent-color: rgba(217, 119, 87, 1);
 		--block-quote-border-color: rgba( 0,   0,   0, 0.25);
-		--hover-gradient-color-start: rgba(60, 146, 251, 1);
-		--hover-gradient-color-end: rgba(67, 149, 251, 1);
+		--hover-gradient-color-start: rgba(217, 119, 87, 1);
+		--hover-gradient-color-end: rgba(220, 125, 95, 1);
 	}
 
 	@media(prefers-color-scheme: dark) {
 		:root {
-			--accent-color: rgba( 94, 158, 244, 1);
-			--block-quote-border-color: rgba( 94, 158, 244, 0.50);
+			--accent-color: rgba(232, 134, 106, 1);
+			--block-quote-border-color: rgba(232, 134, 106, 0.50);
 			--header-table-border-color: rgba(255, 255, 255, 0.1);
-			--hover-gradient-color-start: rgba( 41, 121, 213, 1);
-			--hover-gradient-color-end: rgba( 42, 120, 212, 1);
+			--hover-gradient-color-start: rgba(200, 100, 75, 1);
+			--hover-gradient-color-end: rgba(205, 105, 80, 1);
 		}
 	}
 
@@ -718,7 +722,7 @@ a.footnote:hover,
 	margin-left: 8px;
 	border: none;
 	border-radius: 50%;
-	background-color: var(--primary-accent-color, #086AEE);
+	background-color: var(--primary-accent-color);
 	color: white;
 	font-size: 12px;
 	cursor: pointer;
@@ -737,13 +741,13 @@ a.footnote:hover,
 
 @media(prefers-color-scheme: dark) {
 	.nnw-mp3-play-button {
-		background-color: var(--secondary-accent-color, #5E9EF4);
+		background-color: var(--secondary-accent-color);
 	}
 }
 
 /* Timestamp Links */
 .nnw-timestamp-link {
-	color: var(--primary-accent-color, #086AEE);
+	color: var(--primary-accent-color);
 	text-decoration: none;
 	font-weight: bold;
 	cursor: pointer;
@@ -755,6 +759,6 @@ a.footnote:hover,
 
 @media(prefers-color-scheme: dark) {
 	.nnw-timestamp-link {
-		color: var(--secondary-accent-color, #5E9EF4);
+		color: var(--secondary-accent-color);
 	}
 }

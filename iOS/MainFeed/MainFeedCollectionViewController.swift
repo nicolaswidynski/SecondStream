@@ -102,6 +102,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 		config.imagePlacement = .top
 		config.imagePadding = 2
+		config.background.backgroundColor = Assets.Colors.interactionBackground
+		config.background.cornerRadius = 14
+		config.baseForegroundColor = Assets.Colors.primaryAccent
 
 		let button = UIButton(configuration: config)
 		button.menu = menu
@@ -209,8 +212,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
+		view.backgroundColor = Assets.Colors.background
 		registerForNotifications()
 		configureCollectionView()
+		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (_: MainFeedCollectionViewController, _: UITraitCollection) in
+			guard let self, traitCollection.userInterfaceIdiom == .phone else { return }
+			collectionView.layoutSectionCardShadows(in: &sectionShadowViews)
+		}
 		configureDiffableDataSource()
 		configureNavigationBar()
 		configureRecentlyUpdatedStrip()
@@ -560,11 +568,11 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		// Prevent black flash: UINavigationController.view has no background
 		// by default, which shows as black when the nav bar goes transparent
 		// during scroll-edge transitions.
-		navController.view.backgroundColor = .systemBackground
+		navController.view.backgroundColor = Assets.Colors.foreground
 
 		let appearance = UINavigationBarAppearance()
 		appearance.configureWithOpaqueBackground()
-		appearance.backgroundColor = .systemBackground
+		appearance.backgroundColor = Assets.Colors.foreground
 		navController.navigationBar.standardAppearance = appearance
 		navController.navigationBar.scrollEdgeAppearance = appearance
 		navController.navigationBar.compactAppearance = appearance
@@ -608,7 +616,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				preferredStyle: .alert
 			)
 			alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
-			present(alert, animated: true)
+			present(alert, animated: true) {
+				completion?()
+			}
 			return
 		}
 
@@ -678,6 +688,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 						completion?()
 					case .failure(let error):
 						self.presentError(error)
+						completion?()
 					}
 				}
 			}
@@ -771,7 +782,17 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		coordinator.expandCategorySection(section)
 	}
 
+	private var sectionShadowViews: [UIView] = []
+
+	override func viewDidLayoutSubviews() {
+		super.viewDidLayoutSubviews()
+		guard traitCollection.userInterfaceIdiom == .phone else { return }
+		collectionView.layoutSectionCardShadows(in: &sectionShadowViews)
+	}
+
+
 	override func viewWillAppear(_ animated: Bool) {
+		navigationController?.view.backgroundColor = Assets.Colors.background
 		navigationController?.setToolbarHidden(false, animated: animated)
 		navigationController?.additionalSafeAreaInsets.bottom = 60
 		applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip()
@@ -799,7 +820,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	override func viewDidAppear(_ animated: Bool) {
 		super.viewDidAppear(animated)
-
 		/// On iPhone, once the deselection animation has completed, set `isAnimating`
 		/// to false and this will allow selection.
 		if traitCollection.userInterfaceIdiom == .phone {
@@ -836,30 +856,17 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip() {
-		guard let navigationBar = navigationController?.navigationBar else {
-			recentlyUpdatedBackgroundView.effect = nil//UIBlurEffect(style: .systemChromeMaterial)
-			navBarExtendedBackgroundView.effect = UIBlurEffect(style: .systemChromeMaterial)
-			navBarExtendedBackgroundView.alpha = 0.9//1.0
-			return
-		}
-
-		let appearance = navigationBar.scrollEdgeAppearance ?? navigationBar.standardAppearance
-		if let backgroundEffect = appearance.backgroundEffect {
-			recentlyUpdatedBackgroundView.effect = nil//backgroundEffect
-			navBarExtendedBackgroundView.effect = backgroundEffect
-		} else {
-			recentlyUpdatedBackgroundView.effect = nil//UIBlurEffect(style: .systemChromeMaterial)
-			navBarExtendedBackgroundView.effect = UIBlurEffect(style: .systemChromeMaterial)
-			navBarExtendedBackgroundView.alpha = 0.9//1.0
-		}
-
-		recentlyUpdatedBackgroundView.backgroundColor = .clear
-		navBarExtendedBackgroundView.backgroundColor = .clear
+		recentlyUpdatedBackgroundView.effect = nil
+		recentlyUpdatedBackgroundView.backgroundColor = Assets.Colors.foreground
+		navBarExtendedBackgroundView.effect = nil
+		navBarExtendedBackgroundView.backgroundColor = Assets.Colors.foreground
+		navBarExtendedBackgroundView.alpha = 1.0
 	}
 
 	// MARK: - Collection View Configuration
 	func configureCollectionView() {
 		var config = UICollectionLayoutListConfiguration(appearance: traitCollection.userInterfaceIdiom == .pad ? .sidebar : .insetGrouped)
+		config.backgroundColor = .clear
 		config.separatorConfiguration.color = .tertiarySystemFill
 		config.headerMode = .supplementary
 		// Don't use section footers - we use a standalone footer label instead
@@ -888,6 +895,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		if config.appearance == .sidebar {
 			// This defrosts the glass.
 			collectionView.backgroundColor = .clear
+		} else {
+			collectionView.backgroundColor = Assets.Colors.background
 		}
 	}
 
@@ -2460,6 +2469,8 @@ extension MainFeedCollectionViewController {
 					}
 				}
 			}
+
+			appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
 		}
 	}
 }
@@ -2471,7 +2482,7 @@ private final class RecentlyUpdatedFeedItemView: UIControl {
 		let imageView = UIImageView()
 		imageView.translatesAutoresizingMaskIntoConstraints = false
 		imageView.contentMode = .scaleAspectFill
-		imageView.backgroundColor = .secondarySystemBackground// .white
+		imageView.backgroundColor = Assets.Colors.foreground
 		imageView.layer.cornerRadius = 12
 		imageView.clipsToBounds = true
 		return imageView
@@ -2480,7 +2491,7 @@ private final class RecentlyUpdatedFeedItemView: UIControl {
 	private let pressOverlayView: UIView = {
 		let view = UIView()
 		view.translatesAutoresizingMaskIntoConstraints = false
-		view.backgroundColor = UIColor.systemBlue.withAlphaComponent(1)
+		view.backgroundColor = Assets.Colors.primaryAccent.withAlphaComponent(1)
 		view.isUserInteractionEnabled = false
 		view.alpha = 0
 		return view

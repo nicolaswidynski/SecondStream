@@ -78,6 +78,10 @@ final class SettingsViewController: UITableViewController {
 		// This hack mostly works around a bug in static tables with dynamic type.  See: https://spin.atomicobject.com/2018/10/15/dynamic-type-static-uitableview/
 		NotificationCenter.default.removeObserver(tableView!, name: UIContentSizeCategory.didChangeNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(contentSizeCategoryDidChange), name: UIContentSizeCategory.didChangeNotification, object: nil)
+		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (_: SettingsViewController, _: UITraitCollection) in
+			guard let self else { return }
+			tableView.layoutSectionCardShadows(in: &sectionShadowViews)
+		}
 
 		NotificationCenter.default.addObserver(self, selector: #selector(accountsDidChange), name: .UserDidAddAccount, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(accountsDidChange), name: .UserDidDeleteAccount, object: nil)
@@ -86,10 +90,24 @@ final class SettingsViewController: UITableViewController {
 
 		tableView.register(UINib(nibName: "SettingsComboTableViewCell", bundle: nil), forCellReuseIdentifier: "SettingsComboTableViewCell")
 		tableView.register(UINib(nibName: "SettingsTableViewCell", bundle: nil), forCellReuseIdentifier: "SettingsTableViewCell")
-		UISwitch.appearance(whenContainedInInstancesOf: [SettingsViewController.self]).onTintColor = .systemBlue
+		UISwitch.appearance(whenContainedInInstancesOf: [SettingsViewController.self]).onTintColor = Assets.Colors.primaryAccent
 
 		tableView.rowHeight = UITableView.automaticDimension
 		tableView.estimatedRowHeight = 44
+		tableView.backgroundColor = Assets.Colors.background
+	}
+
+	private var sectionShadowViews: [UIView] = []
+
+	override func viewDidLayoutSubviews() {
+		super.viewDidLayoutSubviews()
+		tableView.layoutSectionCardShadows(in: &sectionShadowViews)
+	}
+
+	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+		var bg = UIBackgroundConfiguration.listCell()
+		bg.backgroundColor = Assets.Colors.foreground
+		cell.backgroundConfiguration = bg
 	}
 
 	override func viewWillAppear(_ animated: Bool) {

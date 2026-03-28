@@ -59,7 +59,6 @@
                                     <nil key="highlightedColor"/>
                                 </label>
                             </subviews>
-                            <color key="backgroundColor" systemColor="systemGroupedBackgroundColor"/>
                             <constraints>
                                 <constraint firstAttribute="trailing" secondItem="5ce-ZL-glQ" secondAttribute="trailing" constant="21" id="YLV-d0-1us"/>
                                 <constraint firstItem="5ce-ZL-glQ" firstAttribute="leading" secondItem="Vxr-5V-V6R" secondAttribute="leading" constant="20" symbolic="YES" id="dmE-Zi-5FR"/>
@@ -174,7 +173,6 @@ Don’t have a Feedbin account?</string>
                                     </connections>
                                 </button>
                             </subviews>
-                            <color key="backgroundColor" systemColor="systemGroupedBackgroundColor"/>
                             <constraints>
                                 <constraint firstItem="sgL-0C-JZa" firstAttribute="top" secondItem="3KO-DU-JXG" secondAttribute="top" constant="8" id="BgR-gH-qHf"/>
                                 <constraint firstItem="sgL-0C-JZa" firstAttribute="leading" secondItem="3KO-DU-JXG" secondAttribute="leading" constant="20" symbolic="YES" id="PLI-kz-MMq"/>
@@ -355,7 +353,6 @@ Don’t have a NewsBlur account?</string>
                                     </connections>
                                 </button>
                             </subviews>
-                            <color key="backgroundColor" systemColor="systemGroupedBackgroundColor"/>
                             <constraints>
                                 <constraint firstItem="YhB-G0-eeJ" firstAttribute="centerX" secondItem="mgO-Iq-dEg" secondAttribute="centerX" id="7r5-l6-NNv"/>
                                 <constraint firstItem="fal-e8-3BB" firstAttribute="leading" secondItem="mgO-Iq-dEg" secondAttribute="leading" constant="20" symbolic="YES" id="O4q-GI-2AO"/>
@@ -520,7 +517,6 @@ Don’t have a Reader account?</string>
                                     </connections>
                                 </button>
                             </subviews>
-                            <color key="backgroundColor" systemColor="systemGroupedBackgroundColor"/>
                             <constraints>
                                 <constraint firstItem="3Fq-U4-PS5" firstAttribute="top" secondItem="7Jj-p8-lYw" secondAttribute="bottom" constant="-1.5" id="6ma-pw-DSZ"/>
                                 <constraint firstItem="7Jj-p8-lYw" firstAttribute="leading" secondItem="6sa-hD-iAT" secondAttribute="leading" constant="20" symbolic="YES" id="CnY-UA-F3a"/>
@@ -717,7 +713,6 @@ Don’t have a Reader account?</string>
                                     </connections>
                                 </button>
                             </subviews>
-                            <color key="backgroundColor" systemColor="systemGroupedBackgroundColor"/>
                             <constraints>
                                 <constraint firstItem="vXG-7q-4qg" firstAttribute="centerX" secondItem="iYz-ri-yys" secondAttribute="centerX" id="8Pg-BU-zIj"/>
                                 <constraint firstItem="aFS-Y0-2MH" firstAttribute="leading" secondItem="iYz-ri-yys" secondAttribute="leading" constant="20" symbolic="YES" id="E97-lo-arw"/>
@@ -803,9 +798,5 @@ Don’t have a Reader account?</string>
         </namedColor>
         <systemColor name="secondaryLabelColor">
             <color red="0.23529411764705882" green="0.23529411764705882" blue="0.2627450980392157" alpha="0.59999999999999998" colorSpace="custom" customColorSpace="sRGB"/>
-        </systemColor>
-        <systemColor name="systemGroupedBackgroundColor">
-            <color red="0.94901960784313721" green="0.94901960784313721" blue="0.96862745098039216" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-        </systemColor>
-    </resources>
+        </systemColor>    </resources>
 </document>

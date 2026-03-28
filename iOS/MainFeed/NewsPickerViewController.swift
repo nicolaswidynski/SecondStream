@@ -24,7 +24,7 @@ final class NewsPickerViewController: UIViewController {
 		super.viewDidLoad()
 
 		title = NSLocalizedString("Add Weekly News", comment: "Add Weekly News")
-		view.backgroundColor = .systemGroupedBackground
+		view.backgroundColor = Assets.Colors.background
 
 		navigationItem.leftBarButtonItem = UIBarButtonItem(
 			barButtonSystemItem: .cancel,
@@ -57,18 +57,9 @@ final class NewsPickerViewController: UIViewController {
 	private func configureOpaqueNavigationBar() {
 		let appearance = UINavigationBarAppearance()
 		appearance.configureWithOpaqueBackground()
-		let adaptiveBackground = UIColor { traitCollection in
-			// Check if the current mode is dark
-			if traitCollection.userInterfaceStyle == .dark {
-				return UIColor(red: 0.14, green: 0.14, blue: 0.15, alpha: 1.0)
-			} else {
-				return UIColor(red: 0.96, green: 0.96, blue: 0.98, alpha: 1.0)
-			}
-		}
-		appearance.backgroundColor = adaptiveBackground.resolvedColor(with: self.traitCollection)
-		let textColor = UIColor.label.resolvedColor(with: self.traitCollection)
-		appearance.titleTextAttributes = [.foregroundColor: textColor]
-		appearance.largeTitleTextAttributes = [.foregroundColor: textColor]
+		appearance.backgroundColor = Assets.Colors.foreground
+		appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
+		appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
 		navigationItem.standardAppearance = appearance
 		navigationItem.scrollEdgeAppearance = appearance
 		navigationItem.compactAppearance = appearance
@@ -81,7 +72,7 @@ final class NewsPickerViewController: UIViewController {
 		let layout = createLayout()
 		collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
 		collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-		collectionView.backgroundColor = .systemGroupedBackground
+		collectionView.backgroundColor = Assets.Colors.background
 		collectionView.delegate = self
 		collectionView.register(SourcePickerCell.self, forCellWithReuseIdentifier: SourcePickerCell.reuseIdentifier)
 		collectionView.register(

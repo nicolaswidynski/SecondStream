@@ -23,6 +23,7 @@ final class AddFeedFolderViewController: UITableViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+		tableView.backgroundColor = Assets.Colors.background
 
 		let sortedActiveAccounts = AccountManager.shared.sortedActiveAccounts
 
@@ -43,6 +44,12 @@ final class AddFeedFolderViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
 		return containers.count
     }
+
+	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+		var bg = UIBackgroundConfiguration.listCell()
+		bg.backgroundColor = Assets.Colors.foreground
+		cell.backgroundConfiguration = bg
+	}
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 		let container = containers[indexPath.row]

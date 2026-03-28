@@ -98,9 +98,8 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 	}
 
 	func configureUI() {
-		let accentColor = UIColor(named: "secondaryAccentColor") ?? .systemBlue
-		headerTitle.textColor = accentColor
-		disclosureIndicator.tintColor = accentColor
+		headerTitle.textColor = Assets.Colors.secondaryAccent
+		disclosureIndicator.tintColor = Assets.Colors.secondaryAccent
 		updateAttributedTitle()
 	}
 

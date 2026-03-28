@@ -61,7 +61,7 @@ final class RegistrationViewController: UIViewController {
 		var config = UIButton.Configuration.filled()
 		config.title = "Reconnect"
 		config.cornerStyle = .medium
-		config.baseBackgroundColor = .systemBlue
+		config.baseBackgroundColor = Assets.Colors.primaryAccent
 		config.baseForegroundColor = .white
 		let button = UIButton(configuration: config)
 		button.translatesAutoresizingMaskIntoConstraints = false
@@ -148,7 +148,7 @@ final class RegistrationViewController: UIViewController {
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
-		view.backgroundColor = .systemBackground
+		view.backgroundColor = Assets.Colors.background
 
 		reconnectButton.addTarget(self, action: #selector(handleReconnect), for: .touchUpInside)
 		reconnectAppleButton.addTarget(self, action: #selector(handleReconnectApple), for: .touchUpInside)

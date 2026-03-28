@@ -81,6 +81,8 @@ final class ArticleViewController: UIViewController {
 	override func viewDidLoad() {
 		super.viewDidLoad()
 
+		view.backgroundColor = Assets.Colors.background
+
 		NotificationCenter.default.addObserver(self, selector: #selector(unreadCountDidChange(_:)), name: .UnreadCountDidChange, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(statusesDidChange(_:)), name: .StatusesDidChange, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(contentSizeCategoryDidChange(_:)), name: UIContentSizeCategory.didChangeNotification, object: nil)
@@ -153,6 +155,7 @@ final class ArticleViewController: UIViewController {
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
+		navigationController?.view.backgroundColor = Assets.Colors.background
 		let hideToolbars = AppDefaults.shared.logicalArticleFullscreenEnabled
 		if hideToolbars {
 			currentWebViewController?.hideBars()

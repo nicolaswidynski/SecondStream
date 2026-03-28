@@ -64,7 +64,14 @@ final class AddFolderViewController: UITableViewController {
 		NotificationCenter.default.addObserver(self, selector: #selector(textDidChange(_:)), name: UITextField.textDidChangeNotification, object: nameTextField)
 
 		nameTextField.becomeFirstResponder()
+		tableView.backgroundColor = Assets.Colors.background
     }
+
+	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+		var bg = UIBackgroundConfiguration.listCell()
+		bg.backgroundColor = Assets.Colors.foreground
+		cell.backgroundConfiguration = bg
+	}
 
 	private func didSelect(_ account: Account) {
 		AppDefaults.shared.addFolderAccountID = account.accountID

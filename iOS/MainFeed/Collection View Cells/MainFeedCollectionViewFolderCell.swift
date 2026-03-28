@@ -114,7 +114,7 @@ class MainFeedCollectionViewFolderCell: UICollectionViewCell {
 
 		switch (state.isHighlighted || state.isSelected || state.isFocused, traitCollection.userInterfaceIdiom) {
 		case (true, .pad):
-			backgroundConfig.backgroundColor = .tertiarySystemFill
+			backgroundConfig.backgroundColor = Assets.Colors.primaryAccent.withAlphaComponent(0.12)
 			folderTitle.textColor = Assets.Colors.primaryAccent
 			folderTitle.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .semibold)
 			unreadCountLabel.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .semibold)
@@ -124,6 +124,7 @@ class MainFeedCollectionViewFolderCell: UICollectionViewCell {
 			unreadCountLabel.textColor = .secondaryLabel
 			faviconView.tintColor = .white
 		default:
+			backgroundConfig.backgroundColor = Assets.Colors.foreground
 			folderTitle.textColor = .label
 			faviconView.tintColor = Assets.Colors.primaryAccent
 			folderTitle.font = UIFont.preferredFont(forTextStyle: .body)
@@ -131,9 +132,10 @@ class MainFeedCollectionViewFolderCell: UICollectionViewCell {
 		}
 
 		if state.cellDropState == .targeted {
-			backgroundConfig.backgroundColor = .tertiarySystemFill
+			backgroundConfig.backgroundColor = Assets.Colors.primaryAccent.withAlphaComponent(0.18)
 		}
 
 		self.backgroundConfiguration = backgroundConfig
 	}
+
 }

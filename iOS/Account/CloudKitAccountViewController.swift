@@ -18,6 +18,13 @@ final class CloudKitAccountViewController: UITableViewController {
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
+		tableView.backgroundColor = Assets.Colors.background
+	}
+
+	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+		var bg = UIBackgroundConfiguration.listCell()
+		bg.backgroundColor = Assets.Colors.foreground
+		cell.backgroundConfiguration = bg
 		setupFooter()
 
 		tableView.register(ImageHeaderView.self, forHeaderFooterViewReuseIdentifier: "SectionHeader")

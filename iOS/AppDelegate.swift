@@ -66,6 +66,7 @@ import Secrets
 		// solid adaptive colour that is identical everywhere.
 		let consistentAppearance = UINavigationBarAppearance()
 		consistentAppearance.configureWithOpaqueBackground()
+		consistentAppearance.backgroundColor = Assets.Colors.foreground
 		UINavigationBar.appearance().standardAppearance = consistentAppearance
 		UINavigationBar.appearance().scrollEdgeAppearance = consistentAppearance
 		UINavigationBar.appearance().compactAppearance = consistentAppearance

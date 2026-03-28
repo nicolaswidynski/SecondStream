@@ -55,7 +55,7 @@ final class SourceSearchViewController: UIViewController {
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
-		view.backgroundColor = .systemGroupedBackground
+		view.backgroundColor = Assets.Colors.background
 
 		navigationItem.leftBarButtonItem = UIBarButtonItem(
 			barButtonSystemItem: .cancel,

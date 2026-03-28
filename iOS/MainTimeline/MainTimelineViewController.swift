@@ -435,7 +435,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 		var titleColor: UIColor {
 			switch self {
-			case .justIn: return .systemBlue
+			case .justIn: return Assets.Colors.primaryAccent
 			default:      return .label
 			}
 		}
@@ -584,6 +584,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 		super.viewDidLoad()
 
+		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (_: MainTimelineViewController, _: UITraitCollection) in
+			guard let self else { return }
+			tableView.layoutSectionCardShadows(in: &sectionShadowViews)
+		}
+
 		NotificationCenter.default.addObserver(self, selector: #selector(unreadCountDidChange(_:)), name: .UnreadCountDidChange, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(statusesDidChange(_:)), name: .StatusesDidChange, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(feedIconDidBecomeAvailable(_:)), name: .feedIconDidBecomeAvailable, object: nil)
@@ -635,7 +640,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		tableView.estimatedSectionHeaderHeight = 50
 		tableView.sectionHeaderTopPadding = 0
 		// Match the main feed's insetGrouped background (storyboard overrides this to systemBackground).
-		tableView.backgroundColor = .systemGroupedBackground
+		tableView.backgroundColor = Assets.Colors.background
 
 		numberOfTextLines = AppDefaults.shared.timelineNumberOfLines
 		iconSize = AppDefaults.shared.timelineIconSize
@@ -664,8 +669,16 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		updateNavigationFeedIcon()
 	}
 
+	private var sectionShadowViews: [UIView] = []
+
+	override func viewDidLayoutSubviews() {
+		super.viewDidLayoutSubviews()
+		tableView.layoutSectionCardShadows(in: &sectionShadowViews)
+	}
+
 	override func viewWillAppear(_ animated: Bool) {
 		super.viewWillAppear(animated)
+		navigationController?.view.backgroundColor = Assets.Colors.background
 		navigationController?.setNavigationBarHidden(false, animated: false)
 		self.navigationController?.isToolbarHidden = false
 		shouldFadeInNavigationSubtitle = true
@@ -935,7 +948,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	private func animateDoubleFlash(on cell: UITableViewCell) {
 		let flashView = UIView(frame: cell.bounds)
 		flashView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-		flashView.backgroundColor = UIColor(red: 45/255, green: 128/255, blue: 241/255, alpha: 1.0)//.white
+		flashView.backgroundColor = Assets.Colors.primaryAccent
 		flashView.alpha = 0
 		flashView.isUserInteractionEnabled = false
 		cell.contentView.addSubview(flashView)

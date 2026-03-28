@@ -53,7 +53,7 @@ import UIKit
 
 	override func didMoveToSuperview() {
 		super.didMoveToSuperview()
-		layer.backgroundColor = UIColor(named: "barBackgroundColor")?.cgColor ?? UIColor.white.cgColor
+		layer.backgroundColor = Assets.Colors.interactionBackground.cgColor
 		isOpaque = true
 		NotificationCenter.default.addObserver(self, selector: #selector(textDidChange(_:)), name: UITextField.textDidChangeNotification, object: searchField)
 	}
@@ -96,7 +96,7 @@ private extension ArticleSearchBar {
 		layoutMargins.right = 8
 
 		background = UIView(frame: bounds)
-		background.backgroundColor = .systemGray5
+		background.backgroundColor = Assets.Colors.interactionBackground
 		background.autoresizingMask = [.flexibleWidth, .flexibleHeight]
 		addSubview(background)
 

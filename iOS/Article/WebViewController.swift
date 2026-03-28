@@ -87,6 +87,8 @@ final class WebViewController: UIViewController {
 	override func viewDidLoad() {
 		super.viewDidLoad()
 
+		view.backgroundColor = Assets.Colors.background
+
 		NotificationCenter.default.addObserver(self, selector: #selector(feedIconDidBecomeAvailable(_:)), name: .feedIconDidBecomeAvailable, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(avatarDidBecomeAvailable(_:)), name: .AvatarDidBecomeAvailable, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(faviconDidBecomeAvailable(_:)), name: .FaviconDidBecomeAvailable, object: nil)
@@ -652,6 +654,9 @@ private extension WebViewController {
 
 				// Add the webview
 				webView.translatesAutoresizingMaskIntoConstraints = false
+				webView.isOpaque = false   // must be false or backgroundColor is ignored by WKWebView
+				webView.backgroundColor = Assets.Colors.background
+				webView.scrollView.backgroundColor = Assets.Colors.background
 				self.view.insertSubview(webView, at: 0)
 				NSLayoutConstraint.activate([
 					self.view.leadingAnchor.constraint(equalTo: webView.leadingAnchor),

@@ -58,6 +58,8 @@ final class AddFeedViewController: UITableViewController {
 			addButton.isEnabled = false
 		}
 
+		tableView.backgroundColor = Assets.Colors.background
+
 		updateFolderLabel()
 
 		tableView.register(UINib(nibName: "AddFeedSelectFolderTableViewCell", bundle: nil), forCellReuseIdentifier: "AddFeedSelectFolderTableViewCell")
@@ -67,6 +69,12 @@ final class AddFeedViewController: UITableViewController {
 		if initialFeed == nil {
 			urlTextField.becomeFirstResponder()
 		}
+	}
+
+	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+		var bg = UIBackgroundConfiguration.listCell()
+		bg.backgroundColor = Assets.Colors.foreground
+		cell.backgroundConfiguration = bg
 	}
 
 	@IBAction func cancel(_ sender: Any) {

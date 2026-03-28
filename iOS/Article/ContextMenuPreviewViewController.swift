@@ -20,6 +20,8 @@ final class ContextMenuPreviewViewController: UIViewController {
 	override func viewDidLoad() {
         super.viewDidLoad()
 
+		view.backgroundColor = Assets.Colors.foreground
+
 		blogNameLabel.text = article.feed?.nameForDisplay ?? ""
 		blogAuthorLabel.text = article.byline()
 		articleTitleLabel.text = article.title ?? ""
