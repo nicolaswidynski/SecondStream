@@ -68,7 +68,7 @@ final class LeftSideMenuViewController: UIViewController {
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
-		view.backgroundColor = .systemBackground
+		view.backgroundColor = Assets.Colors.background
 		setupViews()
 		updateCredits()
 
@@ -121,25 +121,39 @@ final class LeftSideMenuViewController: UIViewController {
 		])
 	}
 
-	private func makeAddRow(icon: String, title: String, action: Selector) -> UIButton {
-		var config = UIButton.Configuration.plain()
-		config.image = UIImage(systemName: icon, withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .medium))
-		config.title = title
-		config.imagePlacement = .leading
-		config.imagePadding = 12
-		config.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16)
-		config.baseForegroundColor = .label
-		config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-			var outgoing = incoming
-			outgoing.font = UIFont.systemFont(ofSize: 16)
-			return outgoing
-		}
+	private func makeAddRow(icon: String, title: String, action: Selector) -> UIControl {
+		let row = UIControl()
+		row.heightAnchor.constraint(equalToConstant: 50).isActive = true
 
-		let button = UIButton(configuration: config)
-		button.contentHorizontalAlignment = .leading
-		button.heightAnchor.constraint(equalToConstant: 50).isActive = true
-		button.addTarget(self, action: action, for: .touchUpInside)
-		return button
+		let iconView = UIImageView()
+		iconView.image = UIImage(systemName: icon, withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .medium))
+		iconView.contentMode = .center
+		iconView.tintColor = .label
+		iconView.translatesAutoresizingMaskIntoConstraints = false
+		iconView.widthAnchor.constraint(equalToConstant: 22).isActive = true
+
+		let label = UILabel()
+		label.text = title
+		label.font = .systemFont(ofSize: 16)
+		label.textColor = .label
+		label.translatesAutoresizingMaskIntoConstraints = false
+
+		let stack = UIStackView(arrangedSubviews: [iconView, label])
+		stack.axis = .horizontal
+		stack.spacing = 12
+		stack.alignment = .center
+		stack.isUserInteractionEnabled = false
+		stack.translatesAutoresizingMaskIntoConstraints = false
+
+		row.addSubview(stack)
+		NSLayoutConstraint.activate([
+			stack.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 20),
+			stack.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -16),
+			stack.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+		])
+
+		row.addTarget(self, action: action, for: .touchUpInside)
+		return row
 	}
 
 	// MARK: - Credits
