@@ -30,6 +30,7 @@ enum AddYoutubeResult {
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "YoutubeSources")
 
 	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
+	private let findShowURL = URL(string: "https://n8n.nwidynski.com/webhook/find-show")!
 
 	private static let topFileName = "yt_free.json"
 	private static let libraryFileName = "yt_featured.json"
@@ -177,6 +178,75 @@ enum AddYoutubeResult {
 			self.youtubeLibrarySources = sources
 			sources.forEach { LightFeedIconStore.shared.setLightIconURL($0.imageURLLight, for: $0.url) }
 			Self.logger.info("Fetched \(sources.count) library YouTube sources")
+		}
+	}
+
+	/// Searches for YouTube channel candidates via the find-show webhook.
+	func findYoutube(name channelName: String, author: String? = nil) async -> FindShowResult {
+		if channelName.hasPrefix("@") {
+			return await sendFindRequest(type: "yt", show: "", author: channelName)
+		} else {
+			return await sendFindRequest(type: "yt", show: channelName, author: author ?? "")
+		}
+	}
+
+	private func sendFindRequest(type: String, show: String, author: String) async -> FindShowResult {
+		guard let token = bearerToken else {
+			Self.logger.error("No bearer token available")
+			return .failure(message: "No authentication token")
+		}
+
+		var request = URLRequest(url: findShowURL)
+		request.httpMethod = "POST"
+		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+		let requestID = UUID().uuidString
+		let body: [String: String] = [
+			"type": type,
+			"show": show,
+			"author": author,
+			"apple_user_id": AuthManager.shared.appleUserID ?? "",
+			"request_id": requestID
+		]
+
+		do {
+			request.httpBody = try JSONSerialization.data(withJSONObject: body)
+		} catch {
+			Self.logger.error("Failed to encode find request body")
+			return .failure(message: "Failed to encode request")
+		}
+
+		do {
+			let (data, response) = try await URLSession.shared.data(for: request)
+			guard let httpResponse = response as? HTTPURLResponse else {
+				Self.logger.error("Invalid response type")
+				return .failure(message: "Invalid response")
+			}
+			let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+			if let echoed = json?["request_id"] as? String, echoed != requestID {
+				Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
+			}
+			if httpResponse.statusCode == 200,
+			   let json,
+			   let status = json["status"] as? String,
+			   status == "success",
+			   let listData = json["list"] as? [[String: Any]] {
+				let candidates = listData.compactMap { dict -> FindShowCandidate? in
+					guard let name = dict["name"] as? String else {
+						return nil
+					}
+					return FindShowCandidate(name: name, author: dict["author"] as? String, artworkUrl: dict["artworkUrl"] as? String)
+				}
+				Self.logger.info("Found \(candidates.count) candidates")
+				return .success(Array(candidates.prefix(10)))
+			}
+			let message = Self.extractMessage(from: data)
+			Self.logger.error("[\(httpResponse.statusCode)] \(message)")
+			return .failure(message: "[\(httpResponse.statusCode)] \(message)")
+		} catch {
+			Self.logger.error("Failed to find show: \(error.localizedDescription)")
+			return .failure(message: error.localizedDescription)
 		}
 	}
 

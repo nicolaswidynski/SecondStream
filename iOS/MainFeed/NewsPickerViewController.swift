@@ -135,9 +135,11 @@ final class NewsPickerViewController: UIViewController {
 			let section = self.dataSource.snapshot().sectionIdentifiers[indexPath.section]
 			switch section {
 			case .customEntry:
-				header.configure(letter: "")
+				header.configure(title: "")
 			case .sources(let title):
-				header.configure(letter: title)
+				header.configure(title: title)
+			case .paidSources, .findResults:
+				header.configure(title: "")
 			}
 
 			return header

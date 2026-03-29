@@ -15,6 +15,7 @@ final class SourcePickerCell: UICollectionViewCell {
 	private(set) var currentImageURL: String?
 	private var imageURLDark: String?
 	private var imageURLLight: String?
+	private var imageLoadTask: Task<Void, Never>?
 
 	private let iconImageView: UIImageView = {
 		let iv = UIImageView()
@@ -79,6 +80,8 @@ final class SourcePickerCell: UICollectionViewCell {
 
 	override func prepareForReuse() {
 		super.prepareForReuse()
+		imageLoadTask?.cancel()
+		imageLoadTask = nil
 		iconImageView.image = nil
 		iconImageView.backgroundColor = Assets.Colors.interactionBackground
 		iconImageView.contentMode = .scaleAspectFill
@@ -140,6 +143,43 @@ final class SourcePickerCell: UICollectionViewCell {
 			iconImageView.tintColor = nil
 			iconImageView.contentMode = .scaleAspectFill
 		}
+	}
+
+	func configureFindCandidate(name: String, artworkURL: String?) {
+		nameLabel.text = name
+		nameLabel.textColor = .label
+		currentImageURL = artworkURL
+		imageURLDark = artworkURL
+		imageURLLight = nil
+
+		guard let urlString = artworkURL, let url = URL(string: urlString) else {
+			showPlaceholder()
+			return
+		}
+
+		showPlaceholder()
+		imageLoadTask = Task { @MainActor [weak self] in
+			guard let (data, _) = try? await URLSession.shared.data(from: url),
+				  let image = UIImage(data: data),
+				  !Task.isCancelled else {
+				return
+			}
+			guard let self, self.currentImageURL == urlString else { return }
+			self.iconImageView.image = image
+			self.iconImageView.tintColor = nil
+			self.iconImageView.contentMode = .scaleAspectFill
+		}
+	}
+
+	func configureFindLoading(sourceType: FindSourceType) {
+		nameLabel.text = NSLocalizedString("Loading...", comment: "Loading placeholder")
+		nameLabel.textColor = .secondaryLabel
+		let symbolName = sourceType == .podcast ? "mic.fill" : "play.rectangle.fill"
+		let config = UIImage.SymbolConfiguration(pointSize: 32, weight: .medium)
+		iconImageView.image = UIImage(systemName: symbolName, withConfiguration: config)
+		iconImageView.tintColor = .tertiaryLabel
+		iconImageView.contentMode = .center
+		iconImageView.backgroundColor = Assets.Colors.interactionBackground
 	}
 
 	private func showPlaceholder() {

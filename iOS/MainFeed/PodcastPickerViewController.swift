@@ -22,6 +22,9 @@ final class PodcastPickerViewController: UIViewController {
 	private var collectionView: UICollectionView!
 	private var dataSource: UICollectionViewDiffableDataSource<SourcePickerSection, SourcePickerItem>!
 	private let searchController = UISearchController(searchResultsController: nil)
+	private var findTask: Task<Void, Never>?
+	private var currentFindItems: [SourcePickerItem] = []
+	private var lastFindQuery: String = ""
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -47,6 +50,12 @@ final class PodcastPickerViewController: UIViewController {
 			name: .sourceImageDidBecomeAvailable,
 			object: SourceImageCache.shared
 		)
+		NotificationCenter.default.addObserver(
+			self,
+			selector: #selector(creditsDidUpdate),
+			name: .creditsDidUpdate,
+			object: nil
+		)
 
 		applySnapshot()
 	}
@@ -71,12 +80,9 @@ final class PodcastPickerViewController: UIViewController {
 	private func configureSearch() {
 		searchController.obscuresBackgroundDuringPresentation = false
 		searchController.searchResultsUpdater = self
-		searchController.searchBar.delegate = self
 		searchController.searchBar.placeholder = NSLocalizedString("Search or add", comment: "Search or add")
 		searchController.searchBar.autocapitalizationType = .words
 		searchController.searchBar.searchBarStyle = .minimal
-		searchController.searchBar.showsBookmarkButton = true
-		searchController.searchBar.setImage(UIImage(systemName: "plus.circle"), for: .bookmark, state: .normal)
 		navigationItem.searchController = searchController
 		navigationItem.hidesSearchBarWhenScrolling = false
 		definesPresentationContext = true
@@ -132,6 +138,10 @@ final class PodcastPickerViewController: UIViewController {
 				cell.configure(name: NSLocalizedString("Add Podcast", comment: "Add Podcast"), imageURL: nil, isCustomEntry: true)
 			case .podcastSource(let source):
 				cell.configure(name: source.name, imageURL: source.imageURL, imageURLLight: source.imageURLLight)
+			case .findCandidate(let candidate):
+				cell.configureFindCandidate(name: candidate.name, artworkURL: candidate.artworkUrl)
+			case .findLoading:
+				cell.configureFindLoading(sourceType: .podcast)
 			default:
 				break
 			}
@@ -139,8 +149,8 @@ final class PodcastPickerViewController: UIViewController {
 			return cell
 		}
 
-		dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
-			guard let header = collectionView.dequeueReusableSupplementaryView(
+		dataSource.supplementaryViewProvider = { [weak self] collectionView, kind, indexPath in
+			guard let self, let header = collectionView.dequeueReusableSupplementaryView(
 				ofKind: kind,
 				withReuseIdentifier: SourcePickerHeaderView.reuseIdentifier,
 				for: indexPath
@@ -151,9 +161,18 @@ final class PodcastPickerViewController: UIViewController {
 			let section = self.dataSource.snapshot().sectionIdentifiers[indexPath.section]
 			switch section {
 			case .customEntry:
-				header.configure(letter: "")
+				header.configure(title: "")
 			case .sources(let title):
-				header.configure(letter: title)
+				header.configure(title: title)
+			case .paidSources:
+				let credits = FeedStatsManager.shared.cachedCredits ?? 0
+				header.configure(
+					title: "\(credits) remaining credits",
+					showsInfoButton: true,
+					onInfoTapped: { [weak self] in Task { await self?.handleCreditsInfo() } }
+				)
+			case .findResults:
+				header.configure(title: NSLocalizedString("Search Results", comment: "Remote search results section"))
 			}
 
 			return header
@@ -182,10 +201,9 @@ final class PodcastPickerViewController: UIViewController {
 				snapshot.appendItems(items, toSection: topPicks)
 			}
 			if !librarySources.isEmpty {
-				let otherSection = SourcePickerSection.sources(NSLocalizedString("Popular Picks (with credits)", comment: "Popular Picks (with credits)"))
-				snapshot.appendSections([otherSection])
+				snapshot.appendSections([.paidSources])
 				let items = librarySources.map { SourcePickerItem.podcastSource($0) }
-				snapshot.appendItems(items, toSection: otherSection)
+				snapshot.appendItems(items, toSection: .paidSources)
 			}
 		} else {
 			let allSources = topSources + librarySources
@@ -198,6 +216,11 @@ final class PodcastPickerViewController: UIViewController {
 			snapshot.appendItems(matches.map { SourcePickerItem.podcastSource($0) }, toSection: section)
 		}
 
+		if !currentFindItems.isEmpty {
+			snapshot.appendSections([.findResults])
+			snapshot.appendItems(currentFindItems, toSection: .findResults)
+		}
+
 		dataSource.apply(snapshot, animatingDifferences: false)
 	}
 
@@ -205,6 +228,29 @@ final class PodcastPickerViewController: UIViewController {
 
 	@objc private func cancelTapped() {
 		delegate?.podcastPickerDidCancel(self)
+	}
+
+	@objc private func creditsDidUpdate() {
+		var snapshot = dataSource.snapshot()
+		guard snapshot.sectionIdentifiers.contains(.paidSources) else {
+			return
+		}
+		snapshot.reloadSections([.paidSources])
+		dataSource.apply(snapshot, animatingDifferences: false)
+	}
+
+	@MainActor
+	private func handleCreditsInfo() async {
+		await FeedStatsManager.shared.reportUpdate()
+		await FeedStatsManager.shared.fetchCredits()
+		let credits = FeedStatsManager.shared.cachedCredits ?? 0
+		let alert = UIAlertController(
+			title: NSLocalizedString("Remaining Credits", comment: "Credits info title"),
+			message: String(format: NSLocalizedString("You have %d remaining credits, please buy new ones or remove non-free Podcasts and YouTube Channels contents.", comment: "Credits info message"), credits),
+			preferredStyle: .alert
+		)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
+		present(alert, animated: true)
 	}
 
 	@objc private func sourceImageDidBecomeAvailable(_ notification: Notification) {
@@ -247,6 +293,9 @@ extension PodcastPickerViewController: UICollectionViewDelegate {
 		switch item {
 		case .podcastSource(let source):
 			delegate?.podcastPicker(self, didSelectPodcast: source)
+		case .findCandidate(let candidate):
+			let source = PodcastSource(name: candidate.name, author: candidate.author, url: "", imageURL: nil)
+			delegate?.podcastPicker(self, didSelectPodcast: source)
 		default:
 			break
 		}
@@ -258,35 +307,54 @@ extension PodcastPickerViewController: UICollectionViewDelegate {
 extension PodcastPickerViewController: UISearchResultsUpdating {
 
 	func updateSearchResults(for searchController: UISearchController) {
-		applySnapshot()
-	}
-}
+		let query = (searchController.searchBar.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 
-// MARK: - UISearchBarDelegate
-
-extension PodcastPickerViewController: UISearchBarDelegate {
-
-	func searchBarBookmarkButtonClicked(_ searchBar: UISearchBar) {
-		let alert = UIAlertController(
-			title: NSLocalizedString("Add Podcast", comment: "Add Podcast"),
-			message: nil,
-			preferredStyle: .alert
-		)
-		alert.addTextField { textField in
-			textField.placeholder = NSLocalizedString("Podcast name", comment: "Podcast name placeholder")
-			textField.autocapitalizationType = .words
-			textField.autocorrectionType = .default
+		guard query.count >= 3 else {
+			clearFindResults()
+			applySnapshot()
+			return
 		}
-		let add = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { [weak self, weak alert] _ in
-			guard let self,
-				  let name = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines),
-				  !name.isEmpty else {
-				return
+
+		let localMatches = computeLocalMatches(query: query)
+		if localMatches.count <= 6 && query != lastFindQuery {
+			lastFindQuery = query
+			currentFindItems = [.findLoading]
+			applySnapshot()
+			findTask?.cancel()
+			findTask = Task {
+				try? await Task.sleep(for: .milliseconds(500))
+				guard !Task.isCancelled else { return }
+				let result = await PodcastSourcesManager.shared.findPodcast(name: query)
+				guard !Task.isCancelled else { return }
+				if case .success(let candidates) = result, !candidates.isEmpty {
+					currentFindItems = candidates.map { .findCandidate($0) }
+				} else {
+					currentFindItems = []
+				}
+				applySnapshot()
 			}
-			self.delegate?.podcastPicker(self, didEnterPodcastName: name)
+		} else {
+			applySnapshot()
 		}
-		alert.addAction(add)
-		alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
-		present(alert, animated: true)
+	}
+
+	private func computeLocalMatches(query: String) -> [PodcastSource] {
+		let topSources = PodcastSourcesManager.shared.podcastSources.sorted {
+			$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+		}
+		let topNames = Set(topSources.map { $0.name.lowercased() })
+		let librarySources = PodcastSourcesManager.shared.podcastLibrarySources
+			.filter { !topNames.contains($0.name.lowercased()) }
+			.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+		return (topSources + librarySources).filter {
+			$0.name.localizedCaseInsensitiveContains(query) ||
+			($0.author?.localizedCaseInsensitiveContains(query) ?? false)
+		}
+	}
+
+	private func clearFindResults() {
+		findTask?.cancel()
+		currentFindItems = []
+		lastFindQuery = ""
 	}
 }
