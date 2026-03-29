@@ -12,6 +12,8 @@ final class SourcePickerHeaderView: UICollectionReusableView {
 
 	static let reuseIdentifier = "SourcePickerHeaderView"
 
+	private var onInfoTapped: (() -> Void)?
+
 	private let label: UILabel = {
 		let label = UILabel()
 		label.font = .preferredFont(forTextStyle: .headline)
@@ -19,14 +21,41 @@ final class SourcePickerHeaderView: UICollectionReusableView {
 		return label
 	}()
 
+	private let infoButton: UIButton = {
+		let symbolConfig = UIImage.SymbolConfiguration(pointSize: 11, weight: .regular)
+		let button = UIButton(type: .system)
+		button.setImage(UIImage(systemName: "info.circle", withConfiguration: symbolConfig), for: .normal)
+		button.tintColor = .secondaryLabel
+		button.translatesAutoresizingMaskIntoConstraints = false
+		button.isHidden = true
+		return button
+	}()
+
+	private let stackView: UIStackView = {
+		let stack = UIStackView()
+		stack.axis = .horizontal
+		stack.alignment = .top
+		stack.spacing = 4
+		stack.translatesAutoresizingMaskIntoConstraints = false
+		return stack
+	}()
+
 	override init(frame: CGRect) {
 		super.init(frame: frame)
-		addSubview(label)
+
+		stackView.addArrangedSubview(label)
+		stackView.addArrangedSubview(infoButton)
+		addSubview(stackView)
+
 		NSLayoutConstraint.activate([
-			label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-			label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-			label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
+			stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+			stackView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -16),
+			stackView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
 		])
+
+		infoButton.addAction(UIAction { [weak self] _ in
+			self?.onInfoTapped?()
+		}, for: .touchUpInside)
 	}
 
 	@available(*, unavailable)
@@ -34,7 +63,9 @@ final class SourcePickerHeaderView: UICollectionReusableView {
 		fatalError("init(coder:) has not been implemented")
 	}
 
-	func configure(letter: String) {
-		label.text = letter
+	func configure(title: String, showsInfoButton: Bool = false, onInfoTapped: (() -> Void)? = nil) {
+		label.text = title
+		infoButton.isHidden = !showsInfoButton
+		self.onInfoTapped = onInfoTapped
 	}
 }

@@ -126,6 +126,7 @@ class MainFeedCollectionViewFolderCell: UICollectionViewCell {
 		default:
 			backgroundConfig.backgroundColor = Assets.Colors.foreground
 			folderTitle.textColor = .label
+			unreadCountLabel.textColor = Assets.Colors.primaryAccent
 			faviconView.tintColor = Assets.Colors.primaryAccent
 			folderTitle.font = UIFont.preferredFont(forTextStyle: .body)
 			unreadCountLabel.font = UIFont.preferredFont(forTextStyle: .body)

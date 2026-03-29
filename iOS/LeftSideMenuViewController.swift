@@ -21,10 +21,29 @@ final class LeftSideMenuViewController: UIViewController {
 
 	private lazy var creditsLabel: UILabel = {
 		let label = UILabel()
-		label.translatesAutoresizingMaskIntoConstraints = false
 		label.font = .systemFont(ofSize: 13)
 		label.textColor = .secondaryLabel
 		return label
+	}()
+
+	private lazy var creditsInfoButton: UIButton = {
+		let symbolConfig = UIImage.SymbolConfiguration(pointSize: 11, weight: .regular)
+		let button = UIButton(type: .system)
+		button.setImage(UIImage(systemName: "info.circle", withConfiguration: symbolConfig), for: .normal)
+		button.tintColor = .secondaryLabel
+		button.addAction(UIAction { [weak self] _ in
+			Task { @MainActor [weak self] in await self?.handleCreditsInfo() }
+		}, for: .touchUpInside)
+		return button
+	}()
+
+	private lazy var creditsRowStack: UIStackView = {
+		let stack = UIStackView(arrangedSubviews: [creditsLabel, creditsInfoButton])
+		stack.translatesAutoresizingMaskIntoConstraints = false
+		stack.axis = .horizontal
+		stack.alignment = .top
+		stack.spacing = 4
+		return stack
 	}()
 
 	private lazy var addSectionLabel: UILabel = {
@@ -94,7 +113,7 @@ final class LeftSideMenuViewController: UIViewController {
 		}
 
 		view.addSubview(titleLabel)
-		view.addSubview(creditsLabel)
+		view.addSubview(creditsRowStack)
 		view.addSubview(addSectionLabel)
 		view.addSubview(addStackView)
 		view.addSubview(settingsButton)
@@ -104,12 +123,12 @@ final class LeftSideMenuViewController: UIViewController {
 			titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
 			titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 24),
 
-			creditsLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-			creditsLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-			creditsLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+			creditsRowStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+			creditsRowStack.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -16),
+			creditsRowStack.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
 
 			addSectionLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-			addSectionLabel.topAnchor.constraint(equalTo: creditsLabel.bottomAnchor, constant: 32),
+			addSectionLabel.topAnchor.constraint(equalTo: creditsRowStack.bottomAnchor, constant: 32),
 
 			addStackView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
 			addStackView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -165,10 +184,26 @@ final class LeftSideMenuViewController: UIViewController {
 
 	private func updateCredits() {
 		if let credits = FeedStatsManager.shared.cachedCredits {
-			creditsLabel.text = "\(credits) credits remaining"
+			creditsLabel.text = "\(credits) remaining credits"
+			creditsInfoButton.isHidden = false
 		} else {
 			creditsLabel.text = nil
+			creditsInfoButton.isHidden = true
 		}
+	}
+
+	@MainActor
+	private func handleCreditsInfo() async {
+		await FeedStatsManager.shared.reportUpdate()
+		await FeedStatsManager.shared.fetchCredits()
+		let credits = FeedStatsManager.shared.cachedCredits ?? 0
+		let alert = UIAlertController(
+			title: NSLocalizedString("Remaining Credits", comment: "Credits info title"),
+			message: String(format: NSLocalizedString("You have %d remaining credits, please buy new ones or remove non-free Podcasts and YouTube Channels contents.", comment: "Credits info message"), credits),
+			preferredStyle: .alert
+		)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
+		present(alert, animated: true)
 	}
 
 	// MARK: - Actions

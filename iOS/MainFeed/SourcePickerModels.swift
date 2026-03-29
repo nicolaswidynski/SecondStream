@@ -11,6 +11,8 @@ import Foundation
 enum SourcePickerSection: Hashable {
 	case customEntry
 	case sources(String) // section title
+	case paidSources     // stable identity for the credits-gated section
+	case findResults     // remote search results appended inline
 }
 
 enum SourcePickerItem: Hashable {
@@ -20,4 +22,6 @@ enum SourcePickerItem: Hashable {
 	case youtubeSource(YoutubeSource)
 	case newsSource(NewsSource)
 	case rssSource(RSSSource)
+	case findCandidate(FindShowCandidate)
+	case findLoading
 }

@@ -256,7 +256,7 @@ struct Assets {
 		static var background: RSColor {
 			RSColor { tc in
 				tc.userInterfaceStyle == .dark
-					? RSColor(red:  31/255, green:  30/255, blue:  29/255, alpha: 1)
+					? RSColor(red:  27/255, green:  26/255, blue:  25/255, alpha: 1)
 					: RSColor(red: 241/255, green: 243/255, blue: 248/255, alpha: 1)
 			}
 		}

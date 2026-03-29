@@ -101,6 +101,7 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 	func configureUI() {
 		headerTitle.textColor = Assets.Colors.secondaryAccent
 		disclosureIndicator.tintColor = Assets.Colors.secondaryAccent
+		unreadCountLabel.textColor = Assets.Colors.primaryAccent
 		updateAttributedTitle()
 	}
 
