@@ -66,7 +66,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 
 
-	/// The update status label (added directly to view, not navigation bar)
+	/// The update status label shown in the navigation bar title view
 	private lazy var updateStatusLabel: UILabel = {
 		let label = UILabel()
 		label.font = .preferredFont(forTextStyle: .caption2)
@@ -75,8 +75,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		label.translatesAutoresizingMaskIntoConstraints = false
 		return label
 	}()
-
-	private var updateStatusTrailingConstraint: NSLayoutConstraint?
 	private let recentlyUpdatedTopInset: CGFloat = 156
 	private let defaultTopInset: CGFloat = 8
 
@@ -199,14 +197,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		// Right bar button: Starred smart feed shortcut
 		navigationItem.rightBarButtonItem = starredButton
 
-		// Add update status label to the view (not navigation bar)
-		view.addSubview(updateStatusLabel)
-		let trailingConstraint = updateStatusLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -72)
-		updateStatusTrailingConstraint = trailingConstraint
-		NSLayoutConstraint.activate([
-			updateStatusLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -40),
-			trailingConstraint
-		])
+		// Show update status text in the navigation bar title area
+		navigationItem.titleView = updateStatusLabel
 
 	}
 
@@ -1354,9 +1346,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
 			appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
 		}
-
-		// Also refresh sources (throttled to every 5 minutes)
-		SourcesRefreshManager.shared.refreshIfNeeded()
 	}
 
 	@objc private func appWillEnterForeground() {
