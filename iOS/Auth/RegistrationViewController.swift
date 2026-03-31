@@ -13,17 +13,13 @@ import os.log
 
 /// Handles both reconnection and new-user registration (Sign in with Apple).
 ///
-/// Always starts in reconnect mode. The user can tap "Create a new account instead"
-/// to switch to sign-in (creation) mode.
+/// Shows two buttons: "Existing User" (Face ID → Apple Sign In fallback) and "New User" (Apple Sign In).
 final class RegistrationViewController: UIViewController {
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "Auth")
 
-	private enum Mode { case reconnect, signIn }
-
-	private var mode: Mode {
-		didSet { applyMode() }
-	}
+	/// Tracks whether a pending Apple Sign In sheet is for reconnection or new account creation.
+	private var pendingAppleSignInIsReconnect = true
 
 	/// Called after a successful sign-in or reconnect, just before dismissal.
 	var didSucceedHandler: (() -> Void)?
@@ -34,32 +30,23 @@ final class RegistrationViewController: UIViewController {
 		let stack = UIStackView()
 		stack.axis = .vertical
 		stack.alignment = .center
-		stack.spacing = 24
+		stack.spacing = 16
 		stack.translatesAutoresizingMaskIntoConstraints = false
 		return stack
 	}()
 
 	private let titleLabel: UILabel = {
 		let label = UILabel()
-		label.font = .systemFont(ofSize: 28, weight: .bold)
+		label.text = "Second Stream"
+		label.font = .systemFont(ofSize: 32, weight: .bold)
 		label.textAlignment = .center
 		label.numberOfLines = 0
 		return label
 	}()
 
-	private let subtitleLabel: UILabel = {
-		let label = UILabel()
-		label.font = .systemFont(ofSize: 16)
-		label.textColor = .secondaryLabel
-		label.textAlignment = .center
-		label.numberOfLines = 0
-		return label
-	}()
-
-	/// Fast reconnect — only shown when a stored identity exists.
-	private let reconnectButton: UIButton = {
+	private let existingUserButton: UIButton = {
 		var config = UIButton.Configuration.filled()
-		config.title = "Reconnect"
+		config.title = "Existing User"
 		config.cornerStyle = .medium
 		config.baseBackgroundColor = Assets.Colors.primaryAccent
 		config.baseForegroundColor = .white
@@ -68,18 +55,11 @@ final class RegistrationViewController: UIViewController {
 		return button
 	}()
 
-	/// "Continue with Apple" — shown in reconnect mode for Apple-sign-in reconnection.
-	private let reconnectAppleButton: ASAuthorizationAppleIDButton = {
-		let button = ASAuthorizationAppleIDButton(type: .continue, style: .black)
-		button.cornerRadius = 12
-		button.translatesAutoresizingMaskIntoConstraints = false
-		return button
-	}()
-
-	/// "Sign up with Apple" — shown in sign-in (creation) mode.
-	private let createAppleButton: ASAuthorizationAppleIDButton = {
-		let button = ASAuthorizationAppleIDButton(type: .signUp, style: .black)
-		button.cornerRadius = 12
+	private let newUserButton: UIButton = {
+		var config = UIButton.Configuration.tinted()
+		config.title = "New User"
+		config.cornerStyle = .medium
+		let button = UIButton(configuration: config)
 		button.translatesAutoresizingMaskIntoConstraints = false
 		return button
 	}()
@@ -90,166 +70,83 @@ final class RegistrationViewController: UIViewController {
 		return indicator
 	}()
 
-	/// Shown in reconnect mode — switches to creation mode.
-	private let switchModeButton: UIButton = {
-		let button = UIButton(type: .system)
-		button.setTitle("Create a new account instead", for: .normal)
-		button.titleLabel?.font = .systemFont(ofSize: 14)
-		button.translatesAutoresizingMaskIntoConstraints = false
-		return button
-	}()
-
-	/// Retry Face ID — shown in reconnect mode when Face ID is enabled.
-	private let retryFaceIDButton: UIButton = {
-		var config = UIButton.Configuration.tinted()
-		config.title = "Use Face ID"
-		config.image = UIImage(systemName: "faceid")
-		config.imagePadding = 8
-		config.cornerStyle = .medium
-		let button = UIButton(configuration: config)
-		button.translatesAutoresizingMaskIntoConstraints = false
-		return button
-	}()
-
-	/// Shown in sign-in mode — switches back to reconnect mode.
-	private let backToReconnectButton: UIButton = {
-		let button = UIButton(type: .system)
-		button.setTitle("Sign in to existing account", for: .normal)
-		button.titleLabel?.font = .systemFont(ofSize: 14)
-		button.translatesAutoresizingMaskIntoConstraints = false
-		return button
-	}()
-
-	// MARK: - Init
-
-	init() {
-		self.mode = .reconnect
-		super.init(nibName: nil, bundle: nil)
-	}
-
-	required init?(coder: NSCoder) {
-		self.mode = .reconnect
-		super.init(coder: coder)
-	}
-
 	// MARK: - Lifecycle
-
-	override func viewWillAppear(_ animated: Bool) {
-		super.viewWillAppear(animated)
-		applyMode()
-	}
-
-	override func viewDidAppear(_ animated: Bool) {
-		super.viewDidAppear(animated)
-		if AppDefaults.shared.faceIDEnabled && AuthManager.shared.isRegistered {
-			authenticateWithFaceID()
-		}
-	}
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
 		view.backgroundColor = Assets.Colors.background
 
-		reconnectButton.addTarget(self, action: #selector(handleReconnect), for: .touchUpInside)
-		reconnectAppleButton.addTarget(self, action: #selector(handleReconnectApple), for: .touchUpInside)
-		createAppleButton.addTarget(self, action: #selector(handleCreateApple), for: .touchUpInside)
-		retryFaceIDButton.addTarget(self, action: #selector(handleRetryFaceID), for: .touchUpInside)
-		switchModeButton.addTarget(self, action: #selector(switchToSignIn), for: .touchUpInside)
-		backToReconnectButton.addTarget(self, action: #selector(switchToReconnect), for: .touchUpInside)
+		existingUserButton.addTarget(self, action: #selector(handleExistingUser), for: .touchUpInside)
+		newUserButton.addTarget(self, action: #selector(handleNewUser), for: .touchUpInside)
 
 		stackView.addArrangedSubview(titleLabel)
-		stackView.addArrangedSubview(subtitleLabel)
-		stackView.addArrangedSubview(retryFaceIDButton)
-		stackView.addArrangedSubview(reconnectButton)
-		stackView.addArrangedSubview(reconnectAppleButton)
-		stackView.addArrangedSubview(createAppleButton)
+		stackView.setCustomSpacing(48, after: titleLabel)
+		stackView.addArrangedSubview(existingUserButton)
+		stackView.addArrangedSubview(newUserButton)
 		stackView.addArrangedSubview(activityIndicator)
-		stackView.addArrangedSubview(switchModeButton)
-		stackView.addArrangedSubview(backToReconnectButton)
 
 		view.addSubview(stackView)
 		NSLayoutConstraint.activate([
 			stackView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -40),
 			stackView.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
 			stackView.trailingAnchor.constraint(equalTo: view.layoutMarginsGuide.trailingAnchor),
-			retryFaceIDButton.widthAnchor.constraint(equalTo: stackView.widthAnchor),
-			retryFaceIDButton.heightAnchor.constraint(equalToConstant: 50),
-			reconnectButton.widthAnchor.constraint(equalTo: stackView.widthAnchor),
-			reconnectButton.heightAnchor.constraint(equalToConstant: 50),
-			reconnectAppleButton.widthAnchor.constraint(equalTo: stackView.widthAnchor),
-			reconnectAppleButton.heightAnchor.constraint(equalToConstant: 50),
-			createAppleButton.widthAnchor.constraint(equalTo: stackView.widthAnchor),
-			createAppleButton.heightAnchor.constraint(equalToConstant: 50),
+			existingUserButton.widthAnchor.constraint(equalTo: stackView.widthAnchor),
+			existingUserButton.heightAnchor.constraint(equalToConstant: 50),
+			newUserButton.widthAnchor.constraint(equalTo: stackView.widthAnchor),
+			newUserButton.heightAnchor.constraint(equalToConstant: 50),
 		])
-
-		applyMode()
 	}
 
-	// MARK: - Mode switching
-
-	private func applyMode() {
-		guard isViewLoaded else { return }
-		switch mode {
-		case .reconnect:
-			titleLabel.text = "Welcome back"
-			subtitleLabel.text = "Sign in with Apple to restore access to your account."
-			retryFaceIDButton.isHidden = !(AppDefaults.shared.faceIDEnabled && AuthManager.shared.isRegistered)
-			reconnectButton.isHidden = !AuthManager.shared.isRegistered
-			reconnectAppleButton.isHidden = false
-			createAppleButton.isHidden = true
-			switchModeButton.isHidden = false
-			backToReconnectButton.isHidden = true
-		case .signIn:
-			titleLabel.text = "Create your account"
-			subtitleLabel.text = "Sign in with Apple to get started.\nNo password needed."
-			retryFaceIDButton.isHidden = true
-			reconnectButton.isHidden = true
-			reconnectAppleButton.isHidden = true
-			createAppleButton.isHidden = false
-			switchModeButton.isHidden = true
-			backToReconnectButton.isHidden = false
+	override func viewDidAppear(_ animated: Bool) {
+		super.viewDidAppear(animated)
+		// Silently attempt Face ID on appear. If it fails, the user can tap "Existing User" to retry.
+		if AppDefaults.shared.faceIDEnabled {
+			authenticateWithFaceID(fallBackToApple: false)
 		}
-	}
-
-	@objc private func switchToSignIn() {
-		mode = .signIn
-	}
-
-	@objc private func switchToReconnect() {
-		mode = .reconnect
 	}
 
 	// MARK: - Actions
 
-	/// Fast reconnect via stored Keychain identity (shown only when isRegistered).
-	@objc private func handleReconnect() {
-		setLoading(true)
-		Task { @MainActor in
-			defer { setLoading(false) }
-			do {
-				try await AuthManager.shared.reconnect()
-				didSucceedHandler?()
-				dismiss(animated: true)
-			} catch {
-				Self.logger.error("Reconnect error: \(error.localizedDescription)")
-				showError(error.localizedDescription)
+	@objc private func handleExistingUser() {
+		if AppDefaults.shared.faceIDEnabled {
+			authenticateWithFaceID(fallBackToApple: true)
+		} else {
+			triggerAppleSignIn(isReconnect: true)
+		}
+	}
+
+	@objc private func handleNewUser() {
+		triggerAppleSignIn(isReconnect: false)
+	}
+
+	// MARK: - Face ID
+
+	private func authenticateWithFaceID(fallBackToApple: Bool) {
+		let context = LAContext()
+		var error: NSError?
+		guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+			Self.logger.info("Biometrics unavailable: \(error?.localizedDescription ?? "unknown")")
+			if fallBackToApple { triggerAppleSignIn(isReconnect: true) }
+			return
+		}
+		let reason = NSLocalizedString("Reconnect to your Second Stream account", comment: "Face ID reason")
+		context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { [weak self] success, authError in
+			DispatchQueue.main.async {
+				guard let self else { return }
+				if success {
+					self.reconnect()
+				} else {
+					Self.logger.info("Face ID not completed: \(authError?.localizedDescription ?? "cancelled")")
+					if fallBackToApple { self.triggerAppleSignIn(isReconnect: true) }
+				}
 			}
 		}
 	}
 
-	@objc private func handleRetryFaceID() {
-		authenticateWithFaceID()
-	}
+	// MARK: - Apple Sign In
 
-	@objc private func handleReconnectApple() {
-		triggerAppleSignIn()
-	}
-
-	@objc private func handleCreateApple() {
-		triggerAppleSignIn()
-	}
-
-	private func triggerAppleSignIn() {
+	private func triggerAppleSignIn(isReconnect: Bool) {
+		pendingAppleSignInIsReconnect = isReconnect
 		let provider = ASAuthorizationAppleIDProvider()
 		let request = provider.createRequest()
 		request.requestedScopes = [.email, .fullName]
@@ -260,15 +157,32 @@ final class RegistrationViewController: UIViewController {
 		controller.performRequests()
 	}
 
-	// MARK: - State helpers
+	// MARK: - Reconnect
+
+	private func reconnect(overrideAppleUserID: String? = nil) {
+		setLoading(true)
+		Task { @MainActor in
+			defer { setLoading(false) }
+			do {
+				try await AuthManager.shared.reconnect(overrideAppleUserID: overrideAppleUserID)
+				didSucceedHandler?()
+				dismiss(animated: true)
+			} catch AuthError.noStoredIdentity {
+				// Keychain inaccessible (e.g. timing after unlock) — fall back to Apple Sign In.
+				Self.logger.info("Reconnect: no stored identity, falling back to Apple Sign In")
+				triggerAppleSignIn(isReconnect: true)
+			} catch {
+				Self.logger.error("Reconnect error: \(error.localizedDescription)")
+				showError(error.localizedDescription)
+			}
+		}
+	}
+
+	// MARK: - Helpers
 
 	private func setLoading(_ loading: Bool) {
-		retryFaceIDButton.isEnabled = !loading
-		reconnectButton.isEnabled = !loading
-		reconnectAppleButton.isEnabled = !loading
-		createAppleButton.isEnabled = !loading
-		switchModeButton.isEnabled = !loading
-		backToReconnectButton.isEnabled = !loading
+		existingUserButton.isEnabled = !loading
+		newUserButton.isEnabled = !loading
 		if loading {
 			activityIndicator.startAnimating()
 		} else {
@@ -276,34 +190,10 @@ final class RegistrationViewController: UIViewController {
 		}
 	}
 
-	private func authenticateWithFaceID() {
-		let context = LAContext()
-		var error: NSError?
-		guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
-			Self.logger.info("Biometrics unavailable: \(error?.localizedDescription ?? "unknown")")
-			return
-		}
-		let reason = NSLocalizedString("Reconnect to your Second Stream account", comment: "Face ID reason")
-		context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { [weak self] success, authError in
-			DispatchQueue.main.async {
-				guard let self else { return }
-				if success {
-					self.handleReconnect()
-				} else {
-					Self.logger.info("Face ID not completed: \(authError?.localizedDescription ?? "cancelled")")
-				}
-			}
-		}
-	}
-
 	private func showError(_ message: String, title: String = "Failed") {
 		let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
 		alert.addAction(UIAlertAction(title: "OK", style: .default))
 		present(alert, animated: true)
-	}
-
-	private func showError(title: String, message: String) {
-		showError(message, title: title)
 	}
 }
 
@@ -316,24 +206,12 @@ extension RegistrationViewController: ASAuthorizationControllerDelegate {
 			return
 		}
 
-		if mode == .reconnect {
-			// Reconnect using the Apple user ID — email not required.
-			setLoading(true)
-			Task { @MainActor in
-				defer { setLoading(false) }
-				do {
-					try await AuthManager.shared.reconnect(overrideAppleUserID: credential.user)
-					didSucceedHandler?()
-					dismiss(animated: true)
-				} catch {
-					Self.logger.error("Reconnect (Apple) error: \(error.localizedDescription)")
-					showError(error.localizedDescription)
-				}
-			}
+		if pendingAppleSignInIsReconnect {
+			reconnect(overrideAppleUserID: credential.user)
 			return
 		}
 
-		// Creation flow
+		// New account creation flow
 		let appleUserID = credential.user
 		let email = credential.email ?? ""
 		let firstName = credential.fullName?.givenName
@@ -353,23 +231,12 @@ extension RegistrationViewController: ASAuthorizationControllerDelegate {
 				didSucceedHandler?()
 				dismiss(animated: true)
 			} else if AuthManager.shared.isRegistered {
-				// Identity stored — fall back to reconnect().
 				Self.logger.info("Apple returned no email; using reconnect() path")
-				setLoading(true)
-				Task { @MainActor in
-					defer { setLoading(false) }
-					do {
-						try await AuthManager.shared.reconnect()
-						didSucceedHandler?()
-						dismiss(animated: true)
-					} catch {
-						showError(error.localizedDescription)
-					}
-				}
+				reconnect()
 			} else {
 				showError(
-					title: "Account Setup Incomplete",
-					message: "It looks like you previously started signing up but the account wasn't created. To try again, go to Settings → your name → Sign-In & Security → Apps Using Apple ID, find Second Stream, tap it, and select Stop Using Apple ID. Then come back and sign up again."
+					"It looks like you previously started signing up but the account wasn't created. To try again, go to Settings → your name → Sign-In & Security → Apps Using Apple ID, find Second Stream, tap it, and select Stop Using Apple ID. Then come back and sign up again.",
+					title: "Account Setup Incomplete"
 				)
 			}
 			return

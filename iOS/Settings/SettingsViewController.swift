@@ -64,6 +64,7 @@ final class SettingsViewController: UITableViewController {
 	private let debugCleanTempRow = 0
 	private let debugDialogRow = 1
 	private let debugLandingPageRow = 2
+	private let debugIOSSignOutRow = 3
 	// About section rows
 	private let aboutAppRow = 0
 	private let aboutFaceIDRow = 1
@@ -233,8 +234,8 @@ final class SettingsViewController: UITableViewController {
 			// Adds Unread First, Gray Read Articles, Show Category Icons, and Collapsible Sections rows
 			return super.tableView(tableView, numberOfRowsInSection: section) + 4
 		case debugSection:
-			// Clean Temporary Files, Debug Dialog, Start Landing Page
-			return 3
+			// Clean Temporary Files, Debug Dialog, Start Landing Page, Simulate iOS Sign Out
+			return 4
 		case aboutSection:
 			// About Second Stream, Enable Face ID, Disconnect Account, Delete Account
 			return 4
@@ -310,6 +311,10 @@ final class SettingsViewController: UITableViewController {
 				cell = makeDebugDialogCell(tableView)
 			case debugLandingPageRow:
 				cell = makeDebugLandingPageCell(tableView)
+			case debugIOSSignOutRow:
+				cell = UITableViewCell(style: .default, reuseIdentifier: "DebugIOSSignOutCell")
+				cell.textLabel?.text = "Simulate iOS Sign Out"
+				cell.textLabel?.textColor = .systemOrange
 			default:
 				cell = super.tableView(tableView, cellForRowAt: indexPath)
 			}
@@ -425,6 +430,8 @@ final class SettingsViewController: UITableViewController {
 				break // handled by switch
 			case debugLandingPageRow:
 				showDebugLandingPage()
+			case debugIOSSignOutRow:
+				simulateIOSSignOut()
 			default:
 				break
 			}
@@ -590,6 +597,17 @@ final class SettingsViewController: UITableViewController {
 				return
 			}
 			sceneDelegate.presentLandingPage(reason: .debug)
+		}
+	}
+
+	func simulateIOSSignOut() {
+		AuthManager.shared.simulateIOSSignOut()
+		dismiss(animated: true) {
+			guard let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+				  let sceneDelegate = windowScene.delegate as? SceneDelegate else {
+				return
+			}
+			sceneDelegate.presentRegistration()
 		}
 	}
 
