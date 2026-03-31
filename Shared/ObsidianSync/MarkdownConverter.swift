@@ -199,11 +199,50 @@ struct MarkdownConverter {
 
 		// STEP 2: Convert inline elements first (bold, italic, links, etc.)
 
+		// Strip <strong> from metadata labels (Author, Published) so they render as plain text.
+		// These are fixed labels inside <ul class="nnw-topics-metadata"> — bolding them adds noise.
+		let metadataPattern = "(<ul class=\"nnw-topics-metadata\">(?:(?!</ul>)[\\s\\S])*?)</ul>"
+		if let regex = try? NSRegularExpression(pattern: metadataPattern, options: .caseInsensitive) {
+			let range = NSRange(result.startIndex..., in: result)
+			let matches = regex.matches(in: result, options: [], range: range)
+			var output = ""
+			var lastEnd = result.startIndex
+			for match in matches {
+				guard let fullRange = Range(match.range, in: result) else { continue }
+				output.append(contentsOf: result[lastEnd..<fullRange.lowerBound])
+				var block = String(result[fullRange])
+				block = block.replacingOccurrences(of: "<strong>", with: "", options: .caseInsensitive)
+				block = block.replacingOccurrences(of: "</strong>", with: "", options: .caseInsensitive)
+				output.append(block)
+				lastEnd = fullRange.upperBound
+			}
+			output.append(contentsOf: result[lastEnd...])
+			result = output
+		}
+
 		// Bold - use proper regex to capture content
 		let boldPattern = "<(strong|b)[^>]*>([^<]*)</(strong|b)>"
 		if let regex = try? NSRegularExpression(pattern: boldPattern, options: .caseInsensitive) {
-			let range = NSRange(result.startIndex..., in: result)
-			result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "**$2**")
+			let nsRange = NSRange(result.startIndex..., in: result)
+			let matches = regex.matches(in: result, options: [], range: nsRange)
+			var output = ""
+			var lastEnd = result.startIndex
+			for match in matches {
+				guard let contentRange = Range(match.range(at: 2), in: result),
+					  let fullRange = Range(match.range, in: result) else {
+					continue
+				}
+				output.append(contentsOf: result[lastEnd..<fullRange.lowerBound])
+				var content = String(result[contentRange])
+				// Strip existing ** to prevent doubling when server sends bold markers inside <strong>
+				if content.hasPrefix("**") && content.hasSuffix("**") && content.count > 4 {
+					content = String(content.dropFirst(2).dropLast(2))
+				}
+				output.append("**\(content)**")
+				lastEnd = fullRange.upperBound
+			}
+			output.append(contentsOf: result[lastEnd...])
+			result = output
 		}
 
 		// Italic - use proper regex to capture content
@@ -282,21 +321,23 @@ struct MarkdownConverter {
 
 		// Lists
 		// standalone summary list (topics): prefix with a "Summary:" bullet and indent items.
-		result = result.replacingOccurrences(of: "<ul class=\"nnw-generated-bullet-list nnw-generated-standalone-summary\">", with: "- **Summary**:\n")
-		// summary list nested under metadata item (topics): keep summary label on its own line.
-		result = result.replacingOccurrences(of: "<li>\\s*<strong>Summary</strong>:\\s*<ul class=\"nnw-generated-bullet-list\">", with: "- **Summary**:\n", options: .regularExpression)
+//		result = result.replacingOccurrences(of: "<ul class=\"nnw-generated-bullet-list nnw-generated-standalone-summary\">", with: "- **Summary**:\n")
+//		// summary list nested under metadata item (topics): keep summary label on its own line.
+//		result = result.replacingOccurrences(of: "<li>\\s*<strong>Summary</strong>:\\s*<ul class=\"nnw-generated-bullet-list\">", with: "- **Summary**:\n", options: .regularExpression)
 		// headed bullet lists (podcast/yt summary, practical applications): items are already under an h2, just indent.
 		result = result.replacingOccurrences(of: "<ul class=\"nnw-generated-bullet-list\">", with: "")
-		result = result.replacingOccurrences(of: "<li class=\"nnw-generated-bullet-item\">", with: "\t- ")
+		result = result.replacingOccurrences(of: "<li class=\"nnw-generated-bullet-item\">", with: "- ")
 		// Generic lists (must come after the specific class handlers above)
 		result = result.replacingOccurrences(of: "<ul[^>]*>", with: "", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</ul>", with: "")
 		result = result.replacingOccurrences(of: "<ol[^>]*>", with: "", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</ol>", with: "")
-		result = result.replacingOccurrences(of: "<li[^>]*>", with: "- ", options: .regularExpression)
+//		result = result.replacingOccurrences(of: "<li[^>]**Author**: *>", with: " \t- Author: ", options: .regularExpression)
+//		result = result.replacingOccurrences(of: "<li[^>]<strong>Published</strong>: *>", with: " \t- Published: ", options: .regularExpression)
+		result = result.replacingOccurrences(of: "<li[^>]*>", with: " \t- ", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</li>", with: "\n")
 		// If a summary line still ends up with the first bullet inline, force it onto the next line.
-		result = result.replacingOccurrences(of: "(?m)^(- \\*\\*Summary\\*\\*:)[ \\t]+- ", with: "$1\n\t- ", options: .regularExpression)
+		result = result.replacingOccurrences(of: "(?m)^(- \\*\\*Summary\\*\\*:)[ \t]+- ", with: "$1\n\t- ", options: .regularExpression)
 
 		// Horizontal rule - blank lines around it
 		result = result.replacingOccurrences(of: "<hr[^>]*/?>", with: "\n\n---\n\n", options: .regularExpression)

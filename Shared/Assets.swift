@@ -283,6 +283,12 @@ struct Assets {
 			}
 		}
 
+		static var readArticleTitle: RSColor {
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark ? .secondaryLabel : .secondaryLabel//.quaternaryLabel
+			}
+		}
+
 		static var controlBackground: RSColor {
 			RSColor { tc in
 				tc.userInterfaceStyle == .dark

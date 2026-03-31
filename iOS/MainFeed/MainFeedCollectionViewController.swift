@@ -1439,32 +1439,28 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 							appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
 						}
 
-					case .successNew(let summaryURL):
+					case .successNew(let summaryURL, let message):
 						self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
-							self.showPodcastSuccessMessage {}
+							self.showAddSourceSuccess(title: NSLocalizedString("Podcast Added", comment: "Podcast Added"), message: message) {}
 						}
 
 					case .failure(let message):
-						self.showPodcastError(message: message)
+						self.showAddSourceError(message: message)
 					}
 				}
 			}
 		}
 	}
 
-	private func showPodcastSuccessMessage(completion: @escaping () -> Void) {
-		let alert = UIAlertController(
-			title: NSLocalizedString("Podcast Added", comment: "Podcast Added"),
-			message: NSLocalizedString("Episodes from the last 2 months will be populated within approximately 15 minutes.", comment: "Podcast success message"),
-			preferredStyle: .alert
-		)
+	private func showAddSourceSuccess(title: String, message: String, completion: @escaping () -> Void) {
+		let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default) { _ in
 			completion()
 		})
 		present(alert, animated: true)
 	}
 
-	private func showPodcastError(message: String) {
+	private func showAddSourceError(message: String) {
 		let alert = UIAlertController(
 			title: NSLocalizedString("Error", comment: "Error"),
 			message: message,
@@ -2227,43 +2223,19 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 							appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
 						}
 
-					case .successNew(let summaryURL):
+					case .successNew(let summaryURL, let message):
 						self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
-							self.showYoutubeSuccessMessage {}
+							self.showAddSourceSuccess(title: NSLocalizedString("Channel Added", comment: "Channel Added"), message: message) {}
 						}
 
 					case .failure(let message):
-						self.showYoutubeError(message: message)
+						self.showAddSourceError(message: message)
 					}
 				}
 			}
 		}
 	}
 
-	private func showYoutubeSuccessMessage(completion: @escaping () -> Void) {
-		let alert = UIAlertController(
-			title: NSLocalizedString("Channel Added", comment: "Channel Added"),
-			message: NSLocalizedString("The YouTube channel has been added. It may take a few minutes for episodes to appear.", comment: "YouTube channel added message"),
-			preferredStyle: .alert
-		)
-
-		let okAction = UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default) { _ in
-			completion()
-		}
-
-		alert.addAction(okAction)
-		present(alert, animated: true)
-	}
-
-	private func showYoutubeError(message: String) {
-		let alert = UIAlertController(
-			title: NSLocalizedString("Error", comment: "Error"),
-			message: message,
-			preferredStyle: .alert
-		)
-		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
-		present(alert, animated: true)
-	}
 }
 
 // MARK: - NewsPickerDelegate
@@ -2318,18 +2290,8 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 			self.addFeedDirectly(urlString: summaryURL, category: .news, sourceName: name, sourceAuthor: author, summaryURL: summaryURL)
 
 		case .failure(let message):
-			self.showTopicError(message: message)
+			self.showAddSourceError(message: message)
 		}
-	}
-
-	private func showTopicError(message: String) {
-		let alert = UIAlertController(
-			title: NSLocalizedString("Error", comment: "Error"),
-			message: message,
-			preferredStyle: .alert
-		)
-		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
-		present(alert, animated: true)
 	}
 }
 
@@ -2358,7 +2320,7 @@ extension MainFeedCollectionViewController {
 			} else {
 				let result = await PodcastSourcesManager.shared.addPodcast(name: "The Tim Ferriss Show")
 				switch result {
-				case .successExisting(let url), .successNew(let url): podURL = url
+				case .successExisting(let url), .successNew(let url, _): podURL = url
 				case .failure: podURL = nil
 				}
 			}

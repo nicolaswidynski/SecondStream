@@ -62,7 +62,9 @@ extension MainFeedCollectionViewController: UICollectionViewDropDelegate {
 
 		guard let destination = destinationContainer, let feed = dragNode.representedObject as? Feed else { return }
 
-		if source.account == destination.account {
+		if source === destination {
+			reorderFeedInContainer(feed: feed, container: source, destIndexPath: destIndexPath)
+		} else if source.account == destination.account {
 			moveFeedInAccount(feed: feed, sourceContainer: source, destinationContainer: destination)
 		} else {
 			moveFeedBetweenAccounts(feed: feed, sourceContainer: source, destinationContainer: destination)
@@ -106,6 +108,30 @@ extension MainFeedCollectionViewController: UICollectionViewDropDelegate {
 	}
 
 	func collectionView(_ collectionView: UICollectionView, dropSessionDidEnd session: UIDropSession) {
+	}
+
+	func reorderFeedInContainer(feed: Feed, container: Container, destIndexPath: IndexPath) {
+		let sectionCount = collectionView.numberOfItems(inSection: destIndexPath.section)
+		var allNodes = (0..<sectionCount).compactMap { row in
+			coordinator.nodeFor(IndexPath(row: row, section: destIndexPath.section))
+		}
+
+		guard let dragIndex = allNodes.firstIndex(where: { ($0.representedObject as? Feed) === feed }) else {
+			return
+		}
+
+		let dragNode = allNodes.remove(at: dragIndex)
+		let insertIndex = min(destIndexPath.row, allNodes.count)
+		allNodes.insert(dragNode, at: insertIndex)
+
+		let feedURLs = allNodes.compactMap { ($0.representedObject as? Feed)?.url }
+		guard let containerID = container.containerID else {
+			return
+		}
+
+		FeedOrderStore.shared.saveOrder(feedURLs, for: containerID)
+		BatchUpdate.shared.start()
+		BatchUpdate.shared.end()
 	}
 
 	func moveFeedInAccount(feed: Feed, sourceContainer: Container, destinationContainer: Container) {

@@ -19,7 +19,7 @@ struct YoutubeSource: Codable, Hashable {
 
 enum AddYoutubeResult {
 	case successExisting(summaryURL: String)  // 201 - Channel already exists, no wait
-	case successNew(summaryURL: String)       // 202 - New channel, wait for processing
+	case successNew(summaryURL: String, message: String)  // 202 - New channel, wait for processing
 	case failure(message: String)             // Any error - uses server message
 }
 
@@ -324,7 +324,7 @@ enum AddYoutubeResult {
 				   status == "success",
 				   let summaryURL = json["summary_url"] as? String {
 					Self.logger.info("New YouTube channel added, processing required")
-					return .successNew(summaryURL: summaryURL)
+					return .successNew(summaryURL: summaryURL, message: serverMessage ?? "")
 				}
 				Self.logger.error("Failed to parse 202 response")
 				return .failure(message: "Failed to parse response")

@@ -55,7 +55,7 @@ struct PodcastSource: Codable, Hashable {
 
 enum AddPodcastResult {
 	case successExisting(summaryURL: String)  // 201 - Podcast already exists, no wait
-	case successNew(summaryURL: String)       // 202 - New podcast, wait ~15 minutes
+	case successNew(summaryURL: String, message: String)  // 202 - New podcast, wait ~15 minutes
 	case failure(message: String)             // Any error - uses server message
 }
 
@@ -362,7 +362,7 @@ enum FindShowResult {
 				   status == "success",
 				   let summaryURL = json["summary_url"] as? String {
 					Self.logger.info("New podcast added, processing required")
-					return .successNew(summaryURL: summaryURL)
+					return .successNew(summaryURL: summaryURL, message: serverMessage ?? "")
 				}
 				Self.logger.error("Failed to parse 202 response")
 				return .failure(message: "Failed to parse response")
