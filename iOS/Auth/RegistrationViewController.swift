@@ -99,9 +99,12 @@ final class RegistrationViewController: UIViewController {
 
 	override func viewDidAppear(_ animated: Bool) {
 		super.viewDidAppear(animated)
-		// Silently attempt Face ID on appear. If it fails, the user can tap "Existing User" to retry.
-		if AppDefaults.shared.faceIDEnabled {
-			authenticateWithFaceID(fallBackToApple: false)
+		// Defer by one run loop so the window is fully settled before LAContext tries to
+		// present the Face ID prompt. Without this, animated: false presentations cause
+		// the prompt to be silently suppressed.
+		guard AppDefaults.shared.faceIDEnabled else { return }
+		DispatchQueue.main.async {
+			self.authenticateWithFaceID(fallBackToApple: false)
 		}
 	}
 

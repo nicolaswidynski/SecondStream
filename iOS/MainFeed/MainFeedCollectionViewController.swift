@@ -484,11 +484,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func applyPickerNavigationBarAppearance(to navController: UINavigationController) {
-		// Prevent black flash: UINavigationController.view has no background
-		// by default, which shows as black when the nav bar goes transparent
-		// during scroll-edge transitions.
-		navController.view.backgroundColor = Assets.Colors.foreground
-
 		let appearance = UINavigationBarAppearance()
 		appearance.configureWithOpaqueBackground()
 		appearance.backgroundColor = Assets.Colors.foreground
@@ -506,7 +501,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let picker = NewsPickerViewController()
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
-		navController.modalPresentationStyle = .formSheet
+		applyPickerNavigationBarAppearance(to: navController)
 		present(navController, animated: true)
 	}
 

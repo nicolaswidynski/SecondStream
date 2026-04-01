@@ -28,7 +28,6 @@ final class RSSPickerViewController: UIViewController {
 
 		title = NSLocalizedString("Add RSS Feed", comment: "Add RSS Feed")
 		view.backgroundColor = Assets.Colors.background
-		//edgesForExtendedLayout = []
 
 		navigationItem.leftBarButtonItem = UIBarButtonItem(
 			barButtonSystemItem: .cancel,
@@ -37,7 +36,6 @@ final class RSSPickerViewController: UIViewController {
 		)
 
 		configureSearch()
-		configureOpaqueNavigationBar()
 		configureCollectionView()
 		configureDataSource()
 
@@ -51,17 +49,24 @@ final class RSSPickerViewController: UIViewController {
 		applySnapshot()
 	}
 
+	override func viewWillAppear(_ animated: Bool) {
+		super.viewWillAppear(animated)
+		configureOpaqueNavigationBar()
+	}
+
 	// MARK: - Configuration
 
-	/// Forces an opaque nav bar at every scroll position. Must be called AFTER
-	/// configureSearch() because setting navigationItem.searchController can
-	/// reset scrollEdgeAppearance to nil (transparent).
+	/// Forces an opaque nav bar at every scroll position. Called from viewWillAppear
+	/// so traitCollection is resolved against the live window (not the pre-presentation default).
+	/// Must be set up after configureSearch() since setting navigationItem.searchController
+	/// can reset scrollEdgeAppearance to nil (transparent).
 	private func configureOpaqueNavigationBar() {
 		let appearance = UINavigationBarAppearance()
 		appearance.configureWithOpaqueBackground()
-		appearance.backgroundColor = Assets.Colors.foreground
-		appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
-		appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
+		appearance.backgroundColor = Assets.Colors.pickerNavBar.resolvedColor(with: traitCollection)
+		let textColor = UIColor.label.resolvedColor(with: traitCollection)
+		appearance.titleTextAttributes = [.foregroundColor: textColor]
+		appearance.largeTitleTextAttributes = [.foregroundColor: textColor]
 		navigationItem.standardAppearance = appearance
 		navigationItem.scrollEdgeAppearance = appearance
 		navigationItem.compactAppearance = appearance
