@@ -47,12 +47,10 @@ struct MarkdownConverter {
 			frontmatter += "author: \"\(escapeYAMLString(authorName))\"\n"
 		}
 
-		// Date - topics titles already embed the date, so skip the field for them
-		if feed.feedCategory != .news {
-			let dateString = extractDateForFrontmatter(from: article)
-			if let dateString {
-				frontmatter += "date: \(dateString)\n"
-			}
+		// Date
+		let dateString = extractDateForFrontmatter(from: article)
+		if let dateString {
+			frontmatter += "date: \(dateString)\n"
 		}
 
 		// Source URL: only for RSS feeds (for pod/yt/topics the URL is our own server, not a meaningful source)

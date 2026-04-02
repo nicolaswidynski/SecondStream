@@ -63,7 +63,10 @@ extension MainFeedCollectionViewController: UICollectionViewDropDelegate {
 		guard let destination = destinationContainer, let feed = dragNode.representedObject as? Feed else { return }
 
 		if source === destination {
-			reorderFeedInContainer(feed: feed, container: source, destIndexPath: destIndexPath)
+			let finalPath = reorderFeedInContainer(feed: feed, container: source, destIndexPath: destIndexPath)
+			if let finalPath {
+				coordinator.drop(dragItem, toItemAt: finalPath)
+			}
 		} else if source.account == destination.account {
 			moveFeedInAccount(feed: feed, sourceContainer: source, destinationContainer: destination)
 		} else {
@@ -122,14 +125,15 @@ extension MainFeedCollectionViewController: UICollectionViewDropDelegate {
 	func collectionView(_ collectionView: UICollectionView, dropSessionDidEnd session: UIDropSession) {
 	}
 
-	func reorderFeedInContainer(feed: Feed, container: Container, destIndexPath: IndexPath) {
+	@discardableResult
+	func reorderFeedInContainer(feed: Feed, container: Container, destIndexPath: IndexPath) -> IndexPath? {
 		let sectionCount = collectionView.numberOfItems(inSection: destIndexPath.section)
 		var allNodes = (0..<sectionCount).compactMap { row in
 			coordinator.nodeFor(IndexPath(row: row, section: destIndexPath.section))
 		}
 
 		guard let dragIndex = allNodes.firstIndex(where: { ($0.representedObject as? Feed) === feed }) else {
-			return
+			return nil
 		}
 
 		let dragNode = allNodes.remove(at: dragIndex)
@@ -139,7 +143,30 @@ extension MainFeedCollectionViewController: UICollectionViewDropDelegate {
 		let feedURLs = allNodes.compactMap { ($0.representedObject as? Feed)?.url }
 		let sectionID = dataSource.snapshot().sectionIdentifiers[destIndexPath.section]
 		FeedOrderStore.shared.saveOrder(feedURLs, forKey: sectionID)
-		coordinator.rebuildBackingStoresImmediately(animated: false)
+
+		// Move the item directly in the snapshot instead of triggering a full rebuild.
+		// This lets UIKit's drop ghost animate smoothly into its final slot without
+		// competing with an instantaneous snapshot reload.
+		var snapshot = dataSource.snapshot()
+		let sectionItems = snapshot.itemIdentifiers(inSection: sectionID)
+		guard let sourceItem = sectionItems.first(where: { $0.node.representedObject as? Feed === feed }) else {
+			return nil
+		}
+
+		if insertIndex != dragIndex {
+			if insertIndex < dragIndex {
+				// Moving up: place before the item currently at insertIndex.
+				snapshot.moveItem(sourceItem, beforeItem: sectionItems[insertIndex])
+			} else {
+				// Moving down: place after the item currently at insertIndex.
+				// (insertIndex here is relative to the post-remove allNodes, which maps
+				// to sectionItems[insertIndex] in the original snapshot.)
+				snapshot.moveItem(sourceItem, afterItem: sectionItems[insertIndex])
+			}
+			dataSource.apply(snapshot, animatingDifferences: true)
+		}
+
+		return IndexPath(row: insertIndex, section: destIndexPath.section)
 	}
 
 	func moveFeedInAccount(feed: Feed, sourceContainer: Container, destinationContainer: Container) {

@@ -77,10 +77,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}()
 	private let recentlyUpdatedTopInset: CGFloat = 156
 	private let defaultTopInset: CGFloat = 8
+	private var recentlyUpdatedStripTask: Task<Void, Never>?
 
 	private lazy var recentlyUpdatedContainerView: UIView = {
 		let view = UIView()
 		view.translatesAutoresizingMaskIntoConstraints = false
+		view.isHidden = true
 		return view
 	}()
 
@@ -88,6 +90,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let view = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
 		view.translatesAutoresizingMaskIntoConstraints = false
 		view.isUserInteractionEnabled = false
+		view.isHidden = true
 		return view
 	}()
 
@@ -270,11 +273,21 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func refreshRecentlyUpdatedShowsStrip() {
-		Task { await applyRecentlyUpdatedStripPayloads() }
+		recentlyUpdatedStripTask?.cancel()
+		recentlyUpdatedStripTask = Task {
+			// Debounce: coalesce rapid-fire calls (icon loads, unread-count pings, etc.)
+			// so we only do the expensive async fetch once things settle.
+			try? await Task.sleep(for: .milliseconds(150))
+			guard !Task.isCancelled else { return }
+			await applyRecentlyUpdatedStripPayloads()
+		}
 	}
 
 	private func applyRecentlyUpdatedStripPayloads() async {
 		let payloads = await buildRecentlyUpdatedStripPayloads()
+
+		guard !Task.isCancelled else { return }
+
 		let isDiscoverMode: Bool = {
 			guard let first = payloads.first else { return false }
 			if case .discover = first { return true }
@@ -310,11 +323,24 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 
 		let hasFeeds = !payloads.isEmpty
+		let topInset = hasFeeds ? recentlyUpdatedTopInset : defaultTopInset
+		let wasHidden = recentlyUpdatedContainerView.isHidden
+
+		if hasFeeds && wasHidden {
+			recentlyUpdatedContainerView.alpha = 0
+			navBarExtendedBackgroundView.alpha = 0
+		}
 		recentlyUpdatedContainerView.isHidden = !hasFeeds
 		navBarExtendedBackgroundView.isHidden = !hasFeeds
-		let topInset = hasFeeds ? recentlyUpdatedTopInset : defaultTopInset
 		collectionView.contentInset.top = topInset
 		collectionView.verticalScrollIndicatorInsets.top = topInset
+
+		if hasFeeds && wasHidden {
+			UIView.animate(withDuration: 0.3) {
+				self.recentlyUpdatedContainerView.alpha = 1
+				self.navBarExtendedBackgroundView.alpha = 1
+			}
+		}
 	}
 
 	private func buildRecentlyUpdatedStripPayloads() async -> [RecentlyUpdatedStripPayload] {
