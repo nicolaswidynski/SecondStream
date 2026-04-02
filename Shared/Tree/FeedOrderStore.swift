@@ -17,23 +17,23 @@ import RSTree
 
 	private let userDefaultsKey = "feedOrderStore"
 
-	/// Returns the user-defined feed URL order for the given container, or nil if none saved.
-	func order(for containerID: ContainerIdentifier) -> [String]? {
+	/// Returns the user-defined feed URL order for the given section key, or nil if none saved.
+	func order(forKey key: String) -> [String]? {
 		let stored = UserDefaults.standard.dictionary(forKey: userDefaultsKey) as? [String: [String]] ?? [:]
-		return stored[key(for: containerID)]
+		return stored[key]
 	}
 
-	/// Saves the given feed URL order for the container.
-	func saveOrder(_ feedURLs: [String], for containerID: ContainerIdentifier) {
+	/// Saves the given feed URL order for the section key.
+	func saveOrder(_ feedURLs: [String], forKey key: String) {
 		var stored = UserDefaults.standard.dictionary(forKey: userDefaultsKey) as? [String: [String]] ?? [:]
-		stored[key(for: containerID)] = feedURLs
+		stored[key] = feedURLs
 		UserDefaults.standard.set(stored, forKey: userDefaultsKey)
 	}
 
 	/// Applies the saved order to nodes, falling back to alphabetical if no order is stored.
 	/// New feeds not in the saved order are appended alphabetically at the end (before folders).
-	func applyOrder(to nodes: [Node], containerID: ContainerIdentifier) -> [Node] {
-		guard let savedURLs = order(for: containerID) else {
+	func applyOrder(to nodes: [Node], key: String) -> [Node] {
+		guard let savedURLs = order(forKey: key) else {
 			return nodes.sortedAlphabeticallyWithFoldersAtEnd()
 		}
 
@@ -52,16 +52,5 @@ import RSTree
 			.sortedAlphabetically()
 
 		return orderedFeeds + newFeeds + folderNodes.sortedAlphabetically()
-	}
-
-	private func key(for containerID: ContainerIdentifier) -> String {
-		switch containerID {
-		case .smartFeedController:
-			return "smartFeedController"
-		case .account(let accountID):
-			return "account:\(accountID)"
-		case .folder(let accountID, let folderName):
-			return "folder:\(accountID):\(folderName)"
-		}
 	}
 }

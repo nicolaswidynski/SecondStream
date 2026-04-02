@@ -2206,6 +2206,18 @@ extension SceneCoordinator: UINavigationControllerDelegate {
 
 // MARK: Private
 
+extension SceneCoordinator {
+
+	func queueRebuildBackingStores() {
+		rebuildBackingStoresQueue.add(self, #selector(rebuildBackingStoresWithDefaults))
+	}
+
+	func rebuildBackingStoresImmediately(animated: Bool = true) {
+		rebuildBackingStores(initialLoad: !animated)
+	}
+
+}
+
 private extension SceneCoordinator {
 
 	var shouldDeferUnreadFirstReorder: Bool {
@@ -2299,10 +2311,6 @@ private extension SceneCoordinator {
 		}
 	}
 
-	func queueRebuildBackingStores() {
-		rebuildBackingStoresQueue.add(self, #selector(rebuildBackingStoresWithDefaults))
-	}
-
 	@objc func rebuildBackingStoresWithDefaults() {
 		rebuildBackingStores()
 	}
@@ -2382,32 +2390,36 @@ private extension SceneCoordinator {
 			}
 		}
 
-		// Add category sections only if they have content
+		// Add category sections only if they have content, applying per-section user ordering.
 		if !podcastNodes.isEmpty {
 			snapshot.appendSections([FeedSectionIdentifier.podcasts.rawValue])
 			if isCategorySectionExpanded(.podcasts) {
-				snapshot.appendItems(podcastNodes, toSection: FeedSectionIdentifier.podcasts.rawValue)
+				let ordered = FeedOrderStore.shared.applyOrder(to: podcastNodes.map { $0.node }, key: FeedSectionIdentifier.podcasts.rawValue)
+				snapshot.appendItems(ordered.map { SidebarItemNode($0) }, toSection: FeedSectionIdentifier.podcasts.rawValue)
 			}
 		}
 
 		if !youtubeNodes.isEmpty {
 			snapshot.appendSections([FeedSectionIdentifier.youtube.rawValue])
 			if isCategorySectionExpanded(.youtube) {
-				snapshot.appendItems(youtubeNodes, toSection: FeedSectionIdentifier.youtube.rawValue)
+				let ordered = FeedOrderStore.shared.applyOrder(to: youtubeNodes.map { $0.node }, key: FeedSectionIdentifier.youtube.rawValue)
+				snapshot.appendItems(ordered.map { SidebarItemNode($0) }, toSection: FeedSectionIdentifier.youtube.rawValue)
 			}
 		}
 
 		if !newsNodes.isEmpty {
 			snapshot.appendSections([FeedSectionIdentifier.news.rawValue])
 			if isCategorySectionExpanded(.news) {
-				snapshot.appendItems(newsNodes, toSection: FeedSectionIdentifier.news.rawValue)
+				let ordered = FeedOrderStore.shared.applyOrder(to: newsNodes.map { $0.node }, key: FeedSectionIdentifier.news.rawValue)
+				snapshot.appendItems(ordered.map { SidebarItemNode($0) }, toSection: FeedSectionIdentifier.news.rawValue)
 			}
 		}
 
 		if !rssFeedNodes.isEmpty {
 			snapshot.appendSections([FeedSectionIdentifier.rssFeeds.rawValue])
 			if isCategorySectionExpanded(.rssFeeds) {
-				snapshot.appendItems(rssFeedNodes, toSection: FeedSectionIdentifier.rssFeeds.rawValue)
+				let ordered = FeedOrderStore.shared.applyOrder(to: rssFeedNodes.map { $0.node }, key: FeedSectionIdentifier.rssFeeds.rawValue)
+				snapshot.appendItems(ordered.map { SidebarItemNode($0) }, toSection: FeedSectionIdentifier.rssFeeds.rawValue)
 			}
 		}
 

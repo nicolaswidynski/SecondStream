@@ -99,13 +99,23 @@ final class RegistrationViewController: UIViewController {
 
 	override func viewDidAppear(_ animated: Bool) {
 		super.viewDidAppear(animated)
-		// Defer by one run loop so the window is fully settled before LAContext tries to
-		// present the Face ID prompt. Without this, animated: false presentations cause
-		// the prompt to be silently suppressed.
 		guard AppDefaults.shared.faceIDEnabled else { return }
-		DispatchQueue.main.async {
-			self.authenticateWithFaceID(fallBackToApple: false)
+		// LAContext silently fails with notInteractive if the app isn't fully active yet.
+		// If we're already active (e.g. forced sign-out mid-session), a short delay is enough.
+		// If we're still launching, wait for didBecomeActive before triggering.
+		if UIApplication.shared.applicationState == .active {
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+				self?.authenticateWithFaceID(fallBackToApple: false)
+			}
+		} else {
+			NotificationCenter.default.addObserver(self, selector: #selector(appDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
 		}
+	}
+
+	@objc private func appDidBecomeActive() {
+		NotificationCenter.default.removeObserver(self, name: UIApplication.didBecomeActiveNotification, object: nil)
+		guard AppDefaults.shared.faceIDEnabled else { return }
+		authenticateWithFaceID(fallBackToApple: false)
 	}
 
 	// MARK: - Actions

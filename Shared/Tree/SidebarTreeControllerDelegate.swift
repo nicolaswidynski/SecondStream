@@ -95,11 +95,7 @@ private extension SidebarTreeControllerDelegate {
 			}
 		}
 
-		guard let container = containerNode.representedObject as? ContainerIdentifiable,
-			  let containerID = container.containerID else {
-			return updatedChildNodes.sortedAlphabeticallyWithFoldersAtEnd()
-		}
-		return FeedOrderStore.shared.applyOrder(to: updatedChildNodes, containerID: containerID)
+		return updatedChildNodes.sortedAlphabeticallyWithFoldersAtEnd()
 	}
 
 	func createNode(representedObject: Any, parent: Node) -> Node? {

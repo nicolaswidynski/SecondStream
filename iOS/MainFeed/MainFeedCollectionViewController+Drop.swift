@@ -73,15 +73,27 @@ extension MainFeedCollectionViewController: UICollectionViewDropDelegate {
 
 	func collectionView(_ collectionView: UICollectionView, dropSessionDidUpdate session: any UIDropSession, withDestinationIndexPath destinationIndexPath: IndexPath?) -> UICollectionViewDropProposal {
 
-		guard let destIndexPath = destinationIndexPath, destIndexPath.section > 0, collectionView.hasActiveDrag else {
+		guard let destIndexPath = destinationIndexPath, collectionView.hasActiveDrag else {
 			return UICollectionViewDropProposal(operation: .forbidden)
 		}
 
-		guard let destFeed = coordinator.nodeFor(destIndexPath)?.representedObject as? SidebarItem,
-			  let destAccount = destFeed.account,
-			  let destCell = collectionView.cellForItem(at: destIndexPath) else {
-				  return UICollectionViewDropProposal(operation: .forbidden)
-			  }
+		// Forbid dropping a feed into a different category section.
+		if let sourceNode = session.localDragSession?.items.first?.localObject as? Node,
+		   let sourceIndexPath = coordinator.indexPathFor(sourceNode),
+		   sourceIndexPath.section != destIndexPath.section {
+			return UICollectionViewDropProposal(operation: .forbidden)
+		}
+
+		// destIndexPath may be an insertion point beyond the last existing item; clamp to a valid row
+		// so the node lookup succeeds even when dropping at the end of a section.
+		let sectionCount = collectionView.numberOfItems(inSection: destIndexPath.section)
+		let clampedRow = min(destIndexPath.row, max(0, sectionCount - 1))
+		let lookupPath = IndexPath(row: clampedRow, section: destIndexPath.section)
+
+		guard let destFeed = coordinator.nodeFor(lookupPath)?.representedObject as? SidebarItem,
+			  let destAccount = destFeed.account else {
+			return UICollectionViewDropProposal(operation: .forbidden)
+		}
 
 		// Validate account specific behaviors...
 		if destAccount.behaviors.contains(.disallowFeedInMultipleFolders),
@@ -91,8 +103,8 @@ extension MainFeedCollectionViewController: UICollectionViewDropDelegate {
 			return UICollectionViewDropProposal(operation: .forbidden)
 		}
 
-		// Determine the correct drop proposal
-		if destFeed is Folder {
+		// Determine the correct drop proposal; cell is only needed for folder-drop y-position check.
+		if destFeed is Folder, let destCell = collectionView.cellForItem(at: lookupPath) {
 			if session.location(in: destCell).y >= 0 {
 				return UICollectionViewDropProposal(operation: .move, intent: .insertIntoDestinationIndexPath)
 			} else {
@@ -125,13 +137,9 @@ extension MainFeedCollectionViewController: UICollectionViewDropDelegate {
 		allNodes.insert(dragNode, at: insertIndex)
 
 		let feedURLs = allNodes.compactMap { ($0.representedObject as? Feed)?.url }
-		guard let containerID = container.containerID else {
-			return
-		}
-
-		FeedOrderStore.shared.saveOrder(feedURLs, for: containerID)
-		BatchUpdate.shared.start()
-		BatchUpdate.shared.end()
+		let sectionID = dataSource.snapshot().sectionIdentifiers[destIndexPath.section]
+		FeedOrderStore.shared.saveOrder(feedURLs, forKey: sectionID)
+		coordinator.rebuildBackingStoresImmediately(animated: false)
 	}
 
 	func moveFeedInAccount(feed: Feed, sourceContainer: Container, destinationContainer: Container) {
