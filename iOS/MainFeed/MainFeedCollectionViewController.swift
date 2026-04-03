@@ -536,7 +536,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// Pass `sourceName`, `sourceAuthor`, and `sourceImageURL` when the caller already has that
 	/// metadata (e.g. from a picker).
 	/// Pass `summaryURL` to fetch canonical show name/author from the server-side JSON file
-	/// instead of relying on the user-entered string when reporting the add to update-user-stats.
+	/// instead of relying on the user-entered string when reporting the add to all-feed-requests.
 	private func addFeedDirectly(urlString: String, category: FeedCategory, sourceName: String? = nil, sourceAuthor: String? = nil, sourceImageURL: String? = nil, sourceImageURLLight: String? = nil, validateFeed: Bool = true, summaryURL: String? = nil, completion: (() -> Void)? = nil) {
 		let normalizedURL = urlString.normalizedURL
 		guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else {
@@ -603,15 +603,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 					switch result {
 					case .success(let feed):
 						Task {
-							if category == .rss {
-								// RSS: report just this one add
-								await FeedStatsManager.shared.reportAdd(
-									type: category,
-									name: sourceName ?? url.absoluteString,
-									author: sourceAuthor
-								)
-							} else {
-								// Pod / YT / Topics: send a full subscription snapshot
+							if category != .rss {
+								// Pod / YT / Topics: send a full subscription snapshot and refresh credits
 								await FeedStatsManager.shared.reportUpdate()
 							}
 						}
@@ -2122,7 +2115,7 @@ extension MainFeedCollectionViewController: RSSPickerDelegate {
 				return
 			}
 			// RSS top picks include a concrete feed URL in the source list,
-			// so we can subscribe directly without going through add-show-source.
+			// so we can subscribe directly without a webhook call.
 			self.addFeedDirectly(urlString: urlString, category: .rss, sourceName: source.name, sourceAuthor: source.author, sourceImageURL: source.imageURL)
 		}
 	}

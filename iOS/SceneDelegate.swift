@@ -89,7 +89,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		coordinator.resetFocus()
 		Task {
 			await FeedStatsManager.shared.drainOutbox()
-			await FeedStatsManager.shared.reportWeeklyUpdateIfNeeded()
 		}
 		if !AuthManager.shared.isConnected {
 			presentRegistration()

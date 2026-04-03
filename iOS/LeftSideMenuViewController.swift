@@ -195,7 +195,6 @@ final class LeftSideMenuViewController: UIViewController {
 	@MainActor
 	private func handleCreditsInfo() async {
 		await FeedStatsManager.shared.reportUpdate()
-		await FeedStatsManager.shared.fetchCredits()
 		let credits = FeedStatsManager.shared.cachedCredits ?? 0
 		let alert = UIAlertController(
 			title: NSLocalizedString("Remaining Credits", comment: "Credits info title"),

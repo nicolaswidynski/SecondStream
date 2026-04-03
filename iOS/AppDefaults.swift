@@ -503,7 +503,7 @@ final class AppDefaults: Sendable {
 		}
 	}
 
-	/// Global toggle for add-show-source failures:
+	/// Global toggle for add-show webhook failures:
 	/// when enabled, dialogs show the raw webhook failure message.
 	var showAddShowSourceFailureDialog: Bool {
 		get {

@@ -29,7 +29,7 @@ enum AddYoutubeResult {
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "YoutubeSources")
 
-	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
+	private let allFeedRequestsURL = URL(string: "https://n8n.nwidynski.com/webhook/all-feed-requests")!
 	private let findShowURL = URL(string: "https://n8n.nwidynski.com/webhook/find-show")!
 
 	private static let topFileName = "yt_free.json"
@@ -269,18 +269,21 @@ enum AddYoutubeResult {
 			return .failure(message: "No authentication token")
 		}
 
-		var request = URLRequest(url: addSourceURL)
+		var request = URLRequest(url: allFeedRequestsURL)
 		request.httpMethod = "POST"
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
 		let requestID = UUID().uuidString
-		let body: [String: String] = [
-			"type": "yt",
-			"show": show,
-			"author": author,
-			"apple_user_id": AuthManager.shared.appleUserID ?? "",
-			"request_id": requestID
+		let feedsForUpdate = await FeedStatsManager.shared.buildFeedsForUpdate()
+		let body: [String: Any] = [
+			"operation":        "add-show",
+			"type":             "yt",
+			"show":             show,
+			"author":           author,
+			"apple_user_id":    AuthManager.shared.appleUserID ?? "",
+			"request_id":       requestID,
+			"feeds_for_update": feedsForUpdate
 		]
 
 		do {
@@ -305,6 +308,11 @@ enum AddYoutubeResult {
 				Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
 			}
 			let statusCode = httpResponse.statusCode
+
+			if let nbCreditsStr = json?["nb_credits"] as? String,
+			   let credits = Int(nbCreditsStr) {
+				FeedStatsManager.shared.cachedCredits = credits
+			}
 
 			switch statusCode {
 			case 200, 201:
