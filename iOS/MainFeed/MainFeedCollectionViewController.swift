@@ -326,19 +326,33 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let topInset = hasFeeds ? recentlyUpdatedTopInset : defaultTopInset
 		let wasHidden = recentlyUpdatedContainerView.isHidden
 
-		if hasFeeds && wasHidden {
-			recentlyUpdatedContainerView.alpha = 0
-			navBarExtendedBackgroundView.alpha = 0
-		}
 		recentlyUpdatedContainerView.isHidden = !hasFeeds
 		navBarExtendedBackgroundView.isHidden = !hasFeeds
 		collectionView.contentInset.top = topInset
 		collectionView.verticalScrollIndicatorInsets.top = topInset
 
 		if hasFeeds && wasHidden {
-			UIView.animate(withDuration: 0.3) {
-				self.recentlyUpdatedContainerView.alpha = 1
+			// Background and title fade in immediately.
+			navBarExtendedBackgroundView.alpha = 0
+			recentlyUpdatedTitleLabel.alpha = 0
+			UIView.animate(withDuration: 0.2) {
 				self.navBarExtendedBackgroundView.alpha = 1
+				self.recentlyUpdatedTitleLabel.alpha = 1
+			}
+
+			// Icons slide in from right, one at a time.
+			let itemViews = recentlyUpdatedStackView.arrangedSubviews
+			for (index, view) in itemViews.enumerated() {
+				view.alpha = 0
+				view.transform = CGAffineTransform(translationX: 44, y: 0)
+				UIView.animate(
+					withDuration: 0.28,
+					delay: Double(index) * 0.06,
+					options: .curveEaseOut
+				) {
+					view.alpha = 1
+					view.transform = .identity
+				}
 			}
 		}
 	}
