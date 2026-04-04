@@ -616,12 +616,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				loadingAlert.dismiss(animated: true) {
 					switch result {
 					case .success(let feed):
-						Task {
-							if category != .rss {
-								// Pod / YT / Topics: send a full subscription snapshot and refresh credits
-								await FeedStatsManager.shared.reportUpdate()
-							}
-						}
 						NotificationCenter.default.post(
 							name: .UserDidAddFeed,
 							object: self,
@@ -799,7 +793,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			registerForTraitChanges([UITraitPreferredContentSizeCategory.self], target: self, action: #selector(preferredContentSizeCategoryDidChange))
 		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
-
+		NotificationCenter.default.addObserver(self, selector: #selector(bootstrapProgressDidUpdate(_:)), name: .bootstrapProgressDidUpdate, object: nil)
 	}
 
 	private func applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip() {
@@ -980,6 +974,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
     // Uncomment this method to specify if the specified item should be selected
     override func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
+		// Block selection while bootstrap is in progress
+		if let node = coordinator.nodeFor(indexPath),
+		   let feed = node.representedObject as? Feed,
+		   BootstrapProgressManager.shared.progress(forFeedURL: feed.url) != nil {
+			return false
+		}
 		if traitCollection.userInterfaceIdiom == .pad { return true }
 		return !isAnimating
     }
@@ -1186,6 +1186,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			cell.indentationLevel = indentationLevel
 			configureIcon(cell, sidebarItem: sidebarItem)
 		}
+
+		if let feed = node.representedObject as? Feed {
+			cell.bootstrapProgress = BootstrapProgressManager.shared.progress(forFeedURL: feed.url)
+		} else {
+			cell.bootstrapProgress = nil
+		}
 	}
 
 	/// Configure folders
@@ -1219,6 +1225,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			cell.useWideUnreadChevronSpacing = true
 			cell.indentationLevel = indentationLevel
 			configureIcon(cell, indexPath)
+		}
+
+		if let feed = node.representedObject as? Feed {
+			cell.bootstrapProgress = BootstrapProgressManager.shared.progress(forFeedURL: feed.url)
+		} else {
+			cell.bootstrapProgress = nil
 		}
 	}
 
@@ -1364,6 +1376,17 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 	}
 
+	@objc func bootstrapProgressDidUpdate(_ note: Notification) {
+		// Reload every visible feed cell so bootstrap progress rings update
+		applyToAvailableCells { (cell, indexPath) in
+			guard let node = coordinator.nodeFor(indexPath),
+				  let feed = node.representedObject as? Feed else {
+				return
+			}
+			cell.bootstrapProgress = BootstrapProgressManager.shared.progress(forFeedURL: feed.url)
+		}
+	}
+
 	// MARK: - Actions
 
 	@objc func refreshAccounts(_ sender: Any) {
@@ -1379,7 +1402,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	@objc private func appWillEnterForeground() {
 		SourcesRefreshManager.shared.refreshIfNeeded()
 		refreshRecentlyUpdatedShowsStrip()
-		Task { await FeedStatsManager.shared.fetchCredits() }
+		Task { await FeedStatsManager.shared.fetchCreditsIfNeeded() }
 	}
 
 	private func showEnterRSSURLDialog() {
@@ -1463,11 +1486,18 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				loadingAlert.dismiss(animated: true) {
 					switch result {
 					case .successExisting(let summaryURL):
+						// 201: show already exists — cancel any stale bootstrap job for this URL
+						let existingPodFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
+						BootstrapProgressManager.shared.cancelBootstrap(feedURL: existingPodFeedURL)
 						self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
 							appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
 						}
 
 					case .successNew(let summaryURL, let message):
+						// Start bootstrap immediately on 202 — don't wait for addFeedDirectly completion.
+						// Use URL.absoluteString form so it matches what Account stores for the feed.
+						let podFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
+						BootstrapProgressManager.shared.startBootstrap(type: "pod", show: name, author: author ?? "", feedURL: podFeedURL, summaryURL: summaryURL)
 						self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
 							self.showAddSourceSuccess(title: NSLocalizedString("Podcast Added", comment: "Podcast Added"), message: message) {}
 						}
@@ -2247,11 +2277,17 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 				loadingAlert.dismiss(animated: true) {
 					switch result {
 					case .successExisting(let summaryURL):
+						// 201: channel already exists — cancel any stale bootstrap job for this URL
+						let existingYtFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
+						BootstrapProgressManager.shared.cancelBootstrap(feedURL: existingYtFeedURL)
 						self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
 							appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
 						}
 
 					case .successNew(let summaryURL, let message):
+						// Start bootstrap immediately on 202 — don't wait for addFeedDirectly completion.
+						let ytFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
+						BootstrapProgressManager.shared.startBootstrap(type: "yt", show: name, author: author ?? "", feedURL: ytFeedURL, summaryURL: summaryURL)
 						self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
 							self.showAddSourceSuccess(title: NSLocalizedString("Channel Added", comment: "Channel Added"), message: message) {}
 						}

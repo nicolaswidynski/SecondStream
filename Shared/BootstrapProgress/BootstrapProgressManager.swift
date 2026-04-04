@@ -1,0 +1,340 @@
+//
+//  BootstrapProgressManager.swift
+//  NetNewsWire
+//
+//  Created by Claude on 2026-04-02.
+//  Copyright © 2026 STDN. All rights reserved.
+//
+
+import Foundation
+import os.log
+
+extension Notification.Name {
+	static let bootstrapProgressDidUpdate = Notification.Name("bootstrapProgressDidUpdate")
+}
+
+/// Represents an in-progress bootstrap job for a newly added show.
+struct BootstrapJob: Codable, Equatable {
+	let type: String        // "pod" or "yt"
+	let show: String
+	let author: String
+	let feedURL: String
+	/// CDN URL for the summary JSON file. If this returns HTTP 200 on HEAD, bootstrap is complete.
+	/// Older persisted jobs may not have this field — defaults to "" which disables the fast-path.
+	let summaryURL: String
+	let startedAt: Date
+
+	init(type: String, show: String, author: String, feedURL: String, summaryURL: String = "", startedAt: Date) {
+		self.type = type
+		self.show = show
+		self.author = author
+		self.feedURL = feedURL
+		self.summaryURL = summaryURL
+		self.startedAt = startedAt
+	}
+}
+
+/// Manages polling for bootstrap progress on newly added shows that returned 202.
+///
+/// Jobs are persisted in `UserDefaults` so they survive app restarts.
+/// Each job polls `query-bootstrap-progress` every 10 s (first poll after 10 s),
+/// and stops when progress reaches 100 or the job is older than 1 hour.
+///
+/// Progress is keyed by feed URL for easy lookup from the sidebar.
+@MainActor final class BootstrapProgressManager {
+
+	static let shared = BootstrapProgressManager()
+
+	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "Bootstrap")
+
+	private let queryURL = URL(string: "https://n8n.nwidynski.com/webhook/query-bootstrap-progress")!
+	private let jobsKey = "bootstrapProgressJobs"
+	private let pollInterval: TimeInterval = 10
+	private let maxDuration: TimeInterval = 3600  // 1 hour
+
+	// MARK: - State
+
+	/// Keyed by `feedURL`. Value is 0.0–1.0 (progress fraction).
+	/// Before the first poll result, holds 0.0 so the cell shows an empty ring immediately.
+	private(set) var progressByFeedURL: [String: Double] = [:]
+
+	/// Running poll tasks, keyed by feedURL.
+	private var tasksByFeedURL: [String: Task<Void, Never>] = [:]
+
+	// MARK: - Bearer token
+
+	private var bearerToken: String? {
+		guard let tokenURL = Bundle.main.url(forResource: "podcast_token", withExtension: "txt"),
+			  let token = try? String(contentsOf: tokenURL, encoding: .utf8) else {
+			Self.logger.error("Failed to load bearer token from file")
+			return nil
+		}
+		return token.trimmingCharacters(in: .whitespacesAndNewlines)
+	}
+
+	// MARK: - Persisted Jobs
+
+	private var jobs: [BootstrapJob] {
+		get {
+			guard let data = UserDefaults.standard.data(forKey: jobsKey),
+				  let decoded = try? JSONDecoder().decode([BootstrapJob].self, from: data) else {
+				return []
+			}
+			return decoded
+		}
+		set {
+			if let data = try? JSONEncoder().encode(newValue) {
+				UserDefaults.standard.set(data, forKey: jobsKey)
+			} else {
+				UserDefaults.standard.removeObject(forKey: jobsKey)
+			}
+		}
+	}
+
+	// MARK: - Public API
+
+	/// Call this once at app launch to resume any jobs that survived a restart.
+	func resumePendingJobs() {
+		for job in jobs {
+			guard tasksByFeedURL[job.feedURL] == nil else { continue }
+			let elapsed = Date().timeIntervalSince(job.startedAt)
+			if elapsed >= maxDuration {
+				removeJob(job)
+				continue
+			}
+			progressByFeedURL[job.feedURL] = 0.0
+			// Align the initial delay to the next 10-second boundary
+			let remaining = pollInterval - elapsed.truncatingRemainder(dividingBy: pollInterval)
+			startPolling(job: job, initialDelay: max(0, remaining))
+		}
+	}
+
+	/// Start tracking bootstrap progress for a newly added show (202 response).
+	/// - Parameters:
+	///   - type: "pod" or "yt"
+	///   - show: show/channel name
+	///   - author: show author (may be empty)
+	///   - feedURL: the feed URL that was just added — used as the stable lookup key
+	func startBootstrap(type: String, show: String, author: String, feedURL: String, summaryURL: String) {
+		// Avoid duplicates
+		guard tasksByFeedURL[feedURL] == nil else {
+			Self.logger.info("startBootstrap skipped — already tracking \(feedURL)")
+			return
+		}
+
+		Self.logger.info("startBootstrap — type:\(type) show:\(show) feedURL:\(feedURL)")
+		let job = BootstrapJob(type: type, show: show, author: author, feedURL: feedURL, summaryURL: summaryURL, startedAt: Date())
+		var current = jobs
+		current.removeAll { $0.feedURL == feedURL }
+		current.append(job)
+		jobs = current
+
+		progressByFeedURL[feedURL] = 0.0
+		notifyUpdate(feedURL: feedURL)
+		startPolling(job: job, initialDelay: pollInterval)
+	}
+
+	/// Current progress fraction (0.0–1.0) for a given feed URL, or `nil` if not bootstrapping.
+	func progress(forFeedURL feedURL: String) -> Double? {
+		progressByFeedURL[feedURL]
+	}
+
+	/// Cancels and removes any active or persisted bootstrap job for the given feed URL.
+	/// Call this when a feed is confirmed to already exist (201 response) so stale jobs
+	/// from a previous 202 session don't leave the ring on screen.
+	func cancelBootstrap(feedURL: String) {
+		guard progressByFeedURL[feedURL] != nil || jobs.contains(where: { $0.feedURL == feedURL }) else {
+			return
+		}
+		tasksByFeedURL[feedURL]?.cancel()
+		tasksByFeedURL.removeValue(forKey: feedURL)
+		progressByFeedURL.removeValue(forKey: feedURL)
+		var current = jobs
+		current.removeAll { $0.feedURL == feedURL }
+		jobs = current
+		notifyUpdate(feedURL: feedURL)
+	}
+
+	// MARK: - Polling
+
+	private func startPolling(job: BootstrapJob, initialDelay: TimeInterval) {
+		Self.logger.info("startPolling — feedURL:\(job.feedURL) initialDelay:\(initialDelay)s")
+		let task = Task { [weak self] in
+			guard let self else {
+				Self.logger.error("startPolling task fired but self is nil")
+				return
+			}
+			try? await Task.sleep(for: .seconds(initialDelay))
+			if Task.isCancelled {
+				Self.logger.info("startPolling task cancelled after sleep for \(job.feedURL)")
+				return
+			}
+			await self.poll(job: job)
+		}
+		tasksByFeedURL[job.feedURL] = task
+	}
+
+	/// Returns `true` if the summary JSON file already exists on the CDN (HTTP 200/HEAD).
+	private func summaryFileExists(job: BootstrapJob) async -> Bool {
+		guard let url = URL(string: job.summaryURL) else { return false }
+		var request = URLRequest(url: url)
+		request.httpMethod = "HEAD"
+		request.timeoutInterval = 10
+		do {
+			let (_, response) = try await URLSession.shared.data(for: request)
+			let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+			Self.logger.info("summaryFile HEAD \(status, privacy: .public) for \(job.feedURL)")
+			return status == 200
+		} catch {
+			return false
+		}
+	}
+
+	private func poll(job: BootstrapJob) async {
+		let elapsed = Date().timeIntervalSince(job.startedAt)
+		Self.logger.info("poll fired — feedURL:\(job.feedURL) elapsed:\(Int(elapsed))s")
+		if elapsed >= maxDuration {
+			Self.logger.info("poll timeout for \(job.feedURL)")
+			finish(job: job, atFull: false)
+			return
+		}
+
+		// Fast-path: if the summary file already exists on the CDN, bootstrap is done.
+		if await summaryFileExists(job: job) {
+			Self.logger.info("summary file exists — finishing at 100% for \(job.feedURL)")
+			finish(job: job, atFull: true)
+			return
+		}
+
+		let pct = await queryProgress(job: job)
+		if Task.isCancelled {
+			Self.logger.info("poll task cancelled after queryProgress for \(job.feedURL)")
+			return
+		}
+
+		if let pct {
+			let fraction = min(1.0, max(0.0, Double(pct) / 100.0))
+			progressByFeedURL[job.feedURL] = fraction
+			notifyUpdate(feedURL: job.feedURL)
+
+			if pct >= 100 {
+				finish(job: job, atFull: true)
+				return
+			}
+		}
+
+		// Schedule next poll
+		let nextTask = Task { [weak self] in
+			guard let self else { return }
+			try? await Task.sleep(for: .seconds(self.pollInterval))
+			guard !Task.isCancelled else { return }
+			await self.poll(job: job)
+		}
+		tasksByFeedURL[job.feedURL] = nextTask
+	}
+
+	private func finish(job: BootstrapJob, atFull: Bool) {
+		tasksByFeedURL.removeValue(forKey: job.feedURL)
+		if atFull {
+			progressByFeedURL[job.feedURL] = 1.0
+			notifyUpdate(feedURL: job.feedURL)
+			// Brief pause so the UI can show 100% before clearing
+			Task { [weak self] in
+				try? await Task.sleep(for: .seconds(1))
+				self?.progressByFeedURL.removeValue(forKey: job.feedURL)
+				self?.notifyUpdate(feedURL: job.feedURL)
+			}
+		} else {
+			progressByFeedURL.removeValue(forKey: job.feedURL)
+			notifyUpdate(feedURL: job.feedURL)
+		}
+		removeJob(job)
+	}
+
+	// MARK: - Network
+
+	private func queryProgress(job: BootstrapJob) async -> Int? {
+		Self.logger.info("queryProgress — feedURL:\(job.feedURL)")
+		guard let appleUserID = AuthManager.shared.appleUserID else {
+			Self.logger.error("queryProgress aborted — appleUserID is nil")
+			return nil
+		}
+		guard let token = bearerToken else {
+			Self.logger.error("queryProgress aborted — bearerToken is nil")
+			return nil
+		}
+
+		var body: [String: Any] = [
+			"apple_user_id": appleUserID,
+			"type": job.type,
+			"show": job.show,
+		]
+		if !job.author.isEmpty {
+			body["author"] = job.author
+		}
+
+		guard let jsonData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
+
+		var request = URLRequest(url: queryURL)
+		request.httpMethod = "POST"
+		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+		request.httpBody = jsonData
+		request.timeoutInterval = 15
+
+		do {
+			Self.logger.info("queryProgress — sending POST to \(self.queryURL) for \(job.feedURL)")
+			let (data, response) = try await URLSession.shared.data(for: request)
+			guard let http = response as? HTTPURLResponse else {
+				Self.logger.error("queryProgress — non-HTTP response")
+				return nil
+			}
+			Self.logger.info("queryProgress — HTTP \(http.statusCode) for \(job.feedURL)")
+
+			// 551 = feed not found on server — consider bootstrap complete
+			if http.statusCode == 551 {
+				Self.logger.info("Bootstrap got 551 (feed not found) for \(job.feedURL) — treating as 100")
+				return 100
+			}
+
+			guard http.statusCode == 200 else {
+				let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
+				Self.logger.error("queryProgress unexpected status \(http.statusCode, privacy: .public): \(rawBody, privacy: .public)")
+				return nil
+			}
+
+			// Response: {"percentage": 42} or [{"percentage": 42}]
+			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
+			Self.logger.info("queryProgress response body: \(rawBody, privacy: .public)")
+			if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+			   let pct = obj["percentage"] as? Int {
+				return pct
+			}
+			if let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+			   let pct = arr.first?["percentage"] as? Int {
+				return pct
+			}
+			Self.logger.error("queryProgress — could not parse percentage from: \(rawBody, privacy: .public)")
+			return nil
+		} catch {
+			Self.logger.error("Bootstrap query failed for \(job.feedURL): \(error.localizedDescription)")
+			return nil
+		}
+	}
+
+	// MARK: - Helpers
+
+	private func removeJob(_ job: BootstrapJob) {
+		var current = jobs
+		current.removeAll { $0.feedURL == job.feedURL }
+		jobs = current
+	}
+
+	private func notifyUpdate(feedURL: String) {
+		NotificationCenter.default.post(
+			name: .bootstrapProgressDidUpdate,
+			object: self,
+			userInfo: ["feedURL": feedURL]
+		)
+	}
+}

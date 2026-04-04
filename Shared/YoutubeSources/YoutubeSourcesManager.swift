@@ -275,7 +275,7 @@ enum AddYoutubeResult {
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
 		let requestID = UUID().uuidString
-		let feedsForUpdate = await FeedStatsManager.shared.buildFeedsForUpdate()
+		let feedsForUpdate = FeedStatsManager.shared.buildFeedsForUpdate()
 		let body: [String: Any] = [
 			"operation":        "add-show",
 			"type":             "yt",
@@ -309,8 +309,7 @@ enum AddYoutubeResult {
 			}
 			let statusCode = httpResponse.statusCode
 
-			if let nbCreditsStr = json?["nb_credits"] as? String,
-			   let credits = Int(nbCreditsStr) {
+			if let json, let credits = FeedStatsManager.parseCredits(json) {
 				FeedStatsManager.shared.cachedCredits = credits
 			}
 

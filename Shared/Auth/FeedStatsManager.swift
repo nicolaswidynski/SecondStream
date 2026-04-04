@@ -27,6 +27,33 @@ import os.log
 	private let outboxKey = "feedStats_deletionOutbox"
 	private let creditsKey = "feedStats_cachedCredits"
 	private var isDrainingOutbox = false
+	/// Set by `queueDelete` so that `childrenDidChange` only drains after an actual delete,
+	/// not after every structural change (e.g. feed adds).
+	private var pendingDrain = false
+
+	/// Minimum time between foreground-triggered credit refreshes.
+	private let foregroundFetchInterval: TimeInterval = 60
+	private var lastForegroundFetchDate: Date?
+
+	private init() {
+		// Drain the outbox whenever the account structure changes (feeds added/removed).
+		// Account posts .ChildrenDidChange after removeFeed/addFeed completes, so
+		// flattenedFeeds() is already up-to-date when we read it in buildFeedsForUpdate.
+		NotificationCenter.default.addObserver(
+			self,
+			selector: #selector(childrenDidChange(_:)),
+			name: .ChildrenDidChange,
+			object: nil
+		)
+	}
+
+	@objc private nonisolated func childrenDidChange(_ note: Notification) {
+		Task { @MainActor in
+			guard FeedStatsManager.shared.pendingDrain else { return }
+			FeedStatsManager.shared.pendingDrain = false
+			await FeedStatsManager.shared.drainOutbox()
+		}
+	}
 
 	// MARK: - Outbox record
 
@@ -40,6 +67,18 @@ import os.log
 	}
 
 	// MARK: - Error helpers
+
+	/// Extracts `nb_credits` from a parsed JSON dictionary, accepting both
+	/// a JSON string (`"42"`) and a JSON integer (`42`).
+	static func parseCredits(_ json: [String: Any]) -> Int? {
+		if let intValue = json["nb_credits"] as? Int {
+			return intValue
+		}
+		if let strValue = json["nb_credits"] as? String {
+			return Int(strValue)
+		}
+		return nil
+	}
 
 	/// Extracts the `"message"` field from a JSON webhook error body.
 	/// Falls back to the raw UTF-8 body if the field is absent or unparseable.
@@ -80,8 +119,10 @@ import os.log
 		get { UserDefaults.standard.object(forKey: creditsKey) as? Int }
 		set {
 			if let v = newValue {
+				Self.logger.info("cachedCredits → \(v, privacy: .public)")
 				UserDefaults.standard.set(v, forKey: creditsKey)
 			} else {
+				Self.logger.info("cachedCredits → nil (cleared)")
 				UserDefaults.standard.removeObject(forKey: creditsKey)
 			}
 			NotificationCenter.default.post(name: .creditsDidUpdate, object: nil)
@@ -91,9 +132,9 @@ import os.log
 	// MARK: - Feeds payload
 
 	/// Builds the `feeds_for_update` dictionary that must accompany every request
-	/// to `all-feed-requests`. Fetches live free-lib files to resolve `count_free`
-	/// for pod and yt; rss and topics are always considered free.
-	func buildFeedsForUpdate() async -> [String: Any] {
+	/// to `all-feed-requests`. Uses already-cached free source lists from the
+	/// source managers — no extra network calls needed.
+	func buildFeedsForUpdate() -> [String: Any] {
 		guard let account = AccountManager.shared.activeAccounts.first else {
 			return [:]
 		}
@@ -114,11 +155,9 @@ import os.log
 			}
 		}
 
-		async let podFreeEntries = SourceFileFetcher.fetch(fileName: "pod_free.json")
-		async let ytFreeEntries  = SourceFileFetcher.fetch(fileName: "yt_free.json")
-
-		let podFreeNames = Set((await podFreeEntries ?? []).map { $0.name.lowercased() })
-		let ytFreeNames  = Set((await ytFreeEntries  ?? []).map { $0.name.lowercased() })
+		// Use the already-cached free source lists — no network call needed
+		let podFreeNames = Set(PodcastSourcesManager.shared.podcastSources.map { $0.name.lowercased() })
+		let ytFreeNames  = Set(YoutubeSourcesManager.shared.youtubeSources.map { $0.name.lowercased() })
 
 		let podFreeCount = podSources.filter { podFreeNames.contains($0.lowercased()) }.count
 		let ytFreeCount  = ytSources.filter  { ytFreeNames.contains($0.lowercased()) }.count
@@ -168,7 +207,7 @@ import os.log
 			return nil
 		}
 
-		let feedsForUpdate = await buildFeedsForUpdate()
+		let feedsForUpdate = buildFeedsForUpdate()
 		let requestID = UUID().uuidString
 
 		var body: [String: Any] = [
@@ -190,11 +229,13 @@ import os.log
 			request.httpBody = try JSONSerialization.data(withJSONObject: body)
 			let (data, response) = try await URLSession.shared.data(for: request)
 
-			guard let httpResponse = response as? HTTPURLResponse,
-				  (200...299).contains(httpResponse.statusCode) else {
+			guard let httpResponse = response as? HTTPURLResponse else {
+				Self.logger.error("all-feed-requests \(operation) — non-HTTP response")
+				return nil
+			}
+			guard (200...299).contains(httpResponse.statusCode) else {
 				let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
-				let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-				Self.logger.error("all-feed-requests \(operation) failed [\(code)]: \(rawBody)")
+				Self.logger.error("all-feed-requests \(operation) failed [\(httpResponse.statusCode, privacy: .public)]: \(rawBody, privacy: .public)")
 				return nil
 			}
 
@@ -202,12 +243,12 @@ import os.log
 			if let echoed = json?["request_id"] as? String, echoed != requestID {
 				Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
 			}
-			if let nbCreditsStr = json?["nb_credits"] as? String,
-			   let credits = Int(nbCreditsStr) {
-				Self.logger.info("all-feed-requests \(operation) ok — nb_credits: \(credits)")
+			if let credits = json.flatMap({ Self.parseCredits($0) }) {
+				Self.logger.info("all-feed-requests \(operation) ok — nb_credits: \(credits, privacy: .public)")
 				return credits
 			}
-			Self.logger.info("all-feed-requests \(operation) ok (no nb_credits in response)")
+			let rawForLog = String(data: data, encoding: .utf8) ?? "(empty)"
+			Self.logger.info("all-feed-requests \(operation) ok (no nb_credits) body: \(rawForLog, privacy: .public)")
 			return nil
 		} catch {
 			Self.logger.error("all-feed-requests \(operation) error: \(error.localizedDescription)")
@@ -223,6 +264,17 @@ import os.log
 		if let credits = await sendRequest(operation: "update-user-stats") {
 			cachedCredits = credits
 		}
+	}
+
+	/// Sends `update-user-stats` only if at least `foregroundFetchInterval` seconds
+	/// have elapsed since the last foreground fetch. Call on every app-foreground event.
+	func fetchCreditsIfNeeded() async {
+		let now = Date()
+		if let last = lastForegroundFetchDate, now.timeIntervalSince(last) < foregroundFetchInterval {
+			return
+		}
+		lastForegroundFetchDate = now
+		await fetchCredits()
 	}
 
 	// MARK: - Update stats
@@ -257,9 +309,9 @@ import os.log
 		var outbox = loadOutbox()
 		outbox.append(record)
 		saveOutbox(outbox)
+		pendingDrain = true
 
-		Self.logger.info("Queued delete for \(name)")
-		Task { await self.drainOutbox() }
+		Self.logger.info("Queued delete for \(name) — will drain on next ChildrenDidChange")
 	}
 
 	/// Attempts to send a stats update for all queued delete events.

@@ -87,9 +87,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		appDelegate.resumeDatabaseProcessingIfNecessary()
 		appDelegate.prepareAccountsForForeground()
 		coordinator.resetFocus()
-		Task {
-			await FeedStatsManager.shared.drainOutbox()
-		}
 		if !AuthManager.shared.isConnected {
 			presentRegistration()
 		}

@@ -18,6 +18,23 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 	private var faviconLeadingConstraint: NSLayoutConstraint?
 	var useWideUnreadChevronSpacing = false
 
+	// MARK: - Bootstrap progress
+
+	private lazy var circularProgressView: CircularProgressView = {
+		let view = CircularProgressView()
+		view.translatesAutoresizingMaskIntoConstraints = false
+		view.isHidden = true
+		return view
+	}()
+
+	/// When non-nil the cell is in "bootstrapping" mode: grayed out, not tappable,
+	/// unread count replaced by a circular progress ring.
+	var bootstrapProgress: Double? {
+		didSet {
+			applyBootstrapState()
+		}
+	}
+
 	var iconImage: IconImage? {
 		didSet {
 			faviconView.iconImage = iconImage
@@ -37,7 +54,10 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 		}
 		set {
 			_unreadCount = newValue
-			unreadCountLabel.isHidden = false
+			// Only show the label if we're not in bootstrap mode
+			if bootstrapProgress == nil {
+				unreadCountLabel.isHidden = false
+			}
 			updateUnreadDisclosureText()
 		}
 	}
@@ -74,6 +94,15 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 			super.awakeFromNib()
 			faviconLeadingConstraint = faviconView.leadingAnchor.constraint(equalTo: contentView.safeAreaLayoutGuide.leadingAnchor)
 			faviconLeadingConstraint?.isActive = true
+
+			// Overlay the circular progress view on top of the unreadCountLabel area
+			unreadCountLabel.superview?.addSubview(circularProgressView)
+			NSLayoutConstraint.activate([
+				circularProgressView.centerYAnchor.constraint(equalTo: unreadCountLabel.centerYAnchor),
+				circularProgressView.trailingAnchor.constraint(equalTo: unreadCountLabel.trailingAnchor),
+				circularProgressView.widthAnchor.constraint(equalToConstant: 22),
+				circularProgressView.heightAnchor.constraint(equalToConstant: 22),
+			])
 		}
     }
 
@@ -111,10 +140,31 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 			}
 		}
 		updateUnreadDisclosureText()
+		applyBootstrapState()
 		self.backgroundConfiguration = backgroundConfig
 	}
 
+	private func applyBootstrapState() {
+		if let progress = bootstrapProgress {
+			// Bootstrapping: show ring, hide count label, gray out cell
+			circularProgressView.progress = CGFloat(progress)
+			circularProgressView.isHidden = false
+			unreadCountLabel.isHidden = true
+			contentView.alpha = 0.45
+			isUserInteractionEnabled = false
+		} else {
+			// Normal: hide ring, restore count label and appearance
+			circularProgressView.isHidden = true
+			unreadCountLabel.isHidden = false
+			contentView.alpha = 1.0
+			isUserInteractionEnabled = true
+		}
+	}
+
 	private func updateUnreadDisclosureText() {
+		// During bootstrap, the label is hidden — no need to update it
+		guard bootstrapProgress == nil else { return }
+
 		let textColor = unreadCountLabel.textColor ?? .secondaryLabel
 		let font = unreadCountLabel.font ?? UIFont.preferredFont(forTextStyle: .body)
 		let symbolConfig = UIImage.SymbolConfiguration(pointSize: max(10, font.pointSize * 0.68), weight: .semibold)
