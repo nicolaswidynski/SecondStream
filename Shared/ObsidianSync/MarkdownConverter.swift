@@ -395,7 +395,7 @@ struct MarkdownConverter {
 							return trimmed.isEmpty ? ">" : "> \(trimmed)"
 						}
 						.joined(separator: "\n")
-					result.replaceSubrange(fullRange, with: "\n\(content)\n")
+					result.replaceSubrange(fullRange, with: "\n\(content)\n\n")
 				}
 			}
 		}
