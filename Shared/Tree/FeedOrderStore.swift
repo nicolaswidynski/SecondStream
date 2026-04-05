@@ -23,6 +23,13 @@ import RSTree
 		return stored[key]
 	}
 
+	/// Removes any saved order for the given section key, reverting to alphabetical.
+	func clearOrder(forKey key: String) {
+		var stored = UserDefaults.standard.dictionary(forKey: userDefaultsKey) as? [String: [String]] ?? [:]
+		stored.removeValue(forKey: key)
+		UserDefaults.standard.set(stored, forKey: userDefaultsKey)
+	}
+
 	/// Saves the given feed URL order for the section key.
 	func saveOrder(_ feedURLs: [String], forKey key: String) {
 		var stored = UserDefaults.standard.dictionary(forKey: userDefaultsKey) as? [String: [String]] ?? [:]

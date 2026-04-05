@@ -1497,7 +1497,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 						// Start bootstrap immediately on 202 — don't wait for addFeedDirectly completion.
 						// Use URL.absoluteString form so it matches what Account stores for the feed.
 						let podFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
-						BootstrapProgressManager.shared.startBootstrap(type: "pod", show: name, author: author ?? "", feedURL: podFeedURL, summaryURL: summaryURL)
+						BootstrapProgressManager.shared.startBootstrap(type: "pod", show: name, author: author ?? "", feedURL: podFeedURL)
 						self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
 							self.showAddSourceSuccess(title: NSLocalizedString("Podcast Added", comment: "Podcast Added"), message: message) {}
 						}
@@ -2287,7 +2287,7 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 					case .successNew(let summaryURL, let message):
 						// Start bootstrap immediately on 202 — don't wait for addFeedDirectly completion.
 						let ytFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
-						BootstrapProgressManager.shared.startBootstrap(type: "yt", show: name, author: author ?? "", feedURL: ytFeedURL, summaryURL: summaryURL)
+						BootstrapProgressManager.shared.startBootstrap(type: "yt", show: name, author: author ?? "", feedURL: ytFeedURL)
 						self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
 							self.showAddSourceSuccess(title: NSLocalizedString("Channel Added", comment: "Channel Added"), message: message) {}
 						}

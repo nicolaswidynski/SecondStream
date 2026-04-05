@@ -18,20 +18,8 @@ struct BootstrapJob: Codable, Equatable {
 	let type: String        // "pod" or "yt"
 	let show: String
 	let author: String
-	let feedURL: String
-	/// CDN URL for the summary JSON file. If this returns HTTP 200 on HEAD, bootstrap is complete.
-	/// Older persisted jobs may not have this field — defaults to "" which disables the fast-path.
-	let summaryURL: String
+	let feedURL: String     // also the summary JSON URL, e.g. https://files.nwidynski.com/pod/aaa/show.json
 	let startedAt: Date
-
-	init(type: String, show: String, author: String, feedURL: String, summaryURL: String = "", startedAt: Date) {
-		self.type = type
-		self.show = show
-		self.author = author
-		self.feedURL = feedURL
-		self.summaryURL = summaryURL
-		self.startedAt = startedAt
-	}
 }
 
 /// Manages polling for bootstrap progress on newly added shows that returned 202.
@@ -115,7 +103,7 @@ struct BootstrapJob: Codable, Equatable {
 	///   - show: show/channel name
 	///   - author: show author (may be empty)
 	///   - feedURL: the feed URL that was just added — used as the stable lookup key
-	func startBootstrap(type: String, show: String, author: String, feedURL: String, summaryURL: String) {
+	func startBootstrap(type: String, show: String, author: String, feedURL: String) {
 		// Avoid duplicates
 		guard tasksByFeedURL[feedURL] == nil else {
 			Self.logger.info("startBootstrap skipped — already tracking \(feedURL)")
@@ -123,7 +111,7 @@ struct BootstrapJob: Codable, Equatable {
 		}
 
 		Self.logger.info("startBootstrap — type:\(type) show:\(show) feedURL:\(feedURL)")
-		let job = BootstrapJob(type: type, show: show, author: author, feedURL: feedURL, summaryURL: summaryURL, startedAt: Date())
+		let job = BootstrapJob(type: type, show: show, author: author, feedURL: feedURL, startedAt: Date())
 		var current = jobs
 		current.removeAll { $0.feedURL == feedURL }
 		current.append(job)
@@ -174,17 +162,20 @@ struct BootstrapJob: Codable, Equatable {
 		tasksByFeedURL[job.feedURL] = task
 	}
 
-	/// Returns `true` if the summary JSON file already exists on the CDN (HTTP 200/HEAD).
-	private func summaryFileExists(job: BootstrapJob) async -> Bool {
-		guard let url = URL(string: job.summaryURL) else { return false }
+	/// Returns `true` if the summary JSON at `feedURL` already has at least one entry,
+	/// meaning the backend has finished populating the feed.
+	private func feedEntriesExist(job: BootstrapJob) async -> Bool {
+		guard let url = URL(string: job.feedURL) else { return false }
 		var request = URLRequest(url: url)
-		request.httpMethod = "HEAD"
 		request.timeoutInterval = 10
 		do {
-			let (_, response) = try await URLSession.shared.data(for: request)
-			let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-			Self.logger.info("summaryFile HEAD \(status, privacy: .public) for \(job.feedURL)")
-			return status == 200
+			let (data, response) = try await URLSession.shared.data(for: request)
+			guard (response as? HTTPURLResponse)?.statusCode == 200 else { return false }
+			guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+				  let entries = json["entries"] as? [Any] else { return false }
+			let hasEntries = !entries.isEmpty
+			Self.logger.info("feedEntriesExist: \(hasEntries, privacy: .public) (\(entries.count, privacy: .public) entries) for \(job.feedURL)")
+			return hasEntries
 		} catch {
 			return false
 		}
@@ -199,9 +190,9 @@ struct BootstrapJob: Codable, Equatable {
 			return
 		}
 
-		// Fast-path: if the summary file already exists on the CDN, bootstrap is done.
-		if await summaryFileExists(job: job) {
-			Self.logger.info("summary file exists — finishing at 100% for \(job.feedURL)")
+		// Fast-path: if the summary JSON already has entries, the backend is done.
+		if await feedEntriesExist(job: job) {
+			Self.logger.info("feed entries present — finishing at 100% for \(job.feedURL)")
 			finish(job: job, atFull: true)
 			return
 		}

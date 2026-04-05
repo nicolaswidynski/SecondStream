@@ -142,7 +142,16 @@ extension MainFeedCollectionViewController: UICollectionViewDropDelegate {
 
 		let feedURLs = allNodes.compactMap { ($0.representedObject as? Feed)?.url }
 		let sectionID = dataSource.snapshot().sectionIdentifiers[destIndexPath.section]
-		FeedOrderStore.shared.saveOrder(feedURLs, forKey: sectionID)
+
+		// If the result is alphabetical, clear the saved order so future adds sort correctly.
+		let alphabeticalURLs = allNodes.filter { $0.representedObject is Feed }
+			.sortedAlphabetically()
+			.compactMap { ($0.representedObject as? Feed)?.url }
+		if feedURLs == alphabeticalURLs {
+			FeedOrderStore.shared.clearOrder(forKey: sectionID)
+		} else {
+			FeedOrderStore.shared.saveOrder(feedURLs, forKey: sectionID)
+		}
 
 		// Move the item directly in the snapshot instead of triggering a full rebuild.
 		// This lets UIKit's drop ghost animate smoothly into its final slot without
