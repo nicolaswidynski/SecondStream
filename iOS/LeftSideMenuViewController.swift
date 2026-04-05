@@ -29,7 +29,7 @@ final class LeftSideMenuViewController: UIViewController {
 	private lazy var creditsInfoButton: UIButton = {
 		let symbolConfig = UIImage.SymbolConfiguration(pointSize: 11, weight: .regular)
 		let button = UIButton(type: .system)
-		button.setImage(UIImage(systemName: "info.circle", withConfiguration: symbolConfig), for: .normal)
+		button.setImage(UIImage(systemName: "arrow.clockwise", withConfiguration: symbolConfig), for: .normal)
 		button.tintColor = .secondaryLabel
 		button.addAction(UIAction { [weak self] _ in
 			Task { @MainActor [weak self] in await self?.handleCreditsInfo() }
@@ -195,7 +195,6 @@ final class LeftSideMenuViewController: UIViewController {
 	@MainActor
 	private func handleCreditsInfo() async {
 		await FeedStatsManager.shared.reportUpdate()
-		await FeedStatsManager.shared.fetchCredits()
 		let credits = FeedStatsManager.shared.cachedCredits ?? 0
 		let alert = UIAlertController(
 			title: NSLocalizedString("Remaining Credits", comment: "Credits info title"),

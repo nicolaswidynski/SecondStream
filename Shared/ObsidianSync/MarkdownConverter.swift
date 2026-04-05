@@ -47,12 +47,10 @@ struct MarkdownConverter {
 			frontmatter += "author: \"\(escapeYAMLString(authorName))\"\n"
 		}
 
-		// Date - topics titles already embed the date, so skip the field for them
-		if feed.feedCategory != .news {
-			let dateString = extractDateForFrontmatter(from: article)
-			if let dateString {
-				frontmatter += "date: \(dateString)\n"
-			}
+		// Date
+		let dateString = extractDateForFrontmatter(from: article)
+		if let dateString {
+			frontmatter += "date: \(dateString)\n"
 		}
 
 		// Source URL: only for RSS feeds (for pod/yt/topics the URL is our own server, not a meaningful source)
@@ -129,17 +127,25 @@ struct MarkdownConverter {
 	private static func getBodyContent(from article: Article, category: FeedCategory) -> String? {
 		var body: String?
 
-		let doubleParagraphSpacing = (category == .podcast || category == .youtube)
-
-		// Prefer contentHTML, then contentText, then summary
-		if var html = article.contentHTML, !html.isEmpty {
+		// For structured JSON feeds, convert directly from JSON — no HTML intermediate.
+		if (category == .podcast || category == .youtube),
+		   let json = article.contentJSON, !json.isEmpty,
+		   let data = json.data(using: .utf8),
+		   let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+			logger.debug("Using contentJSON directly for show body")
+			body = convertShowJSONToMarkdown(parsed)
+		} else if category == .news,
+				  let json = article.contentJSON, !json.isEmpty,
+				  let data = json.data(using: .utf8),
+				  let items = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+			logger.debug("Using contentJSON directly for topics body")
+			body = convertTopicsJSONToMarkdown(items)
+		} else if let html = article.contentHTML, !html.isEmpty {
+			// RSS: HTML is the native format, convert to markdown.
 			logger.debug("Using contentHTML for body")
-			if doubleParagraphSpacing {
-				html = removeTimestampsBlockFromHTML(html)
-			}
-			body = convertHTMLToMarkdown(html, doubleParagraphSpacing: doubleParagraphSpacing)
+			body = convertHTMLToMarkdown(html)
 		} else if let text = article.contentText, !text.isEmpty {
-			logger.debug("Using contentText for body (not HTML)")
+			logger.debug("Using contentText for body")
 			body = text
 		} else if let summary = article.summary, !summary.isEmpty {
 			logger.debug("Using summary for body")
@@ -147,8 +153,7 @@ struct MarkdownConverter {
 		} else {
 			logger.debug("No body content found")
 		}
-
-		// Apply H1 removal to all content types (in case content is already markdown-formatted)
+ 
 		if let content = body {
 			let result = removeSingleH1IfNeeded(content)
 			logger.debug("Body content processed, final length: \(result.count)")
@@ -156,23 +161,110 @@ struct MarkdownConverter {
 		}
 		return nil
 	}
-
-	/// Strip the generated timestamps <details> block (and its surrounding <hr> tags) from HTML
-	/// before markdown conversion. The block looks like:
-	///   <hr><details><summary>..Timestamps..</summary><ul class="..timestamps..">...</ul></details><hr>
-	private static func removeTimestampsBlockFromHTML(_ html: String) -> String {
-		// Match an optional leading <hr>, a <details> block whose content includes the
-		// timestamps list class, and an optional trailing <hr>.
-		let pattern = #"<hr[^>]*/?>[\s]*<details>[\s\S]*?nnw-generated-timestamps-list[\s\S]*?</details>[\s]*<hr[^>]*/?>|<details>[\s\S]*?nnw-generated-timestamps-list[\s\S]*?</details>"#
-		guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
-			return html
+ 
+	// MARK: - Direct JSON → Markdown (Podcast / YouTube)
+ 
+	/// Converts structured show JSON directly to markdown, skipping the HTML intermediate.
+	/// Sections: Summary (bullets), Practical Applications (bullets), Deep Dive (paragraphs).
+	/// Timestamps are handled separately in YAML frontmatter.
+	private static func convertShowJSONToMarkdown(_ json: [String: Any]) -> String {
+		var sections = [String]()
+ 
+		if let items = json["summary"] as? [[String: Any]] {
+			let bullets = items.compactMap { bulletLine(from: $0) }
+			if !bullets.isEmpty {
+				sections.append("## Summary\n\n" + bullets.joined(separator: "\n"))
+			}
 		}
-		let range = NSRange(html.startIndex..., in: html)
-		return regex.stringByReplacingMatches(in: html, range: range, withTemplate: "")
+ 
+		if let items = json["practical_applications"] as? [[String: Any]] {
+			let bullets = items.compactMap { bulletLine(from: $0) }
+			if !bullets.isEmpty {
+				sections.append("## Practical Applications\n\n" + bullets.joined(separator: "\n"))
+			}
+		}
+ 
+		if let items = json["deep_dive"] as? [[String: Any]] {
+			let paragraphs = items.compactMap { paragraphLine(from: $0) }
+			if !paragraphs.isEmpty {
+				sections.append("## Deep Dive\n\n" + paragraphs.joined(separator: "\n\n"))
+			}
+		}
+ 
+		return sections.isEmpty ? "" : sections.joined(separator: "\n\n") + "\n"
+	}
+ 
+	// MARK: - Direct JSON → Markdown (Topics / News)
+ 
+	/// Converts a topics JSON array directly to markdown, skipping the HTML intermediate.
+	/// Each item becomes a ### heading with optional metadata and summary bullets.
+	private static func convertTopicsJSONToMarkdown(_ items: [[String: Any]]) -> String {
+		let sections = items.compactMap { item -> String? in
+			let title = (item["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Untitled"
+			let metadata = item["metadata"] as? [String: Any]
+			let link = (metadata?["link"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+			let author = (metadata?["author"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+			let pubDate = (metadata?["pubDate"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+			var block = link.map { "### [\(title)](\($0))" } ?? "### \(title)"
+
+			var meta = [String]()
+			if let author, !author.isEmpty { meta.append("- **Author**: \(author)") }
+			if let pubDate, !pubDate.isEmpty { meta.append("- **Published**: \(pubDate)") }
+			if !meta.isEmpty { block += "\n\n" + meta.joined(separator: "\n") }
+
+			let summary = item["summary"]
+			let bullets: [String]
+			if let list = summary as? [String] {
+				bullets = list
+					.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+					.filter { !$0.isEmpty }
+					.map { line -> String in
+						if line.hasPrefix("- ") { return "- \(line.dropFirst(2))" }
+						if line.hasPrefix("• ") { return "- \(line.dropFirst(2))" }
+						return "- \(line)"
+					}
+			} else if let str = summary as? String, !str.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+				bullets = str
+					.components(separatedBy: .newlines)
+					.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+					.filter { !$0.isEmpty }
+					.map { line -> String in
+						if line.hasPrefix("- ") { return "- \(line.dropFirst(2))" }
+						if line.hasPrefix("• ") { return "- \(line.dropFirst(2))" }
+						return "- \(line)"
+					}
+			} else {
+				bullets = []
+			}
+			if !bullets.isEmpty { block += "\n\n" + bullets.joined(separator: "\n") }
+ 
+			return block
+		}
+ 
+		return sections.isEmpty ? "" : sections.joined(separator: "\n\n") + "\n"
+	}
+ 
+	// MARK: - JSON formatting helpers
+ 
+	private static func bulletLine(from item: [String: Any]) -> String? {
+		let title = (item["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+		let content = (item["content"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+		guard !title.isEmpty || !content.isEmpty else { return nil }
+		if !title.isEmpty && !content.isEmpty { return "- **\(title)**: \(content)" }
+		return "- \(title + content)"
+	}
+ 
+	private static func paragraphLine(from item: [String: Any]) -> String? {
+		let title = (item["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+		let content = (item["content"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+		guard !title.isEmpty || !content.isEmpty else { return nil }
+		if !title.isEmpty && !content.isEmpty { return "**\(title)**: \(content)" }
+		return title + content
 	}
 
-	/// Convert HTML to a basic markdown-like format
-	private static func convertHTMLToMarkdown(_ html: String, doubleParagraphSpacing: Bool = false) -> String {
+	/// Convert HTML to a basic markdown-like format (used for RSS feeds)
+	private static func convertHTMLToMarkdown(_ html: String) -> String {
 		var result = html
 
 		logger.debug("convertHTMLToMarkdown called, HTML length: \(html.count)")
@@ -199,11 +291,50 @@ struct MarkdownConverter {
 
 		// STEP 2: Convert inline elements first (bold, italic, links, etc.)
 
+		// Strip <strong> from metadata labels (Author, Published) so they render as plain text.
+		// These are fixed labels inside <ul class="nnw-topics-metadata"> — bolding them adds noise.
+		let metadataPattern = "(<ul class=\"nnw-topics-metadata\">(?:(?!</ul>)[\\s\\S])*?)</ul>"
+		if let regex = try? NSRegularExpression(pattern: metadataPattern, options: .caseInsensitive) {
+			let range = NSRange(result.startIndex..., in: result)
+			let matches = regex.matches(in: result, options: [], range: range)
+			var output = ""
+			var lastEnd = result.startIndex
+			for match in matches {
+				guard let fullRange = Range(match.range, in: result) else { continue }
+				output.append(contentsOf: result[lastEnd..<fullRange.lowerBound])
+				var block = String(result[fullRange])
+				block = block.replacingOccurrences(of: "<strong>", with: "", options: .caseInsensitive)
+				block = block.replacingOccurrences(of: "</strong>", with: "", options: .caseInsensitive)
+				output.append(block)
+				lastEnd = fullRange.upperBound
+			}
+			output.append(contentsOf: result[lastEnd...])
+			result = output
+		}
+
 		// Bold - use proper regex to capture content
 		let boldPattern = "<(strong|b)[^>]*>([^<]*)</(strong|b)>"
 		if let regex = try? NSRegularExpression(pattern: boldPattern, options: .caseInsensitive) {
-			let range = NSRange(result.startIndex..., in: result)
-			result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "**$2**")
+			let nsRange = NSRange(result.startIndex..., in: result)
+			let matches = regex.matches(in: result, options: [], range: nsRange)
+			var output = ""
+			var lastEnd = result.startIndex
+			for match in matches {
+				guard let contentRange = Range(match.range(at: 2), in: result),
+					  let fullRange = Range(match.range, in: result) else {
+					continue
+				}
+				output.append(contentsOf: result[lastEnd..<fullRange.lowerBound])
+				var content = String(result[contentRange])
+				// Strip existing ** to prevent doubling when server sends bold markers inside <strong>
+				if content.hasPrefix("**") && content.hasSuffix("**") && content.count > 4 {
+					content = String(content.dropFirst(2).dropLast(2))
+				}
+				output.append("**\(content)**")
+				lastEnd = fullRange.upperBound
+			}
+			output.append(contentsOf: result[lastEnd...])
+			result = output
 		}
 
 		// Italic - use proper regex to capture content
@@ -275,28 +406,29 @@ struct MarkdownConverter {
 
 		// Paragraphs
 		result = result.replacingOccurrences(of: "<p[^>]*>", with: "", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</p>", with: doubleParagraphSpacing ? "\n\n" : "\n")
-
+		result = result.replacingOccurrences(of: "</p>", with: "\n")
 		// Line breaks
 		result = result.replacingOccurrences(of: "<br[^>]*/?>", with: "\n", options: .regularExpression)
 
 		// Lists
 		// standalone summary list (topics): prefix with a "Summary:" bullet and indent items.
-		result = result.replacingOccurrences(of: "<ul class=\"nnw-generated-bullet-list nnw-generated-standalone-summary\">", with: "- **Summary**:\n")
-		// summary list nested under metadata item (topics): keep summary label on its own line.
-		result = result.replacingOccurrences(of: "<li>\\s*<strong>Summary</strong>:\\s*<ul class=\"nnw-generated-bullet-list\">", with: "- **Summary**:\n", options: .regularExpression)
+//		result = result.replacingOccurrences(of: "<ul class=\"nnw-generated-bullet-list nnw-generated-standalone-summary\">", with: "- **Summary**:\n")
+//		// summary list nested under metadata item (topics): keep summary label on its own line.
+//		result = result.replacingOccurrences(of: "<li>\\s*<strong>Summary</strong>:\\s*<ul class=\"nnw-generated-bullet-list\">", with: "- **Summary**:\n", options: .regularExpression)
 		// headed bullet lists (podcast/yt summary, practical applications): items are already under an h2, just indent.
 		result = result.replacingOccurrences(of: "<ul class=\"nnw-generated-bullet-list\">", with: "")
-		result = result.replacingOccurrences(of: "<li class=\"nnw-generated-bullet-item\">", with: "\t- ")
+		result = result.replacingOccurrences(of: "<li class=\"nnw-generated-bullet-item\">", with: "- ")
 		// Generic lists (must come after the specific class handlers above)
 		result = result.replacingOccurrences(of: "<ul[^>]*>", with: "", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</ul>", with: "")
 		result = result.replacingOccurrences(of: "<ol[^>]*>", with: "", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</ol>", with: "")
-		result = result.replacingOccurrences(of: "<li[^>]*>", with: "- ", options: .regularExpression)
+//		result = result.replacingOccurrences(of: "<li[^>]**Author**: *>", with: " \t- Author: ", options: .regularExpression)
+//		result = result.replacingOccurrences(of: "<li[^>]<strong>Published</strong>: *>", with: " \t- Published: ", options: .regularExpression)
+		result = result.replacingOccurrences(of: "<li[^>]*>", with: " \t- ", options: .regularExpression)
 		result = result.replacingOccurrences(of: "</li>", with: "\n")
 		// If a summary line still ends up with the first bullet inline, force it onto the next line.
-		result = result.replacingOccurrences(of: "(?m)^(- \\*\\*Summary\\*\\*:)[ \\t]+- ", with: "$1\n\t- ", options: .regularExpression)
+		result = result.replacingOccurrences(of: "(?m)^(- \\*\\*Summary\\*\\*:)[ \t]+- ", with: "$1\n\t- ", options: .regularExpression)
 
 		// Horizontal rule - blank lines around it
 		result = result.replacingOccurrences(of: "<hr[^>]*/?>", with: "\n\n---\n\n", options: .regularExpression)

@@ -55,7 +55,7 @@ struct PodcastSource: Codable, Hashable {
 
 enum AddPodcastResult {
 	case successExisting(summaryURL: String)  // 201 - Podcast already exists, no wait
-	case successNew(summaryURL: String)       // 202 - New podcast, wait ~15 minutes
+	case successNew(summaryURL: String, message: String)  // 202 - New podcast, wait ~15 minutes
 	case failure(message: String)             // Any error - uses server message
 }
 
@@ -76,7 +76,7 @@ enum FindShowResult {
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "PodcastSources")
 
-	private let addSourceURL = URL(string: "https://n8n.nwidynski.com/webhook/add-show-source")!
+	private let allFeedRequestsURL = URL(string: "https://n8n.nwidynski.com/webhook/all-feed-requests")!
 	private let findShowURL = URL(string: "https://n8n.nwidynski.com/webhook/find-show")!
 
 	private static let topFileName = "pod_free.json"
@@ -307,18 +307,21 @@ enum FindShowResult {
 			return .failure(message: "No authentication token")
 		}
 
-		var request = URLRequest(url: addSourceURL)
+		var request = URLRequest(url: allFeedRequestsURL)
 		request.httpMethod = "POST"
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
 		let requestID = UUID().uuidString
-		let body: [String: String] = [
-			"type": "pod",
-			"show": show,
-			"author": author,
-			"apple_user_id": AuthManager.shared.appleUserID ?? "",
-			"request_id": requestID
+		let feedsForUpdate = FeedStatsManager.shared.buildFeedsForUpdate()
+		let body: [String: Any] = [
+			"operation":        "add-show",
+			"type":             "pod",
+			"show":             show,
+			"author":           author,
+			"apple_user_id":    AuthManager.shared.appleUserID ?? "",
+			"request_id":       requestID,
+			"feeds_for_update": feedsForUpdate
 		]
 
 		do {
@@ -344,6 +347,10 @@ enum FindShowResult {
 			}
 			let statusCode = httpResponse.statusCode
 
+			if let json, let credits = FeedStatsManager.parseCredits(json) {
+				FeedStatsManager.shared.cachedCredits = credits
+			}
+
 			switch statusCode {
 			case 200, 201:
 				if let json,
@@ -362,7 +369,7 @@ enum FindShowResult {
 				   status == "success",
 				   let summaryURL = json["summary_url"] as? String {
 					Self.logger.info("New podcast added, processing required")
-					return .successNew(summaryURL: summaryURL)
+					return .successNew(summaryURL: summaryURL, message: serverMessage ?? "")
 				}
 				Self.logger.error("Failed to parse 202 response")
 				return .failure(message: "Failed to parse response")

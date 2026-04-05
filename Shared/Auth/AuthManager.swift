@@ -34,7 +34,8 @@ import os.log
 
 	/// Whether the user has a stored Apple user ID (identity) on this device.
 	var isRegistered: Bool {
-		appleUserID != nil
+		if isSimulatingIOSSignOut { return false }
+		return appleUserID != nil
 	}
 
 	/// Whether the user is actively connected to the backend.
@@ -56,6 +57,24 @@ import os.log
 	private var isExplicitlyDisconnected: Bool {
 		get { UserDefaults.standard.bool(forKey: disconnectedKey) }
 		set { UserDefaults.standard.set(newValue, forKey: disconnectedKey) }
+	}
+
+	// MARK: - Debug: iOS sign-out simulation
+
+	private let simulatingIOSSignOutKey = "authSimulatingIOSSignOut"
+
+	private var isSimulatingIOSSignOut: Bool {
+		get { UserDefaults.standard.bool(forKey: simulatingIOSSignOutKey) }
+		set { UserDefaults.standard.set(newValue, forKey: simulatingIOSSignOutKey) }
+	}
+
+	/// Simulates the state where iOS has revoked the user session: `isRegistered` returns false,
+	/// `isConnected` returns false, but the real Keychain identity is untouched.
+	/// Cleared automatically on the next successful reconnect or registration.
+	func simulateIOSSignOut() {
+		isSimulatingIOSSignOut = true
+		isExplicitlyDisconnected = false
+		Self.logger.info("DEBUG: simulating iOS-forced sign-out")
 	}
 
 	// MARK: - Registration
@@ -128,6 +147,7 @@ import os.log
 		// Persist the Apple user ID locally only after a successful server response.
 		keychainWrite(key: appleUserIDKey, value: appleUserID)
 		isExplicitlyDisconnected = false
+		isSimulatingIOSSignOut = false
 		Self.logger.info("User registered successfully")
 	}
 
@@ -181,6 +201,7 @@ import os.log
 			keychainWrite(key: appleUserIDKey, value: storedID)
 		}
 		isExplicitlyDisconnected = false
+		isSimulatingIOSSignOut = false
 		Self.logger.info("User reconnected successfully")
 	}
 
@@ -290,6 +311,9 @@ import os.log
 		]
 		var result: AnyObject?
 		let status = SecItemCopyMatching(query as CFDictionary, &result)
+		if status != errSecSuccess {
+			Self.logger.warning("Keychain read failed for key '\(key)': status \(status) (errSecInteractionNotAllowed=\(status == errSecInteractionNotAllowed))")
+		}
 		guard status == errSecSuccess,
 			  let data = result as? Data,
 			  let value = String(data: data, encoding: .utf8) else {

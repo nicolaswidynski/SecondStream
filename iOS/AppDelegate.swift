@@ -88,6 +88,7 @@ import Secrets
 		CacheCleaner.purgeIfNecessary()
 		initializeDownloaders()
 		initializeHomeScreenQuickActions()
+		BootstrapProgressManager.shared.resumePendingJobs()
 
 		DispatchQueue.main.async {
 			self.unreadCount = AccountManager.shared.unreadCount

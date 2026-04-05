@@ -257,7 +257,7 @@ struct Assets {
 			RSColor { tc in
 				tc.userInterfaceStyle == .dark
 					? RSColor(red:  27/255, green:  26/255, blue:  25/255, alpha: 1)
-					: RSColor(red: 241/255, green: 243/255, blue: 248/255, alpha: 1)
+					: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 1)
 			}
 		}
 
@@ -266,6 +266,18 @@ struct Assets {
 				tc.userInterfaceStyle == .dark
 					? RSColor(red:  38/255, green:  38/255, blue:  36/255, alpha: 1)
 					: RSColor(red: 251/255, green: 252/255, blue: 255/255, alpha: 1)
+			}
+		}
+
+		/// Nav bar background for picker sheets. Use `.resolvedColor(with: traitCollection)`
+		/// at configuration time to lock in a static value and prevent iOS from flipping the
+		/// color based on luminance detection behind the bar.
+		static var pickerNavBar: RSColor {
+			RSColor {
+				tc in
+				tc.userInterfaceStyle == .dark
+					? RSColor(red: 0.14, green: 0.14, blue: 0.15, alpha: 1)
+					: RSColor(red: 0.96, green: 0.96, blue: 0.98, alpha: 1)
 			}
 		}
 
@@ -280,6 +292,12 @@ struct Assets {
 		static var vibrantText: RSColor {
 			RSColor { tc in
 				tc.userInterfaceStyle == .dark ? .label : .white
+			}
+		}
+
+		static var readArticleTitle: RSColor {
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark ? .secondaryLabel : .secondaryLabel//.quaternaryLabel
 			}
 		}
 

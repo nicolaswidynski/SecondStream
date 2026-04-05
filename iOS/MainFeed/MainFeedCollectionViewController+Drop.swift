@@ -62,7 +62,12 @@ extension MainFeedCollectionViewController: UICollectionViewDropDelegate {
 
 		guard let destination = destinationContainer, let feed = dragNode.representedObject as? Feed else { return }
 
-		if source.account == destination.account {
+		if source === destination {
+			let finalPath = reorderFeedInContainer(feed: feed, container: source, destIndexPath: destIndexPath)
+			if let finalPath {
+				coordinator.drop(dragItem, toItemAt: finalPath)
+			}
+		} else if source.account == destination.account {
 			moveFeedInAccount(feed: feed, sourceContainer: source, destinationContainer: destination)
 		} else {
 			moveFeedBetweenAccounts(feed: feed, sourceContainer: source, destinationContainer: destination)
@@ -71,15 +76,27 @@ extension MainFeedCollectionViewController: UICollectionViewDropDelegate {
 
 	func collectionView(_ collectionView: UICollectionView, dropSessionDidUpdate session: any UIDropSession, withDestinationIndexPath destinationIndexPath: IndexPath?) -> UICollectionViewDropProposal {
 
-		guard let destIndexPath = destinationIndexPath, destIndexPath.section > 0, collectionView.hasActiveDrag else {
+		guard let destIndexPath = destinationIndexPath, collectionView.hasActiveDrag else {
 			return UICollectionViewDropProposal(operation: .forbidden)
 		}
 
-		guard let destFeed = coordinator.nodeFor(destIndexPath)?.representedObject as? SidebarItem,
-			  let destAccount = destFeed.account,
-			  let destCell = collectionView.cellForItem(at: destIndexPath) else {
-				  return UICollectionViewDropProposal(operation: .forbidden)
-			  }
+		// Forbid dropping a feed into a different category section.
+		if let sourceNode = session.localDragSession?.items.first?.localObject as? Node,
+		   let sourceIndexPath = coordinator.indexPathFor(sourceNode),
+		   sourceIndexPath.section != destIndexPath.section {
+			return UICollectionViewDropProposal(operation: .forbidden)
+		}
+
+		// destIndexPath may be an insertion point beyond the last existing item; clamp to a valid row
+		// so the node lookup succeeds even when dropping at the end of a section.
+		let sectionCount = collectionView.numberOfItems(inSection: destIndexPath.section)
+		let clampedRow = min(destIndexPath.row, max(0, sectionCount - 1))
+		let lookupPath = IndexPath(row: clampedRow, section: destIndexPath.section)
+
+		guard let destFeed = coordinator.nodeFor(lookupPath)?.representedObject as? SidebarItem,
+			  let destAccount = destFeed.account else {
+			return UICollectionViewDropProposal(operation: .forbidden)
+		}
 
 		// Validate account specific behaviors...
 		if destAccount.behaviors.contains(.disallowFeedInMultipleFolders),
@@ -89,8 +106,8 @@ extension MainFeedCollectionViewController: UICollectionViewDropDelegate {
 			return UICollectionViewDropProposal(operation: .forbidden)
 		}
 
-		// Determine the correct drop proposal
-		if destFeed is Folder {
+		// Determine the correct drop proposal; cell is only needed for folder-drop y-position check.
+		if destFeed is Folder, let destCell = collectionView.cellForItem(at: lookupPath) {
 			if session.location(in: destCell).y >= 0 {
 				return UICollectionViewDropProposal(operation: .move, intent: .insertIntoDestinationIndexPath)
 			} else {
@@ -106,6 +123,59 @@ extension MainFeedCollectionViewController: UICollectionViewDropDelegate {
 	}
 
 	func collectionView(_ collectionView: UICollectionView, dropSessionDidEnd session: UIDropSession) {
+	}
+
+	@discardableResult
+	func reorderFeedInContainer(feed: Feed, container: Container, destIndexPath: IndexPath) -> IndexPath? {
+		let sectionCount = collectionView.numberOfItems(inSection: destIndexPath.section)
+		var allNodes = (0..<sectionCount).compactMap { row in
+			coordinator.nodeFor(IndexPath(row: row, section: destIndexPath.section))
+		}
+
+		guard let dragIndex = allNodes.firstIndex(where: { ($0.representedObject as? Feed) === feed }) else {
+			return nil
+		}
+
+		let dragNode = allNodes.remove(at: dragIndex)
+		let insertIndex = min(destIndexPath.row, allNodes.count)
+		allNodes.insert(dragNode, at: insertIndex)
+
+		let feedURLs = allNodes.compactMap { ($0.representedObject as? Feed)?.url }
+		let sectionID = dataSource.snapshot().sectionIdentifiers[destIndexPath.section]
+
+		// If the result is alphabetical, clear the saved order so future adds sort correctly.
+		let alphabeticalURLs = allNodes.filter { $0.representedObject is Feed }
+			.sortedAlphabetically()
+			.compactMap { ($0.representedObject as? Feed)?.url }
+		if feedURLs == alphabeticalURLs {
+			FeedOrderStore.shared.clearOrder(forKey: sectionID)
+		} else {
+			FeedOrderStore.shared.saveOrder(feedURLs, forKey: sectionID)
+		}
+
+		// Move the item directly in the snapshot instead of triggering a full rebuild.
+		// This lets UIKit's drop ghost animate smoothly into its final slot without
+		// competing with an instantaneous snapshot reload.
+		var snapshot = dataSource.snapshot()
+		let sectionItems = snapshot.itemIdentifiers(inSection: sectionID)
+		guard let sourceItem = sectionItems.first(where: { $0.node.representedObject as? Feed === feed }) else {
+			return nil
+		}
+
+		if insertIndex != dragIndex {
+			if insertIndex < dragIndex {
+				// Moving up: place before the item currently at insertIndex.
+				snapshot.moveItem(sourceItem, beforeItem: sectionItems[insertIndex])
+			} else {
+				// Moving down: place after the item currently at insertIndex.
+				// (insertIndex here is relative to the post-remove allNodes, which maps
+				// to sectionItems[insertIndex] in the original snapshot.)
+				snapshot.moveItem(sourceItem, afterItem: sectionItems[insertIndex])
+			}
+			dataSource.apply(snapshot, animatingDifferences: true)
+		}
+
+		return IndexPath(row: insertIndex, section: destIndexPath.section)
 	}
 
 	func moveFeedInAccount(feed: Feed, sourceContainer: Container, destinationContainer: Container) {

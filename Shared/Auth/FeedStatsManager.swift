@@ -11,23 +11,49 @@ import Account
 import RSWeb
 import os.log
 
-/// Tracks feed add/delete events and reports them to the backend.
+/// Tracks feed add/delete events and reports them to the backend via a single
+/// unified endpoint (`all-feed-requests`).
 ///
-/// `reportAdd` is called after a successful add.
-/// For deletions events are queued in a UserDefaults outbox and drained when network is available.
+/// Every call to that endpoint includes a `feeds_for_update` snapshot of the
+/// user's current subscriptions, and every successful response returns
+/// `nb_credits` so credits are always kept in sync without a separate fetch.
 @MainActor final class FeedStatsManager {
 
 	static let shared = FeedStatsManager()
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "FeedStats")
 
-	private let statsURL = URL(string: "https://n8n.nwidynski.com/webhook/update-user-stats")!
-	private let creditsURL = URL(string: "https://n8n.nwidynski.com/webhook/get-number-of-credits")!
+	private let allFeedRequestsURL = URL(string: "https://n8n.nwidynski.com/webhook/all-feed-requests")!
 	private let outboxKey = "feedStats_deletionOutbox"
 	private let creditsKey = "feedStats_cachedCredits"
-	private let weeklyUpdateLastSentAtKey = "feedStats_weeklyUpdateLastSentAt"
-	private let oneWeekInterval: TimeInterval = 7 * 24 * 60 * 60
 	private var isDrainingOutbox = false
+	/// Set by `queueDelete` so that `childrenDidChange` only drains after an actual delete,
+	/// not after every structural change (e.g. feed adds).
+	private var pendingDrain = false
+
+	/// Minimum time between foreground-triggered credit refreshes.
+	private let foregroundFetchInterval: TimeInterval = 60
+	private var lastForegroundFetchDate: Date?
+
+	private init() {
+		// Drain the outbox whenever the account structure changes (feeds added/removed).
+		// Account posts .ChildrenDidChange after removeFeed/addFeed completes, so
+		// flattenedFeeds() is already up-to-date when we read it in buildFeedsForUpdate.
+		NotificationCenter.default.addObserver(
+			self,
+			selector: #selector(childrenDidChange(_:)),
+			name: .ChildrenDidChange,
+			object: nil
+		)
+	}
+
+	@objc private nonisolated func childrenDidChange(_ note: Notification) {
+		Task { @MainActor in
+			guard FeedStatsManager.shared.pendingDrain else { return }
+			FeedStatsManager.shared.pendingDrain = false
+			await FeedStatsManager.shared.drainOutbox()
+		}
+	}
 
 	// MARK: - Outbox record
 
@@ -42,9 +68,21 @@ import os.log
 
 	// MARK: - Error helpers
 
+	/// Extracts `nb_credits` from a parsed JSON dictionary, accepting both
+	/// a JSON string (`"42"`) and a JSON integer (`42`).
+	static func parseCredits(_ json: [String: Any]) -> Int? {
+		if let intValue = json["nb_credits"] as? Int {
+			return intValue
+		}
+		if let strValue = json["nb_credits"] as? String {
+			return Int(strValue)
+		}
+		return nil
+	}
+
 	/// Extracts the `"message"` field from a JSON webhook error body.
 	/// Falls back to the raw UTF-8 body if the field is absent or unparseable.
-	private static func webhookMessage(from data: Data) -> String {
+	static func webhookMessage(from data: Data) -> String {
 		if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
 		   let message = json["message"] as? String {
 			return message
@@ -81,115 +119,24 @@ import os.log
 		get { UserDefaults.standard.object(forKey: creditsKey) as? Int }
 		set {
 			if let v = newValue {
+				Self.logger.info("cachedCredits → \(v, privacy: .public)")
 				UserDefaults.standard.set(v, forKey: creditsKey)
 			} else {
+				Self.logger.info("cachedCredits → nil (cleared)")
 				UserDefaults.standard.removeObject(forKey: creditsKey)
 			}
 			NotificationCenter.default.post(name: .creditsDidUpdate, object: nil)
 		}
 	}
 
-	/// Fetches the current credit count from the server. Best-effort — errors are only logged.
-	func fetchCredits() async {
-		guard let token = bearerToken else {
-			return
-		}
-		let appleUserID = AuthManager.shared.appleUserID ?? ""
-		guard !appleUserID.isEmpty else {
-			return
-		}
+	// MARK: - Feeds payload
 
-		let body: [String: Any] = ["apple_user_id": appleUserID]
-
-		var request = URLRequest(url: creditsURL)
-		request.httpMethod = "POST"
-		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-		do {
-			request.httpBody = try JSONSerialization.data(withJSONObject: body)
-			let (data, response) = try await URLSession.shared.data(for: request)
-			guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-				return
-			}
-			if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-			   let message = json["message"] as? String,
-			   let credits = Int(message) {
-				cachedCredits = credits
-				Self.logger.info("Credits fetched: \(credits)")
-			}
-		} catch {
-			Self.logger.error("fetchCredits error: \(error.localizedDescription)")
-		}
-	}
-
-	// MARK: - Post-add reporting
-
-	/// Reports a successful add to update-feed-stats. Best-effort — errors are only logged.
-	func reportAdd(type: FeedCategory, name: String, author: String?) async {
-		guard let token = bearerToken else {
-			Self.logger.error("reportAdd: no bearer token")
-			return
-		}
-
-		let appleUserID = AuthManager.shared.appleUserID ?? ""
-
-		let requestID = UUID().uuidString
-		let body: [String: Any] = [
-			"apple_user_id": appleUserID,
-			"type": typeString(for: type),
-			"operation": "add",
-			"show": name,
-			"author": author ?? "",
-			"request_id": requestID
-		]
-
-		var request = URLRequest(url: statsURL)
-		request.httpMethod = "POST"
-		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-		do {
-			request.httpBody = try JSONSerialization.data(withJSONObject: body)
-			let (data, response) = try await URLSession.shared.data(for: request)
-			if let httpResponse = response as? HTTPURLResponse,
-			   !(200...299).contains(httpResponse.statusCode) {
-				let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
-				Self.logger.error("update-feed-stats add failed [\(httpResponse.statusCode)]: \(rawBody)")
-			} else {
-				let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-				if let echoed = json?["request_id"] as? String, echoed != requestID {
-					Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
-				}
-				Self.logger.info("update-feed-stats add reported: \(name)")
-				await fetchCredits()
-			}
-		} catch {
-			Self.logger.error("update-feed-stats add error: \(error.localizedDescription)")
-		}
-	}
-
-	// MARK: - Subscription snapshot (update operation)
-
-	/// Sends a snapshot of all current subscriptions to `update-user-stats`.
-	/// `count_free` for pod/yt is resolved at send time by fetching the live free-lib files.
-	/// rss and topics are always considered free.
-	/// Non-blocking: errors are only logged.
-	@discardableResult
-	func reportUpdate() async -> Bool {
-
-		guard let token = bearerToken else {
-			Self.logger.error("reportUpdate: no bearer token")
-			return false
-		}
-		let appleUserID = AuthManager.shared.appleUserID ?? ""
-		guard !appleUserID.isEmpty else {
-			return false
-		}
-
-		// Collect feeds from the first active account
+	/// Builds the `feeds_for_update` dictionary that must accompany every request
+	/// to `all-feed-requests`. Uses already-cached free source lists from the
+	/// source managers — no extra network calls needed.
+	func buildFeedsForUpdate() -> [String: Any] {
 		guard let account = AccountManager.shared.activeAccounts.first else {
-			return false
+			return [:]
 		}
 
 		let allFeeds = account.flattenedFeeds()
@@ -201,54 +148,79 @@ import os.log
 
 		for feed in allFeeds {
 			switch feed.feedCategory {
-			case .podcast:
-				podSources.append(feed.nameForDisplay)
-			case .youtube:
-				ytSources.append(feed.nameForDisplay)
-			case .news:
-				topicSources.append(feed.nameForDisplay)
-			case .rss:
-				rssCount += 1
+			case .podcast: podSources.append(feed.nameForDisplay)
+			case .youtube: ytSources.append(feed.nameForDisplay)
+			case .news:    topicSources.append(feed.nameForDisplay)
+			case .rss:     rssCount += 1
 			}
 		}
 
-		// Resolve count_free at send time by fetching the live free-lib files.
-		async let podFreeEntries = SourceFileFetcher.fetch(fileName: "pod_free.json")
-		async let ytFreeEntries = SourceFileFetcher.fetch(fileName: "yt_free.json")
-
-		let podFreeNames = Set((await podFreeEntries ?? []).map { $0.name.lowercased() })
-		let ytFreeNames = Set((await ytFreeEntries ?? []).map { $0.name.lowercased() })
+		// Use the already-cached free source lists — no network call needed
+		let podFreeNames = Set(PodcastSourcesManager.shared.podcastSources.map { $0.name.lowercased() })
+		let ytFreeNames  = Set(YoutubeSourcesManager.shared.youtubeSources.map { $0.name.lowercased() })
 
 		let podFreeCount = podSources.filter { podFreeNames.contains($0.lowercased()) }.count
-		let ytFreeCount = ytSources.filter { ytFreeNames.contains($0.lowercased()) }.count
+		let ytFreeCount  = ytSources.filter  { ytFreeNames.contains($0.lowercased()) }.count
 
-		let requestID = UUID().uuidString
-		let body: [String: Any] = [
-			"apple_user_id": appleUserID,
-			"operation": "update",
-			"request_id": requestID,
+		return [
 			"pod": [
-				"count": String(podSources.count),
+				"count":      String(podSources.count),
 				"count_free": String(podFreeCount),
-				"sources": podSources
+				"sources":    podSources
 			],
 			"yt": [
-				"count": String(ytSources.count),
+				"count":      String(ytSources.count),
 				"count_free": String(ytFreeCount),
-				"sources": ytSources
+				"sources":    ytSources
 			],
 			"topics": [
-				"count": String(topicSources.count),
+				"count":      String(topicSources.count),
 				"count_free": String(topicSources.count),
-				"sources": topicSources
+				"sources":    topicSources
 			],
 			"rss": [
-				"count": String(rssCount),
+				"count":      String(rssCount),
 				"count_free": String(rssCount)
 			]
 		]
+	}
 
-		var request = URLRequest(url: statsURL)
+	// MARK: - Core request
+
+	/// POSTs to `all-feed-requests` and returns the `nb_credits` value from the
+	/// response, or `nil` on any failure.
+	///
+	/// Always includes `feeds_for_update` as required by the API contract.
+	/// Pass `type`, `show`, and `author` for `add-show` operations.
+	func sendRequest(
+		operation: String,
+		type: String? = nil,
+		show: String? = nil,
+		author: String? = nil
+	) async -> Int? {
+		guard let token = bearerToken else {
+			Self.logger.error("sendRequest: no bearer token")
+			return nil
+		}
+		let appleUserID = AuthManager.shared.appleUserID ?? ""
+		guard !appleUserID.isEmpty else {
+			return nil
+		}
+
+		let feedsForUpdate = buildFeedsForUpdate()
+		let requestID = UUID().uuidString
+
+		var body: [String: Any] = [
+			"apple_user_id":    appleUserID,
+			"request_id":       requestID,
+			"operation":        operation,
+			"feeds_for_update": feedsForUpdate
+		]
+		if let type   { body["type"]   = type }
+		if let show   { body["show"]   = show }
+		if let author { body["author"] = author }
+
+		var request = URLRequest(url: allFeedRequestsURL)
 		request.httpMethod = "POST"
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -256,40 +228,73 @@ import os.log
 		do {
 			request.httpBody = try JSONSerialization.data(withJSONObject: body)
 			let (data, response) = try await URLSession.shared.data(for: request)
-			if let httpResponse = response as? HTTPURLResponse,
-			   !(200...299).contains(httpResponse.statusCode) {
-				let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
-				Self.logger.error("update-user-stats failed [\(httpResponse.statusCode)]: \(rawBody)")
-				return false
-			} else {
-				let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-				if let echoed = json?["request_id"] as? String, echoed != requestID {
-					Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
-				}
-				Self.logger.info("update-user-stats sent: pod=\(podSources.count) free=\(podFreeCount) yt=\(ytSources.count) free=\(ytFreeCount) topics=\(topicSources.count) rss=\(rssCount)")
-				return true
+
+			guard let httpResponse = response as? HTTPURLResponse else {
+				Self.logger.error("all-feed-requests \(operation) — non-HTTP response")
+				return nil
 			}
+			guard (200...299).contains(httpResponse.statusCode) else {
+				let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
+				Self.logger.error("all-feed-requests \(operation) failed [\(httpResponse.statusCode, privacy: .public)]: \(rawBody, privacy: .public)")
+				return nil
+			}
+
+			let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+			if let echoed = json?["request_id"] as? String, echoed != requestID {
+				Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
+			}
+			if let credits = json.flatMap({ Self.parseCredits($0) }) {
+				Self.logger.info("all-feed-requests \(operation) ok — nb_credits: \(credits, privacy: .public)")
+				return credits
+			}
+			let rawForLog = String(data: data, encoding: .utf8) ?? "(empty)"
+			Self.logger.info("all-feed-requests \(operation) ok (no nb_credits) body: \(rawForLog, privacy: .public)")
+			return nil
 		} catch {
-			Self.logger.error("update-user-stats error: \(error.localizedDescription)")
-			return false
+			Self.logger.error("all-feed-requests \(operation) error: \(error.localizedDescription)")
+			return nil
 		}
 	}
 
-	/// Sends `operation: "update"` at most once per week.
-	func reportWeeklyUpdateIfNeeded() async {
+	// MARK: - Credits
+
+	/// Sends `update-user-stats` and caches the returned credit count.
+	/// Best-effort — errors are only logged.
+	func fetchCredits() async {
+		if let credits = await sendRequest(operation: "update-user-stats") {
+			cachedCredits = credits
+		}
+	}
+
+	/// Sends `update-user-stats` only if at least `foregroundFetchInterval` seconds
+	/// have elapsed since the last foreground fetch. Call on every app-foreground event.
+	func fetchCreditsIfNeeded() async {
 		let now = Date()
-		if let lastSentAt = UserDefaults.standard.object(forKey: weeklyUpdateLastSentAtKey) as? Date,
-		   now.timeIntervalSince(lastSentAt) < oneWeekInterval {
+		if let last = lastForegroundFetchDate, now.timeIntervalSince(last) < foregroundFetchInterval {
 			return
 		}
-		if await reportUpdate() {
-			UserDefaults.standard.set(now, forKey: weeklyUpdateLastSentAtKey)
+		lastForegroundFetchDate = now
+		await fetchCredits()
+	}
+
+	// MARK: - Update stats
+
+	/// Sends a full subscription snapshot via `update-user-stats` and caches the
+	/// returned credit count. Returns `true` on success.
+	@discardableResult
+	func reportUpdate() async -> Bool {
+		if let credits = await sendRequest(operation: "update-user-stats") {
+			cachedCredits = credits
+			return true
 		}
+		return false
 	}
 
 	// MARK: - Delete outbox
 
 	/// Queues a delete event and attempts to drain the outbox immediately.
+	/// The outbox record acts as a "pending update" marker; when drained, the
+	/// current subscription state is sent rather than a per-feed delete operation.
 	func queueDelete(type: FeedCategory, name: String, author: String?) {
 		let appleUserID = AuthManager.shared.appleUserID ?? ""
 		let record = OutboxRecord(
@@ -304,12 +309,14 @@ import os.log
 		var outbox = loadOutbox()
 		outbox.append(record)
 		saveOutbox(outbox)
+		pendingDrain = true
 
-		Self.logger.info("Queued delete for \(name)")
-		Task { await self.drainOutbox() }
+		Self.logger.info("Queued delete for \(name) — will drain on next ChildrenDidChange")
 	}
 
-	/// Attempts to send all queued delete events to the server.
+	/// Attempts to send a stats update for all queued delete events.
+	/// Sends a single `update-user-stats` call (current subscription snapshot)
+	/// and clears all pending records on success.
 	func drainOutbox() async {
 		guard !isDrainingOutbox else {
 			return
@@ -325,58 +332,11 @@ import os.log
 			Self.logger.info("Outbox drain skipped — no network (\(outbox.count) pending)")
 			return
 		}
-		guard let token = bearerToken else {
-			return
-		}
 
-		var drainedAny = false
-		for record in outbox {
-			do {
-				try await send(record: record, token: token)
-				Self.logger.info("Drained delete: \(record.show)")
-				removeFromOutbox(record)
-				drainedAny = true
-			} catch {
-				Self.logger.error("Failed to drain delete for \(record.show): \(error.localizedDescription)")
-			}
-		}
-		if drainedAny {
-			await fetchCredits()
-		}
-	}
-
-	private func send(record: OutboxRecord, token: String) async throws {
-		let requestID = UUID().uuidString
-		let body: [String: Any] = [
-			"apple_user_id": record.appleUserID,
-			"type": record.type,
-			"operation": record.operation,
-			"show": record.show,
-			"author": record.author,
-			"request_id": requestID
-		]
-
-		var request = URLRequest(url: statsURL)
-		request.httpMethod = "POST"
-		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-		request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-		let (data, response) = try await URLSession.shared.data(for: request)
-
-		guard let httpResponse = response as? HTTPURLResponse,
-			  (200...299).contains(httpResponse.statusCode) else {
-			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
-			Self.logger.error("update-feed-stats drain failed [\((response as? HTTPURLResponse)?.statusCode ?? 0)]: \(rawBody)")
-			throw FeedStatsError.serverError(
-				statusCode: (response as? HTTPURLResponse)?.statusCode ?? 0,
-				body: Self.webhookMessage(from: data)
-			)
-		}
-
-		let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-		if let echoed = json?["request_id"] as? String, echoed != requestID {
-			Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
+		if let credits = await sendRequest(operation: "update-user-stats") {
+			cachedCredits = credits
+			saveOutbox([])
+			Self.logger.info("Drained \(outbox.count) pending delete(s)")
 		}
 	}
 
@@ -415,6 +375,7 @@ import os.log
 	}
 
 	private func pruneStaleOutboxRecords() -> [OutboxRecord] {
+		let oneWeekInterval: TimeInterval = 7 * 24 * 60 * 60
 		let records = loadOutbox()
 		let now = Date()
 		let freshRecords = records.filter { record in
@@ -429,15 +390,6 @@ import os.log
 			saveOutbox(freshRecords)
 		}
 		return freshRecords
-	}
-
-	private func removeFromOutbox(_ record: OutboxRecord) {
-		var records = loadOutbox()
-		guard let index = records.firstIndex(of: record) else {
-			return
-		}
-		records.remove(at: index)
-		saveOutbox(records)
 	}
 }
 

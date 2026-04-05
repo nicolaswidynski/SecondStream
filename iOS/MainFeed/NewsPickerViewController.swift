@@ -32,7 +32,6 @@ final class NewsPickerViewController: UIViewController {
 			action: #selector(cancelTapped)
 		)
 
-		configureOpaqueNavigationBar()
 		configureCollectionView()
 		configureDataSource()
 
@@ -51,15 +50,20 @@ final class NewsPickerViewController: UIViewController {
 		}
 	}
 	
-	/// Forces an opaque nav bar at every scroll position. Must be called AFTER
-	/// configureSearch() because setting navigationItem.searchController can
-	/// reset scrollEdgeAppearance to nil (transparent).
+	override func viewWillAppear(_ animated: Bool) {
+		super.viewWillAppear(animated)
+		configureOpaqueNavigationBar()
+	}
+
+	/// Forces an opaque nav bar at every scroll position. Called from viewWillAppear
+	/// so traitCollection is resolved against the live window (not the pre-presentation default).
 	private func configureOpaqueNavigationBar() {
 		let appearance = UINavigationBarAppearance()
 		appearance.configureWithOpaqueBackground()
-		appearance.backgroundColor = Assets.Colors.foreground
-		appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
-		appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
+		appearance.backgroundColor = Assets.Colors.pickerNavBar.resolvedColor(with: traitCollection)
+		let textColor = UIColor.label.resolvedColor(with: traitCollection)
+		appearance.titleTextAttributes = [.foregroundColor: textColor]
+		appearance.largeTitleTextAttributes = [.foregroundColor: textColor]
 		navigationItem.standardAppearance = appearance
 		navigationItem.scrollEdgeAppearance = appearance
 		navigationItem.compactAppearance = appearance

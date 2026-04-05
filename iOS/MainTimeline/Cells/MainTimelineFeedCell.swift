@@ -151,7 +151,7 @@ class MainTimelineFeedCell: UITableViewCell {
 		if isSelected {
 			return .white
 		} else if AppDefaults.shared.timelineDimReadArticles, cellData?.read == true {
-			return traitCollection.userInterfaceStyle == .dark ? .tertiaryLabel : .quaternaryLabel
+			return Assets.Colors.readArticleTitle
 		} else {
 			return .label
 		}

@@ -1469,11 +1469,11 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_macapp_target.xcconfig;
 			buildSettings = {
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
-				CURRENT_PROJECT_VERSION = 0004;
+				CURRENT_PROJECT_VERSION = 0006;
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				MARKETING_VERSION = 0.22;
+				MARKETING_VERSION = 0.23;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
 			};
@@ -1485,11 +1485,11 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_macapp_target.xcconfig;
 			buildSettings = {
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
-				CURRENT_PROJECT_VERSION = 0004;
+				CURRENT_PROJECT_VERSION = 0006;
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				MARKETING_VERSION = 0.22;
+				MARKETING_VERSION = 0.23;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
 			};

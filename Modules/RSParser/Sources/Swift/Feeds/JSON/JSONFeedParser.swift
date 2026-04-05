@@ -224,12 +224,25 @@ private extension JSONFeedParser {
 		)
 	}
 
+	/// Returns the topics articles array from content, whether it is a bare JSONArray
+	/// (old format) or a JSONDictionary with an "articles" key (new format).
+	static func topicsArray(from content: Any?) -> JSONArray? {
+		if let array = content as? JSONArray {
+			return array
+		}
+		if let dictionary = content as? JSONDictionary,
+		   let articles = dictionary["articles"] as? JSONArray {
+			return articles
+		}
+		return nil
+	}
+
 	static func generatedHTMLFromContent(_ content: Any?) -> String? {
+		if let articles = topicsArray(from: content) {
+			return generatedTopicsHTML(from: articles)
+		}
 		if let dictionary = content as? JSONDictionary {
 			return generatedShowHTML(from: dictionary)
-		}
-		if let array = content as? JSONArray {
-			return generatedTopicsHTML(from: array)
 		}
 		return nil
 	}
@@ -392,10 +405,10 @@ private extension JSONFeedParser {
 	}
 
 	static func inferGeneratedTitle(from content: Any?) -> String? {
-		guard let contentArray = content as? JSONArray else {
+		guard let articles = topicsArray(from: content) else {
 			return nil
 		}
-		for item in contentArray {
+		for item in articles {
 			if let title = nonEmptyString(item[Key.title]) {
 				return title
 			}
@@ -404,11 +417,11 @@ private extension JSONFeedParser {
 	}
 
 	static func parseDateFromGeneratedContent(_ content: Any?) -> Date? {
-		guard let contentArray = content as? JSONArray else {
+		guard let articles = topicsArray(from: content) else {
 			return nil
 		}
 
-		for item in contentArray {
+		for item in articles {
 			guard let metadata = item[Key.metadata] as? JSONDictionary,
 				  let pubDate = nonEmptyString(metadata[Key.pubDate]),
 				  let parsedDate = parseDate(pubDate) else {
@@ -438,6 +451,22 @@ private extension JSONFeedParser {
 	}
 
 	static func contentTextFromGeneratedContent(_ content: Any?) -> String? {
+		if let articles = topicsArray(from: content) {
+			var chunks = [String]()
+			for item in articles {
+				if let title = nonEmptyString(item[Key.title]) {
+					chunks.append(title)
+				}
+				if let summaryList = item[Key.summary] as? [String] {
+					chunks.append(contentsOf: summaryList.compactMap { nonEmptyString($0) })
+				} else if let summary = nonEmptyString(item[Key.summary]) {
+					chunks.append(summary)
+				}
+			}
+			let joined = chunks.joined(separator: "\n\n")
+			return joined.isEmpty ? nil : joined
+		}
+
 		if let dictionary = content as? JSONDictionary {
 			let candidates = [dictionary[Key.title], dictionary[Key.contentText], dictionary[Key.summary]]
 			for candidate in candidates {
@@ -464,21 +493,7 @@ private extension JSONFeedParser {
 			}
 		}
 
-		guard let contentArray = content as? JSONArray else {
-			return nil
-		}
-
-		var chunks = [String]()
-		for item in contentArray {
-			if let title = nonEmptyString(item[Key.title]) {
-				chunks.append(title)
-			}
-			if let summary = nonEmptyString(item[Key.summary]) {
-				chunks.append(summary)
-			}
-		}
-		let joined = chunks.joined(separator: "\n\n")
-		return joined.isEmpty ? nil : joined
+		return nil
 	}
 
 	static func titledContentPlainText(from value: Any?) -> [String] {

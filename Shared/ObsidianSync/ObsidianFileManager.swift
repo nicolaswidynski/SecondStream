@@ -90,12 +90,8 @@ enum ObsidianFileManagerError: LocalizedError {
 	}
 
 	/// Generate a filename for an article: "YYYY-MM-DD - Title.md"
-	/// For topics (.news), the title already is the date, so skip the prefix.
 	static func generateFilename(for article: Article, feed: Feed) -> String {
 		let title = sanitizeFilename(article.title ?? "Untitled")
-		if feed.feedCategory == .news {
-			return "\(title).md"
-		}
 		let date = extractDateForFilename(from: article)
 		return "\(date) - \(title).md"
 	}
