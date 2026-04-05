@@ -381,7 +381,7 @@ struct MarkdownConverter {
 					inner = inner.replacingOccurrences(of: "<ol[^>]*>", with: "", options: .regularExpression)
 					inner = inner.replacingOccurrences(of: "</ol>", with: "")
 					inner = inner.replacingOccurrences(of: "<li[^>]*>", with: "- ", options: .regularExpression)
-					inner = inner.replacingOccurrences(of: "</li>", with: "")
+					inner = inner.replacingOccurrences(of: "</li>", with: "\n")
 					inner = inner.replacingOccurrences(of: "<p[^>]*>", with: "", options: .regularExpression)
 					inner = inner.replacingOccurrences(of: "</p>", with: "\n")
 					inner = inner.replacingOccurrences(of: "<br[^>]*/?>", with: "\n", options: .regularExpression)
@@ -559,23 +559,26 @@ struct MarkdownConverter {
 		guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
 			return text
 		}
-		var result = text
-		let range = NSRange(result.startIndex..., in: result)
-		var offset = 0
-		regex.enumerateMatches(in: result, options: [], range: range) { match, _, _ in
+		// Enumerate matches against the original (immutable) string so all NSRanges are valid.
+		// Collect (fullMatchRange, replacement) pairs, then apply in reverse so earlier indices
+		// are never invalidated by a later replacement.
+		let nsRange = NSRange(text.startIndex..., in: text)
+		var replacements: [(NSRange, String)] = []
+		regex.enumerateMatches(in: text, options: [], range: nsRange) { match, _, _ in
 			guard let match,
-				  let codeRange = Range(match.range(at: 1), in: result),
-				  let code = decode(String(result[codeRange])),
+				  let captureRange = Range(match.range(at: 1), in: text),
+				  let code = decode(String(text[captureRange])),
 				  let scalar = Unicode.Scalar(code) else {
 				return
 			}
-			let adjustedRange = NSRange(location: match.range.location + offset, length: match.range.length)
-			guard let swiftRange = Range(adjustedRange, in: result) else {
-				return
+			replacements.append((match.range, String(Character(scalar))))
+		}
+		var result = text
+		for (range, replacement) in replacements.reversed() {
+			guard let swiftRange = Range(range, in: result) else {
+				continue
 			}
-			let character = String(Character(scalar))
-			result.replaceSubrange(swiftRange, with: character)
-			offset += character.count - match.range.length
+			result.replaceSubrange(swiftRange, with: replacement)
 		}
 		return result
 	}
