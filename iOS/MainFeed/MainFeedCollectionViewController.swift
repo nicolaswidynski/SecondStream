@@ -938,9 +938,25 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 
 	func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<String, SidebarItemNode>, animatingDifferences: Bool, completion: (() -> Void)? = nil) {
+		// When items are inserted above the current scroll position (e.g. expanding a sticky
+		// section header whose true content position is above contentOffset.y), UIKit does not
+		// adjust contentOffset, causing the viewport to jump. Fix: track the first visible item's
+		// content-Y before the update and compensate afterwards.
+		let refIndexPath = animatingDifferences ? collectionView.indexPathsForVisibleItems.min() : nil
+		let refYBefore = refIndexPath.flatMap { collectionView.layoutAttributesForItem(at: $0)?.frame.minY }
+
 		dataSource.apply(snapshot, animatingDifferences: animatingDifferences) { [weak self] in
 			completion?()
 			self?.refreshVisibleSectionHeaders()
+		}
+
+		if let refIndexPath,
+		   let before = refYBefore,
+		   let after = collectionView.layoutAttributesForItem(at: refIndexPath)?.frame.minY {
+			let delta = after - before
+			if delta > 0.5 {
+				collectionView.contentOffset.y += delta
+			}
 		}
 	}
 
