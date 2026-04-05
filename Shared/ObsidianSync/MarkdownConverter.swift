@@ -375,13 +375,25 @@ struct MarkdownConverter {
 				if let contentRange = Range(match.range(at: 1), in: result),
 				   let fullRange = Range(match.range, in: result) {
 					var inner = String(result[contentRange])
-					// Inside blockquotes, treat <p>...</p> as double-newline separated text
+					// Convert block elements inside the blockquote before prefixing lines with "> "
+					inner = inner.replacingOccurrences(of: "<ul[^>]*>", with: "", options: .regularExpression)
+					inner = inner.replacingOccurrences(of: "</ul>", with: "")
+					inner = inner.replacingOccurrences(of: "<ol[^>]*>", with: "", options: .regularExpression)
+					inner = inner.replacingOccurrences(of: "</ol>", with: "")
+					inner = inner.replacingOccurrences(of: "<li[^>]*>", with: "- ", options: .regularExpression)
+					inner = inner.replacingOccurrences(of: "</li>", with: "")
 					inner = inner.replacingOccurrences(of: "<p[^>]*>", with: "", options: .regularExpression)
-					inner = inner.replacingOccurrences(of: "</p>", with: "\n\n")
+					inner = inner.replacingOccurrences(of: "</p>", with: "\n")
+					inner = inner.replacingOccurrences(of: "<br[^>]*/?>", with: "\n", options: .regularExpression)
+					// Strip any remaining tags (bold, links, etc. have already been converted above)
+					inner = inner.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
 					let content = inner
 						.trimmingCharacters(in: .whitespacesAndNewlines)
 						.components(separatedBy: .newlines)
-						.map { "> \($0.trimmingCharacters(in: .whitespaces))" }
+						.map { line in
+							let trimmed = line.trimmingCharacters(in: .whitespaces)
+							return trimmed.isEmpty ? ">" : "> \(trimmed)"
+						}
 						.joined(separator: "\n")
 					result.replaceSubrange(fullRange, with: "\n\(content)\n")
 				}
@@ -406,7 +418,7 @@ struct MarkdownConverter {
 
 		// Paragraphs
 		result = result.replacingOccurrences(of: "<p[^>]*>", with: "", options: .regularExpression)
-		result = result.replacingOccurrences(of: "</p>", with: "\n")
+		result = result.replacingOccurrences(of: "</p>", with: "\n\n")
 		// Line breaks
 		result = result.replacingOccurrences(of: "<br[^>]*/?>", with: "\n", options: .regularExpression)
 
@@ -518,8 +530,8 @@ struct MarkdownConverter {
 			"&#39;": "'",
 			"&apos;": "'",
 			"&nbsp;": " ",
-			"&ndash;": "-",
-			"&mdash;": "-",
+			"&ndash;": "–",
+			"&mdash;": "—",
 			"&lsquo;": "'",
 			"&rsquo;": "'",
 			"&ldquo;": "\"",
@@ -534,35 +546,37 @@ struct MarkdownConverter {
 			result = result.replacingOccurrences(of: entity, with: replacement)
 		}
 
-		// Handle numeric entities
-		let numericPattern = "&#(\\d+);"
-		if let regex = try? NSRegularExpression(pattern: numericPattern) {
-			let range = NSRange(result.startIndex..., in: result)
-			var offset = 0
+		// Handle decimal numeric entities: &#39; &#8217; etc.
+		result = decodeNumericEntities(in: result, pattern: "&#(\\d+);") { UInt32($0) }
 
-			regex.enumerateMatches(in: result, options: [], range: range) { match, _, _ in
-				guard let match else {
-					return
-				}
-				guard let codeRange = Range(match.range(at: 1), in: result) else {
-					return
-				}
-				let codeString = String(result[codeRange])
-				guard let code = UInt32(codeString), let scalar = Unicode.Scalar(code) else {
-					return
-				}
+		// Handle hex numeric entities: &#x27; &#x2019; etc.
+		result = decodeNumericEntities(in: result, pattern: "&#x([0-9a-fA-F]+);") { UInt32($0, radix: 16) }
 
-				let adjustedRange = NSRange(location: match.range.location + offset, length: match.range.length)
-				guard let swiftRange = Range(adjustedRange, in: result) else {
-					return
-				}
+		return result
+	}
 
-				let character = String(Character(scalar))
-				result.replaceSubrange(swiftRange, with: character)
-				offset += character.count - match.range.length
-			}
+	private static func decodeNumericEntities(in text: String, pattern: String, decode: (String) -> UInt32?) -> String {
+		guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
+			return text
 		}
-
+		var result = text
+		let range = NSRange(result.startIndex..., in: result)
+		var offset = 0
+		regex.enumerateMatches(in: result, options: [], range: range) { match, _, _ in
+			guard let match,
+				  let codeRange = Range(match.range(at: 1), in: result),
+				  let code = decode(String(result[codeRange])),
+				  let scalar = Unicode.Scalar(code) else {
+				return
+			}
+			let adjustedRange = NSRange(location: match.range.location + offset, length: match.range.length)
+			guard let swiftRange = Range(adjustedRange, in: result) else {
+				return
+			}
+			let character = String(Character(scalar))
+			result.replaceSubrange(swiftRange, with: character)
+			offset += character.count - match.range.length
+		}
 		return result
 	}
 }
