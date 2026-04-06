@@ -165,7 +165,7 @@ struct MarkdownConverter {
 	// MARK: - Direct JSON → Markdown (Podcast / YouTube)
  
 	/// Converts structured show JSON directly to markdown, skipping the HTML intermediate.
-	/// Sections: Summary (bullets), Practical Applications (bullets), Deep Dive (paragraphs).
+	/// Sections: Summary (bullets), Practical Applications (bullets), Deep Dive (paragraphs), AI Review (paragraphs).
 	/// Timestamps are handled separately in YAML frontmatter.
 	private static func convertShowJSONToMarkdown(_ json: [String: Any]) -> String {
 		var sections = [String]()
@@ -190,7 +190,14 @@ struct MarkdownConverter {
 				sections.append("## Deep Dive\n\n" + paragraphs.joined(separator: "\n\n"))
 			}
 		}
- 
+
+		if let items = json["ai_review"] as? [[String: Any]] {
+			let paragraphs = items.compactMap { paragraphLine(from: $0) }
+			if !paragraphs.isEmpty {
+				sections.append("## AI Review\n\n" + paragraphs.joined(separator: "\n\n"))
+			}
+		}
+
 		return sections.isEmpty ? "" : sections.joined(separator: "\n\n") + "\n"
 	}
  

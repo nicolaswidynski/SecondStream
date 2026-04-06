@@ -60,6 +60,7 @@ public struct JSONFeedParser {
 		static let pubDate = "pubDate"
 		static let practicalApplications = "practical_applications"
 		static let deepDive = "deep_dive"
+		static let aiReview = "ai_review"
 	}
 
 	static let jsonFeedVersionMarker = "://jsonfeed.org/version/" // Allow for the mistake of not getting the scheme exactly correct.
@@ -276,6 +277,11 @@ private extension JSONFeedParser {
 		let inDepthParagraphs = titledContentParagraphsHTML(from: dictionary[Key.deepDive])
 		if !inDepthParagraphs.isEmpty {
 			blocks.append("<h2>\(iconDeepDive)Deep Dive</h2>\(inDepthParagraphs.joined())")
+		}
+
+		let aiReviewParagraphs = titledContentParagraphsHTML(from: dictionary[Key.aiReview])
+		if !aiReviewParagraphs.isEmpty {
+			blocks.append("<h2>AI Review</h2>\(aiReviewParagraphs.joined())")
 		}
 
 		let html = blocks.joined(separator: "\n")
