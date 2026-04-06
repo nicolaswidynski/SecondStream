@@ -791,6 +791,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		NotificationCenter.default.addObserver(self, selector: #selector(feedSettingDidChange(_:)), name: .feedSettingDidChange, object: nil)
 
 			registerForTraitChanges([UITraitPreferredContentSizeCategory.self], target: self, action: #selector(preferredContentSizeCategoryDidChange))
+			registerForTraitChanges([UITraitUserInterfaceStyle.self], target: self, action: #selector(userInterfaceStyleDidChange))
 		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(bootstrapProgressDidUpdate(_:)), name: .bootstrapProgressDidUpdate, object: nil)
@@ -839,6 +840,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		} else {
 			collectionView.backgroundColor = Assets.Colors.background
 		}
+
+		updateScrollIndicatorStyle()
 	}
 
 	func configureDiffableDataSource() {
@@ -1270,6 +1273,16 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		restoreSelectionIfNecessary(adjustScroll: false)
 	}
 
+
+	// MARK: - Appearance
+
+	private func updateScrollIndicatorStyle() {
+		collectionView.indicatorStyle = traitCollection.userInterfaceStyle == .dark ? .white : .default
+	}
+
+	@objc func userInterfaceStyleDidChange() {
+		updateScrollIndicatorStyle()
+	}
 
 	// MARK: - Notifications
 
