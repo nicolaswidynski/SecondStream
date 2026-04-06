@@ -739,6 +739,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip()
 		refreshRecentlyUpdatedShowsStrip()
 		updateUI()
+		refreshVisibleSectionHeaders()
 		super.viewWillAppear(animated)
 
 		if traitCollection.userInterfaceIdiom == .phone {
@@ -776,6 +777,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	override func viewWillDisappear(_ animated: Bool) {
 		super.viewWillDisappear(animated)
 		navigationController?.additionalSafeAreaInsets.bottom = 0
+		// If the user navigates away while a snap-scroll is in flight, the scroll animation
+		// is abandoned and scrollViewDidEndScrollingAnimation never fires. Apply the pending
+		// toggle immediately so the coordinator state stays consistent.
+		if let feedSection = pendingToggleFeedSection {
+			pendingToggleFeedSection = nil
+			coordinator.toggleCategorySection(feedSection)
+		}
 	}
 
 	func registerForNotifications() {
@@ -791,6 +799,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		NotificationCenter.default.addObserver(self, selector: #selector(feedSettingDidChange(_:)), name: .feedSettingDidChange, object: nil)
 
 			registerForTraitChanges([UITraitPreferredContentSizeCategory.self], target: self, action: #selector(preferredContentSizeCategoryDidChange))
+			registerForTraitChanges([UITraitUserInterfaceStyle.self], target: self, action: #selector(userInterfaceStyleDidChange))
 		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(bootstrapProgressDidUpdate(_:)), name: .bootstrapProgressDidUpdate, object: nil)
@@ -839,6 +848,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		} else {
 			collectionView.backgroundColor = Assets.Colors.background
 		}
+
+		updateScrollIndicatorStyle()
 	}
 
 	func configureDiffableDataSource() {
@@ -957,6 +968,16 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
     // MARK: UICollectionViewDelegate
+
+	override func collectionView(_ collectionView: UICollectionView, willDisplaySupplementaryView view: UICollectionReusableView, forElementKind elementKind: String, at indexPath: IndexPath) {
+		guard elementKind == UICollectionView.elementKindSectionHeader,
+			  let headerView = view as? MainFeedCollectionHeaderReusableView,
+			  let sectionID = headerView.sectionID,
+			  let feedSection = FeedSectionIdentifier(rawValue: sectionID) else {
+			return
+		}
+		headerView.disclosureExpanded = coordinator.isCategorySectionExpanded(feedSection)
+	}
 
 	override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
 		becomeFirstResponder()
@@ -1271,6 +1292,16 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 
+	// MARK: - Appearance
+
+	private func updateScrollIndicatorStyle() {
+		collectionView.indicatorStyle = traitCollection.userInterfaceStyle == .dark ? .white : .default
+	}
+
+	@objc func userInterfaceStyleDidChange() {
+		updateScrollIndicatorStyle()
+	}
+
 	// MARK: - Notifications
 
 	@objc func preferredContentSizeCategoryDidChange() {
@@ -1528,6 +1559,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		present(alert, animated: true)
 	}
 
+	/// Pending section to toggle after a snap-scroll completes.
+	private var pendingToggleFeedSection: FeedSectionIdentifier?
+
 	func toggle(_ headerView: MainFeedCollectionHeaderReusableView) {
 		guard let sectionID = headerView.sectionID else {
 			return
@@ -1535,11 +1569,17 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		// Check if this is a category section
 		if let feedSection = FeedSectionIdentifier(rawValue: sectionID) {
-			// Toggle category section expansion
 			let isExpanded = coordinator.isCategorySectionExpanded(feedSection)
-			// Set unread count BEFORE changing expansion state so the label shows correctly
 			headerView.unreadCount = unreadCountForSection(feedSection)
 			headerView.disclosureExpanded = !isExpanded
+
+			let naturalTopOffset = -collectionView.adjustedContentInset.top
+			if collectionView.contentOffset.y > naturalTopOffset + 1 {
+				pendingToggleFeedSection = feedSection
+				collectionView.setContentOffset(CGPoint(x: 0, y: naturalTopOffset), animated: true)
+				return
+			}
+
 			coordinator.toggleCategorySection(feedSection)
 			return
 		}
@@ -1559,6 +1599,15 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			coordinator.expand(sectionNode)
 		}
 	}
+
+	override func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+		guard let feedSection = pendingToggleFeedSection else {
+			return
+		}
+		pendingToggleFeedSection = nil
+		coordinator.toggleCategorySection(feedSection)
+	}
+
 }
 
 extension MainFeedCollectionViewController: MainFeedCollectionHeaderReusableViewDelegate {

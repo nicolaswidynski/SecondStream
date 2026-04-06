@@ -1025,7 +1025,20 @@ private extension SettingsViewController {
 				YoutubeSourcesManager.shared.youtubeLibrarySources = []
 				NewsSourcesManager.shared.newsSources = []
 				RSSSourcesManager.shared.rssSources = []
+
+				// Drop the content hash and conditional-GET info (ETag/Last-Modified) for
+				// all JSON feeds (podcast, youtube, news) so the next refresh re-downloads
+				// and re-parses them, picking up any server-side content changes.
+				for account in AccountManager.shared.activeAccounts {
+					for feed in account.flattenedFeeds() {
+						if feed.feedCategory != .rss {
+							feed.dropConditionalGetInfo()
+						}
+					}
+				}
+
 				SourcesRefreshManager.shared.forceRefresh()
+				AccountManager.shared.refreshAllWithoutWaiting(errorHandler: ErrorHandler.log)
 			})
 
 		present(alert, animated: true)
