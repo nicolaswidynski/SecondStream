@@ -13,6 +13,7 @@ import UIKit
 }
 
 final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
+
 	var delegate: MainFeedCollectionHeaderReusableViewDelegate?
 	var sectionID: String?
 
@@ -89,9 +90,7 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 		super.prepareForReuse()
 		_unreadCount = 0
 		hasBeenConfigured = false
-		disclosureExpanded = true
 		unreadCountLabel.alpha = 0
-		hasBeenConfigured = false
 		sectionID = nil
 		sectionTitleText = ""
 		sectionIcon = nil
@@ -138,7 +137,6 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 	func configure(title: String, icon: UIImage? = nil) {
 		sectionTitleText = title
 		sectionIcon = icon
-		disclosureIndicator.transform = .identity
 	}
 
 	func configureContainer(withTitle title: String) {
@@ -195,7 +193,7 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 		if animate {
 			UIView.animate(withDuration: 0.3, animations: animations)
 		} else {
-			animations()
+			UIView.performWithoutAnimation(animations)
 		}
 	}
 

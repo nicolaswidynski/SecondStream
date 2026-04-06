@@ -739,6 +739,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip()
 		refreshRecentlyUpdatedShowsStrip()
 		updateUI()
+		refreshVisibleSectionHeaders()
 		super.viewWillAppear(animated)
 
 		if traitCollection.userInterfaceIdiom == .phone {
@@ -776,6 +777,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	override func viewWillDisappear(_ animated: Bool) {
 		super.viewWillDisappear(animated)
 		navigationController?.additionalSafeAreaInsets.bottom = 0
+		// If the user navigates away while a snap-scroll is in flight, the scroll animation
+		// is abandoned and scrollViewDidEndScrollingAnimation never fires. Apply the pending
+		// toggle immediately so the coordinator state stays consistent.
+		if let feedSection = pendingToggleFeedSection {
+			pendingToggleFeedSection = nil
+			coordinator.toggleCategorySection(feedSection)
+		}
 	}
 
 	func registerForNotifications() {
@@ -1561,19 +1569,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		// Check if this is a category section
 		if let feedSection = FeedSectionIdentifier(rawValue: sectionID) {
-			// Toggle category section expansion
 			let isExpanded = coordinator.isCategorySectionExpanded(feedSection)
-			// Set unread count BEFORE changing expansion state so the label shows correctly
 			headerView.unreadCount = unreadCountForSection(feedSection)
 			headerView.disclosureExpanded = !isExpanded
 
-			// When a section header is sticky, UIKit adjusts contentOffset during the snapshot
-			// apply to maintain an anchor item's position — causing a visible scroll jump.
-			// Fix: snap to the top first, then apply the toggle once the scroll settles.
-			// When a section header is sticky, UIKit adjusts contentOffset during the snapshot
-			// apply to maintain an anchor item's position — causing a visible scroll jump.
-			// Fix: snap to the natural top first, then apply the toggle once the scroll settles.
-			// Note: contentOffset.y at the natural top is -adjustedContentInset.top (not 0).
 			let naturalTopOffset = -collectionView.adjustedContentInset.top
 			if collectionView.contentOffset.y > naturalTopOffset + 1 {
 				pendingToggleFeedSection = feedSection

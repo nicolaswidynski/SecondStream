@@ -256,6 +256,8 @@ private extension JSONFeedParser {
 
 	private static let iconDeepDive = "<svg width=\"16\" height=\"16\" viewBox=\"0 0 12 12\" fill=\"currentColor\" style=\"vertical-align:middle;margin-right:5px\"><circle cx=\"9\" cy=\"2\" r=\"1.2\"/><path d=\"M1.5 5.5 5 3.5l1.5 2.5-2.5 1.5 1 2H3.5L1.5 7z\"/><path d=\"M1 9.5 Q3 8 5 9.5 Q7 11 9 9.5 Q11 8 11 8\" stroke=\"currentColor\" stroke-width=\"1.1\" fill=\"none\" stroke-linecap=\"round\"/></svg>"
 
+	private static let iconAiReview = "<svg width=\"16\" height=\"16\" viewBox=\"0 0 12 12\" fill=\"currentColor\" style=\"vertical-align:middle;margin-right:5px\"><circle cx=\"6\" cy=\"0.8\" r=\"0.7\"/><rect x=\"5.65\" y=\"0.8\" width=\"0.7\" height=\"1.2\"/><rect x=\"1.5\" y=\"2\" width=\"9\" height=\"7.5\" rx=\"1.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.1\"/><circle cx=\"4\" cy=\"5.2\" r=\"1\"/><circle cx=\"8\" cy=\"5.2\" r=\"1\"/><rect x=\"3.5\" y=\"7.5\" width=\"5\" height=\"0.9\" rx=\"0.4\"/></svg>"
+
 	static func generatedShowHTML(from dictionary: JSONDictionary) -> String? {
 		var blocks = [String]()
 
@@ -281,7 +283,7 @@ private extension JSONFeedParser {
 
 		let aiReviewParagraphs = titledContentParagraphsHTML(from: dictionary[Key.aiReview])
 		if !aiReviewParagraphs.isEmpty {
-			blocks.append("<h2>AI Review</h2>\(aiReviewParagraphs.joined())")
+			blocks.append("<h2>\(iconAiReview)AI Review</h2>\(aiReviewParagraphs.joined())")
 		}
 
 		let html = blocks.joined(separator: "\n")
