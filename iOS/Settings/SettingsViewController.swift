@@ -1038,6 +1038,7 @@ private extension SettingsViewController {
 				}
 
 				SourcesRefreshManager.shared.forceRefresh()
+				AccountManager.shared.refreshAllWithoutWaiting(errorHandler: ErrorHandler.log)
 			})
 
 		present(alert, animated: true)
