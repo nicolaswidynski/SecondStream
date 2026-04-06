@@ -1540,25 +1540,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			// Set unread count BEFORE changing expansion state so the label shows correctly
 			headerView.unreadCount = unreadCountForSection(feedSection)
 			headerView.disclosureExpanded = !isExpanded
-
-			// Sticky headers can be tapped while their section's true content position is
-			// above contentOffset.y. When items are inserted above the viewport, UIKit does
-			// not compensate contentOffset. Fix: capture the first visible cell's content-Y
-			// before the toggle (cell.frame is the model layer — updated synchronously by
-			// performBatchUpdates, unlike layoutAttributesForItem which may be stale).
-			let refIndexPath = collectionView.indexPathsForVisibleItems.min()
-			let refCellYBefore = refIndexPath.flatMap { collectionView.cellForItem(at: $0)?.frame.minY }
-
 			coordinator.toggleCategorySection(feedSection)
-
-			if let refIndexPath,
-			   let before = refCellYBefore,
-			   let after = collectionView.cellForItem(at: refIndexPath)?.frame.minY {
-				let delta = after - before
-				if delta > 0.5 {
-					collectionView.contentOffset.y += delta
-				}
-			}
 			return
 		}
 
