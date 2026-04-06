@@ -1541,6 +1541,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		present(alert, animated: true)
 	}
 
+	/// Pending section to toggle after a snap-scroll completes.
+	private var pendingToggleFeedSection: FeedSectionIdentifier?
+
 	func toggle(_ headerView: MainFeedCollectionHeaderReusableView) {
 		guard let sectionID = headerView.sectionID else {
 			return
@@ -1553,6 +1556,21 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			// Set unread count BEFORE changing expansion state so the label shows correctly
 			headerView.unreadCount = unreadCountForSection(feedSection)
 			headerView.disclosureExpanded = !isExpanded
+
+			// When a section header is sticky, UIKit adjusts contentOffset during the snapshot
+			// apply to maintain an anchor item's position — causing a visible scroll jump.
+			// Fix: snap to the top first, then apply the toggle once the scroll settles.
+			// When a section header is sticky, UIKit adjusts contentOffset during the snapshot
+			// apply to maintain an anchor item's position — causing a visible scroll jump.
+			// Fix: snap to the natural top first, then apply the toggle once the scroll settles.
+			// Note: contentOffset.y at the natural top is -adjustedContentInset.top (not 0).
+			let naturalTopOffset = -collectionView.adjustedContentInset.top
+			if collectionView.contentOffset.y > naturalTopOffset + 1 {
+				pendingToggleFeedSection = feedSection
+				collectionView.setContentOffset(CGPoint(x: 0, y: naturalTopOffset), animated: true)
+				return
+			}
+
 			coordinator.toggleCategorySection(feedSection)
 			return
 		}
@@ -1572,6 +1590,15 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			coordinator.expand(sectionNode)
 		}
 	}
+
+	override func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+		guard let feedSection = pendingToggleFeedSection else {
+			return
+		}
+		pendingToggleFeedSection = nil
+		coordinator.toggleCategorySection(feedSection)
+	}
+
 }
 
 extension MainFeedCollectionViewController: MainFeedCollectionHeaderReusableViewDelegate {
