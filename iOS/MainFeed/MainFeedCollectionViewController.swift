@@ -961,6 +961,16 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
     // MARK: UICollectionViewDelegate
 
+	override func collectionView(_ collectionView: UICollectionView, willDisplaySupplementaryView view: UICollectionReusableView, forElementKind elementKind: String, at indexPath: IndexPath) {
+		guard elementKind == UICollectionView.elementKindSectionHeader,
+			  let headerView = view as? MainFeedCollectionHeaderReusableView,
+			  let sectionID = headerView.sectionID,
+			  let feedSection = FeedSectionIdentifier(rawValue: sectionID) else {
+			return
+		}
+		headerView.disclosureExpanded = coordinator.isCategorySectionExpanded(feedSection)
+	}
+
 	override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
 		becomeFirstResponder()
 		coordinator.selectSidebarItem(indexPath: indexPath, animations: [.navigation, .select, .scroll])
