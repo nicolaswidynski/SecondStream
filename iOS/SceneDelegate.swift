@@ -87,6 +87,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		appDelegate.resumeDatabaseProcessingIfNecessary()
 		appDelegate.prepareAccountsForForeground()
 		coordinator.resetFocus()
+		Task { @MainActor in BootstrapProgressManager.shared.resumeFromBackground() }
 		if !AuthManager.shared.isConnected {
 			presentRegistration()
 		}

@@ -38,7 +38,8 @@ struct BootstrapJob: Codable, Equatable {
 	private let queryURL = URL(string: "https://n8n.nwidynski.com/webhook/query-bootstrap-progress")!
 	private let jobsKey = "bootstrapProgressJobs"
 	private let pollInterval: TimeInterval = 10
-	private let maxDuration: TimeInterval = 3600  // 1 hour
+	private let maxDuration: TimeInterval = 3600        // 1 hour absolute cap
+	private let maxProgressDuration: TimeInterval = 420 // 7 minutes from first progress > 0
 
 	// MARK: - State
 
@@ -48,6 +49,9 @@ struct BootstrapJob: Codable, Equatable {
 
 	/// Running poll tasks, keyed by feedURL.
 	private var tasksByFeedURL: [String: Task<Void, Never>] = [:]
+
+	/// When the first pct > 0 was observed for each feed. Used for the 7-minute hard cap.
+	private var progressStartedAt: [String: Date] = [:]
 
 	// MARK: - Bearer token
 
@@ -97,6 +101,25 @@ struct BootstrapJob: Codable, Equatable {
 		}
 	}
 
+	/// Call this when the app returns to foreground to restart any stalled polling tasks.
+	/// Cancels all in-flight tasks and re-schedules them with a short initial delay so
+	/// progress updates resume quickly after the app was backgrounded.
+	func resumeFromBackground() {
+		guard !tasksByFeedURL.isEmpty || !jobs.isEmpty else { return }
+		Self.logger.info("resumeFromBackground — restarting \(self.jobs.count) job(s)")
+		for (_, task) in tasksByFeedURL { task.cancel() }
+		tasksByFeedURL.removeAll()
+		for job in jobs {
+			let elapsed = Date().timeIntervalSince(job.startedAt)
+			if elapsed >= maxDuration {
+				removeJob(job)
+				continue
+			}
+			progressByFeedURL[job.feedURL] = progressByFeedURL[job.feedURL] ?? 0.0
+			startPolling(job: job, initialDelay: 2)
+		}
+	}
+
 	/// Start tracking bootstrap progress for a newly added show (202 response).
 	/// - Parameters:
 	///   - type: "pod" or "yt"
@@ -137,6 +160,7 @@ struct BootstrapJob: Codable, Equatable {
 		tasksByFeedURL[feedURL]?.cancel()
 		tasksByFeedURL.removeValue(forKey: feedURL)
 		progressByFeedURL.removeValue(forKey: feedURL)
+		progressStartedAt.removeValue(forKey: feedURL)
 		var current = jobs
 		current.removeAll { $0.feedURL == feedURL }
 		jobs = current
@@ -212,6 +236,19 @@ struct BootstrapJob: Codable, Equatable {
 				finish(job: job, atFull: true)
 				return
 			}
+
+			// Protection: once any progress > 0 is observed, allow at most 7 more minutes.
+			if pct > 0 {
+				if progressStartedAt[job.feedURL] == nil {
+					progressStartedAt[job.feedURL] = Date()
+					Self.logger.info("Progress first seen for \(job.feedURL) — 7-min cap starts")
+				} else if let start = progressStartedAt[job.feedURL],
+						  Date().timeIntervalSince(start) > maxProgressDuration {
+					Self.logger.info("7-min cap reached for \(job.feedURL) — finishing at 100")
+					finish(job: job, atFull: true)
+					return
+				}
+			}
 		}
 
 		// Schedule next poll
@@ -226,6 +263,7 @@ struct BootstrapJob: Codable, Equatable {
 
 	private func finish(job: BootstrapJob, atFull: Bool) {
 		tasksByFeedURL.removeValue(forKey: job.feedURL)
+		progressStartedAt.removeValue(forKey: job.feedURL)
 		if atFull {
 			progressByFeedURL[job.feedURL] = 1.0
 			notifyUpdate(feedURL: job.feedURL)

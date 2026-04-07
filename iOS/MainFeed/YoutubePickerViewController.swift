@@ -25,6 +25,8 @@ final class YoutubePickerViewController: UIViewController {
 	private var findTask: Task<Void, Never>?
 	private var currentFindItems: [SourcePickerItem] = []
 	private var lastFindQuery: String = ""
+	/// Captured at shouldSelectItemAt to survive snapshot updates between highlight and selection.
+	private var pendingSelection: SourcePickerItem?
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -290,10 +292,18 @@ final class YoutubePickerViewController: UIViewController {
 
 extension YoutubePickerViewController: UICollectionViewDelegate {
 
+	func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
+		// Capture the item now — UISearchController may deactivate between highlight and
+		// selection, causing updateSearchResults("") to clear currentFindItems and re-apply
+		// the snapshot, which removes the findResults section before didSelectItemAt fires.
+		pendingSelection = dataSource.itemIdentifier(for: indexPath)
+		return true
+	}
+
 	func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-		guard let item = dataSource.itemIdentifier(for: indexPath) else {
-			return
-		}
+		let item = dataSource.itemIdentifier(for: indexPath) ?? pendingSelection
+		pendingSelection = nil
+		guard let item else { return }
 
 		switch item {
 		case .youtubeSource(let source):
