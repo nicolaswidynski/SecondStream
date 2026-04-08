@@ -1582,9 +1582,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				- collectionView.adjustedContentInset.bottom
 			let headerOffsetInVisible = headerView.frame.origin.y - visibleContentTop
 
-			if headerOffsetInVisible > visibleHeight * 0.6 {
-				// Header is in the bottom 40% of the visible area — scroll to bring it near
-				// the top so expanding inserts items below the visible anchor, not into it.
+			if !isExpanded && headerOffsetInVisible > visibleHeight * 0.6 {
+				// Expanding a header in the bottom 40% of the visible area — scroll to bring it
+				// near the top so items insert below the visible anchor without a jump.
+				// Only on expand; collapse should stay in place.
 				let rawTargetY = headerView.frame.origin.y - collectionView.adjustedContentInset.top - 8
 				let maxOffset = collectionView.contentSize.height
 					- collectionView.bounds.height

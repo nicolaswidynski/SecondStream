@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import os.log
 
 @MainActor protocol YoutubePickerDelegate: AnyObject {
 	func youtubePickerDidSelectChannelName(_ picker: YoutubePickerViewController)
@@ -16,6 +17,8 @@ import UIKit
 }
 
 final class YoutubePickerViewController: UIViewController {
+
+	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "YoutubePicker")
 
 	weak var delegate: YoutubePickerDelegate?
 
@@ -297,21 +300,21 @@ final class YoutubePickerViewController: UIViewController {
 extension YoutubePickerViewController: UICollectionViewDelegate {
 
 	func collectionView(_ collectionView: UICollectionView, shouldHighlightItemAt indexPath: IndexPath) -> Bool {
-		// Capture the item on touch-down. The keyboard-dismiss tap gesture fires on touch-up
-		// and triggers updateSearchResults("") which would clear currentFindItems — by setting
-		// isHighlightingItem here we guard that path, and highlightedSelection gives didSelectItemAt
-		// a fallback even if the snapshot is refreshed before it fires.
 		highlightedSelection = dataSource.itemIdentifier(for: indexPath)
 		isHighlightingItem = true
+		Self.logger.debug("shouldHighlight[\(indexPath.section),\(indexPath.item)] item=\(String(describing: self.highlightedSelection), privacy: .public) isHighlighting=true")
 		return true
 	}
 
 	func collectionView(_ collectionView: UICollectionView, didUnhighlightItemAt indexPath: IndexPath) {
+		Self.logger.debug("didUnhighlight[\(indexPath.section),\(indexPath.item)] isHighlighting→false")
 		isHighlightingItem = false
 	}
 
 	func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-		let item = dataSource.itemIdentifier(for: indexPath) ?? highlightedSelection
+		let fromDS = dataSource.itemIdentifier(for: indexPath)
+		let item = fromDS ?? highlightedSelection
+		Self.logger.debug("didSelect[\(indexPath.section),\(indexPath.item)] fromDS=\(String(describing: fromDS), privacy: .public) fallback=\(String(describing: self.highlightedSelection), privacy: .public) resolved=\(String(describing: item), privacy: .public)")
 		highlightedSelection = nil
 		isHighlightingItem = false
 		guard let item else { return }
@@ -336,9 +339,8 @@ extension YoutubePickerViewController: UISearchResultsUpdating {
 		let query = (searchController.searchBar.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 
 		guard query.count >= 3 else {
-			// Don't clear remote results while a finger is down on a cell — the keyboard-dismiss
-			// gesture fires on touch-up and calls here with an empty query before didSelectItemAt.
-			if !isHighlightingItem { clearFindResults() }
+			Self.logger.debug("updateSearchResults: query<3 (\"\(query, privacy: .public)\") isHighlighting=\(self.isHighlightingItem) currentFindItems=\(self.currentFindItems.count)")
+			if !isHighlightingItem { clearFindResults() } else { Self.logger.debug("updateSearchResults: skipping clearFindResults — finger still down") }
 			applySnapshot()
 			return
 		}
