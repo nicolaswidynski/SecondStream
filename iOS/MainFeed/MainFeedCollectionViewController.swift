@@ -37,6 +37,8 @@ private enum RecentlyUpdatedStripPayload {
 
 final class MainFeedCollectionViewController: UICollectionViewController, UndoableCommandRunner {
 
+	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "AddSource")
+
 	private let keyboardManager = KeyboardManager(type: .sidebar)
 	override var keyCommands: [UIKeyCommand]? {
 
@@ -1507,36 +1509,53 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
 		])
 
-		present(loadingAlert, animated: true) {
-			Task {
-				let result = await PodcastSourcesManager.shared.addPodcast(name: name, author: author)
+		// Present the spinner without a completion — the Task starts immediately so the
+		// webhook fires even if the alert can't present (e.g. picker NavController hasn't
+		// fully torn down yet when the dismiss completion fires).
+		Self.logger.debug("addPodcast: presenting loadingAlert — presentingVC=\(String(describing: self.presentedViewController), privacy: .public)")
+		present(loadingAlert, animated: true)
 
-				if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
-				if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
+		Task { @MainActor [weak self] in
+			guard let self else { return }
+			Self.logger.debug("addPodcast: task started — calling webhook for \"\(name, privacy: .public)\"")
+			let result = await PodcastSourcesManager.shared.addPodcast(name: name, author: author)
+			Self.logger.debug("addPodcast: webhook returned — result=\(String(describing: result), privacy: .public)")
 
-				loadingAlert.dismiss(animated: true) {
-					switch result {
-					case .successExisting(let summaryURL):
-						// 201: show already exists — cancel any stale bootstrap job for this URL
-						let existingPodFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
-						BootstrapProgressManager.shared.cancelBootstrap(feedURL: existingPodFeedURL)
-						self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
-							appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
-						}
+			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
+			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
 
-					case .successNew(let summaryURL, let message):
-						// Start bootstrap immediately on 202 — don't wait for addFeedDirectly completion.
-						// Use URL.absoluteString form so it matches what Account stores for the feed.
-						let podFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
-						BootstrapProgressManager.shared.startBootstrap(type: "pod", show: name, author: author ?? "", feedURL: podFeedURL)
-						self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
-							self.showAddSourceSuccess(title: NSLocalizedString("Podcast Added", comment: "Podcast Added"), message: message) {}
-						}
-
-					case .failure(let message):
-						self.showAddSourceError(message: message)
-					}
+			// Dismiss the spinner if it was actually shown; skip otherwise.
+			let alertIsPresented = loadingAlert.presentingViewController != nil
+			Self.logger.debug("addPodcast: alertIsPresented=\(alertIsPresented)")
+			await withCheckedContinuation { continuation in
+				if loadingAlert.presentingViewController != nil {
+					loadingAlert.dismiss(animated: true) { continuation.resume() }
+				} else {
+					continuation.resume()
 				}
+			}
+			Self.logger.debug("addPodcast: spinner dismissed — handling result")
+
+			switch result {
+			case .successExisting(let summaryURL):
+				// 201: show already exists — cancel any stale bootstrap job for this URL
+				let existingPodFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
+				BootstrapProgressManager.shared.cancelBootstrap(feedURL: existingPodFeedURL)
+				self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+					appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
+				}
+
+			case .successNew(let summaryURL, let message):
+				// Start bootstrap immediately on 202 — don't wait for addFeedDirectly completion.
+				// Use URL.absoluteString form so it matches what Account stores for the feed.
+				let podFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
+				BootstrapProgressManager.shared.startBootstrap(type: "pod", show: name, author: author ?? "", feedURL: podFeedURL)
+				self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+					self.showAddSourceSuccess(title: NSLocalizedString("Podcast Added", comment: "Podcast Added"), message: message) {}
+				}
+
+			case .failure(let message):
+				self.showAddSourceError(message: message)
 			}
 		}
 	}
@@ -1582,8 +1601,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				- collectionView.adjustedContentInset.bottom
 			let headerOffsetInVisible = headerView.frame.origin.y - visibleContentTop
 
-			if !isExpanded && headerOffsetInVisible > visibleHeight * 0.6 {
-				// Expanding a header in the bottom 40% of the visible area — scroll to bring it
+			if !isExpanded && headerOffsetInVisible > visibleHeight * 0.8 {
+				// Expanding a header in the bottom 20% of the visible area — scroll to bring it
 				// near the top so items insert below the visible anchor without a jump.
 				// Only on expand; collapse should stay in place.
 				let rawTargetY = headerView.frame.origin.y - collectionView.adjustedContentInset.top - 8
@@ -1600,8 +1619,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				return
 			}
 
-			if collectionView.contentOffset.y > naturalTopOffset + 1 {
-				// Scrolled away from the natural top — snap all the way back before expanding.
+			if !isExpanded && collectionView.contentOffset.y > naturalTopOffset + 1 {
+				// Expanding while scrolled away from the natural top — snap back first.
+				// Collapsing never needs a pre-scroll; items are removed, not added.
 				pendingToggleFeedSection = feedSection
 				collectionView.setContentOffset(CGPoint(x: 0, y: naturalTopOffset), animated: true)
 				return
@@ -2343,35 +2363,52 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
 		])
 
-		present(loadingAlert, animated: true) {
-			Task {
-				let result = await YoutubeSourcesManager.shared.addYoutube(name: name, author: author)
+		// Present the spinner without a completion — the Task starts immediately so the
+		// webhook fires even if the alert can't present (e.g. picker NavController hasn't
+		// fully torn down yet when the dismiss completion fires).
+		Self.logger.debug("addYoutube: presenting loadingAlert — presentingVC=\(String(describing: self.presentedViewController), privacy: .public)")
+		present(loadingAlert, animated: true)
 
-				if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
-				if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
+		Task { @MainActor [weak self] in
+			guard let self else { return }
+			Self.logger.debug("addYoutube: task started — calling webhook for \"\(name, privacy: .public)\"")
+			let result = await YoutubeSourcesManager.shared.addYoutube(name: name, author: author)
+			Self.logger.debug("addYoutube: webhook returned — result=\(String(describing: result), privacy: .public)")
 
-				loadingAlert.dismiss(animated: true) {
-					switch result {
-					case .successExisting(let summaryURL):
-						// 201: channel already exists — cancel any stale bootstrap job for this URL
-						let existingYtFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
-						BootstrapProgressManager.shared.cancelBootstrap(feedURL: existingYtFeedURL)
-						self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
-							appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
-						}
+			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
+			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
 
-					case .successNew(let summaryURL, let message):
-						// Start bootstrap immediately on 202 — don't wait for addFeedDirectly completion.
-						let ytFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
-						BootstrapProgressManager.shared.startBootstrap(type: "yt", show: name, author: author ?? "", feedURL: ytFeedURL)
-						self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
-							self.showAddSourceSuccess(title: NSLocalizedString("Channel Added", comment: "Channel Added"), message: message) {}
-						}
-
-					case .failure(let message):
-						self.showAddSourceError(message: message)
-					}
+			// Dismiss the spinner if it was actually shown; skip otherwise.
+			let alertIsPresented = loadingAlert.presentingViewController != nil
+			Self.logger.debug("addYoutube: alertIsPresented=\(alertIsPresented)")
+			await withCheckedContinuation { continuation in
+				if loadingAlert.presentingViewController != nil {
+					loadingAlert.dismiss(animated: true) { continuation.resume() }
+				} else {
+					continuation.resume()
 				}
+			}
+			Self.logger.debug("addYoutube: spinner dismissed — handling result")
+
+			switch result {
+			case .successExisting(let summaryURL):
+				// 201: channel already exists — cancel any stale bootstrap job for this URL
+				let existingYtFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
+				BootstrapProgressManager.shared.cancelBootstrap(feedURL: existingYtFeedURL)
+				self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+					appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
+				}
+
+			case .successNew(let summaryURL, let message):
+				// Start bootstrap immediately on 202 — don't wait for addFeedDirectly completion.
+				let ytFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
+				BootstrapProgressManager.shared.startBootstrap(type: "yt", show: name, author: author ?? "", feedURL: ytFeedURL)
+				self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+					self.showAddSourceSuccess(title: NSLocalizedString("Channel Added", comment: "Channel Added"), message: message) {}
+				}
+
+			case .failure(let message):
+				self.showAddSourceError(message: message)
 			}
 		}
 	}
