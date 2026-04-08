@@ -1491,50 +1491,30 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		present(nav, animated: true)
 	}
 
+	/// Suspends until `presentedViewController` is nil — i.e. until any in-flight
+	/// dismiss animation has fully committed. Needed because `dismiss(animated:completion:)`
+	/// fires its completion before UIKit clears `presentedViewController` on the presenter.
+	private func waitForDismiss() async {
+		while presentedViewController != nil {
+			try? await Task.sleep(for: .milliseconds(50))
+		}
+	}
+
 	private func addPodcastWithWebhook(name: String, author: String?) {
 		// Show loading indicator
-		let loadingAlert = UIAlertController(
-			title: nil,
-			message: NSLocalizedString("Searching for podcast...", comment: "Searching for podcast..."),
-			preferredStyle: .alert
-		)
-
-		let activityIndicator = UIActivityIndicatorView(style: .medium)
-		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
-		activityIndicator.startAnimating()
-		loadingAlert.view.addSubview(activityIndicator)
-
-		NSLayoutConstraint.activate([
-			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
-			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
-		])
-
-		// Present the spinner without a completion — the Task starts immediately so the
-		// webhook fires even if the alert can't present (e.g. picker NavController hasn't
-		// fully torn down yet when the dismiss completion fires).
-		Self.logger.debug("addPodcast: presenting loadingAlert — presentingVC=\(String(describing: self.presentedViewController), privacy: .public)")
-		present(loadingAlert, animated: true)
-
+		// Run webhook and picker-dismiss wait concurrently — the dismiss completion fires before
+		// UIKit clears presentedViewController, so we must poll until it's nil before any present().
 		Task { @MainActor [weak self] in
 			guard let self else { return }
 			Self.logger.debug("addPodcast: task started — calling webhook for \"\(name, privacy: .public)\"")
-			let result = await PodcastSourcesManager.shared.addPodcast(name: name, author: author)
-			Self.logger.debug("addPodcast: webhook returned — result=\(String(describing: result), privacy: .public)")
+
+			async let webhookResult = PodcastSourcesManager.shared.addPodcast(name: name, author: author)
+			await waitForDismiss()
+			let result = await webhookResult
+			Self.logger.debug("addPodcast: webhook result + picker gone — result=\(String(describing: result), privacy: .public)")
 
 			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
 			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
-
-			// Dismiss the spinner if it was actually shown; skip otherwise.
-			let alertIsPresented = loadingAlert.presentingViewController != nil
-			Self.logger.debug("addPodcast: alertIsPresented=\(alertIsPresented)")
-			await withCheckedContinuation { continuation in
-				if loadingAlert.presentingViewController != nil {
-					loadingAlert.dismiss(animated: true) { continuation.resume() }
-				} else {
-					continuation.resume()
-				}
-			}
-			Self.logger.debug("addPodcast: spinner dismissed — handling result")
 
 			switch result {
 			case .successExisting(let summaryURL):
@@ -2346,49 +2326,19 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 	}
 
 	private func addYoutubeWithWebhook(name: String, author: String?) {
-		// Show loading indicator
-		let loadingAlert = UIAlertController(
-			title: nil,
-			message: NSLocalizedString("Searching for YouTube channel...", comment: "Searching for YouTube channel..."),
-			preferredStyle: .alert
-		)
-
-		let activityIndicator = UIActivityIndicatorView(style: .medium)
-		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
-		activityIndicator.startAnimating()
-		loadingAlert.view.addSubview(activityIndicator)
-
-		NSLayoutConstraint.activate([
-			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
-			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
-		])
-
-		// Present the spinner without a completion — the Task starts immediately so the
-		// webhook fires even if the alert can't present (e.g. picker NavController hasn't
-		// fully torn down yet when the dismiss completion fires).
-		Self.logger.debug("addYoutube: presenting loadingAlert — presentingVC=\(String(describing: self.presentedViewController), privacy: .public)")
-		present(loadingAlert, animated: true)
-
+		// Run webhook and picker-dismiss wait concurrently — the dismiss completion fires before
+		// UIKit clears presentedViewController, so we must poll until it's nil before any present().
 		Task { @MainActor [weak self] in
 			guard let self else { return }
 			Self.logger.debug("addYoutube: task started — calling webhook for \"\(name, privacy: .public)\"")
-			let result = await YoutubeSourcesManager.shared.addYoutube(name: name, author: author)
-			Self.logger.debug("addYoutube: webhook returned — result=\(String(describing: result), privacy: .public)")
+
+			async let webhookResult = YoutubeSourcesManager.shared.addYoutube(name: name, author: author)
+			await waitForDismiss()
+			let result = await webhookResult
+			Self.logger.debug("addYoutube: webhook result + picker gone — result=\(String(describing: result), privacy: .public)")
 
 			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
 			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
-
-			// Dismiss the spinner if it was actually shown; skip otherwise.
-			let alertIsPresented = loadingAlert.presentingViewController != nil
-			Self.logger.debug("addYoutube: alertIsPresented=\(alertIsPresented)")
-			await withCheckedContinuation { continuation in
-				if loadingAlert.presentingViewController != nil {
-					loadingAlert.dismiss(animated: true) { continuation.resume() }
-				} else {
-					continuation.resume()
-				}
-			}
-			Self.logger.debug("addYoutube: spinner dismissed — handling result")
 
 			switch result {
 			case .successExisting(let summaryURL):
