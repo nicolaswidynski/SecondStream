@@ -25,8 +25,12 @@ final class YoutubePickerViewController: UIViewController {
 	private var findTask: Task<Void, Never>?
 	private var currentFindItems: [SourcePickerItem] = []
 	private var lastFindQuery: String = ""
-	/// Captured at shouldSelectItemAt to survive snapshot updates between highlight and selection.
-	private var pendingSelection: SourcePickerItem?
+	/// Set on touch-down (shouldHighlightItemAt) so we can skip clearFindResults while a finger
+	/// is on a cell — the keyboard-dismiss gesture fires on touch-up and would otherwise wipe
+	/// currentFindItems before didSelectItemAt gets a chance to fire.
+	private var isHighlightingItem = false
+	/// Item captured at touch-down in case the snapshot is reapplied before didSelectItemAt.
+	private var highlightedSelection: SourcePickerItem?
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -292,17 +296,24 @@ final class YoutubePickerViewController: UIViewController {
 
 extension YoutubePickerViewController: UICollectionViewDelegate {
 
-	func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
-		// Capture the item now — UISearchController may deactivate between highlight and
-		// selection, causing updateSearchResults("") to clear currentFindItems and re-apply
-		// the snapshot, which removes the findResults section before didSelectItemAt fires.
-		pendingSelection = dataSource.itemIdentifier(for: indexPath)
+	func collectionView(_ collectionView: UICollectionView, shouldHighlightItemAt indexPath: IndexPath) -> Bool {
+		// Capture the item on touch-down. The keyboard-dismiss tap gesture fires on touch-up
+		// and triggers updateSearchResults("") which would clear currentFindItems — by setting
+		// isHighlightingItem here we guard that path, and highlightedSelection gives didSelectItemAt
+		// a fallback even if the snapshot is refreshed before it fires.
+		highlightedSelection = dataSource.itemIdentifier(for: indexPath)
+		isHighlightingItem = true
 		return true
 	}
 
+	func collectionView(_ collectionView: UICollectionView, didUnhighlightItemAt indexPath: IndexPath) {
+		isHighlightingItem = false
+	}
+
 	func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-		let item = dataSource.itemIdentifier(for: indexPath) ?? pendingSelection
-		pendingSelection = nil
+		let item = dataSource.itemIdentifier(for: indexPath) ?? highlightedSelection
+		highlightedSelection = nil
+		isHighlightingItem = false
 		guard let item else { return }
 
 		switch item {
@@ -325,7 +336,9 @@ extension YoutubePickerViewController: UISearchResultsUpdating {
 		let query = (searchController.searchBar.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 
 		guard query.count >= 3 else {
-			clearFindResults()
+			// Don't clear remote results while a finger is down on a cell — the keyboard-dismiss
+			// gesture fires on touch-up and calls here with an empty query before didSelectItemAt.
+			if !isHighlightingItem { clearFindResults() }
 			applySnapshot()
 			return
 		}

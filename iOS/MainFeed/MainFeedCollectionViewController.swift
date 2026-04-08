@@ -1574,7 +1574,33 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			headerView.disclosureExpanded = !isExpanded
 
 			let naturalTopOffset = -collectionView.adjustedContentInset.top
+
+			// Header's offset within the currently visible content area.
+			let visibleContentTop = collectionView.contentOffset.y + collectionView.adjustedContentInset.top
+			let visibleHeight = collectionView.bounds.height
+				- collectionView.adjustedContentInset.top
+				- collectionView.adjustedContentInset.bottom
+			let headerOffsetInVisible = headerView.frame.origin.y - visibleContentTop
+
+			if headerOffsetInVisible > visibleHeight * 0.6 {
+				// Header is in the bottom 40% of the visible area — scroll to bring it near
+				// the top so expanding inserts items below the visible anchor, not into it.
+				let rawTargetY = headerView.frame.origin.y - collectionView.adjustedContentInset.top - 8
+				let maxOffset = collectionView.contentSize.height
+					- collectionView.bounds.height
+					+ collectionView.adjustedContentInset.bottom
+				let targetY = max(naturalTopOffset, min(rawTargetY, maxOffset))
+				guard abs(targetY - collectionView.contentOffset.y) > 1 else {
+					coordinator.toggleCategorySection(feedSection)
+					return
+				}
+				pendingToggleFeedSection = feedSection
+				collectionView.setContentOffset(CGPoint(x: 0, y: targetY), animated: true)
+				return
+			}
+
 			if collectionView.contentOffset.y > naturalTopOffset + 1 {
+				// Scrolled away from the natural top — snap all the way back before expanding.
 				pendingToggleFeedSection = feedSection
 				collectionView.setContentOffset(CGPoint(x: 0, y: naturalTopOffset), animated: true)
 				return
