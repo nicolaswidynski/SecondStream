@@ -1577,11 +1577,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			headerView.unreadCount = unreadCountForSection(feedSection)
 			headerView.disclosureExpanded = !isExpanded
 
-			// Only case requiring a pre-scroll: expanding a section whose header sits
-			// in the bottom 20% of the visible area. Scroll the header toward the top
-			// first (downward only), then expand in scrollViewDidEndScrollingAnimation.
 			if !isExpanded {
 				let contentOffsetY = collectionView.contentOffset.y
+				let naturalTopOffset = -collectionView.adjustedContentInset.top
 				let adjustedInsetTop = collectionView.adjustedContentInset.top
 				let adjustedInsetBottom = collectionView.adjustedContentInset.bottom
 				let boundsHeight = collectionView.bounds.height
@@ -1590,16 +1588,23 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				let visibleHeight = boundsHeight - adjustedInsetTop - adjustedInsetBottom
 				let headerOffsetInVisible = headerContentY - visibleContentTop
 
+				// Header in bottom 20%: scroll DOWN to bring it near the top, then expand.
 				if headerOffsetInVisible > visibleHeight * 0.8 {
 					let rawTargetY = headerContentY - adjustedInsetTop - 8
 					let maxOffset = collectionView.contentSize.height - boundsHeight + adjustedInsetBottom
 					let targetY = min(rawTargetY, maxOffset)
-					// Only fire if the scroll is downward (header is below current viewport top).
 					if targetY > contentOffsetY + 1 {
 						pendingToggleFeedSection = feedSection
 						collectionView.setContentOffset(CGPoint(x: 0, y: targetY), animated: true)
 						return
 					}
+				}
+
+				// Not at natural top: snap to top first, then expand.
+				if contentOffsetY > naturalTopOffset + 1 {
+					pendingToggleFeedSection = feedSection
+					collectionView.setContentOffset(CGPoint(x: 0, y: naturalTopOffset), animated: true)
+					return
 				}
 			}
 
