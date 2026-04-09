@@ -1491,11 +1491,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		present(nav, animated: true)
 	}
 
-	/// Suspends until `presentedViewController` is nil — i.e. until any in-flight
-	/// dismiss animation has fully committed. Needed because `dismiss(animated:completion:)`
-	/// fires its completion before UIKit clears `presentedViewController` on the presenter.
+	/// Suspends until the window's root presenter has no presented VC — i.e. until any
+	/// in-flight dismiss animation has fully committed. Needed because
+	/// `dismiss(animated:completion:)` fires its completion before UIKit clears
+	/// `presentedViewController` on the presenter (`RootSplitViewController`, not self).
 	private func waitForDismiss() async {
-		while presentedViewController != nil {
+		guard let root = view.window?.rootViewController else { return }
+		while root.presentedViewController != nil {
 			try? await Task.sleep(for: .milliseconds(50))
 		}
 	}
@@ -1582,15 +1584,15 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			let headerOffsetInVisible = headerView.frame.origin.y - visibleContentTop
 
 			if !isExpanded && headerOffsetInVisible > visibleHeight * 0.8 {
-				// Expanding a header in the bottom 20% of the visible area — scroll to bring it
-				// near the top so items insert below the visible anchor without a jump.
-				// Only on expand; collapse should stay in place.
+				// Expanding a header in the bottom 20% — scroll DOWN to bring it near the top.
+				// Only permit downward scroll (targetY > current): if the math produces an
+				// upward scroll (e.g. already at natural top) just toggle immediately.
 				let rawTargetY = headerView.frame.origin.y - collectionView.adjustedContentInset.top - 8
 				let maxOffset = collectionView.contentSize.height
 					- collectionView.bounds.height
 					+ collectionView.adjustedContentInset.bottom
 				let targetY = max(naturalTopOffset, min(rawTargetY, maxOffset))
-				guard abs(targetY - collectionView.contentOffset.y) > 1 else {
+				guard targetY > collectionView.contentOffset.y + 1 else {
 					coordinator.toggleCategorySection(feedSection)
 					return
 				}
