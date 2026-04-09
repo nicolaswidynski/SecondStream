@@ -1496,10 +1496,21 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// `dismiss(animated:completion:)` fires its completion before UIKit clears
 	/// `presentedViewController` on the presenter (`RootSplitViewController`, not self).
 	private func waitForDismiss() async {
-		guard let root = view.window?.rootViewController else { return }
+		guard let root = view.window?.rootViewController else {
+			Self.logger.debug("waitForDismiss: no root VC — returning immediately")
+			return
+		}
+		if let p = root.presentedViewController {
+			Self.logger.debug("waitForDismiss: root=\(type(of: root)) presentedVC=\(type(of: p)) — polling")
+		} else {
+			Self.logger.debug("waitForDismiss: root=\(type(of: root)) presentedVC=nil — nothing to wait for")
+		}
+		var polls = 0
 		while root.presentedViewController != nil {
+			polls += 1
 			try? await Task.sleep(for: .milliseconds(50))
 		}
+		Self.logger.debug("waitForDismiss: done after \(polls) polls")
 	}
 
 	private func addPodcastWithWebhook(name: String, author: String?) {
@@ -1575,24 +1586,31 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			headerView.disclosureExpanded = !isExpanded
 
 			let naturalTopOffset = -collectionView.adjustedContentInset.top
+			let contentOffsetY = collectionView.contentOffset.y
+			let adjustedInsetTop = collectionView.adjustedContentInset.top
+			let adjustedInsetBottom = collectionView.adjustedContentInset.bottom
+			let boundsHeight = collectionView.bounds.height
+			let headerContentY = headerView.frame.origin.y
 
-			// Header's offset within the currently visible content area.
-			let visibleContentTop = collectionView.contentOffset.y + collectionView.adjustedContentInset.top
-			let visibleHeight = collectionView.bounds.height
-				- collectionView.adjustedContentInset.top
-				- collectionView.adjustedContentInset.bottom
-			let headerOffsetInVisible = headerView.frame.origin.y - visibleContentTop
+			let visibleContentTop = contentOffsetY + adjustedInsetTop
+			let visibleHeight = boundsHeight - adjustedInsetTop - adjustedInsetBottom
+			let headerOffsetInVisible = headerContentY - visibleContentTop
+
+			Self.logger.debug("""
+				toggle: section=\(sectionID, privacy: .public) isExpanded=\(isExpanded) \
+				offsetY=\(contentOffsetY) naturalTop=\(naturalTopOffset) \
+				insetTop=\(adjustedInsetTop) insetBottom=\(adjustedInsetBottom) boundsH=\(boundsHeight) \
+				headerContentY=\(headerContentY) visibleContentTop=\(visibleContentTop) \
+				visibleH=\(visibleHeight) headerOffsetInVisible=\(headerOffsetInVisible) \
+				threshold=\(visibleHeight * 0.8)
+				""")
 
 			if !isExpanded && headerOffsetInVisible > visibleHeight * 0.8 {
-				// Expanding a header in the bottom 20% — scroll DOWN to bring it near the top.
-				// Only permit downward scroll (targetY > current): if the math produces an
-				// upward scroll (e.g. already at natural top) just toggle immediately.
-				let rawTargetY = headerView.frame.origin.y - collectionView.adjustedContentInset.top - 8
-				let maxOffset = collectionView.contentSize.height
-					- collectionView.bounds.height
-					+ collectionView.adjustedContentInset.bottom
+				let rawTargetY = headerContentY - adjustedInsetTop - 8
+				let maxOffset = collectionView.contentSize.height - boundsHeight + adjustedInsetBottom
 				let targetY = max(naturalTopOffset, min(rawTargetY, maxOffset))
-				guard targetY > collectionView.contentOffset.y + 1 else {
+				Self.logger.debug("toggle: BOTTOM-SNAP rawTargetY=\(rawTargetY) maxOffset=\(maxOffset) targetY=\(targetY) currentOffsetY=\(contentOffsetY) → \(targetY > contentOffsetY + 1 ? "scrolling" : "direct-toggle (would scroll up)")")
+				guard targetY > contentOffsetY + 1 else {
 					coordinator.toggleCategorySection(feedSection)
 					return
 				}
@@ -1601,14 +1619,14 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				return
 			}
 
-			if !isExpanded && collectionView.contentOffset.y > naturalTopOffset + 1 {
-				// Expanding while scrolled away from the natural top — snap back first.
-				// Collapsing never needs a pre-scroll; items are removed, not added.
+			if !isExpanded && contentOffsetY > naturalTopOffset + 1 {
+				Self.logger.debug("toggle: TOP-SNAP offsetY=\(contentOffsetY) → naturalTop=\(naturalTopOffset)")
 				pendingToggleFeedSection = feedSection
 				collectionView.setContentOffset(CGPoint(x: 0, y: naturalTopOffset), animated: true)
 				return
 			}
 
+			Self.logger.debug("toggle: DIRECT-TOGGLE isExpanded=\(isExpanded) offsetY=\(contentOffsetY)")
 			coordinator.toggleCategorySection(feedSection)
 			return
 		}
