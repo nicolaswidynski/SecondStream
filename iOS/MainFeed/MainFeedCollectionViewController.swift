@@ -1491,40 +1491,29 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		present(nav, animated: true)
 	}
 
-	/// Suspends until the window's root presenter has no presented VC — i.e. until any
-	/// in-flight dismiss animation has fully committed. Needed because
-	/// `dismiss(animated:completion:)` fires its completion before UIKit clears
-	/// `presentedViewController` on the presenter (`RootSplitViewController`, not self).
-	private func waitForDismiss() async {
+	/// Returns the topmost view controller that can safely accept a modal presentation.
+	/// Walks the presented-VC chain from the window's root, stopping at any VC that
+	/// is currently being dismissed (so the alert lands on the first non-dismissing ancestor).
+	private func topMostPresentingViewController() -> UIViewController {
 		guard let root = view.window?.rootViewController else {
-			Self.logger.debug("waitForDismiss: no root VC — returning immediately")
-			return
+			Self.logger.debug("topMostPresenter: no root — falling back to self")
+			return self
 		}
-		if let p = root.presentedViewController {
-			Self.logger.debug("waitForDismiss: root=\(type(of: root)) presentedVC=\(type(of: p)) — polling")
-		} else {
-			Self.logger.debug("waitForDismiss: root=\(type(of: root)) presentedVC=nil — nothing to wait for")
+		var vc: UIViewController = root
+		while let presented = vc.presentedViewController, !presented.isBeingDismissed {
+			vc = presented
 		}
-		var polls = 0
-		while root.presentedViewController != nil {
-			polls += 1
-			try? await Task.sleep(for: .milliseconds(50))
-		}
-		Self.logger.debug("waitForDismiss: done after \(polls) polls")
+		Self.logger.debug("topMostPresenter: \(type(of: vc))")
+		return vc
 	}
 
 	private func addPodcastWithWebhook(name: String, author: String?) {
-		// Show loading indicator
-		// Run webhook and picker-dismiss wait concurrently — the dismiss completion fires before
-		// UIKit clears presentedViewController, so we must poll until it's nil before any present().
 		Task { @MainActor [weak self] in
 			guard let self else { return }
 			Self.logger.debug("addPodcast: task started — calling webhook for \"\(name, privacy: .public)\"")
 
-			async let webhookResult = PodcastSourcesManager.shared.addPodcast(name: name, author: author)
-			await waitForDismiss()
-			let result = await webhookResult
-			Self.logger.debug("addPodcast: webhook result + picker gone — result=\(String(describing: result), privacy: .public)")
+			let result = await PodcastSourcesManager.shared.addPodcast(name: name, author: author)
+			Self.logger.debug("addPodcast: webhook result=\(String(describing: result), privacy: .public)")
 
 			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
 			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
@@ -1554,29 +1543,25 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func showAddSourceSuccess(title: String, message: String, completion: @escaping () -> Void) {
-		let hasWindow = view.window != nil
-		let selfPresentedVC = self.presentedViewController
-		let rootPresentedVC = view.window?.rootViewController?.presentedViewController
-		Self.logger.debug("showAddSourceSuccess: hasWindow=\(hasWindow) selfPresentedVC=\(String(describing: selfPresentedVC), privacy: .public) rootPresentedVC=\(String(describing: rootPresentedVC), privacy: .public)")
+		let presenter = topMostPresentingViewController()
+		Self.logger.debug("showAddSourceSuccess: title=\(title, privacy: .public) presenter=\(type(of: presenter))")
 		let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default) { _ in
 			completion()
 		})
-		present(alert, animated: true)
+		presenter.present(alert, animated: true)
 	}
 
 	private func showAddSourceError(message: String) {
-		let hasWindow = view.window != nil
-		let selfPresentedVC = self.presentedViewController
-		let rootPresentedVC = view.window?.rootViewController?.presentedViewController
-		Self.logger.debug("showAddSourceError: msg=\(message, privacy: .public) hasWindow=\(hasWindow) selfPresentedVC=\(String(describing: selfPresentedVC), privacy: .public) rootPresentedVC=\(String(describing: rootPresentedVC), privacy: .public)")
+		let presenter = topMostPresentingViewController()
+		Self.logger.debug("showAddSourceError: msg=\(message, privacy: .public) presenter=\(type(of: presenter))")
 		let alert = UIAlertController(
 			title: NSLocalizedString("Error", comment: "Error"),
 			message: message,
 			preferredStyle: .alert
 		)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
-		present(alert, animated: true)
+		presenter.present(alert, animated: true)
 	}
 
 	/// Pending section to toggle after a snap-scroll completes.
@@ -2356,16 +2341,12 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 	}
 
 	private func addYoutubeWithWebhook(name: String, author: String?) {
-		// Run webhook and picker-dismiss wait concurrently — the dismiss completion fires before
-		// UIKit clears presentedViewController, so we must poll until it's nil before any present().
 		Task { @MainActor [weak self] in
 			guard let self else { return }
 			Self.logger.debug("addYoutube: task started — calling webhook for \"\(name, privacy: .public)\"")
 
-			async let webhookResult = YoutubeSourcesManager.shared.addYoutube(name: name, author: author)
-			await waitForDismiss()
-			let result = await webhookResult
-			Self.logger.debug("addYoutube: webhook result + picker gone — result=\(String(describing: result), privacy: .public)")
+			let result = await YoutubeSourcesManager.shared.addYoutube(name: name, author: author)
+			Self.logger.debug("addYoutube: webhook result=\(String(describing: result), privacy: .public)")
 
 			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
 			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
