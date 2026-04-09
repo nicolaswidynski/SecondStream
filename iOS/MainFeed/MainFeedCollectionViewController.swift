@@ -577,8 +577,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				preferredStyle: .alert
 			)
 			alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
-			Self.logger.debug("addFeedDirectly: presenting alreadySubscribed alert via self.present")
-			present(alert, animated: true) {
+			let alreadyPresenter = topMostPresentingViewController()
+			Self.logger.debug("addFeedDirectly: presenting alreadySubscribed alert via \(type(of: alreadyPresenter))")
+			alreadyPresenter.present(alert, animated: true) {
 				completion?()
 			}
 			return
