@@ -72,6 +72,15 @@ final class YoutubePickerViewController: UIViewController {
 		configureOpaqueNavigationBar()
 	}
 
+	override func viewWillDisappear(_ animated: Bool) {
+		super.viewWillDisappear(animated)
+		// Deactivate the search controller before the nav-controller dismiss cascade.
+		// If it stays active during dismissal, UIKit can leave root.presentedViewController
+		// stuck non-nil, which silently breaks any subsequent present() call (addFeedDirectly,
+		// error/success dialogs) regardless of how much time has passed.
+		searchController.isActive = false
+	}
+
 	// MARK: - Configuration
 
 	/// Forces an opaque nav bar at every scroll position. Called from viewWillAppear
