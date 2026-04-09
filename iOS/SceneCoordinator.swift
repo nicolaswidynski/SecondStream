@@ -1021,13 +1021,13 @@ struct SidebarItemNode: Hashable, Sendable {
 		return expandedCategorySections.contains(section)
 	}
 
-	func toggleCategorySection(_ section: FeedSectionIdentifier, animated: Bool = true) {
+	func toggleCategorySection(_ section: FeedSectionIdentifier) {
 		if expandedCategorySections.contains(section) {
 			expandedCategorySections.remove(section)
 		} else {
 			expandedCategorySections.insert(section)
 		}
-		rebuildBackingStores(animatingDifferences: animated)
+		rebuildBackingStores()
 	}
 
 	func expandCategorySection(_ section: FeedSectionIdentifier) {
@@ -2317,7 +2317,7 @@ private extension SceneCoordinator {
 
 	static var rebuildCount = 0
 
-	func rebuildBackingStores(initialLoad: Bool = false, animatingDifferences: Bool? = nil, updateExpandedNodes: (() -> Void)? = nil, completion: (() -> Void)? = nil) {
+	func rebuildBackingStores(initialLoad: Bool = false, updateExpandedNodes: (() -> Void)? = nil, completion: (() -> Void)? = nil) {
 #if DEBUG
 		if initialLoad {
 			Self.logger.debug("SceneCoordinator: rebuildBackingStores: #\(Self.rebuildCount) initialLoad == true")
@@ -2342,8 +2342,7 @@ private extension SceneCoordinator {
 		lastExpandedContainers = expandedContainers
 
 		let snapshot = createSidebarSnapshot()
-		let shouldAnimate = animatingDifferences ?? !initialLoad
-		mainFeedCollectionViewController.applySnapshot(snapshot, animatingDifferences: shouldAnimate, completion: completion)
+		mainFeedCollectionViewController.applySnapshot(snapshot, animatingDifferences: !initialLoad, completion: completion)
 	}
 
 	private func createSidebarSnapshot() -> NSDiffableDataSourceSnapshot<String, SidebarItemNode> {

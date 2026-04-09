@@ -1572,57 +1572,38 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			return
 		}
 
-		// Check if this is a category section
 		if let feedSection = FeedSectionIdentifier(rawValue: sectionID) {
 			let isExpanded = coordinator.isCategorySectionExpanded(feedSection)
 			headerView.unreadCount = unreadCountForSection(feedSection)
 			headerView.disclosureExpanded = !isExpanded
 
-			let naturalTopOffset = -collectionView.adjustedContentInset.top
-			let contentOffsetY = collectionView.contentOffset.y
-			let adjustedInsetTop = collectionView.adjustedContentInset.top
-			let adjustedInsetBottom = collectionView.adjustedContentInset.bottom
-			let boundsHeight = collectionView.bounds.height
-			let headerContentY = headerView.frame.origin.y
+			// Only case requiring a pre-scroll: expanding a section whose header sits
+			// in the bottom 20% of the visible area. Scroll the header toward the top
+			// first (downward only), then expand in scrollViewDidEndScrollingAnimation.
+			if !isExpanded {
+				let contentOffsetY = collectionView.contentOffset.y
+				let adjustedInsetTop = collectionView.adjustedContentInset.top
+				let adjustedInsetBottom = collectionView.adjustedContentInset.bottom
+				let boundsHeight = collectionView.bounds.height
+				let headerContentY = headerView.frame.origin.y
+				let visibleContentTop = contentOffsetY + adjustedInsetTop
+				let visibleHeight = boundsHeight - adjustedInsetTop - adjustedInsetBottom
+				let headerOffsetInVisible = headerContentY - visibleContentTop
 
-			let visibleContentTop = contentOffsetY + adjustedInsetTop
-			let visibleHeight = boundsHeight - adjustedInsetTop - adjustedInsetBottom
-			let headerOffsetInVisible = headerContentY - visibleContentTop
-
-			Self.logger.debug("""
-				toggle: section=\(sectionID, privacy: .public) isExpanded=\(isExpanded) \
-				offsetY=\(contentOffsetY) naturalTop=\(naturalTopOffset) \
-				insetTop=\(adjustedInsetTop) insetBottom=\(adjustedInsetBottom) boundsH=\(boundsHeight) \
-				headerContentY=\(headerContentY) visibleContentTop=\(visibleContentTop) \
-				visibleH=\(visibleHeight) headerOffsetInVisible=\(headerOffsetInVisible) \
-				threshold=\(visibleHeight * 0.8)
-				""")
-
-			if !isExpanded && headerOffsetInVisible > visibleHeight * 0.8 {
-				let rawTargetY = headerContentY - adjustedInsetTop - 8
-				let maxOffset = collectionView.contentSize.height - boundsHeight + adjustedInsetBottom
-				let targetY = max(naturalTopOffset, min(rawTargetY, maxOffset))
-				Self.logger.debug("toggle: BOTTOM-SNAP rawTargetY=\(rawTargetY) maxOffset=\(maxOffset) targetY=\(targetY) currentOffsetY=\(contentOffsetY) → \(targetY > contentOffsetY + 1 ? "scrolling" : "direct-toggle (already in position)")")
-				guard targetY > contentOffsetY + 1 else {
-					coordinator.toggleCategorySection(feedSection, animated: true)
-					return
+				if headerOffsetInVisible > visibleHeight * 0.8 {
+					let rawTargetY = headerContentY - adjustedInsetTop - 8
+					let maxOffset = collectionView.contentSize.height - boundsHeight + adjustedInsetBottom
+					let targetY = min(rawTargetY, maxOffset)
+					// Only fire if the scroll is downward (header is below current viewport top).
+					if targetY > contentOffsetY + 1 {
+						pendingToggleFeedSection = feedSection
+						collectionView.setContentOffset(CGPoint(x: 0, y: targetY), animated: true)
+						return
+					}
 				}
-				pendingToggleFeedSection = feedSection
-				collectionView.setContentOffset(CGPoint(x: 0, y: targetY), animated: true)
-				return
 			}
 
-			if !isExpanded && contentOffsetY > naturalTopOffset + 1 {
-				Self.logger.debug("toggle: TOP-SNAP offsetY=\(contentOffsetY) → naturalTop=\(naturalTopOffset)")
-				pendingToggleFeedSection = feedSection
-				collectionView.setContentOffset(CGPoint(x: 0, y: naturalTopOffset), animated: true)
-				return
-			}
-
-			// Collapse without animation to prevent UIKit from animating a contentOffset
-			// adjustment when cells are removed (which looks like scrolling back).
-			Self.logger.debug("toggle: DIRECT-TOGGLE isExpanded=\(isExpanded) offsetY=\(contentOffsetY) animated=\(!isExpanded)")
-			coordinator.toggleCategorySection(feedSection, animated: !isExpanded)
+			coordinator.toggleCategorySection(feedSection)
 			return
 		}
 
