@@ -554,24 +554,30 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// Pass `summaryURL` to fetch canonical show name/author from the server-side JSON file
 	/// instead of relying on the user-entered string when reporting the add to all-feed-requests.
 	private func addFeedDirectly(urlString: String, category: FeedCategory, sourceName: String? = nil, sourceAuthor: String? = nil, sourceImageURL: String? = nil, sourceImageURLLight: String? = nil, validateFeed: Bool = true, summaryURL: String? = nil, completion: (() -> Void)? = nil) {
+		Self.logger.debug("addFeedDirectly: urlString=\(urlString, privacy: .public) category=\(String(describing: category), privacy: .public)")
 		let normalizedURL = urlString.normalizedURL
 		guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else {
+			Self.logger.debug("addFeedDirectly: BAIL — bad URL normalizedURL=\(normalizedURL, privacy: .public)")
 			return
 		}
 
 		// Get the first active account
 		guard let account = AccountManager.shared.activeAccounts.first else {
+			Self.logger.debug("addFeedDirectly: BAIL — no active account")
 			return
 		}
 
 		// Check if already subscribed
-		if account.hasFeed(withURL: url.absoluteString) {
+		let alreadySubscribed = account.hasFeed(withURL: url.absoluteString)
+		Self.logger.debug("addFeedDirectly: url=\(url.absoluteString, privacy: .public) alreadySubscribed=\(alreadySubscribed)")
+		if alreadySubscribed {
 			let alert = UIAlertController(
 				title: NSLocalizedString("Already Subscribed", comment: "Already Subscribed"),
 				message: NSLocalizedString("You are already subscribed to this feed.", comment: "Already subscribed message"),
 				preferredStyle: .alert
 			)
 			alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
+			Self.logger.debug("addFeedDirectly: presenting alreadySubscribed alert via self.present")
 			present(alert, animated: true) {
 				completion?()
 			}
@@ -588,11 +594,15 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
 			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
 		])
-		present(loadingAlert, animated: true) {
+		let presenterForLoading = topMostPresentingViewController()
+		Self.logger.debug("addFeedDirectly: presenting loadingAlert via \(type(of: presenterForLoading)) selfPresentedVC=\(String(describing: self.presentedViewController), privacy: .public) rootPresentedVC=\(String(describing: self.view.window?.rootViewController?.presentedViewController), privacy: .public)")
+		presenterForLoading.present(loadingAlert, animated: true) {
+			Self.logger.debug("addFeedDirectly: loadingAlert presented — calling createFeed url=\(url.absoluteString, privacy: .public)")
 			Task {
 				BatchUpdate.shared.start()
 
 				account.createFeed(url: url.absoluteString, name: sourceName, container: account, validateFeed: validateFeed) { result in
+				Self.logger.debug("addFeedDirectly: createFeed result=\(String(describing: result), privacy: .public)")
 				// Set category and rebuild sidebar immediately so feed appears in the correct section
 				if case .success(let feed) = result {
 					feed.feedCategory = category
@@ -615,9 +625,11 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 				BatchUpdate.shared.end()
 
+				Self.logger.debug("addFeedDirectly: dismissing loadingAlert")
 				loadingAlert.dismiss(animated: true) {
 					switch result {
 					case .success(let feed):
+						Self.logger.debug("addFeedDirectly: success — posting UserDidAddFeed feedURL=\(feed.url, privacy: .public)")
 						NotificationCenter.default.post(
 							name: .UserDidAddFeed,
 							object: self,
@@ -630,6 +642,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 						self.expandCategorySectionForCategory(category)
 						completion?()
 					case .failure(let error):
+						Self.logger.debug("addFeedDirectly: failure — error=\(error.localizedDescription, privacy: .public)")
 						self.presentError(error)
 						completion?()
 					}
@@ -1521,22 +1534,27 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			switch result {
 			case .successExisting(let summaryURL):
 				// 201: show already exists — cancel any stale bootstrap job for this URL
+				Self.logger.debug("addPodcast: successExisting summaryURL=\(summaryURL, privacy: .public)")
 				let existingPodFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
 				BootstrapProgressManager.shared.cancelBootstrap(feedURL: existingPodFeedURL)
 				self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+					Self.logger.debug("addPodcast: successExisting addFeedDirectly completion called")
 					appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
 				}
 
 			case .successNew(let summaryURL, let message):
 				// Start bootstrap immediately on 202 — don't wait for addFeedDirectly completion.
 				// Use URL.absoluteString form so it matches what Account stores for the feed.
+				Self.logger.debug("addPodcast: successNew summaryURL=\(summaryURL, privacy: .public) message=\(message, privacy: .public)")
 				let podFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
 				BootstrapProgressManager.shared.startBootstrap(type: "pod", show: name, author: author ?? "", feedURL: podFeedURL)
 				self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+					Self.logger.debug("addPodcast: successNew addFeedDirectly completion called")
 					self.showAddSourceSuccess(title: NSLocalizedString("Podcast Added", comment: "Podcast Added"), message: message) {}
 				}
 
 			case .failure(let message):
+				Self.logger.debug("addPodcast: failure message=\(message, privacy: .public)")
 				self.showAddSourceError(message: message)
 			}
 		}
@@ -2321,21 +2339,26 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 			switch result {
 			case .successExisting(let summaryURL):
 				// 201: channel already exists — cancel any stale bootstrap job for this URL
+				Self.logger.debug("addYoutube: successExisting summaryURL=\(summaryURL, privacy: .public)")
 				let existingYtFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
 				BootstrapProgressManager.shared.cancelBootstrap(feedURL: existingYtFeedURL)
 				self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+					Self.logger.debug("addYoutube: successExisting addFeedDirectly completion called")
 					appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
 				}
 
 			case .successNew(let summaryURL, let message):
 				// Start bootstrap immediately on 202 — don't wait for addFeedDirectly completion.
+				Self.logger.debug("addYoutube: successNew summaryURL=\(summaryURL, privacy: .public) message=\(message, privacy: .public)")
 				let ytFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
 				BootstrapProgressManager.shared.startBootstrap(type: "yt", show: name, author: author ?? "", feedURL: ytFeedURL)
 				self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+					Self.logger.debug("addYoutube: successNew addFeedDirectly completion called")
 					self.showAddSourceSuccess(title: NSLocalizedString("Channel Added", comment: "Channel Added"), message: message) {}
 				}
 
 			case .failure(let message):
+				Self.logger.debug("addYoutube: failure message=\(message, privacy: .public)")
 				self.showAddSourceError(message: message)
 			}
 		}
