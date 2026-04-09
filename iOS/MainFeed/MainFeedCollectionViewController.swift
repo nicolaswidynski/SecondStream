@@ -1577,18 +1577,14 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			headerView.unreadCount = unreadCountForSection(feedSection)
 			headerView.disclosureExpanded = !isExpanded
 
-			// Expanding while not at the natural top: snap to the very top first,
-			// then expand in scrollViewDidEndScrollingAnimation.
-			// This handles both "header near bottom" and "slightly scrolled from top" — same fix.
-			// Collapse always goes straight through with no pre-scroll.
-			if !isExpanded {
-				let contentOffsetY = collectionView.contentOffset.y
-				let naturalTopOffset = -collectionView.adjustedContentInset.top
-				if contentOffsetY > naturalTopOffset + 1 {
-					pendingToggleFeedSection = feedSection
-					collectionView.setContentOffset(CGPoint(x: 0, y: naturalTopOffset), animated: true)
-					return
-				}
+			// Snap to the natural top first, then apply the toggle once the scroll settles.
+			// Without this, UIKit adjusts contentOffset during the snapshot apply to keep an
+			// anchor item in place — causing a visible jump. Applies to both expand and collapse.
+			let naturalTopOffset = -collectionView.adjustedContentInset.top
+			if collectionView.contentOffset.y > naturalTopOffset + 1 {
+				pendingToggleFeedSection = feedSection
+				collectionView.setContentOffset(CGPoint(x: 0, y: naturalTopOffset), animated: true)
+				return
 			}
 
 			coordinator.toggleCategorySection(feedSection)
