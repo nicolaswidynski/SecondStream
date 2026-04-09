@@ -1554,6 +1554,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func showAddSourceSuccess(title: String, message: String, completion: @escaping () -> Void) {
+		let hasWindow = view.window != nil
+		let selfPresentedVC = self.presentedViewController
+		let rootPresentedVC = view.window?.rootViewController?.presentedViewController
+		Self.logger.debug("showAddSourceSuccess: hasWindow=\(hasWindow) selfPresentedVC=\(String(describing: selfPresentedVC), privacy: .public) rootPresentedVC=\(String(describing: rootPresentedVC), privacy: .public)")
 		let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default) { _ in
 			completion()
@@ -1562,6 +1566,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func showAddSourceError(message: String) {
+		let hasWindow = view.window != nil
+		let selfPresentedVC = self.presentedViewController
+		let rootPresentedVC = view.window?.rootViewController?.presentedViewController
+		Self.logger.debug("showAddSourceError: msg=\(message, privacy: .public) hasWindow=\(hasWindow) selfPresentedVC=\(String(describing: selfPresentedVC), privacy: .public) rootPresentedVC=\(String(describing: rootPresentedVC), privacy: .public)")
 		let alert = UIAlertController(
 			title: NSLocalizedString("Error", comment: "Error"),
 			message: message,
@@ -1609,9 +1617,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				let rawTargetY = headerContentY - adjustedInsetTop - 8
 				let maxOffset = collectionView.contentSize.height - boundsHeight + adjustedInsetBottom
 				let targetY = max(naturalTopOffset, min(rawTargetY, maxOffset))
-				Self.logger.debug("toggle: BOTTOM-SNAP rawTargetY=\(rawTargetY) maxOffset=\(maxOffset) targetY=\(targetY) currentOffsetY=\(contentOffsetY) → \(targetY > contentOffsetY + 1 ? "scrolling" : "direct-toggle (would scroll up)")")
+				Self.logger.debug("toggle: BOTTOM-SNAP rawTargetY=\(rawTargetY) maxOffset=\(maxOffset) targetY=\(targetY) currentOffsetY=\(contentOffsetY) → \(targetY > contentOffsetY + 1 ? "scrolling" : "direct-toggle (already in position)")")
 				guard targetY > contentOffsetY + 1 else {
-					coordinator.toggleCategorySection(feedSection)
+					coordinator.toggleCategorySection(feedSection, animated: true)
 					return
 				}
 				pendingToggleFeedSection = feedSection
@@ -1626,8 +1634,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				return
 			}
 
-			Self.logger.debug("toggle: DIRECT-TOGGLE isExpanded=\(isExpanded) offsetY=\(contentOffsetY)")
-			coordinator.toggleCategorySection(feedSection)
+			// Collapse without animation to prevent UIKit from animating a contentOffset
+			// adjustment when cells are removed (which looks like scrolling back).
+			Self.logger.debug("toggle: DIRECT-TOGGLE isExpanded=\(isExpanded) offsetY=\(contentOffsetY) animated=\(!isExpanded)")
+			coordinator.toggleCategorySection(feedSection, animated: !isExpanded)
 			return
 		}
 
