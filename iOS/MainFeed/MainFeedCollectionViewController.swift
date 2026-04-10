@@ -65,7 +65,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// `viewDidAppear(_:)` after a delay to allow the deselection animation to complete.
 	private var isAnimating: Bool = false
 	private var isAddingDefaultSources = false
-	private var hasScrolledToInitialTop = false
 
 
 
@@ -85,7 +84,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	private lazy var recentlyUpdatedContainerView: UIView = {
 		let view = UIView()
 		view.translatesAutoresizingMaskIntoConstraints = false
-		view.isHidden = true
 		return view
 	}()
 
@@ -93,7 +91,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let view = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
 		view.translatesAutoresizingMaskIntoConstraints = false
 		view.isUserInteractionEnabled = false
-		view.isHidden = true
 		return view
 	}()
 
@@ -177,8 +174,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
     }
 
 	private func configureCollectionViewInsets() {
-		collectionView.contentInset.top = defaultTopInset
-		collectionView.verticalScrollIndicatorInsets.top = defaultTopInset
+		collectionView.contentInset.top = recentlyUpdatedTopInset
+		collectionView.verticalScrollIndicatorInsets.top = recentlyUpdatedTopInset
 	}
 
 
@@ -326,30 +323,14 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 
 		let hasFeeds = !payloads.isEmpty
-		let topInset = hasFeeds ? recentlyUpdatedTopInset : defaultTopInset
-		let wasHidden = recentlyUpdatedContainerView.isHidden
+		let wasEmpty = recentlyUpdatedStackView.arrangedSubviews.isEmpty
 
-		recentlyUpdatedContainerView.isHidden = !hasFeeds
-		navBarExtendedBackgroundView.isHidden = !hasFeeds
-		collectionView.contentInset.top = topInset
-		collectionView.verticalScrollIndicatorInsets.top = topInset
+		// The strip is always visible as a placeholder — inset never changes.
+		collectionView.contentInset.top = recentlyUpdatedTopInset
+		collectionView.verticalScrollIndicatorInsets.top = recentlyUpdatedTopInset
 
-		if !hasScrolledToInitialTop {
-			hasScrolledToInitialTop = true
-			let naturalTopOffset = -collectionView.adjustedContentInset.top
-			collectionView.setContentOffset(CGPoint(x: 0, y: naturalTopOffset), animated: false)
-		}
-
-		if hasFeeds && wasHidden {
-			// Background and title fade in immediately.
-			navBarExtendedBackgroundView.alpha = 0
-			recentlyUpdatedTitleLabel.alpha = 0
-			UIView.animate(withDuration: 0.2) {
-				self.navBarExtendedBackgroundView.alpha = 1
-				self.recentlyUpdatedTitleLabel.alpha = 1
-			}
-
-			// Icons slide in from right, one at a time.
+		if hasFeeds && wasEmpty {
+			// Icons slide in from right, one at a time, when first populated.
 			let itemViews = recentlyUpdatedStackView.arrangedSubviews
 			for (index, view) in itemViews.enumerated() {
 				view.alpha = 0
