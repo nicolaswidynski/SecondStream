@@ -1511,6 +1511,17 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		return vc
 	}
 
+	/// Returns true if the active account already has a feed in `category` whose display name
+	/// matches `name` (case-insensitive). Used to skip the webhook when the user re-adds
+	/// something they already subscribe to.
+	private func feedAlreadySubscribed(name: String, category: FeedCategory) -> Bool {
+		guard let account = AccountManager.shared.activeAccounts.first else { return false }
+		return account.flattenedFeeds().contains {
+			$0.feedCategory == category &&
+			$0.nameForDisplay.localizedCaseInsensitiveCompare(name) == .orderedSame
+		}
+	}
+
 	private func buildLoadingAlert() -> UIAlertController {
 		let alert = UIAlertController(title: nil, message: NSLocalizedString("Adding...", comment: "Adding..."), preferredStyle: .alert)
 		let activityIndicator = UIActivityIndicatorView(style: .medium)
@@ -1525,6 +1536,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func addPodcastWithWebhook(name: String, author: String?) {
+		if feedAlreadySubscribed(name: name, category: .podcast) {
+			showAddSourceError(message: NSLocalizedString("You are already subscribed to this podcast.", comment: "Already subscribed to podcast"))
+			return
+		}
 		// Show "Adding..." immediately — before the webhook call — so there's no delay for the user.
 		let loadingAlert = buildLoadingAlert()
 		let presenter = topMostPresentingViewController()
@@ -2370,6 +2385,10 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 	}
 
 	private func addYoutubeWithWebhook(name: String, author: String?) {
+		if feedAlreadySubscribed(name: name, category: .youtube) {
+			showAddSourceError(message: NSLocalizedString("You are already subscribed to this channel.", comment: "Already subscribed to channel"))
+			return
+		}
 		// Show "Adding..." immediately — before the webhook call — so there's no delay for the user.
 		let loadingAlert = buildLoadingAlert()
 		let presenter = topMostPresentingViewController()
@@ -2439,6 +2458,10 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 	}
 
 	private func addTopicWithWebhook(name: String, author: String?) {
+		if feedAlreadySubscribed(name: name, category: .news) {
+			showAddSourceError(message: NSLocalizedString("You are already subscribed to this topic.", comment: "Already subscribed to topic"))
+			return
+		}
 		// Show loading indicator
 		let loadingAlert = UIAlertController(
 			title: nil,
