@@ -1,0 +1,81 @@
+flowchart TD
+    %% ── STARTUP ──────────────────────────────────────────────────────────────
+    subgraph Startup["App Startup"]
+        A([SceneDelegate]) --> B{AuthManager\nconnected?}
+        B -- No --> C[Registration\nViewController]
+        C --> D[LandingViewController]
+        D --> E[addDefaultSourcesIfNeeded]
+        B -- Yes --> F[SceneCoordinator\ninitialise]
+        E --> F
+    end
+
+    %% ── MAIN FEED ────────────────────────────────────────────────────────────
+    subgraph MainFeed["Main Feed Screen"]
+        F --> G[MainFeedCollectionViewController]
+        G --> H[Recently Updated Strip\nasync build + animate icons]
+        G --> I[Sections: Podcasts /\nYouTube / News / RSS]
+        G --> J[SourcesRefreshManager\nrefreshIfNeeded — 5 min throttle]
+        J --> K[Parallel fetch\npod · yt · news · rss JSON]
+    end
+
+    %% ── ADD SOURCE ───────────────────────────────────────────────────────────
+    subgraph AddSource["Add Source Flow"]
+        I --> L([User taps Add])
+        L --> M{Category}
+
+        M -- Podcast --> N[PodcastPickerViewController]
+        M -- YouTube --> O[YoutubePickerViewController]
+        M -- Topic --> P[NewsPickerViewController]
+        M -- RSS URL --> Q[Manual URL entry]
+
+        N & O & P --> R{feedAlreadySubscribed?\nname match · same category}
+        R -- Yes --> S[Already Subscribed alert\nNo network call]
+        R -- No --> T[Show Adding… alert]
+        T --> U{Webhook call\nPOST all-feed-requests}
+
+        U -- 201 Existing --> V[cancelBootstrap\naddFeedDirectly\nmanualRefresh]
+        U -- 202 New --> W[startBootstrap\naddFeedDirectly\nShow success alert]
+        U -- Error --> X[Show error alert]
+
+        Q --> Y[addFeedDirectly\nvalidateFeed: true]
+    end
+
+    %% ── ADD FEED DIRECTLY ────────────────────────────────────────────────────
+    subgraph AddDirect["addFeedDirectly"]
+        V & W & Y --> Z{URL valid?\nAccount exists?}
+        Z -- No --> AA[Bail out]
+        Z -- Yes --> AB{hasFeed\nby URL?}
+        AB -- Yes --> AC[Already Subscribed alert]
+        AB -- No --> AD[account.createFeed\nset category · fetch icons]
+        AD --> AE[Post UserDidAddFeed\nexpand section]
+    end
+
+    %% ── BOOTSTRAP ────────────────────────────────────────────────────────────
+    subgraph Bootstrap["Bootstrap Progress"]
+        W --> BT[BootstrapProgressManager\nstartBootstrap]
+        BT --> BP[Poll every 10 s\nquery-bootstrap-progress]
+        BP --> BQ{Response}
+        BQ -- pct 0-99 --> BR[Update progress ring\nin sidebar]
+        BR --> BP
+        BQ -- pct 100\nor entries exist --> BS[finish — remove job]
+        BQ -- 1 hr timeout --> BS
+        BS --> BU[SourcesRefreshManager\nforceRefresh]
+    end
+
+    %% ── ARTICLE READING ──────────────────────────────────────────────────────
+    subgraph Reading["Article Reading"]
+        I --> RA([User taps feed])
+        RA --> RB[MainTimelineViewController\narticles list]
+        RB --> RC([User taps article])
+        RC --> RD[ArticleViewController\nWebView render]
+        RD --> RE[ArticleRenderer\nHTML template · CSS\nHide dateline if no pub date]
+        RD --> RF[Mark read · Star · Share]
+    end
+
+    %% ── FOREGROUND / BACKGROUND ──────────────────────────────────────────────
+    subgraph Lifecycle["Foreground / Background"]
+        FG([Enter foreground]) --> FH[resumeDatabaseProcessing\nprepareAccountsForForeground]
+        FH --> FI[BootstrapProgressManager\nresumeFromBackground\n2 s delay restart]
+        BG([Enter background]) --> BGH[prepareAccountsForBackground\npersist bootstrap jobs]
+    end
+

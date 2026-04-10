@@ -1,0 +1,44 @@
+sequenceDiagram
+    actor U as User
+    participant PVC as PodcastPickerVC
+    participant MFVC as MainFeedVC
+    participant ACC as Account
+    participant BPM as BootstrapProgressManager
+    participant WH as Webhook Server
+
+    U->>PVC: tap search result
+    PVC->>MFVC: podcastPicker didSelectPodcast
+    MFVC->>PVC: navigationController dismiss
+    Note over PVC: viewWillDisappear sets<br/>searchController.isActive = false
+    MFVC->>ACC: feedAlreadySubscribed(name, category)
+
+    alt already subscribed locally
+        ACC-->>MFVC: true
+        MFVC->>U: Already Subscribed alert
+    else not subscribed
+        ACC-->>MFVC: false
+        MFVC->>U: present Adding alert
+        MFVC->>WH: POST all-feed-requests
+
+        alt 201 exists on server
+            WH-->>MFVC: 201 + summaryURL
+            MFVC->>BPM: cancelBootstrap(feedURL)
+            MFVC->>ACC: createFeed(summaryURL)
+            ACC-->>MFVC: Feed
+            MFVC->>U: dismiss alert, expand section
+        else 202 new being processed
+            WH-->>MFVC: 202 + summaryURL + message
+            MFVC->>BPM: startBootstrap(type, show, feedURL)
+            loop every 10s
+                BPM->>WH: POST query-bootstrap-progress
+                WH-->>BPM: percentage
+                BPM->>U: update progress ring
+            end
+            MFVC->>ACC: createFeed(summaryURL)
+            ACC-->>MFVC: Feed
+            MFVC->>U: dismiss alert, Podcast Added, expand section
+        else error
+            WH-->>MFVC: error message
+            MFVC->>U: dismiss alert, show error
+        end
+    end

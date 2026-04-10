@@ -1,0 +1,63 @@
+---
+title: Entity Relationship
+---
+erDiagram
+    ACCOUNT {
+        string accountID PK
+        string type
+        string name
+    }
+    FOLDER {
+        string folderID PK
+        string accountID FK
+        string name
+    }
+    FEED {
+        string feedID PK
+        string accountID FK
+        string folderID FK
+        string url
+        string name
+        string editedName
+        string feedCategory
+        string iconURL
+    }
+    ARTICLE {
+        string articleID PK
+        string feedID FK
+        string title
+        text   contentHTML
+        text   contentText
+        string url
+        string externalLink
+        date   datePublished
+        date   dateModified
+    }
+    ARTICLE_STATUS {
+        string articleID PK
+        bool   read
+        bool   starred
+        date   dateArrived
+    }
+    BOOTSTRAP_JOB {
+        string feedURL PK
+        string type
+        string show
+        string author
+        date   startedAt
+        date   firstProgressAt
+        double progress
+    }
+    FEED_ICON {
+        string feedURL PK
+        string darkIconURL
+        string lightIconURL
+    }
+
+    ACCOUNT ||--o{ FOLDER       : contains
+    ACCOUNT ||--o{ FEED         : "owns at top level"
+    FOLDER  ||--o{ FEED         : contains
+    FEED    ||--o{ ARTICLE      : has
+    ARTICLE ||--|| ARTICLE_STATUS : has
+    FEED    ||--o| BOOTSTRAP_JOB  : "tracked by"
+    FEED    ||--o| FEED_ICON      : "has icon"

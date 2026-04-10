@@ -1,0 +1,39 @@
+---
+title: State — Feed Lifecycle
+---
+stateDiagram-v2
+    [*] --> Undiscovered
+
+    Undiscovered --> LocalCheck : user selects source
+    LocalCheck --> AlreadySubscribed : name match found
+    LocalCheck --> Adding : no match
+
+    AlreadySubscribed --> [*] : alert dismissed
+
+    Adding --> WebhookPending : show "Adding…"
+
+    WebhookPending --> ExistsOnServer : 201
+    WebhookPending --> NewOnServer : 202
+    WebhookPending --> Failed : error
+
+    Failed --> [*] : error alert dismissed
+
+    ExistsOnServer --> Active : createFeed() success
+    NewOnServer --> Bootstrapping : createFeed() + startBootstrap()
+
+    state Bootstrapping {
+        [*] --> Polling
+        Polling --> Polling : pct 0–99 (10 s interval)
+        Polling --> TimedOut : 1 hr elapsed
+        Polling --> Complete : pct 100 or entries exist
+        TimedOut --> [*]
+        Complete --> [*]
+    }
+
+    Bootstrapping --> Active : bootstrap finished
+
+    Active --> Active : articles refresh (5 min)
+    Active --> Active : user marks read / starred
+    Active --> Removed : user unsubscribes
+
+    Removed --> [*]
