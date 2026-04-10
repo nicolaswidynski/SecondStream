@@ -87,7 +87,12 @@
       "Bash(gh pr:*)",
       "Bash(gh repo:*)",
       "Bash(git rebase:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(sort -k6,7)",
+      "Bash(xargs -I{} git diff-tree --no-commit-id -r --name-only {} -- Modules/)",
+      "Bash(git remote:*)",
+      "Bash(git fetch:*)",
+      "Bash(- \" line instead of running together:*)"
     ],
     "deny": [],
     "ask": []
