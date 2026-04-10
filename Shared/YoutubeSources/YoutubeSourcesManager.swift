@@ -322,7 +322,8 @@ enum AddYoutubeResult {
 					Self.logger.info("YouTube channel added or already exists")
 					return .successExisting(summaryURL: summaryURL)
 				}
-				Self.logger.error("Failed to parse \(statusCode) response")
+				let rawBody200 = String(data: data, encoding: .utf8) ?? "(empty)"
+				Self.logger.error("Failed to parse \(statusCode) response: \(rawBody200, privacy: .public)")
 				return .failure(message: "Failed to parse response")
 
 			case 202:

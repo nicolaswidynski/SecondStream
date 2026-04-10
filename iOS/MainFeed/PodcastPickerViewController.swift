@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import os.log
 
 @MainActor protocol PodcastPickerDelegate: AnyObject {
 	func podcastPickerDidSelectPodcastName(_ picker: PodcastPickerViewController)
@@ -17,6 +18,8 @@ import UIKit
 
 final class PodcastPickerViewController: UIViewController {
 
+	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "PodcastPicker")
+
 	weak var delegate: PodcastPickerDelegate?
 
 	private var collectionView: UICollectionView!
@@ -25,6 +28,12 @@ final class PodcastPickerViewController: UIViewController {
 	private var findTask: Task<Void, Never>?
 	private var currentFindItems: [SourcePickerItem] = []
 	private var lastFindQuery: String = ""
+	/// Set on touch-down (shouldHighlightItemAt) so we can skip clearFindResults while a finger
+	/// is on a cell — the keyboard-dismiss gesture fires on touch-up and would otherwise wipe
+	/// currentFindItems before didSelectItemAt gets a chance to fire.
+	private var isHighlightingItem = false
+	/// Item captured at touch-down in case the snapshot is reapplied before didSelectItemAt.
+	private var highlightedSelection: SourcePickerItem?
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -61,6 +70,15 @@ final class PodcastPickerViewController: UIViewController {
 	override func viewWillAppear(_ animated: Bool) {
 		super.viewWillAppear(animated)
 		configureOpaqueNavigationBar()
+	}
+
+	override func viewWillDisappear(_ animated: Bool) {
+		super.viewWillDisappear(animated)
+		// Deactivate the search controller before the nav-controller dismiss cascade.
+		// If it stays active during dismissal, UIKit can leave root.presentedViewController
+		// stuck non-nil, which silently breaks any subsequent present() call (addFeedDirectly,
+		// error/success dialogs) regardless of how much time has passed.
+		searchController.isActive = false
 	}
 
 	// MARK: - Configuration
@@ -289,10 +307,25 @@ final class PodcastPickerViewController: UIViewController {
 
 extension PodcastPickerViewController: UICollectionViewDelegate {
 
+	func collectionView(_ collectionView: UICollectionView, shouldHighlightItemAt indexPath: IndexPath) -> Bool {
+		highlightedSelection = dataSource.itemIdentifier(for: indexPath)
+		isHighlightingItem = true
+		Self.logger.debug("shouldHighlight[\(indexPath.section),\(indexPath.item)] item=\(String(describing: self.highlightedSelection), privacy: .public) isHighlighting=true")
+		return true
+	}
+
+	func collectionView(_ collectionView: UICollectionView, didUnhighlightItemAt indexPath: IndexPath) {
+		Self.logger.debug("didUnhighlight[\(indexPath.section),\(indexPath.item)] isHighlighting→false")
+		isHighlightingItem = false
+	}
+
 	func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-		guard let item = dataSource.itemIdentifier(for: indexPath) else {
-			return
-		}
+		let fromDS = dataSource.itemIdentifier(for: indexPath)
+		let item = fromDS ?? highlightedSelection
+		Self.logger.debug("didSelect[\(indexPath.section),\(indexPath.item)] fromDS=\(String(describing: fromDS), privacy: .public) fallback=\(String(describing: self.highlightedSelection), privacy: .public) resolved=\(String(describing: item), privacy: .public)")
+		highlightedSelection = nil
+		isHighlightingItem = false
+		guard let item else { return }
 
 		switch item {
 		case .podcastSource(let source):
@@ -314,7 +347,8 @@ extension PodcastPickerViewController: UISearchResultsUpdating {
 		let query = (searchController.searchBar.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 
 		guard query.count >= 3 else {
-			clearFindResults()
+			Self.logger.debug("updateSearchResults: query<3 (\"\(query, privacy: .public)\") isHighlighting=\(self.isHighlightingItem) currentFindItems=\(self.currentFindItems.count)")
+			if !isHighlightingItem { clearFindResults() } else { Self.logger.debug("updateSearchResults: skipping clearFindResults — finger still down") }
 			applySnapshot()
 			return
 		}
