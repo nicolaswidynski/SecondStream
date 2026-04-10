@@ -778,13 +778,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	override func viewWillDisappear(_ animated: Bool) {
 		super.viewWillDisappear(animated)
 		navigationController?.additionalSafeAreaInsets.bottom = 0
-		// If the user navigates away while a snap-scroll is in flight, the scroll animation
-		// is abandoned and scrollViewDidEndScrollingAnimation never fires. Apply the pending
-		// toggle immediately so the coordinator state stays consistent.
-		if let feedSection = pendingToggleFeedSection {
-			pendingToggleFeedSection = nil
-			coordinator.toggleCategorySection(feedSection)
-		}
 	}
 
 	func registerForNotifications() {
@@ -1603,9 +1596,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		presenter.present(alert, animated: true)
 	}
 
-	/// Pending section to toggle after a snap-scroll completes.
-	private var pendingToggleFeedSection: FeedSectionIdentifier?
-
 	func toggle(_ headerView: MainFeedCollectionHeaderReusableView) {
 		guard let sectionID = headerView.sectionID else {
 			return
@@ -1615,19 +1605,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			let isExpanded = coordinator.isCategorySectionExpanded(feedSection)
 			headerView.unreadCount = unreadCountForSection(feedSection)
 			headerView.disclosureExpanded = !isExpanded
-
-			// If the list is scrolled just a little away from the natural top, snap it the
-			// rest of the way before toggling. This prevents UIKit's contentOffset adjustment
-			// during the snapshot apply from causing a visible jump.
-			// Only fires when "near the top" (within ~150 pt) — not when scrolled far down.
-			let naturalTopOffset = -collectionView.adjustedContentInset.top
-			let distanceFromTop = collectionView.contentOffset.y - naturalTopOffset
-			if distanceFromTop > 1 && distanceFromTop < 150 {
-				pendingToggleFeedSection = feedSection
-				collectionView.setContentOffset(CGPoint(x: 0, y: naturalTopOffset), animated: true)
-				return
-			}
-
 			coordinator.toggleCategorySection(feedSection)
 			return
 		}
@@ -1648,13 +1625,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 	}
 
-	override func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
-		guard let feedSection = pendingToggleFeedSection else {
-			return
-		}
-		pendingToggleFeedSection = nil
-		coordinator.toggleCategorySection(feedSection)
-	}
 
 }
 
