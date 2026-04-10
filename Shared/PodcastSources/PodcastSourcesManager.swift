@@ -385,3 +385,15 @@ enum FindShowResult {
 		}
 	}
 }
+
+// MARK: - WebhookSourcesManaging
+
+extension PodcastSourcesManager: WebhookSourcesManaging {
+	func add(name: String, author: String?) async -> AddSourceResult {
+		switch await addPodcast(name: name, author: author) {
+		case .successExisting(let url): return .existsOnServer(summaryURL: url)
+		case .successNew(let url, let msg): return .newOnServer(summaryURL: url, message: msg)
+		case .failure(let msg): return .failure(message: msg)
+		}
+	}
+}
