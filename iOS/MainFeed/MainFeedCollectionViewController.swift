@@ -65,6 +65,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// `viewDidAppear(_:)` after a delay to allow the deselection animation to complete.
 	private var isAnimating: Bool = false
 	private var isAddingDefaultSources = false
+	private var hasScrolledToInitialTop = false
 
 
 
@@ -333,6 +334,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		collectionView.contentInset.top = topInset
 		collectionView.verticalScrollIndicatorInsets.top = topInset
 
+		if !hasScrolledToInitialTop {
+			hasScrolledToInitialTop = true
+			let naturalTopOffset = -collectionView.adjustedContentInset.top
+			collectionView.setContentOffset(CGPoint(x: 0, y: naturalTopOffset), animated: false)
+		}
+
 		if hasFeeds && wasHidden {
 			// Background and title fade in immediately.
 			navBarExtendedBackgroundView.alpha = 0
@@ -553,7 +560,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// metadata (e.g. from a picker).
 	/// Pass `summaryURL` to fetch canonical show name/author from the server-side JSON file
 	/// instead of relying on the user-entered string when reporting the add to all-feed-requests.
-	private func addFeedDirectly(urlString: String, category: FeedCategory, sourceName: String? = nil, sourceAuthor: String? = nil, sourceImageURL: String? = nil, sourceImageURLLight: String? = nil, validateFeed: Bool = true, summaryURL: String? = nil, completion: (() -> Void)? = nil) {
+	private func addFeedDirectly(urlString: String, category: FeedCategory, sourceName: String? = nil, sourceAuthor: String? = nil, sourceImageURL: String? = nil, sourceImageURLLight: String? = nil, validateFeed: Bool = true, summaryURL: String? = nil, skipLoadingIndicator: Bool = false, completion: (() -> Void)? = nil) {
 		Self.logger.debug("addFeedDirectly: urlString=\(urlString, privacy: .public) category=\(String(describing: category), privacy: .public)")
 		let normalizedURL = urlString.normalizedURL
 		guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else {
@@ -585,49 +592,30 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			return
 		}
 
-		// Show loading indicator
-		let loadingAlert = UIAlertController(title: nil, message: NSLocalizedString("Adding...", comment: "Adding..."), preferredStyle: .alert)
-		let activityIndicator = UIActivityIndicatorView(style: .medium)
-		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
-		activityIndicator.startAnimating()
-		loadingAlert.view.addSubview(activityIndicator)
-		NSLayoutConstraint.activate([
-			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
-			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
-		])
-		let presenterForLoading = topMostPresentingViewController()
-		Self.logger.debug("addFeedDirectly: presenting loadingAlert via \(type(of: presenterForLoading)) selfPresentedVC=\(String(describing: self.presentedViewController), privacy: .public) rootPresentedVC=\(String(describing: self.view.window?.rootViewController?.presentedViewController), privacy: .public)")
-		presenterForLoading.present(loadingAlert, animated: true) {
-			Self.logger.debug("addFeedDirectly: loadingAlert presented — calling createFeed url=\(url.absoluteString, privacy: .public)")
+		let performCreate: (@escaping () -> Void) -> Void = { afterCreate in
 			Task {
 				BatchUpdate.shared.start()
-
 				account.createFeed(url: url.absoluteString, name: sourceName, container: account, validateFeed: validateFeed) { result in
-				Self.logger.debug("addFeedDirectly: createFeed result=\(String(describing: result), privacy: .public)")
-				// Set category and rebuild sidebar immediately so feed appears in the correct section
-				if case .success(let feed) = result {
-					feed.feedCategory = category
-					NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
-					// Store light icon URL from library source (picker flow).
-					if let lightURL = sourceImageURLLight {
-						LightFeedIconStore.shared.setLightIconURL(lightURL, for: feed.url)
-					}
-					if !validateFeed, let summaryURL {
-						Task {
-							if let icons = await Self.fetchFeedIconURL(summaryURL: summaryURL) {
-								await MainActor.run {
-									feed.iconURL = icons.dark
-									LightFeedIconStore.shared.setLightIconURL(icons.light, for: feed.url)
+					Self.logger.debug("addFeedDirectly: createFeed result=\(String(describing: result), privacy: .public)")
+					if case .success(let feed) = result {
+						feed.feedCategory = category
+						NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
+						if let lightURL = sourceImageURLLight {
+							LightFeedIconStore.shared.setLightIconURL(lightURL, for: feed.url)
+						}
+						if !validateFeed, let summaryURL {
+							Task {
+								if let icons = await Self.fetchFeedIconURL(summaryURL: summaryURL) {
+									await MainActor.run {
+										feed.iconURL = icons.dark
+										LightFeedIconStore.shared.setLightIconURL(icons.light, for: feed.url)
+									}
 								}
 							}
 						}
 					}
-				}
-
-				BatchUpdate.shared.end()
-
-				Self.logger.debug("addFeedDirectly: dismissing loadingAlert")
-				loadingAlert.dismiss(animated: true) {
+					BatchUpdate.shared.end()
+					afterCreate()
 					switch result {
 					case .success(let feed):
 						Self.logger.debug("addFeedDirectly: success — posting UserDidAddFeed feedURL=\(feed.url, privacy: .public)")
@@ -639,7 +627,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 								UserInfoKey.suppressFeedDisclosure: true
 							]
 						)
-						// Expand the corresponding category section
 						self.expandCategorySectionForCategory(category)
 						completion?()
 					case .failure(let error):
@@ -650,6 +637,23 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				}
 			}
 		}
+
+		if skipLoadingIndicator {
+			Self.logger.debug("addFeedDirectly: skipLoadingIndicator — calling createFeed directly url=\(url.absoluteString, privacy: .public)")
+			performCreate({})
+			return
+		}
+
+		// Show loading indicator
+		let loadingAlert = buildLoadingAlert()
+		let presenterForLoading = topMostPresentingViewController()
+		Self.logger.debug("addFeedDirectly: presenting loadingAlert via \(type(of: presenterForLoading))")
+		presenterForLoading.present(loadingAlert, animated: true) {
+			Self.logger.debug("addFeedDirectly: loadingAlert presented — calling createFeed url=\(url.absoluteString, privacy: .public)")
+			performCreate {
+				Self.logger.debug("addFeedDirectly: dismissing loadingAlert")
+				loadingAlert.dismiss(animated: true)
+			}
 		}
 	}
 
@@ -1507,24 +1511,50 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	/// Returns the topmost view controller that can safely accept a modal presentation.
 	/// Walks the presented-VC chain from the window's root, stopping at any VC that
-	/// is currently being dismissed (so the alert lands on the first non-dismissing ancestor).
+	/// is currently being dismissed or is no longer attached to a window (orphaned after dismiss).
 	private func topMostPresentingViewController() -> UIViewController {
 		guard let root = view.window?.rootViewController else {
 			Self.logger.debug("topMostPresenter: no root — falling back to self")
 			return self
 		}
 		var vc: UIViewController = root
-		while let presented = vc.presentedViewController, !presented.isBeingDismissed {
+		while let presented = vc.presentedViewController,
+			  !presented.isBeingDismissed,
+			  presented.viewIfLoaded?.window != nil {
 			vc = presented
 		}
 		Self.logger.debug("topMostPresenter: \(type(of: vc))")
 		return vc
 	}
 
+	private func buildLoadingAlert() -> UIAlertController {
+		let alert = UIAlertController(title: nil, message: NSLocalizedString("Adding...", comment: "Adding..."), preferredStyle: .alert)
+		let activityIndicator = UIActivityIndicatorView(style: .medium)
+		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+		activityIndicator.startAnimating()
+		alert.view.addSubview(activityIndicator)
+		NSLayoutConstraint.activate([
+			activityIndicator.centerXAnchor.constraint(equalTo: alert.view.centerXAnchor),
+			activityIndicator.bottomAnchor.constraint(equalTo: alert.view.bottomAnchor, constant: -20)
+		])
+		return alert
+	}
+
 	private func addPodcastWithWebhook(name: String, author: String?) {
+		// Show "Adding..." immediately — before the webhook call — so there's no delay for the user.
+		let loadingAlert = buildLoadingAlert()
+		let presenter = topMostPresentingViewController()
+		Self.logger.debug("addPodcast: presenting loadingAlert immediately via \(type(of: presenter)) isBeingDismissed=\(presenter.isBeingDismissed) windowNil=\(presenter.viewIfLoaded?.window == nil)")
+		presenter.present(loadingAlert, animated: true) {
+			Self.logger.debug("addPodcast: loadingAlert present-completion fired presentingVC=\(String(describing: loadingAlert.presentingViewController.map { type(of: $0) }), privacy: .public)")
+		}
+
 		Task { @MainActor [weak self] in
-			guard let self else { return }
-			Self.logger.debug("addPodcast: task started — calling webhook for \"\(name, privacy: .public)\"")
+			guard let self else {
+				loadingAlert.dismiss(animated: false)
+				return
+			}
+			Self.logger.debug("addPodcast: calling webhook for \"\(name, privacy: .public)\"")
 
 			let result = await PodcastSourcesManager.shared.addPodcast(name: name, author: author)
 			Self.logger.debug("addPodcast: webhook result=\(String(describing: result), privacy: .public)")
@@ -1532,13 +1562,20 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
 			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
 
+			// Dismiss the loading alert before showing success/error UI.
+			Self.logger.debug("addPodcast: dismissing loadingAlert — presentingVC=\(String(describing: loadingAlert.presentingViewController.map { type(of: $0) }), privacy: .public)")
+			await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+				loadingAlert.dismiss(animated: true) { cont.resume() }
+			}
+			Self.logger.debug("addPodcast: loadingAlert dismiss-continuation resumed — topMost=\(type(of: self.topMostPresentingViewController()))")
+
 			switch result {
 			case .successExisting(let summaryURL):
 				// 201: show already exists — cancel any stale bootstrap job for this URL
 				Self.logger.debug("addPodcast: successExisting summaryURL=\(summaryURL, privacy: .public)")
 				let existingPodFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
 				BootstrapProgressManager.shared.cancelBootstrap(feedURL: existingPodFeedURL)
-				self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+				self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL, skipLoadingIndicator: true) {
 					Self.logger.debug("addPodcast: successExisting addFeedDirectly completion called")
 					appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
 				}
@@ -1549,7 +1586,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 				Self.logger.debug("addPodcast: successNew summaryURL=\(summaryURL, privacy: .public) message=\(message, privacy: .public)")
 				let podFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
 				BootstrapProgressManager.shared.startBootstrap(type: "pod", show: name, author: author ?? "", feedURL: podFeedURL)
-				self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+				self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL, skipLoadingIndicator: true) {
 					Self.logger.debug("addPodcast: successNew addFeedDirectly completion called")
 					self.showAddSourceSuccess(title: NSLocalizedString("Podcast Added", comment: "Podcast Added"), message: message) {}
 				}
@@ -1563,12 +1600,14 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	private func showAddSourceSuccess(title: String, message: String, completion: @escaping () -> Void) {
 		let presenter = topMostPresentingViewController()
-		Self.logger.debug("showAddSourceSuccess: title=\(title, privacy: .public) presenter=\(type(of: presenter))")
+		Self.logger.debug("showAddSourceSuccess: title=\(title, privacy: .public) presenter=\(type(of: presenter)) presenterWindowNil=\(presenter.viewIfLoaded?.window == nil) presenterIsBeingDismissed=\(presenter.isBeingDismissed) presenterPresentedVC=\(String(describing: presenter.presentedViewController.map { type(of: $0) }), privacy: .public)")
 		let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
 		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default) { _ in
 			completion()
 		})
-		presenter.present(alert, animated: true)
+		presenter.present(alert, animated: true) {
+			Self.logger.debug("showAddSourceSuccess: alert present-completion fired")
+		}
 	}
 
 	private func showAddSourceError(message: String) {
@@ -2251,25 +2290,25 @@ extension MainFeedCollectionViewController: RSSPickerDelegate {
 extension MainFeedCollectionViewController: PodcastPickerDelegate {
 
 	func podcastPickerDidSelectPodcastName(_ picker: PodcastPickerViewController) {
-		picker.dismiss(animated: true) {
+		picker.navigationController?.dismiss(animated: true) {
 			self.showEnterPodcastNameDialog()
 		}
 	}
 
 	func podcastPicker(_ picker: PodcastPickerViewController, didEnterPodcastName name: String) {
-		picker.dismiss(animated: true) {
+		picker.navigationController?.dismiss(animated: true) {
 			self.addPodcastWithWebhook(name: name, author: nil)
 		}
 	}
 
 	func podcastPicker(_ picker: PodcastPickerViewController, didSelectPodcast source: PodcastSource) {
-		picker.dismiss(animated: true) {
+		picker.navigationController?.dismiss(animated: true) {
 			self.addPodcastWithWebhook(name: source.name, author: source.author)
 		}
 	}
 
 	func podcastPickerDidCancel(_ picker: PodcastPickerViewController) {
-		picker.dismiss(animated: true)
+		picker.navigationController?.dismiss(animated: true)
 	}
 }
 
@@ -2278,23 +2317,23 @@ extension MainFeedCollectionViewController: PodcastPickerDelegate {
 extension MainFeedCollectionViewController: YoutubePickerDelegate {
 
 	func youtubePickerDidSelectChannelName(_ picker: YoutubePickerViewController) {
-		picker.dismiss(animated: true) {
+		picker.navigationController?.dismiss(animated: true) {
 			self.showEnterYoutubeChannelNameDialog()
 		}
 	}
 
 	func youtubePicker(_ picker: YoutubePickerViewController, didEnterChannelHandle handle: String) {
-		picker.dismiss(animated: true) {
+		picker.navigationController?.dismiss(animated: true) {
 			self.addYoutubeWithWebhook(name: handle, author: nil)
 		}
 	}
 
 	func youtubePickerDidCancel(_ picker: YoutubePickerViewController) {
-		picker.dismiss(animated: true)
+		picker.navigationController?.dismiss(animated: true)
 	}
 
 	func youtubePicker(_ picker: YoutubePickerViewController, didSelectChannel source: YoutubeSource) {
-		picker.dismiss(animated: true) {
+		picker.navigationController?.dismiss(animated: true) {
 			self.addYoutubeWithWebhook(name: source.name, author: source.author)
 		}
 	}
@@ -2327,9 +2366,18 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 	}
 
 	private func addYoutubeWithWebhook(name: String, author: String?) {
+		// Show "Adding..." immediately — before the webhook call — so there's no delay for the user.
+		let loadingAlert = buildLoadingAlert()
+		let presenter = topMostPresentingViewController()
+		Self.logger.debug("addYoutube: presenting loadingAlert immediately via \(type(of: presenter))")
+		presenter.present(loadingAlert, animated: true)
+
 		Task { @MainActor [weak self] in
-			guard let self else { return }
-			Self.logger.debug("addYoutube: task started — calling webhook for \"\(name, privacy: .public)\"")
+			guard let self else {
+				loadingAlert.dismiss(animated: false)
+				return
+			}
+			Self.logger.debug("addYoutube: calling webhook for \"\(name, privacy: .public)\"")
 
 			let result = await YoutubeSourcesManager.shared.addYoutube(name: name, author: author)
 			Self.logger.debug("addYoutube: webhook result=\(String(describing: result), privacy: .public)")
@@ -2337,13 +2385,18 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
 			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
 
+			// Dismiss the loading alert before showing success/error UI.
+			await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+				loadingAlert.dismiss(animated: true) { cont.resume() }
+			}
+
 			switch result {
 			case .successExisting(let summaryURL):
 				// 201: channel already exists — cancel any stale bootstrap job for this URL
 				Self.logger.debug("addYoutube: successExisting summaryURL=\(summaryURL, privacy: .public)")
 				let existingYtFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
 				BootstrapProgressManager.shared.cancelBootstrap(feedURL: existingYtFeedURL)
-				self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+				self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL, skipLoadingIndicator: true) {
 					Self.logger.debug("addYoutube: successExisting addFeedDirectly completion called")
 					appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
 				}
@@ -2353,7 +2406,7 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 				Self.logger.debug("addYoutube: successNew summaryURL=\(summaryURL, privacy: .public) message=\(message, privacy: .public)")
 				let ytFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
 				BootstrapProgressManager.shared.startBootstrap(type: "yt", show: name, author: author ?? "", feedURL: ytFeedURL)
-				self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL) {
+				self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL, skipLoadingIndicator: true) {
 					Self.logger.debug("addYoutube: successNew addFeedDirectly completion called")
 					self.showAddSourceSuccess(title: NSLocalizedString("Channel Added", comment: "Channel Added"), message: message) {}
 				}
