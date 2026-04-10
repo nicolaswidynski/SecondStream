@@ -778,6 +778,16 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	override func viewWillDisappear(_ animated: Bool) {
 		super.viewWillDisappear(animated)
 		navigationController?.additionalSafeAreaInsets.bottom = 0
+		
+		// If the user navigates away while a snap-scroll is in flight, the scroll animation
+		// is abandoned and scrollViewDidEndScrollingAnimation never fires. Apply the pending
+		// toggle immediately so the coordinator state stays consistent.
+//		if let feedSection = pendingToggleFeedSection {
+//			pendingToggleFeedSection = nil
+//			coordinator.toggleCategorySection(feedSection)
+//		}
+//		
+		
 	}
 
 	func registerForNotifications() {
@@ -1501,6 +1511,17 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		return vc
 	}
 
+	/// Returns true if the active account already has a feed in `category` whose display name
+	/// matches `name` (case-insensitive). Used to skip the webhook when the user re-adds
+	/// something they already subscribe to.
+	private func feedAlreadySubscribed(name: String, category: FeedCategory) -> Bool {
+		guard let account = AccountManager.shared.activeAccounts.first else { return false }
+		return account.flattenedFeeds().contains {
+			$0.feedCategory == category &&
+			$0.nameForDisplay.localizedCaseInsensitiveCompare(name) == .orderedSame
+		}
+	}
+
 	private func buildLoadingAlert() -> UIAlertController {
 		let alert = UIAlertController(title: nil, message: NSLocalizedString("Adding...", comment: "Adding..."), preferredStyle: .alert)
 		let activityIndicator = UIActivityIndicatorView(style: .medium)
@@ -1515,6 +1536,10 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func addPodcastWithWebhook(name: String, author: String?) {
+		if feedAlreadySubscribed(name: name, category: .podcast) {
+			showAddSourceError(message: NSLocalizedString("You are already subscribed to this podcast.", comment: "Already subscribed to podcast"))
+			return
+		}
 		// Show "Adding..." immediately — before the webhook call — so there's no delay for the user.
 		let loadingAlert = buildLoadingAlert()
 		let presenter = topMostPresentingViewController()
@@ -1596,18 +1621,40 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		presenter.present(alert, animated: true)
 	}
 
+	/// Pending section to toggle after a snap-scroll completes.
+	private var pendingToggleFeedSection: FeedSectionIdentifier?
+ 
 	func toggle(_ headerView: MainFeedCollectionHeaderReusableView) {
 		guard let sectionID = headerView.sectionID else {
 			return
 		}
-
+ 
 		if let feedSection = FeedSectionIdentifier(rawValue: sectionID) {
 			let isExpanded = coordinator.isCategorySectionExpanded(feedSection)
 			headerView.unreadCount = unreadCountForSection(feedSection)
 			headerView.disclosureExpanded = !isExpanded
+ 
+			// If the list is scrolled just a little away from the natural top, snap it the
+			// rest of the way before toggling. This prevents UIKit's contentOffset adjustment
+			// during the snapshot apply from causing a visible jump.
+			// Only fires when "near the top" (within ~150 pt) — not when scrolled far down.
+			
+			
+			
+			let naturalTopOffset = -collectionView.adjustedContentInset.top
+			let distanceFromTop = collectionView.contentOffset.y - naturalTopOffset
+			let isFirstSection = dataSource.snapshot().sectionIdentifiers.first == sectionID
+			if distanceFromTop > 1 && distanceFromTop < 130 && isFirstSection {
+				pendingToggleFeedSection = feedSection
+				collectionView.setContentOffset(CGPoint(x: 0, y: naturalTopOffset), animated: true)
+				return
+			}
+			
 			coordinator.toggleCategorySection(feedSection)
 			return
 		}
+		
+		
 
 		// Fallback for non-category sections (shouldn't happen with new structure)
 		let snapshot = dataSource.snapshot()
@@ -1623,6 +1670,14 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			headerView.disclosureExpanded = true
 			coordinator.expand(sectionNode)
 		}
+	}
+	
+	override func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+		guard let feedSection = pendingToggleFeedSection else {
+			return
+		}
+		pendingToggleFeedSection = nil
+		coordinator.toggleCategorySection(feedSection)
 	}
 
 
@@ -2317,6 +2372,10 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 	}
 
 	private func addYoutubeWithWebhook(name: String, author: String?) {
+		if feedAlreadySubscribed(name: name, category: .youtube) {
+			showAddSourceError(message: NSLocalizedString("You are already subscribed to this channel.", comment: "Already subscribed to channel"))
+			return
+		}
 		// Show "Adding..." immediately — before the webhook call — so there's no delay for the user.
 		let loadingAlert = buildLoadingAlert()
 		let presenter = topMostPresentingViewController()
@@ -2386,6 +2445,10 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 	}
 
 	private func addTopicWithWebhook(name: String, author: String?) {
+		if feedAlreadySubscribed(name: name, category: .news) {
+			showAddSourceError(message: NSLocalizedString("You are already subscribed to this topic.", comment: "Already subscribed to topic"))
+			return
+		}
 		// Show loading indicator
 		let loadingAlert = UIAlertController(
 			title: nil,

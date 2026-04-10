@@ -1,4 +1,18 @@
 {
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "agent",
+            "timeout": 120,
+            "prompt": "You are maintaining 5 Mermaid diagram files for the SecondStream iOS project at /Users/nwidynski/Documents/code/SecondStream.\n\nThe hook input is: $ARGUMENTS\n\nStep 1 — decide if action is needed:\n- Extract tool_input.file_path from the JSON above.\n- If the path does not end in .swift, or is not inside /Users/nwidynski/Documents/code/SecondStream (excluding .claude/), STOP immediately and do nothing.\n\nStep 2 — identify which diagrams the changed file affects:\n- mm_class.txt   → class/struct/protocol definitions, properties, methods (any .swift)\n- mm_entity.txt  → data model files: Feed.swift, Article.swift, ArticleStatus, Folder.swift, Account.swift\n- mm_flowchart.txt → app-level flow: SceneDelegate.swift, SceneCoordinator.swift, MainFeedCollectionViewController.swift, BootstrapProgressManager.swift, SourcesRefreshManager.swift\n- mm_sequence.txt  → add-source interaction: MainFeedCollectionViewController.swift, PodcastPickerViewController.swift, YoutubePickerViewController.swift, NewsPickerViewController.swift\n- mm_state.txt     → state/lifecycle: BootstrapProgressManager.swift, SceneDelegate.swift, any file with state enums\n\nStep 3 — for each affected diagram:\n- Read the current diagram file (e.g. /Users/nwidynski/Documents/code/SecondStream/mm_class.txt).\n- Read the changed Swift file.\n- Determine if the diagram content is still accurate. Only update if something meaningful changed (new class, removed method, changed flow, etc.). Minor refactors that don't affect the diagram structure do NOT require an update.\n- If an update is needed, rewrite ONLY that diagram file with corrected Mermaid syntax. Keep the same diagram type (classDiagram, erDiagram, flowchart TD, sequenceDiagram, stateDiagram-v2). Do not add ```mermaid fences — the files contain raw Mermaid only.\n\nBe conservative: if unsure whether the diagram needs updating, leave it as-is."
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(find:*)",
@@ -87,7 +101,14 @@
       "Bash(gh pr:*)",
       "Bash(gh repo:*)",
       "Bash(git rebase:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(sort -k6,7)",
+      "Bash(xargs -I{} git diff-tree --no-commit-id -r --name-only {} -- Modules/)",
+      "Bash(git remote:*)",
+      "Bash(git fetch:*)",
+      "Bash(- \" line instead of running together:*)",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ],
     "deny": [],
     "ask": []

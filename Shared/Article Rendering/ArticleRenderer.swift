@@ -285,7 +285,22 @@ private extension ArticleRenderer {
 
 		d["byline"] = byline()
 
-		let datePublished = article.logicalDatePublished
+		// Only show a timestamp when the feed actually supplied a date.
+		// logicalDatePublished falls back to dateArrived, which is meaningless to display.
+		guard let datePublished = article.datePublished ?? article.dateModified else {
+			d["datetime_long"] = ""
+			d["datetime_medium"] = ""
+			d["datetime_short"] = ""
+			d["datetime_html"] = ""
+			d["date_long"] = ""
+			d["date_medium"] = ""
+			d["date_short"] = ""
+			d["time_long"] = ""
+			d["time_medium"] = ""
+			d["time_short"] = ""
+			return d
+		}
+
 		d["datetime_long"] = Self.longDateTimeFormatter.string(from: datePublished)
 		let datetimeMedium = Self.mediumDateTimeFormatter.string(from: datePublished)
 		d["datetime_medium"] = datetimeMedium

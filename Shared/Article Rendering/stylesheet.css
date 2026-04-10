@@ -135,6 +135,10 @@ body > .systemMessage {
 	letter-spacing: 0.025em;
 }
 
+.articleDateline:empty, .articleDatelineTitle:empty {
+	display: none;
+}
+
 .articleDateline a:link, .articleDateline a:visited {
 	color: var(--article-date-color);
 }

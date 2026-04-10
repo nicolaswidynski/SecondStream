@@ -1,0 +1,121 @@
+---
+title: Class Diagram
+---
+classDiagram
+    class SceneCoordinator {
+        +rootNode: Node
+        +expandedCategorySections: Set~FeedSectionIdentifier~
+        +currentFeedIndexPath: IndexPath?
+        +selectFeed(feed: Feed)
+        +selectArticle(article: Article)
+        +toggleCategorySection(FeedSectionIdentifier)
+        +rebuildBackingStores()
+        +isCategorySectionExpanded(FeedSectionIdentifier) bool
+    }
+
+    class MainFeedCollectionViewController {
+        -coordinator: SceneCoordinator
+        -dataSource: DiffableDataSource
+        +toggle(headerView:)
+        +addFeedDirectly(urlString:category:...)
+        +addPodcastWithWebhook(name:author:)
+        +addYoutubeWithWebhook(name:author:)
+        +addTopicWithWebhook(name:author:)
+        -feedAlreadySubscribed(name:category:) bool
+        -topMostPresentingViewController() UIViewController
+        -buildLoadingAlert() UIAlertController
+    }
+
+    class Account {
+        +topLevelFeeds: Set~Feed~
+        +folders: Set~Folder~
+        +flattenedFeeds() Set~Feed~
+        +createFeed(url:name:container:validateFeed:)
+        +hasFeed(withURL:) bool
+    }
+
+    class Feed {
+        +url: String
+        +name: String?
+        +editedName: String?
+        +feedCategory: FeedCategory
+        +iconURL: String?
+        +nameForDisplay: String
+    }
+
+    class Folder {
+        +name: String
+        +topLevelFeeds: Set~Feed~
+        +nameForDisplay: String
+    }
+
+    class Article {
+        +articleID: String
+        +feedID: String
+        +title: String?
+        +body: String?
+        +datePublished: Date?
+        +dateModified: Date?
+        +logicalDatePublished: Date
+    }
+
+    class ArticleStatus {
+        +read: Bool
+        +starred: Bool
+        +dateArrived: Date
+    }
+
+    class ArticleRenderer {
+        -longDateTimeFormatter: DateFormatter
+        -mediumDateTimeFormatter: DateFormatter
+        +articleHTML(article:theme:) String
+        -templateData(article:) Dictionary
+        +topTitleMediaLink(for:feedCategory:) String?
+    }
+
+    class BootstrapProgressManager {
+        +progressByFeedURL: Dictionary
+        +startBootstrap(type:show:author:feedURL:)
+        +cancelBootstrap(feedURL:)
+        +resumeFromBackground()
+        +resumePendingJobs()
+        -poll(job:)
+    }
+
+    class SourcesRefreshManager {
+        -lastRefreshDate: Date?
+        +forceRefresh()
+        +refreshIfNeeded()
+    }
+
+    class AuthManager {
+        +isConnected: Bool
+        +appleUserID: String?
+        +connect()
+    }
+
+    class PodcastSourcesManager {
+        +podcastSources: Array~PodcastSource~
+        +addPodcast(name:author:) AddPodcastResult
+        +fetchFresh()
+    }
+
+    class YoutubeSourcesManager {
+        +youtubeSources: Array~YoutubeSource~
+        +addYoutube(name:author:) AddYoutubeResult
+        +fetchFresh()
+    }
+
+    SceneCoordinator "1" --> "1" MainFeedCollectionViewController : drives
+    MainFeedCollectionViewController --> Account : reads and writes
+    MainFeedCollectionViewController --> BootstrapProgressManager : starts·cancels
+    MainFeedCollectionViewController --> PodcastSourcesManager : calls webhook
+    MainFeedCollectionViewController --> YoutubeSourcesManager : calls webhook
+    Account "1" *-- "*" Folder : contains
+    Account "1" *-- "*" Feed : owns directly
+    Folder "1" *-- "*" Feed : contains
+    Feed "1" --> "*" Article : has
+    Article "1" --> "1" ArticleStatus : has
+    ArticleRenderer --> Article : renders
+    SourcesRefreshManager --> Account : triggers refresh
+    SceneCoordinator --> AuthManager : checks on start
