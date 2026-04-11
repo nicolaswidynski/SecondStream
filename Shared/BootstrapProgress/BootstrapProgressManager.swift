@@ -22,13 +22,26 @@ struct BootstrapJob: Codable, Equatable {
 	let startedAt: Date
 }
 
+/// Tracks the in-memory state of a single bootstrap job.
+///
+/// Replaces the raw `Double` in the previous `progressByFeedURL` dictionary,
+/// making the three observable sub-states explicit and correct-by-construction.
+enum BootstrapJobState: Equatable {
+	/// Polling is in progress. `progress` is in the range 0.0–1.0.
+	case polling(progress: Double)
+	/// Backend finished; the feed is ready. The progress ring shows 100% briefly before removal.
+	case complete
+	/// Polling timed out without completing. No progress ring should be shown.
+	case timedOut
+}
+
 /// Manages polling for bootstrap progress on newly added shows that returned 202.
 ///
 /// Jobs are persisted in `UserDefaults` so they survive app restarts.
 /// Each job polls `query-bootstrap-progress` every 10 s (first poll after 10 s),
 /// and stops when progress reaches 100 or the job is older than 1 hour.
 ///
-/// Progress is keyed by feed URL for easy lookup from the sidebar.
+/// Job state is keyed by feed URL for easy lookup from the sidebar.
 @MainActor final class BootstrapProgressManager {
 
 	static let shared = BootstrapProgressManager()
@@ -43,9 +56,13 @@ struct BootstrapJob: Codable, Equatable {
 
 	// MARK: - State
 
-	/// Keyed by `feedURL`. Value is 0.0–1.0 (progress fraction).
-	/// Before the first poll result, holds 0.0 so the cell shows an empty ring immediately.
-	private(set) var progressByFeedURL: [String: Double] = [:]
+	/// Keyed by `feedURL`. Tracks the explicit state of each in-progress bootstrap job.
+	/// Before the first poll result, holds `.polling(progress: 0.0)` so the cell shows
+	/// an empty ring immediately.
+	///
+	/// The setter is `internal` to allow unit tests to seed state directly without
+	/// triggering network polling.
+	var jobStates: [String: BootstrapJobState] = [:]
 
 	/// Running poll tasks, keyed by feedURL.
 	private var tasksByFeedURL: [String: Task<Void, Never>] = [:]
@@ -94,7 +111,7 @@ struct BootstrapJob: Codable, Equatable {
 				removeJob(job)
 				continue
 			}
-			progressByFeedURL[job.feedURL] = 0.0
+			jobStates[job.feedURL] = .polling(progress: 0.0)
 			// Align the initial delay to the next 10-second boundary
 			let remaining = pollInterval - elapsed.truncatingRemainder(dividingBy: pollInterval)
 			startPolling(job: job, initialDelay: max(0, remaining))
@@ -115,7 +132,9 @@ struct BootstrapJob: Codable, Equatable {
 				removeJob(job)
 				continue
 			}
-			progressByFeedURL[job.feedURL] = progressByFeedURL[job.feedURL] ?? 0.0
+			if jobStates[job.feedURL] == nil {
+				jobStates[job.feedURL] = .polling(progress: 0.0)
+			}
 			startPolling(job: job, initialDelay: 2)
 		}
 	}
@@ -140,26 +159,33 @@ struct BootstrapJob: Codable, Equatable {
 		current.append(job)
 		jobs = current
 
-		progressByFeedURL[feedURL] = 0.0
+		jobStates[feedURL] = .polling(progress: 0.0)
 		notifyUpdate(feedURL: feedURL)
 		startPolling(job: job, initialDelay: pollInterval)
 	}
 
 	/// Current progress fraction (0.0–1.0) for a given feed URL, or `nil` if not bootstrapping.
+	///
+	/// Returns `nil` when no job exists or the job has timed out. Returns `1.0` when complete
+	/// (the ring briefly shows full before the entry is removed).
 	func progress(forFeedURL feedURL: String) -> Double? {
-		progressByFeedURL[feedURL]
+		switch jobStates[feedURL] {
+		case .polling(let p): return p
+		case .complete: return 1.0
+		case .timedOut, nil: return nil
+		}
 	}
 
 	/// Cancels and removes any active or persisted bootstrap job for the given feed URL.
 	/// Call this when a feed is confirmed to already exist (201 response) so stale jobs
 	/// from a previous 202 session don't leave the ring on screen.
 	func cancelBootstrap(feedURL: String) {
-		guard progressByFeedURL[feedURL] != nil || jobs.contains(where: { $0.feedURL == feedURL }) else {
+		guard jobStates[feedURL] != nil || jobs.contains(where: { $0.feedURL == feedURL }) else {
 			return
 		}
 		tasksByFeedURL[feedURL]?.cancel()
 		tasksByFeedURL.removeValue(forKey: feedURL)
-		progressByFeedURL.removeValue(forKey: feedURL)
+		jobStates.removeValue(forKey: feedURL)
 		progressStartedAt.removeValue(forKey: feedURL)
 		var current = jobs
 		current.removeAll { $0.feedURL == feedURL }
@@ -229,7 +255,7 @@ struct BootstrapJob: Codable, Equatable {
 
 		if let pct {
 			let fraction = min(1.0, max(0.0, Double(pct) / 100.0))
-			progressByFeedURL[job.feedURL] = fraction
+			jobStates[job.feedURL] = .polling(progress: fraction)
 			notifyUpdate(feedURL: job.feedURL)
 
 			if pct >= 100 {
@@ -265,16 +291,17 @@ struct BootstrapJob: Codable, Equatable {
 		tasksByFeedURL.removeValue(forKey: job.feedURL)
 		progressStartedAt.removeValue(forKey: job.feedURL)
 		if atFull {
-			progressByFeedURL[job.feedURL] = 1.0
+			jobStates[job.feedURL] = .complete
 			notifyUpdate(feedURL: job.feedURL)
-			// Brief pause so the UI can show 100% before clearing
+			// Brief pause so the UI can show 100% before clearing.
 			Task { [weak self] in
 				try? await Task.sleep(for: .seconds(1))
-				self?.progressByFeedURL.removeValue(forKey: job.feedURL)
+				self?.jobStates.removeValue(forKey: job.feedURL)
 				self?.notifyUpdate(feedURL: job.feedURL)
 			}
 		} else {
-			progressByFeedURL.removeValue(forKey: job.feedURL)
+			jobStates[job.feedURL] = .timedOut
+			jobStates.removeValue(forKey: job.feedURL)
 			notifyUpdate(feedURL: job.feedURL)
 		}
 		removeJob(job)

@@ -21,20 +21,6 @@ private let reuseIdentifier = "FeedCell"
 private let folderIdentifier = "Folder"
 private let containerReuseIdentifier = "Container"
 
-private struct DiscoverSourceItem {
-	let name: String
-	let author: String?
-	let url: String
-	let imageURL: String?
-	let imageURLLight: String?
-	let category: FeedCategory
-}
-
-private enum RecentlyUpdatedStripPayload {
-	case feed(Feed)
-	case discover(DiscoverSourceItem)
-}
-
 final class MainFeedCollectionViewController: UICollectionViewController, UndoableCommandRunner {
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "AddSource")
@@ -77,58 +63,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		label.translatesAutoresizingMaskIntoConstraints = false
 		return label
 	}()
-	private let recentlyUpdatedTopInset: CGFloat = 156
-	private let defaultTopInset: CGFloat = 8
-	private var recentlyUpdatedStripTask: Task<Void, Never>?
-
-	private lazy var recentlyUpdatedContainerView: UIView = {
-		let view = UIView()
-		view.translatesAutoresizingMaskIntoConstraints = false
-		return view
-	}()
-
-	private lazy var navBarExtendedBackgroundView: UIVisualEffectView = {
-		let view = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
-		view.translatesAutoresizingMaskIntoConstraints = false
-		view.isUserInteractionEnabled = false
-		return view
-	}()
-
-	private lazy var recentlyUpdatedTitleLabel: UILabel = {
-		let label = UILabel()
-		label.translatesAutoresizingMaskIntoConstraints = false
-		label.font = UIFont.preferredFont(forTextStyle: .title3).bold()
-		label.textColor = .label
-		label.text = NSLocalizedString("Recently Updated", comment: "Recently Updated")
-		return label
-	}()
-
-	private lazy var recentlyUpdatedScrollView: UIScrollView = {
-		let scrollView = UIScrollView()
-		scrollView.translatesAutoresizingMaskIntoConstraints = false
-		scrollView.showsHorizontalScrollIndicator = false
-		scrollView.showsVerticalScrollIndicator = false
-		scrollView.alwaysBounceVertical = false
-		scrollView.isDirectionalLockEnabled = true
-		return scrollView
-	}()
-
-	private lazy var recentlyUpdatedBackgroundView: UIVisualEffectView = {
-		let view = UIVisualEffectView(effect: nil)//UIBlurEffect(style: .systemChromeMaterial))
-		view.translatesAutoresizingMaskIntoConstraints = false
-		view.layer.cornerRadius = 20
-		view.clipsToBounds = true
-		return view
-	}()
-
-	private lazy var recentlyUpdatedStackView: UIStackView = {
-		let stack = UIStackView()
-		stack.translatesAutoresizingMaskIntoConstraints = false
-		stack.axis = .horizontal
-		stack.spacing = 3
-		stack.alignment = .center
-		return stack
-	}()
+	private let stripController = RecentlyUpdatedStripController()
 
 	/// The current update status text to display
 	var updateStatusText: String? {
@@ -158,12 +93,11 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 		configureDiffableDataSource()
 		configureNavigationBar()
-		configureCollectionViewInsets()
 		configureRecentlyUpdatedStrip()
 		collectionView.dragDelegate = self
 		collectionView.dropDelegate = self
 		becomeFirstResponder()
-		refreshRecentlyUpdatedShowsStrip()
+		stripController.refresh()
 
 		// Fetch sources on launch
 		SourcesRefreshManager.shared.forceRefresh()
@@ -172,11 +106,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		// Refresh sources when app comes to foreground
 		NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
     }
-
-	private func configureCollectionViewInsets() {
-		collectionView.contentInset.top = recentlyUpdatedTopInset
-		collectionView.verticalScrollIndicatorInsets.top = recentlyUpdatedTopInset
-	}
 
 
 	private func configureNavigationBar() {
@@ -206,62 +135,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func configureRecentlyUpdatedStrip() {
-		view.insertSubview(navBarExtendedBackgroundView, aboveSubview: collectionView)
-		view.addSubview(recentlyUpdatedContainerView)
-		recentlyUpdatedContainerView.addSubview(recentlyUpdatedTitleLabel)
-		recentlyUpdatedContainerView.addSubview(recentlyUpdatedBackgroundView)
-		recentlyUpdatedBackgroundView.contentView.addSubview(recentlyUpdatedScrollView)
-		recentlyUpdatedScrollView.addSubview(recentlyUpdatedStackView)
+		stripController.install(in: view, above: collectionView)
+		collectionView.contentInset.top = stripController.topInset
+		collectionView.verticalScrollIndicatorInsets.top = stripController.topInset
 
-		NSLayoutConstraint.activate([
-			navBarExtendedBackgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-			navBarExtendedBackgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-			navBarExtendedBackgroundView.topAnchor.constraint(equalTo: view.topAnchor),
-			navBarExtendedBackgroundView.bottomAnchor.constraint(equalTo: recentlyUpdatedContainerView.bottomAnchor, constant: 10),
-
-			recentlyUpdatedContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-			recentlyUpdatedContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-			recentlyUpdatedContainerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6),
-
-			recentlyUpdatedTitleLabel.leadingAnchor.constraint(equalTo: recentlyUpdatedContainerView.leadingAnchor, constant: 2),
-			recentlyUpdatedTitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: recentlyUpdatedContainerView.trailingAnchor),
-			recentlyUpdatedTitleLabel.topAnchor.constraint(equalTo: recentlyUpdatedContainerView.topAnchor),
-
-			recentlyUpdatedBackgroundView.leadingAnchor.constraint(equalTo: recentlyUpdatedContainerView.leadingAnchor),
-			recentlyUpdatedBackgroundView.trailingAnchor.constraint(equalTo: recentlyUpdatedContainerView.trailingAnchor),
-			recentlyUpdatedBackgroundView.topAnchor.constraint(equalTo: recentlyUpdatedTitleLabel.bottomAnchor, constant: 10),
-			recentlyUpdatedBackgroundView.heightAnchor.constraint(equalToConstant: 86),
-			recentlyUpdatedBackgroundView.bottomAnchor.constraint(equalTo: recentlyUpdatedContainerView.bottomAnchor),
-
-			recentlyUpdatedScrollView.leadingAnchor.constraint(equalTo: recentlyUpdatedBackgroundView.contentView.leadingAnchor, constant: 10),
-			recentlyUpdatedScrollView.trailingAnchor.constraint(equalTo: recentlyUpdatedBackgroundView.contentView.trailingAnchor, constant: -10),
-			recentlyUpdatedScrollView.topAnchor.constraint(equalTo: recentlyUpdatedBackgroundView.contentView.topAnchor, constant: 8),
-			recentlyUpdatedScrollView.bottomAnchor.constraint(equalTo: recentlyUpdatedBackgroundView.contentView.bottomAnchor, constant: -8),
-
-			recentlyUpdatedStackView.leadingAnchor.constraint(equalTo: recentlyUpdatedScrollView.contentLayoutGuide.leadingAnchor),
-			recentlyUpdatedStackView.trailingAnchor.constraint(equalTo: recentlyUpdatedScrollView.contentLayoutGuide.trailingAnchor),
-			recentlyUpdatedStackView.topAnchor.constraint(equalTo: recentlyUpdatedScrollView.contentLayoutGuide.topAnchor),
-			recentlyUpdatedStackView.bottomAnchor.constraint(equalTo: recentlyUpdatedScrollView.contentLayoutGuide.bottomAnchor)
-		])
-	}
-
-	@objc private func hamburgerTapped() {
-		coordinator.showLeftMenu()
-	}
-
-	@objc private func starredTapped() {
-		coordinator.selectStarredFeed()
-	}
-
-	@objc private func recentlyUpdatedFeedTapped(_ sender: UIControl) {
-		guard let itemView = sender as? RecentlyUpdatedFeedItemView,
-			  let payload = itemView.payload else {
-			return
-		}
-		itemView.performTapFeedback { [weak self] in
-			guard let self else {
-				return
-			}
+		stripController.onPayloadTapped = { [weak self] payload in
+			guard let self else { return }
 			switch payload {
 			case .feed(let feed):
 				expandCategorySectionForCategory(feed.feedCategory)
@@ -272,196 +151,18 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 	}
 
-	private func refreshRecentlyUpdatedShowsStrip() {
-		recentlyUpdatedStripTask?.cancel()
-		recentlyUpdatedStripTask = Task {
-			// Debounce: coalesce rapid-fire calls (icon loads, unread-count pings, etc.)
-			// so we only do the expensive async fetch once things settle.
-			try? await Task.sleep(for: .milliseconds(150))
-			guard !Task.isCancelled else { return }
-			await applyRecentlyUpdatedStripPayloads()
-		}
+	@objc private func hamburgerTapped() {
+		coordinator.showLeftMenu()
 	}
 
-	private func applyRecentlyUpdatedStripPayloads() async {
-		let payloads = await buildRecentlyUpdatedStripPayloads()
-
-		guard !Task.isCancelled else { return }
-
-		let isDiscoverMode: Bool = {
-			guard let first = payloads.first else { return false }
-			if case .discover = first { return true }
-			return false
-		}()
-		recentlyUpdatedTitleLabel.text = isDiscoverMode
-			? NSLocalizedString("Discover", comment: "Discover")
-			: NSLocalizedString("Recently Updated", comment: "Recently Updated")
-
-		recentlyUpdatedStackView.arrangedSubviews.forEach { view in
-			recentlyUpdatedStackView.removeArrangedSubview(view)
-			view.removeFromSuperview()
-		}
-
-		for payload in payloads {
-			let itemView = RecentlyUpdatedFeedItemView()
-			itemView.payload = payload
-			itemView.translatesAutoresizingMaskIntoConstraints = false
-			itemView.addTarget(self, action: #selector(recentlyUpdatedFeedTapped(_:)), for: .touchUpInside)
-			switch payload {
-			case .feed(let feed):
-				itemView.accessibilityLabel = feed.nameForDisplay
-				itemView.setImage(recentlyUpdatedIconImage(for: feed))
-			case .discover(let source):
-				itemView.accessibilityLabel = source.name
-				itemView.setImage(discoverSourceIconImage(for: source))
-			}
-			NSLayoutConstraint.activate([
-				itemView.widthAnchor.constraint(equalToConstant: 72),
-				itemView.heightAnchor.constraint(equalToConstant: 68)
-			])
-			recentlyUpdatedStackView.addArrangedSubview(itemView)
-		}
-
-		let hasFeeds = !payloads.isEmpty
-		let wasEmpty = recentlyUpdatedStackView.arrangedSubviews.isEmpty
-
-		// The strip is always visible as a placeholder — inset never changes.
-		collectionView.contentInset.top = recentlyUpdatedTopInset
-		collectionView.verticalScrollIndicatorInsets.top = recentlyUpdatedTopInset
-
-		if hasFeeds && wasEmpty {
-			// Icons slide in from right, one at a time, when first populated.
-			let itemViews = recentlyUpdatedStackView.arrangedSubviews
-			for (index, view) in itemViews.enumerated() {
-				view.alpha = 0
-				view.transform = CGAffineTransform(translationX: 44, y: 0)
-				UIView.animate(
-					withDuration: 0.28,
-					delay: Double(index) * 0.06,
-					options: .curveEaseOut
-				) {
-					view.alpha = 1
-					view.transform = .identity
-				}
-			}
-		}
-	}
-
-	private func buildRecentlyUpdatedStripPayloads() async -> [RecentlyUpdatedStripPayload] {
-		let recentFeeds = await computeRecentlyUpdatedUnreadFeeds()
-		if !recentFeeds.isEmpty {
-			return recentFeeds.map { .feed($0) }
-		}
-		return buildDiscoverSourceItems().map { .discover($0) }
-	}
-
-	private func computeRecentlyUpdatedUnreadFeeds() async -> [Feed] {
-		var latestDateByFeedID = [String: Date]()
-		var feedByID = [String: Feed]()
-
-		for account in AccountManager.shared.activeAccounts {
-			for feed in account.flattenedFeeds() where feed.unreadCount > 0 {
-				feedByID[feed.feedID] = feed
-			}
-
-			guard !feedByID.isEmpty else {
-				continue
-			}
-
-			guard let unreadArticles = try? await account.fetchArticlesAsync(.unread()) else {
-				continue
-			}
-
-			for article in unreadArticles {
-				guard feedByID[article.feedID] != nil else {
-					continue
-				}
-				let date = article.logicalDatePublished
-				let existing = latestDateByFeedID[article.feedID] ?? .distantPast
-				if date > existing {
-					latestDateByFeedID[article.feedID] = date
-				}
-			}
-		}
-
-		return latestDateByFeedID
-			.sorted { $0.value > $1.value }
-			.compactMap { feedByID[$0.key] }
-	}
-
-	private func buildDiscoverSourceItems() -> [DiscoverSourceItem] {
-		var discoverItems = [DiscoverSourceItem]()
-
-		let randomPodcastSources = Array(PodcastSourcesManager.shared.podcastSources.shuffled().prefix(2))
-		for source in randomPodcastSources {
-			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, imageURLLight: source.imageURLLight, category: .podcast))
-		}
-
-		let randomYoutubeSources = Array(YoutubeSourcesManager.shared.youtubeSources.shuffled().prefix(2))
-		for source in randomYoutubeSources {
-			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, imageURLLight: source.imageURLLight, category: .youtube))
-		}
-
-		let randomNewsSources = Array(NewsSourcesManager.shared.newsSources.shuffled().prefix(2))
-		for source in randomNewsSources {
-			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, imageURLLight: source.imageURLLight, category: .news))
-		}
-
-		let randomRSSSources = Array(RSSSourcesManager.shared.rssSources.shuffled().prefix(2))
-		for source in randomRSSSources {
-			discoverItems.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, imageURLLight: source.imageURLLight, category: .rss))
-		}
-
-		return discoverItems
-	}
-
-	private func recentlyUpdatedIconImage(for feed: Feed) -> UIImage {
-		let fallback = Assets.Images.nnwFeedIcon
-		guard let iconImage = IconImageCache.shared.imageForFeed(feed) else {
-			return fallback
-		}
-		guard let lightImage = iconImage.lightImage else {
-			return iconImage.image
-		}
-		let asset = UIImageAsset()
-		asset.register(iconImage.image, with: UITraitCollection(userInterfaceStyle: .dark))
-		asset.register(lightImage, with: UITraitCollection(userInterfaceStyle: .light))
-		return iconImage.image
-	}
-
-	private func discoverSourceIconImage(for source: DiscoverSourceItem) -> UIImage {
-		if let imageURL = source.imageURL {
-			// Rule 1: library feeds carry imageURLLight directly in the source entry.
-			// Rule 2: webhook-only feeds store their light URL in LightFeedIconStore.
-			let lightURL = source.imageURLLight
-				?? (!source.url.isEmpty ? LightFeedIconStore.shared.lightIconURL(for: source.url) : nil)
-			if let image = SourceImageCache.shared.adaptiveImage(darkURL: imageURL, lightURL: lightURL) {
-				return image
-			}
-		}
-		let config = UIImage.SymbolConfiguration(pointSize: 34, weight: .regular)
-		let fallback: UIImage
-		switch source.category {
-		case .podcast:
-			fallback = RSImage(named: "podcast_thin-symbol")?.applyingSymbolConfiguration(config)
-				?? UIImage(systemName: "mic.fill", withConfiguration: config)
-				?? Assets.Images.nnwFeedIcon
-		case .youtube:
-			fallback = UIImage(systemName: "play.rectangle", withConfiguration: config) ?? Assets.Images.nnwFeedIcon
-		case .news:
-			fallback = UIImage(systemName: "newspaper", withConfiguration: config) ?? Assets.Images.nnwFeedIcon
-		case .rss:
-			fallback = RSImage(named: "rss_thin-symbol")?.applyingSymbolConfiguration(config)
-				?? UIImage(systemName: "dot.radiowaves.left.and.right", withConfiguration: config)
-				?? Assets.Images.nnwFeedIcon
-		}
-		return fallback.withTintColor(.secondaryLabel, renderingMode: .alwaysOriginal)
+	@objc private func starredTapped() {
+		coordinator.selectStarredFeed()
 	}
 
 	private func addDiscoverSource(_ source: DiscoverSourceItem) {
 		let urlString = source.url.trimmingCharacters(in: .whitespacesAndNewlines)
 		if !urlString.isEmpty {
-			addFeedDirectly(urlString: urlString, category: source.category, sourceName: source.name, sourceAuthor: source.author, sourceImageURL: source.imageURL, sourceImageURLLight: source.imageURLLight)
+			addFeedDirectly(AddFeedRequest(urlString: urlString, category: source.category, name: source.name, author: source.author, imageURL: source.imageURL, imageURLLight: source.imageURLLight))
 			return
 		}
 
@@ -537,11 +238,12 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	/// Adds a feed by URL directly (no gate check).
 	///
-	/// Pass `sourceName`, `sourceAuthor`, and `sourceImageURL` when the caller already has that
-	/// metadata (e.g. from a picker).
-	/// Pass `summaryURL` to fetch canonical show name/author from the server-side JSON file
-	/// instead of relying on the user-entered string when reporting the add to all-feed-requests.
-	private func addFeedDirectly(urlString: String, category: FeedCategory, sourceName: String? = nil, sourceAuthor: String? = nil, sourceImageURL: String? = nil, sourceImageURLLight: String? = nil, validateFeed: Bool = true, summaryURL: String? = nil, skipLoadingIndicator: Bool = false, completion: (() -> Void)? = nil) {
+	/// Use `AddFeedRequest` to supply metadata (name, author, image URLs, etc.).
+	/// Pass `summaryURL` inside the request to fetch the canonical feed icon from the
+	/// server-side JSON instead of relying on the user-entered string.
+	private func addFeedDirectly(_ request: AddFeedRequest, completion: (() -> Void)? = nil) {
+		let urlString = request.urlString
+		let category = request.category
 		Self.logger.debug("addFeedDirectly: urlString=\(urlString, privacy: .public) category=\(String(describing: category), privacy: .public)")
 		let normalizedURL = urlString.normalizedURL
 		guard !normalizedURL.isEmpty, let url = URL(string: normalizedURL) else {
@@ -573,15 +275,18 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			return
 		}
 
+		let validateFeed = request.validateFeed
+		let summaryURL = request.summaryURL
+
 		let performCreate: (@escaping () -> Void) -> Void = { afterCreate in
 			Task {
 				BatchUpdate.shared.start()
-				account.createFeed(url: url.absoluteString, name: sourceName, container: account, validateFeed: validateFeed) { result in
+				account.createFeed(url: url.absoluteString, name: request.name, container: account, validateFeed: validateFeed) { result in
 					Self.logger.debug("addFeedDirectly: createFeed result=\(String(describing: result), privacy: .public)")
 					if case .success(let feed) = result {
 						feed.feedCategory = category
 						NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
-						if let lightURL = sourceImageURLLight {
+						if let lightURL = request.imageURLLight {
 							LightFeedIconStore.shared.setLightIconURL(lightURL, for: feed.url)
 						}
 						if !validateFeed, let summaryURL {
@@ -619,7 +324,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			}
 		}
 
-		if skipLoadingIndicator {
+		if request.skipLoadingIndicator {
 			Self.logger.debug("addFeedDirectly: skipLoadingIndicator — calling createFeed directly url=\(url.absoluteString, privacy: .public)")
 			performCreate({})
 			return
@@ -737,8 +442,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		navigationController?.view.backgroundColor = Assets.Colors.background
 		navigationController?.setToolbarHidden(false, animated: animated)
 		navigationController?.additionalSafeAreaInsets.bottom = 60
-		applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip()
-		refreshRecentlyUpdatedShowsStrip()
+		stripController.applyNavigationBarBackgroundStyle()
+		stripController.refresh()
 		updateUI()
 		refreshVisibleSectionHeaders()
 		super.viewWillAppear(animated)
@@ -807,14 +512,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(bootstrapProgressDidUpdate(_:)), name: .bootstrapProgressDidUpdate, object: nil)
-	}
-
-	private func applyNavigationBarBackgroundStyleToRecentlyUpdatedStrip() {
-		recentlyUpdatedBackgroundView.effect = nil
-		recentlyUpdatedBackgroundView.backgroundColor = Assets.Colors.foreground
-		navBarExtendedBackgroundView.effect = nil
-		navBarExtendedBackgroundView.backgroundColor = Assets.Colors.foreground
-		navBarExtendedBackgroundView.alpha = 1.0
 	}
 
 	// MARK: - Collection View Configuration
@@ -1314,7 +1011,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc func unreadCountDidChange(_ note: Notification) {
-		refreshRecentlyUpdatedShowsStrip()
+		stripController.refresh()
 		updateUI()
 
 		// Update category section headers (My Feeds, My Podcasts, etc.)
@@ -1347,7 +1044,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	@objc func unreadCountDidInitialize(_ note: Notification) {
-		refreshRecentlyUpdatedShowsStrip()
+		stripController.refresh()
 		// Update all category section headers when unread counts are fully initialized
 		updateCategorySectionUnreadCounts()
 	}
@@ -1389,11 +1086,11 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			return
 		}
 		applyToCellsForRepresentedObject(feed, configureIcon(_:_:))
-		refreshRecentlyUpdatedShowsStrip()
+		stripController.refresh()
 	}
 
 	@objc func sourceImageDidBecomeAvailable(_ note: Notification) {
-		refreshRecentlyUpdatedShowsStrip()
+		stripController.refresh()
 		applyToAvailableCells { (cell, indexPath) in
 			configureIcon(cell, indexPath)
 		}
@@ -1436,7 +1133,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	@objc private func appWillEnterForeground() {
 		SourcesRefreshManager.shared.refreshIfNeeded()
-		refreshRecentlyUpdatedShowsStrip()
+		stripController.refresh()
 		Task { await FeedStatsManager.shared.fetchCreditsIfNeeded() }
 	}
 
@@ -1459,7 +1156,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 		let addAction = UIAlertAction(title: NSLocalizedString("Add", comment: "Add"), style: .default) { _ in
 			if let urlText = alert.textFields?.first?.text, !urlText.isEmpty {
-				self.addFeedDirectly(urlString: urlText, category: .rss)
+				self.addFeedDirectly(AddFeedRequest(urlString: urlText, category: .rss))
 			}
 		}
 
@@ -1522,8 +1219,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 	}
 
-	private func buildLoadingAlert() -> UIAlertController {
-		let alert = UIAlertController(title: nil, message: NSLocalizedString("Adding...", comment: "Adding..."), preferredStyle: .alert)
+	private func buildLoadingAlert(message: String = NSLocalizedString("Adding...", comment: "Adding...")) -> UIAlertController {
+		let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
 		let activityIndicator = UIActivityIndicatorView(style: .medium)
 		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
 		activityIndicator.startAnimating()
@@ -1540,61 +1237,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			showAddSourceError(message: NSLocalizedString("You are already subscribed to this podcast.", comment: "Already subscribed to podcast"))
 			return
 		}
-		// Show "Adding..." immediately — before the webhook call — so there's no delay for the user.
-		let loadingAlert = buildLoadingAlert()
-		let presenter = topMostPresentingViewController()
-		Self.logger.debug("addPodcast: presenting loadingAlert immediately via \(type(of: presenter)) isBeingDismissed=\(presenter.isBeingDismissed) windowNil=\(presenter.viewIfLoaded?.window == nil)")
-		presenter.present(loadingAlert, animated: true) {
-			Self.logger.debug("addPodcast: loadingAlert present-completion fired presentingVC=\(String(describing: loadingAlert.presentingViewController.map { type(of: $0) }), privacy: .public)")
-		}
-
-		Task { @MainActor [weak self] in
-			guard let self else {
-				loadingAlert.dismiss(animated: false)
-				return
-			}
-			Self.logger.debug("addPodcast: calling webhook for \"\(name, privacy: .public)\"")
-
-			let result = await PodcastSourcesManager.shared.addPodcast(name: name, author: author)
-			Self.logger.debug("addPodcast: webhook result=\(String(describing: result), privacy: .public)")
-
-			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
-			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
-
-			// Dismiss the loading alert before showing success/error UI.
-			Self.logger.debug("addPodcast: dismissing loadingAlert — presentingVC=\(String(describing: loadingAlert.presentingViewController.map { type(of: $0) }), privacy: .public)")
-			await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-				loadingAlert.dismiss(animated: true) { cont.resume() }
-			}
-			Self.logger.debug("addPodcast: loadingAlert dismiss-continuation resumed — topMost=\(type(of: self.topMostPresentingViewController()))")
-
-			switch result {
-			case .successExisting(let summaryURL):
-				// 201: show already exists — cancel any stale bootstrap job for this URL
-				Self.logger.debug("addPodcast: successExisting summaryURL=\(summaryURL, privacy: .public)")
-				let existingPodFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
-				BootstrapProgressManager.shared.cancelBootstrap(feedURL: existingPodFeedURL)
-				self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL, skipLoadingIndicator: true) {
-					Self.logger.debug("addPodcast: successExisting addFeedDirectly completion called")
-					appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
-				}
-
-			case .successNew(let summaryURL, let message):
-				// Start bootstrap immediately on 202 — don't wait for addFeedDirectly completion.
-				// Use URL.absoluteString form so it matches what Account stores for the feed.
-				Self.logger.debug("addPodcast: successNew summaryURL=\(summaryURL, privacy: .public) message=\(message, privacy: .public)")
-				let podFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
-				BootstrapProgressManager.shared.startBootstrap(type: "pod", show: name, author: author ?? "", feedURL: podFeedURL)
-				self.addFeedDirectly(urlString: summaryURL, category: .podcast, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL, skipLoadingIndicator: true) {
-					Self.logger.debug("addPodcast: successNew addFeedDirectly completion called")
-					self.showAddSourceSuccess(title: NSLocalizedString("Podcast Added", comment: "Podcast Added"), message: message) {}
-				}
-
-			case .failure(let message):
-				Self.logger.debug("addPodcast: failure message=\(message, privacy: .public)")
-				self.showAddSourceError(message: message)
-			}
-		}
+		let coordinator = AddSourceCoordinator(manager: PodcastSourcesManager.shared, category: .podcast)
+		let successTitle = NSLocalizedString("Podcast Added", comment: "Podcast Added")
+		addWithWebhook(name: name, author: author, coordinator: coordinator, successTitle: successTitle)
 	}
 
 	private func showAddSourceSuccess(title: String, message: String, completion: @escaping () -> Void) {
@@ -2263,7 +1908,7 @@ extension MainFeedCollectionViewController: RSSPickerDelegate {
 			return
 		}
 		picker.dismiss(animated: true) {
-			self.addFeedDirectly(urlString: url, category: .rss)
+			self.addFeedDirectly(AddFeedRequest(urlString: url, category: .rss))
 		}
 	}
 
@@ -2282,7 +1927,7 @@ extension MainFeedCollectionViewController: RSSPickerDelegate {
 			}
 			// RSS top picks include a concrete feed URL in the source list,
 			// so we can subscribe directly without a webhook call.
-			self.addFeedDirectly(urlString: urlString, category: .rss, sourceName: source.name, sourceAuthor: source.author, sourceImageURL: source.imageURL)
+			self.addFeedDirectly(AddFeedRequest(urlString: urlString, category: .rss, name: source.name, author: source.author, imageURL: source.imageURL))
 		}
 	}
 
@@ -2376,56 +2021,9 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 			showAddSourceError(message: NSLocalizedString("You are already subscribed to this channel.", comment: "Already subscribed to channel"))
 			return
 		}
-		// Show "Adding..." immediately — before the webhook call — so there's no delay for the user.
-		let loadingAlert = buildLoadingAlert()
-		let presenter = topMostPresentingViewController()
-		Self.logger.debug("addYoutube: presenting loadingAlert immediately via \(type(of: presenter))")
-		presenter.present(loadingAlert, animated: true)
-
-		Task { @MainActor [weak self] in
-			guard let self else {
-				loadingAlert.dismiss(animated: false)
-				return
-			}
-			Self.logger.debug("addYoutube: calling webhook for \"\(name, privacy: .public)\"")
-
-			let result = await YoutubeSourcesManager.shared.addYoutube(name: name, author: author)
-			Self.logger.debug("addYoutube: webhook result=\(String(describing: result), privacy: .public)")
-
-			if case .successExisting = result { SourcesRefreshManager.shared.forceRefresh() }
-			if case .successNew = result { SourcesRefreshManager.shared.forceRefresh() }
-
-			// Dismiss the loading alert before showing success/error UI.
-			await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-				loadingAlert.dismiss(animated: true) { cont.resume() }
-			}
-
-			switch result {
-			case .successExisting(let summaryURL):
-				// 201: channel already exists — cancel any stale bootstrap job for this URL
-				Self.logger.debug("addYoutube: successExisting summaryURL=\(summaryURL, privacy: .public)")
-				let existingYtFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
-				BootstrapProgressManager.shared.cancelBootstrap(feedURL: existingYtFeedURL)
-				self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL, skipLoadingIndicator: true) {
-					Self.logger.debug("addYoutube: successExisting addFeedDirectly completion called")
-					appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
-				}
-
-			case .successNew(let summaryURL, let message):
-				// Start bootstrap immediately on 202 — don't wait for addFeedDirectly completion.
-				Self.logger.debug("addYoutube: successNew summaryURL=\(summaryURL, privacy: .public) message=\(message, privacy: .public)")
-				let ytFeedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
-				BootstrapProgressManager.shared.startBootstrap(type: "yt", show: name, author: author ?? "", feedURL: ytFeedURL)
-				self.addFeedDirectly(urlString: summaryURL, category: .youtube, sourceName: name, sourceAuthor: author, validateFeed: false, summaryURL: summaryURL, skipLoadingIndicator: true) {
-					Self.logger.debug("addYoutube: successNew addFeedDirectly completion called")
-					self.showAddSourceSuccess(title: NSLocalizedString("Channel Added", comment: "Channel Added"), message: message) {}
-				}
-
-			case .failure(let message):
-				Self.logger.debug("addYoutube: failure message=\(message, privacy: .public)")
-				self.showAddSourceError(message: message)
-			}
-		}
+		let coordinator = AddSourceCoordinator(manager: YoutubeSourcesManager.shared, category: .youtube)
+		let successTitle = NSLocalizedString("Channel Added", comment: "Channel Added")
+		addWithWebhook(name: name, author: author, coordinator: coordinator, successTitle: successTitle)
 	}
 
 }
@@ -2449,44 +2047,78 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 			showAddSourceError(message: NSLocalizedString("You are already subscribed to this topic.", comment: "Already subscribed to topic"))
 			return
 		}
-		// Show loading indicator
-		let loadingAlert = UIAlertController(
-			title: nil,
-			message: NSLocalizedString("Searching for topic...", comment: "Searching for topic..."),
-			preferredStyle: .alert
-		)
-
-		let activityIndicator = UIActivityIndicatorView(style: .medium)
-		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
-		activityIndicator.startAnimating()
-		loadingAlert.view.addSubview(activityIndicator)
-
-		NSLayoutConstraint.activate([
-			activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
-			activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
-		])
-
-		present(loadingAlert, animated: true) {
-			Task {
-				let result = await NewsSourcesManager.shared.addNews(name: name, author: author)
-
-				loadingAlert.dismiss(animated: true) {
-					self.handleTopicResult(result, name: name, author: author)
-				}
-			}
-		}
+		let coordinator = AddSourceCoordinator(manager: NewsSourcesManager.shared, category: .news)
+		let loadingMessage = NSLocalizedString("Searching for topic...", comment: "Searching for topic...")
+		// News 202 never shows a success message — pass nil so the alert is skipped.
+		addWithWebhook(name: name, author: author, coordinator: coordinator, loadingMessage: loadingMessage, successTitle: nil)
 	}
 
-	private func handleTopicResult(_ result: AddNewsResult, name: String, author: String?) {
-		switch result {
-		case .successExisting(let summaryURL):
-			self.addFeedDirectly(urlString: summaryURL, category: .news, sourceName: name, sourceAuthor: author, summaryURL: summaryURL)
+	/// Shared implementation for webhook-based source additions (podcast, YouTube, news).
+	///
+	/// Shows a loading alert, calls the coordinator, then dismisses the alert and handles
+	/// the resulting state. `successTitle` controls whether a success alert is shown on 202;
+	/// pass `nil` to skip it (used for news topics that carry no server message).
+	private func addWithWebhook(
+		name: String,
+		author: String?,
+		coordinator: AddSourceCoordinator,
+		loadingMessage: String = NSLocalizedString("Adding...", comment: "Adding..."),
+		successTitle: String?
+	) {
+		let loadingAlert = buildLoadingAlert(message: loadingMessage)
+		let presenter = topMostPresentingViewController()
+		Self.logger.debug("addWithWebhook: presenting loadingAlert via \(type(of: presenter))")
+		presenter.present(loadingAlert, animated: true)
 
-		case .successNew(let summaryURL):
-			self.addFeedDirectly(urlString: summaryURL, category: .news, sourceName: name, sourceAuthor: author, summaryURL: summaryURL)
+		Task { @MainActor [weak self] in
+			guard let self else {
+				loadingAlert.dismiss(animated: false)
+				return
+			}
+			Self.logger.debug("addWithWebhook: calling webhook for \"\(name, privacy: .public)\" category=\(String(describing: coordinator.category), privacy: .public)")
 
-		case .failure(let message):
-			self.showAddSourceError(message: message)
+			await coordinator.add(name: name, author: author)
+
+			if case .existsOnServer = coordinator.state { SourcesRefreshManager.shared.forceRefresh() }
+			if case .newOnServer = coordinator.state { SourcesRefreshManager.shared.forceRefresh() }
+
+			await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+				loadingAlert.dismiss(animated: true) { cont.resume() }
+			}
+
+			let category = coordinator.category
+
+			switch coordinator.state {
+			case .existsOnServer(let summaryURL):
+				Self.logger.debug("addWithWebhook: existsOnServer summaryURL=\(summaryURL, privacy: .public)")
+				let feedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
+				BootstrapProgressManager.shared.cancelBootstrap(feedURL: feedURL)
+				self.addFeedDirectly(AddFeedRequest(urlString: summaryURL, category: category, name: name, author: author, validateFeed: false, summaryURL: summaryURL, skipLoadingIndicator: true)) {
+					Self.logger.debug("addWithWebhook: existsOnServer addFeedDirectly completion called")
+					appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
+				}
+
+			case .newOnServer(let summaryURL, let message):
+				Self.logger.debug("addWithWebhook: newOnServer summaryURL=\(summaryURL, privacy: .public) message=\(message, privacy: .public)")
+				let feedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
+				let bootstrapType = coordinator.bootstrapType
+				if !bootstrapType.isEmpty {
+					BootstrapProgressManager.shared.startBootstrap(type: bootstrapType, show: name, author: author ?? "", feedURL: feedURL)
+				}
+				self.addFeedDirectly(AddFeedRequest(urlString: summaryURL, category: category, name: name, author: author, validateFeed: false, summaryURL: summaryURL, skipLoadingIndicator: true)) {
+					Self.logger.debug("addWithWebhook: newOnServer addFeedDirectly completion called")
+					if let successTitle, !message.isEmpty {
+						self.showAddSourceSuccess(title: successTitle, message: message) {}
+					}
+				}
+
+			case .failed(let message):
+				Self.logger.debug("addWithWebhook: failed message=\(message, privacy: .public)")
+				self.showAddSourceError(message: message)
+
+			case .idle, .webhookPending:
+				break
+			}
 		}
 	}
 }
@@ -2526,7 +2158,7 @@ extension MainFeedCollectionViewController {
 			guard !account.hasFeed(withURL: feedURL.absoluteString) else { return }
 			await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
 				Task { @MainActor [self] in
-					addFeedDirectly(urlString: url, category: .podcast, sourceName: podSource?.name ?? "The Tim Ferriss Show", sourceAuthor: podSource?.author, sourceImageURL: podSource?.imageURL, sourceImageURLLight: podSource?.imageURLLight, validateFeed: false, summaryURL: url) {
+					addFeedDirectly(AddFeedRequest(urlString: url, category: .podcast, name: podSource?.name ?? "The Tim Ferriss Show", author: podSource?.author, imageURL: podSource?.imageURL, imageURLLight: podSource?.imageURLLight, validateFeed: false, summaryURL: url)) {
 						continuation.resume()
 					}
 				}
@@ -2537,67 +2169,3 @@ extension MainFeedCollectionViewController {
 	}
 }
 
-private final class RecentlyUpdatedFeedItemView: UIControl {
-	var payload: RecentlyUpdatedStripPayload?
-
-	private let iconImageView: UIImageView = {
-		let imageView = UIImageView()
-		imageView.translatesAutoresizingMaskIntoConstraints = false
-		imageView.contentMode = .scaleAspectFill
-		imageView.backgroundColor = Assets.Colors.foreground
-		imageView.layer.cornerRadius = 12
-		imageView.clipsToBounds = true
-		return imageView
-	}()
-
-	private let pressOverlayView: UIView = {
-		let view = UIView()
-		view.translatesAutoresizingMaskIntoConstraints = false
-		view.backgroundColor = Assets.Colors.primaryAccent.withAlphaComponent(1)
-		view.isUserInteractionEnabled = false
-		view.alpha = 0
-		return view
-	}()
-
-	override var isHighlighted: Bool {
-		didSet {
-			pressOverlayView.alpha = isHighlighted ? 1 : 0
-		}
-	}
-
-	override init(frame: CGRect) {
-		super.init(frame: frame)
-		addSubview(iconImageView)
-		iconImageView.addSubview(pressOverlayView)
-
-		NSLayoutConstraint.activate([
-			iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
-			iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-			iconImageView.widthAnchor.constraint(equalToConstant: 68),
-			iconImageView.heightAnchor.constraint(equalToConstant: 68),
-
-			pressOverlayView.leadingAnchor.constraint(equalTo: iconImageView.leadingAnchor),
-			pressOverlayView.trailingAnchor.constraint(equalTo: iconImageView.trailingAnchor),
-			pressOverlayView.topAnchor.constraint(equalTo: iconImageView.topAnchor),
-			pressOverlayView.bottomAnchor.constraint(equalTo: iconImageView.bottomAnchor)
-		])
-	}
-
-	@available(*, unavailable)
-	required init?(coder: NSCoder) {
-		fatalError("init(coder:) has not been implemented")
-	}
-
-	func setImage(_ image: UIImage?) {
-		iconImageView.image = image
-	}
-
-	func performTapFeedback(_ completion: @escaping () -> Void) {
-		pressOverlayView.alpha = 1
-		UIView.animate(withDuration: 0.08, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
-			self.pressOverlayView.alpha = 0
-		} completion: { _ in
-			completion()
-		}
-	}
-}

@@ -351,3 +351,16 @@ enum AddNewsResult {
 		}
 	}
 }
+
+// MARK: - WebhookSourcesManaging
+
+extension NewsSourcesManager: WebhookSourcesManaging {
+	func add(name: String, author: String?) async -> AddSourceResult {
+		switch await addNews(name: name, author: author) {
+		case .successExisting(let url): return .existsOnServer(summaryURL: url)
+		// News 202 carries no user-facing message — pass empty string.
+		case .successNew(let url): return .newOnServer(summaryURL: url, message: "")
+		case .failure(let msg): return .failure(message: msg)
+		}
+	}
+}
