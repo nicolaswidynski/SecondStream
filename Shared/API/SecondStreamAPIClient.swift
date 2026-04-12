@@ -131,16 +131,25 @@ private let apiClientLogger = Logger(subsystem: Bundle.main.bundleIdentifier!, c
 		body: [String: Any],
 		timeout: TimeInterval
 	) async throws -> (data: Data, statusCode: Int) {
-		guard let token = bearerToken else {
-			throw APIError.missingToken
-		}
-
 		var request = URLRequest(url: endpoint.url)
 		request.httpMethod = "POST"
 		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 		request.timeoutInterval = timeout
 		request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+		if endpoint == .manageUser {
+			// Account creation and reconnect use the shared bootstrap token.
+			guard let bootstrap = bootstrapToken else { throw APIError.missingToken }
+			request.setValue("Bearer \(bootstrap)", forHTTPHeaderField: "Authorization")
+			// Also send session token if available — server requires it on reconnect for users who already have one.
+			if let sessionToken = AuthManager.shared.sessionToken {
+				request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "authorization_uuid")
+			}
+		} else {
+			// All other webhooks use the per-user session token.
+			guard let sessionToken = AuthManager.shared.sessionToken else { throw APIError.missingToken }
+			request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "authorization_uuid")
+		}
 
 		let (data, response) = try await URLSession.shared.data(for: request)
 		let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -186,10 +195,11 @@ private let apiClientLogger = Logger(subsystem: Bundle.main.bundleIdentifier!, c
 
 	// MARK: - Token
 
-	private var bearerToken: String? {
+	/// Shared API key bundled with the app. Used only for `.manageUser` (account creation/reconnect).
+	private var bootstrapToken: String? {
 		guard let url = Bundle.main.url(forResource: "podcast_token", withExtension: "txt"),
 			  let token = try? String(contentsOf: url, encoding: .utf8) else {
-			apiClientLogger.error("Failed to load bearer token from podcast_token.txt")
+			apiClientLogger.error("Failed to load bootstrap token from podcast_token.txt")
 			return nil
 		}
 		return token.trimmingCharacters(in: .whitespacesAndNewlines)
