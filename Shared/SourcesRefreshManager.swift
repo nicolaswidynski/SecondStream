@@ -36,8 +36,8 @@ import os.log
 
 	/// Forces a refresh and awaits completion. Used by the landing page.
 	func forceRefreshAndWait() async {
-		async let podcastFetch: () = PodcastSourcesManager.shared.fetchFresh()
-		async let youtubeFetch: () = YoutubeSourcesManager.shared.fetchFresh()
+		async let podcastFetch: () = MediaSourcesManager.podcast.fetchFresh()
+		async let youtubeFetch: () = MediaSourcesManager.youtube.fetchFresh()
 		async let newsFetch: () = NewsSourcesManager.shared.fetchFresh()
 		async let rssFetch: () = RSSSourcesManager.shared.fetchFresh()
 		_ = await (podcastFetch, youtubeFetch, newsFetch, rssFetch)
@@ -53,8 +53,8 @@ import os.log
 		refreshTask = Task {
 			Self.logger.info("Starting sources refresh")
 
-			async let podcastFetch: () = PodcastSourcesManager.shared.fetchFresh()
-			async let youtubeFetch: () = YoutubeSourcesManager.shared.fetchFresh()
+			async let podcastFetch: () = MediaSourcesManager.podcast.fetchFresh()
+			async let youtubeFetch: () = MediaSourcesManager.youtube.fetchFresh()
 			async let newsFetch: () = NewsSourcesManager.shared.fetchFresh()
 			async let rssFetch: () = RSSSourcesManager.shared.fetchFresh()
 

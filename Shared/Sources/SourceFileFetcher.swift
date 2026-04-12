@@ -48,45 +48,36 @@ enum SourceFileFetcher {
 
 	/// Fetches entries from a static file, using Last-Modified to avoid redundant downloads.
 	/// Returns nil if the file has not changed since the last fetch.
-	static func fetchIfModified(fileName: String) async -> [SourceFileEntry]? {
+	@MainActor static func fetchIfModified(fileName: String) async -> [SourceFileEntry]? {
 		guard let url = URL(string: baseURL + fileName) else {
 			logger.error("Invalid file URL for \(fileName)")
 			return nil
 		}
 
 		let storedLastModified = await lastModifiedCache.value(for: fileName)
-
-		// HEAD request to check Last-Modified
-		var headRequest = URLRequest(url: url)
-		headRequest.httpMethod = "HEAD"
+		let client = SecondStreamAPIClient.shared
 
 		do {
-			let (_, headResponse) = try await URLSession.shared.data(for: headRequest)
-
-			guard let httpResponse = headResponse as? HTTPURLResponse,
-				  httpResponse.statusCode == 200 else {
+			// HEAD request to check Last-Modified
+			let (headStatus, headHeaders) = try await client.head(url)
+			guard headStatus == 200 else {
 				logger.error("HEAD request failed for \(fileName)")
 				return nil
 			}
 
-			let serverLastModified = httpResponse.value(forHTTPHeaderField: "Last-Modified")
-
+			let serverLastModified = headHeaders["Last-Modified"]
 			if let storedLastModified, let serverLastModified, storedLastModified == serverLastModified {
 				logger.info("File \(fileName) not modified, skipping download")
 				return nil
 			}
 
-			// Download the file
-			let (data, getResponse) = try await URLSession.shared.data(from: url)
-
-			guard let getHTTPResponse = getResponse as? HTTPURLResponse,
-				  getHTTPResponse.statusCode == 200 else {
+			let (data, getStatus, getHeaders) = try await client.get(from: url)
+			guard getStatus == 200 else {
 				logger.error("GET request failed for \(fileName)")
 				return nil
 			}
 
-			// Store the Last-Modified header
-			if let newLastModified = getHTTPResponse.value(forHTTPHeaderField: "Last-Modified") {
+			if let newLastModified = getHeaders["Last-Modified"] {
 				await lastModifiedCache.set(newLastModified, for: fileName)
 			}
 
@@ -98,22 +89,20 @@ enum SourceFileFetcher {
 	}
 
 	/// Force-fetches entries from a static file, ignoring Last-Modified cache.
-	static func fetch(fileName: String) async -> [SourceFileEntry]? {
+	@MainActor static func fetch(fileName: String) async -> [SourceFileEntry]? {
 		guard let url = URL(string: baseURL + fileName) else {
 			logger.error("Invalid file URL for \(fileName)")
 			return nil
 		}
 
 		do {
-			let (data, response) = try await URLSession.shared.data(from: url)
-
-			guard let httpResponse = response as? HTTPURLResponse,
-				  httpResponse.statusCode == 200 else {
+			let (data, statusCode, headers) = try await SecondStreamAPIClient.shared.get(from: url)
+			guard statusCode == 200 else {
 				logger.error("GET request failed for \(fileName)")
 				return nil
 			}
 
-			if let newLastModified = httpResponse.value(forHTTPHeaderField: "Last-Modified") {
+			if let newLastModified = headers["Last-Modified"] {
 				await lastModifiedCache.set(newLastModified, for: fileName)
 			}
 
@@ -163,7 +152,7 @@ enum SourceFileFetcher {
 		return nil
 	}
 
-	static func clearLastModifiedCache() async {
+	@MainActor static func clearLastModifiedCache() async {
 		let count = await lastModifiedCache.clear()
 		logger.info("Cleared \(count) SourceFileFetcher Last-Modified cache entries")
 	}

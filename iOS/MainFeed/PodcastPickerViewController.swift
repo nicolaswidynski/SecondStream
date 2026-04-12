@@ -1,26 +1,26 @@
 //
-//  PodcastPickerViewController.swift
+//  MediaPickerViewController.swift
 //  NetNewsWire
 //
-//  Created by Claude on 2026-01-23.
+//  Created by Nicolas Widynski on 2026-04-11.
 //  Copyright © 2026 Ranchero Software. All rights reserved.
 //
 
 import UIKit
 import os.log
 
-@MainActor protocol PodcastPickerDelegate: AnyObject {
-	func podcastPickerDidSelectPodcastName(_ picker: PodcastPickerViewController)
-	func podcastPicker(_ picker: PodcastPickerViewController, didEnterPodcastName name: String)
-	func podcastPicker(_ picker: PodcastPickerViewController, didSelectPodcast source: PodcastSource)
-	func podcastPickerDidCancel(_ picker: PodcastPickerViewController)
+@MainActor protocol MediaPickerDelegate: AnyObject {
+	func mediaPicker(_ picker: MediaPickerViewController, didSelectSource source: MediaSource)
+	func mediaPickerDidCancel(_ picker: MediaPickerViewController)
 }
 
-final class PodcastPickerViewController: UIViewController {
+final class MediaPickerViewController: UIViewController {
 
-	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "PodcastPicker")
+	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "MediaPicker")
 
-	weak var delegate: PodcastPickerDelegate?
+	/// The manager driving this picker instance (`.podcast` or `.youtube`).
+	let manager: MediaSourcesManager
+	weak var delegate: MediaPickerDelegate?
 
 	private var collectionView: UICollectionView!
 	private var dataSource: UICollectionViewDiffableDataSource<SourcePickerSection, SourcePickerItem>!
@@ -35,10 +35,21 @@ final class PodcastPickerViewController: UIViewController {
 	/// Item captured at touch-down in case the snapshot is reapplied before didSelectItemAt.
 	private var highlightedSelection: SourcePickerItem?
 
+	init(manager: MediaSourcesManager) {
+		self.manager = manager
+		super.init(nibName: nil, bundle: nil)
+	}
+
+	required init?(coder: NSCoder) {
+		fatalError("init(coder:) has not been implemented")
+	}
+
 	override func viewDidLoad() {
 		super.viewDidLoad()
 
-		title = NSLocalizedString("Add Podcast", comment: "Add Podcast")
+		title = manager.category == .podcast
+			? NSLocalizedString("Add Podcast", comment: "Add Podcast")
+			: NSLocalizedString("Add YouTube Channel", comment: "Add YouTube Channel")
 		view.backgroundColor = Assets.Colors.background
 
 		navigationItem.leftBarButtonItem = UIBarButtonItem(
@@ -105,6 +116,9 @@ final class PodcastPickerViewController: UIViewController {
 		searchController.searchResultsUpdater = self
 		searchController.searchBar.placeholder = NSLocalizedString("Search or add", comment: "Search or add")
 		searchController.searchBar.autocapitalizationType = .words
+		if manager.category == .youtube {
+			searchController.searchBar.autocorrectionType = .default
+		}
 		searchController.searchBar.searchBarStyle = .minimal
 		navigationItem.searchController = searchController
 		navigationItem.hidesSearchBarWhenScrolling = false
@@ -127,7 +141,7 @@ final class PodcastPickerViewController: UIViewController {
 	}
 
 	private func createLayout() -> UICollectionViewCompositionalLayout {
-		let layout = UICollectionViewCompositionalLayout { sectionIndex, environment in
+		UICollectionViewCompositionalLayout { _, _ in
 			let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0 / 3.0), heightDimension: .estimated(120))
 			let item = NSCollectionLayoutItem(layoutSize: itemSize)
 
@@ -147,24 +161,22 @@ final class PodcastPickerViewController: UIViewController {
 
 			return section
 		}
-		return layout
 	}
 
 	private func configureDataSource() {
+		let category = manager.category
 		dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { collectionView, indexPath, item in
 			guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: SourcePickerCell.reuseIdentifier, for: indexPath) as? SourcePickerCell else {
 				fatalError("Cannot dequeue SourcePickerCell")
 			}
 
 			switch item {
-			case .customEntryName:
-				cell.configure(name: NSLocalizedString("Add Podcast", comment: "Add Podcast"), imageURL: nil, isCustomEntry: true)
-			case .podcastSource(let source):
+			case .mediaSource(let source):
 				cell.configure(name: source.name, imageURL: source.imageURL, imageURLLight: source.imageURLLight)
 			case .findCandidate(let candidate):
 				cell.configureFindCandidate(name: candidate.name, artworkURL: candidate.artworkUrl)
 			case .findLoading:
-				cell.configureFindLoading(sourceType: .podcast)
+				cell.configureFindLoading(sourceType: category == .youtube ? .youtube : .podcast)
 			default:
 				break
 			}
@@ -208,11 +220,11 @@ final class PodcastPickerViewController: UIViewController {
 		let query = (searchController.searchBar.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 		var snapshot = NSDiffableDataSourceSnapshot<SourcePickerSection, SourcePickerItem>()
 
-		let topSources = PodcastSourcesManager.shared.podcastSources.sorted {
+		let topSources = manager.topSources.sorted {
 			$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
 		}
 		let topNames = Set(topSources.map { $0.name.lowercased() })
-		let librarySources = PodcastSourcesManager.shared.podcastLibrarySources
+		let librarySources = manager.librarySources
 			.filter { !topNames.contains($0.name.lowercased()) }
 			.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 
@@ -220,13 +232,11 @@ final class PodcastPickerViewController: UIViewController {
 			if !topSources.isEmpty {
 				let topPicks = SourcePickerSection.sources(NSLocalizedString("Free Picks", comment: "Free Picks"))
 				snapshot.appendSections([topPicks])
-				let items = topSources.map { SourcePickerItem.podcastSource($0) }
-				snapshot.appendItems(items, toSection: topPicks)
+				snapshot.appendItems(topSources.map { .mediaSource($0) }, toSection: topPicks)
 			}
 			if !librarySources.isEmpty {
 				snapshot.appendSections([.paidSources])
-				let items = librarySources.map { SourcePickerItem.podcastSource($0) }
-				snapshot.appendItems(items, toSection: .paidSources)
+				snapshot.appendItems(librarySources.map { .mediaSource($0) }, toSection: .paidSources)
 			}
 		} else {
 			let allSources = topSources + librarySources
@@ -236,7 +246,7 @@ final class PodcastPickerViewController: UIViewController {
 			}
 			let section = SourcePickerSection.sources(NSLocalizedString("Matches", comment: "Search matches"))
 			snapshot.appendSections([section])
-			snapshot.appendItems(matches.map { SourcePickerItem.podcastSource($0) }, toSection: section)
+			snapshot.appendItems(matches.map { .mediaSource($0) }, toSection: section)
 		}
 
 		if !currentFindItems.isEmpty {
@@ -250,7 +260,7 @@ final class PodcastPickerViewController: UIViewController {
 	// MARK: - Actions
 
 	@objc private func cancelTapped() {
-		delegate?.podcastPickerDidCancel(self)
+		delegate?.mediaPickerDidCancel(self)
 	}
 
 	@objc private func creditsDidUpdate() {
@@ -290,9 +300,7 @@ final class PodcastPickerViewController: UIViewController {
 	private func reloadItemsIfNeeded(forImageURL url: String) {
 		var snapshot = dataSource.snapshot()
 		let matchingItems = snapshot.itemIdentifiers.filter { item in
-			guard case .podcastSource(let source) = item else {
-				return false
-			}
+			guard case .mediaSource(let source) = item else { return false }
 			return source.imageURL == url
 		}
 		guard !matchingItems.isEmpty else {
@@ -305,7 +313,7 @@ final class PodcastPickerViewController: UIViewController {
 
 // MARK: - UICollectionViewDelegate
 
-extension PodcastPickerViewController: UICollectionViewDelegate {
+extension MediaPickerViewController: UICollectionViewDelegate {
 
 	func collectionView(_ collectionView: UICollectionView, shouldHighlightItemAt indexPath: IndexPath) -> Bool {
 		highlightedSelection = dataSource.itemIdentifier(for: indexPath)
@@ -328,11 +336,11 @@ extension PodcastPickerViewController: UICollectionViewDelegate {
 		guard let item else { return }
 
 		switch item {
-		case .podcastSource(let source):
-			delegate?.podcastPicker(self, didSelectPodcast: source)
+		case .mediaSource(let source):
+			delegate?.mediaPicker(self, didSelectSource: source)
 		case .findCandidate(let candidate):
-			let source = PodcastSource(name: candidate.name, author: candidate.author, url: "", imageURL: nil)
-			delegate?.podcastPicker(self, didSelectPodcast: source)
+			let source = MediaSource(name: candidate.name, author: candidate.author, url: "", imageURL: nil)
+			delegate?.mediaPicker(self, didSelectSource: source)
 		default:
 			break
 		}
@@ -341,7 +349,7 @@ extension PodcastPickerViewController: UICollectionViewDelegate {
 
 // MARK: - UISearchResultsUpdating
 
-extension PodcastPickerViewController: UISearchResultsUpdating {
+extension MediaPickerViewController: UISearchResultsUpdating {
 
 	func updateSearchResults(for searchController: UISearchController) {
 		let query = (searchController.searchBar.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -362,7 +370,7 @@ extension PodcastPickerViewController: UISearchResultsUpdating {
 			findTask = Task {
 				try? await Task.sleep(for: .milliseconds(500))
 				guard !Task.isCancelled else { return }
-				let result = await PodcastSourcesManager.shared.findPodcast(name: query)
+				let result = await self.manager.find(name: query)
 				guard !Task.isCancelled else { return }
 				if case .success(let candidates) = result, !candidates.isEmpty {
 					currentFindItems = candidates.map { .findCandidate($0) }
@@ -376,12 +384,12 @@ extension PodcastPickerViewController: UISearchResultsUpdating {
 		}
 	}
 
-	private func computeLocalMatches(query: String) -> [PodcastSource] {
-		let topSources = PodcastSourcesManager.shared.podcastSources.sorted {
+	private func computeLocalMatches(query: String) -> [MediaSource] {
+		let topSources = manager.topSources.sorted {
 			$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
 		}
 		let topNames = Set(topSources.map { $0.name.lowercased() })
-		let librarySources = PodcastSourcesManager.shared.podcastLibrarySources
+		let librarySources = manager.librarySources
 			.filter { !topNames.contains($0.name.lowercased()) }
 			.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 		return (topSources + librarySources).filter {

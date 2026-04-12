@@ -50,7 +50,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	/// The value is set to `true` in `viewWillAppear(_:)` if a feed is selected, and reset to `false` in
 	/// `viewDidAppear(_:)` after a delay to allow the deselection animation to complete.
 	private var isAnimating: Bool = false
-	private var isAddingDefaultSources = false
 
 
 
@@ -195,7 +194,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	func showPodcastPicker() {
-		let picker = PodcastPickerViewController()
+		let picker = MediaPickerViewController(manager: .podcast)
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
 		applyPickerNavigationBarAppearance(to: navController)
@@ -207,7 +206,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	func showYoutubePicker() {
-		let picker = YoutubePickerViewController()
+		let picker = MediaPickerViewController(manager: .youtube)
 		picker.delegate = self
 		let navController = UINavigationController(rootViewController: picker)
 		applyPickerNavigationBarAppearance(to: navController)
@@ -1169,7 +1168,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	private func showEnterPodcastNameDialog() {
 		var seen = Set<String>()
 		var items = [SourceSearchItem]()
-		for source in PodcastSourcesManager.shared.podcastSources + PodcastSourcesManager.shared.podcastLibrarySources {
+		for source in MediaSourcesManager.podcast.topSources + MediaSourcesManager.podcast.librarySources {
 			let key = source.name.lowercased()
 			if seen.insert(key).inserted {
 				items.append(SourceSearchItem(name: source.name, author: source.author))
@@ -1237,7 +1236,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			showAddSourceError(message: NSLocalizedString("You are already subscribed to this podcast.", comment: "Already subscribed to podcast"))
 			return
 		}
-		let coordinator = AddSourceCoordinator(manager: PodcastSourcesManager.shared, category: .podcast)
+		let coordinator = AddSourceCoordinator(manager: MediaSourcesManager.podcast, category: .podcast)
 		let successTitle = NSLocalizedString("Podcast Added", comment: "Podcast Added")
 		addWithWebhook(name: name, author: author, coordinator: coordinator, successTitle: successTitle)
 	}
@@ -1936,63 +1935,31 @@ extension MainFeedCollectionViewController: RSSPickerDelegate {
 	}
 }
 
-// MARK: - PodcastPickerDelegate
+// MARK: - MediaPickerDelegate
 
-extension MainFeedCollectionViewController: PodcastPickerDelegate {
+extension MainFeedCollectionViewController: MediaPickerDelegate {
 
-	func podcastPickerDidSelectPodcastName(_ picker: PodcastPickerViewController) {
+	func mediaPicker(_ picker: MediaPickerViewController, didSelectSource source: MediaSource) {
 		picker.navigationController?.dismiss(animated: true) {
-			self.showEnterPodcastNameDialog()
+			switch picker.manager.category {
+			case .podcast:
+				self.addPodcastWithWebhook(name: source.name, author: source.author)
+			case .youtube:
+				self.addYoutubeWithWebhook(name: source.name, author: source.author)
+			default:
+				break
+			}
 		}
 	}
 
-	func podcastPicker(_ picker: PodcastPickerViewController, didEnterPodcastName name: String) {
-		picker.navigationController?.dismiss(animated: true) {
-			self.addPodcastWithWebhook(name: name, author: nil)
-		}
-	}
-
-	func podcastPicker(_ picker: PodcastPickerViewController, didSelectPodcast source: PodcastSource) {
-		picker.navigationController?.dismiss(animated: true) {
-			self.addPodcastWithWebhook(name: source.name, author: source.author)
-		}
-	}
-
-	func podcastPickerDidCancel(_ picker: PodcastPickerViewController) {
+	func mediaPickerDidCancel(_ picker: MediaPickerViewController) {
 		picker.navigationController?.dismiss(animated: true)
-	}
-}
-
-// MARK: - YoutubePickerDelegate
-
-extension MainFeedCollectionViewController: YoutubePickerDelegate {
-
-	func youtubePickerDidSelectChannelName(_ picker: YoutubePickerViewController) {
-		picker.navigationController?.dismiss(animated: true) {
-			self.showEnterYoutubeChannelNameDialog()
-		}
-	}
-
-	func youtubePicker(_ picker: YoutubePickerViewController, didEnterChannelHandle handle: String) {
-		picker.navigationController?.dismiss(animated: true) {
-			self.addYoutubeWithWebhook(name: handle, author: nil)
-		}
-	}
-
-	func youtubePickerDidCancel(_ picker: YoutubePickerViewController) {
-		picker.navigationController?.dismiss(animated: true)
-	}
-
-	func youtubePicker(_ picker: YoutubePickerViewController, didSelectChannel source: YoutubeSource) {
-		picker.navigationController?.dismiss(animated: true) {
-			self.addYoutubeWithWebhook(name: source.name, author: source.author)
-		}
 	}
 
 	private func showEnterYoutubeChannelNameDialog() {
 		var seen = Set<String>()
 		var items = [SourceSearchItem]()
-		for source in YoutubeSourcesManager.shared.youtubeSources + YoutubeSourcesManager.shared.youtubeLibrarySources {
+		for source in MediaSourcesManager.youtube.topSources + MediaSourcesManager.youtube.librarySources {
 			let key = (source.author ?? source.name).lowercased()
 			if seen.insert(key).inserted {
 				items.append(SourceSearchItem(name: source.name, author: source.author))
@@ -2021,7 +1988,7 @@ extension MainFeedCollectionViewController: YoutubePickerDelegate {
 			showAddSourceError(message: NSLocalizedString("You are already subscribed to this channel.", comment: "Already subscribed to channel"))
 			return
 		}
-		let coordinator = AddSourceCoordinator(manager: YoutubeSourcesManager.shared, category: .youtube)
+		let coordinator = AddSourceCoordinator(manager: MediaSourcesManager.youtube, category: .youtube)
 		let successTitle = NSLocalizedString("Channel Added", comment: "Channel Added")
 		addWithWebhook(name: name, author: author, coordinator: coordinator, successTitle: successTitle)
 	}
@@ -2127,45 +2094,5 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 
 extension MainFeedCollectionViewController {
 
-	/// Subscribes to the four default sources after first account setup.
-	/// Mirrors the existing `addDiscoverSource` / `addFeedDirectly` flow exactly:
-	/// uses the library URL when available and non-empty, otherwise calls the webhook.
-	func addDefaultSourcesIfNeeded() {
-		guard !isAddingDefaultSources else { return }
-		isAddingDefaultSources = true
-
-		Task { @MainActor in
-			defer { isAddingDefaultSources = false }
-
-			guard let account = AccountManager.shared.activeAccounts.first else { return }
-
-			// Podcast: use library URL if non-empty, else call webhook
-			let allPod = PodcastSourcesManager.shared.podcastSources + PodcastSourcesManager.shared.podcastLibrarySources
-			let podSource = allPod.first(where: { $0.name.localizedCaseInsensitiveContains("Tim Ferriss") })
-			let podURL: String?
-			if let s = podSource, !s.url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-				podURL = s.url
-			} else {
-				let result = await PodcastSourcesManager.shared.addPodcast(name: "The Tim Ferriss Show")
-				switch result {
-				case .successExisting(let url), .successNew(let url, _): podURL = url
-				case .failure: podURL = nil
-				}
-			}
-			guard let url = podURL else { return }
-			let normalizedURL = url.normalizedURL
-			guard !normalizedURL.isEmpty, let feedURL = URL(string: normalizedURL) else { return }
-			guard !account.hasFeed(withURL: feedURL.absoluteString) else { return }
-			await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-				Task { @MainActor [self] in
-					addFeedDirectly(AddFeedRequest(urlString: url, category: .podcast, name: podSource?.name ?? "The Tim Ferriss Show", author: podSource?.author, imageURL: podSource?.imageURL, imageURLLight: podSource?.imageURLLight, validateFeed: false, summaryURL: url)) {
-						continuation.resume()
-					}
-				}
-			}
-
-			appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))
-		}
-	}
 }
 

@@ -29,7 +29,7 @@ enum AddNewsResult {
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "NewsSources")
 
-	private let allFeedRequestsURL = URL(string: "https://n8n.nwidynski.com/webhook/all-feed-requests")!
+	private let client = SecondStreamAPIClient.shared
 
 	private static let fileNames = ["topic.json", "topics.json"]
 
@@ -78,17 +78,6 @@ enum AddNewsResult {
 				UserDefaults.standard.set(data, forKey: newsSourcesKey)
 			}
 		}
-	}
-
-	// MARK: - Token
-
-	private var bearerToken: String? {
-		guard let tokenURL = Bundle.main.url(forResource: "podcast_token", withExtension: "txt"),
-			  let token = try? String(contentsOf: tokenURL, encoding: .utf8) else {
-			Self.logger.error("Failed to load token from file")
-			return nil
-		}
-		return token.trimmingCharacters(in: .whitespacesAndNewlines)
 	}
 
 	// MARK: - API
@@ -268,18 +257,7 @@ enum AddNewsResult {
 	}
 
 	private func sendAddNewsRequest(show: String, author: String) async -> AddNewsResult {
-		guard let token = bearerToken else {
-			Self.logger.error("No bearer token available")
-			return .failure(message: "No authentication token")
-		}
-
-		var request = URLRequest(url: allFeedRequestsURL)
-		request.httpMethod = "POST"
-		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
 		let requestID = UUID().uuidString
-		let feedsForUpdate = FeedStatsManager.shared.buildFeedsForUpdate()
 		let body: [String: Any] = [
 			"operation":        "add-show",
 			"type":             "topics",
@@ -287,31 +265,17 @@ enum AddNewsResult {
 			"author":           author,
 			"apple_user_id":    AuthManager.shared.appleUserID ?? "",
 			"request_id":       requestID,
-			"feeds_for_update": feedsForUpdate
+			"feeds_for_update": FeedStatsManager.shared.buildFeedsForUpdate()
 		]
 
 		do {
-			request.httpBody = try JSONSerialization.data(withJSONObject: body)
-		} catch {
-			Self.logger.error("Failed to encode request body")
-			return .failure(message: "Failed to encode request")
-		}
-
-		do {
-			let (data, response) = try await URLSession.shared.data(for: request)
-
-			guard let httpResponse = response as? HTTPURLResponse else {
-				Self.logger.error("Invalid response type")
-				return .failure(message: "Invalid response")
-			}
-
+			let (data, statusCode) = try await client.post(to: .allFeedRequests, body: body)
 			let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
 			let serverMessage = json?["message"] as? String
 			lastServerMessage = serverMessage
 			if let echoed = json?["request_id"] as? String, echoed != requestID {
 				Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
 			}
-			let statusCode = httpResponse.statusCode
 
 			if let json, let credits = FeedStatsManager.parseCredits(json) {
 				FeedStatsManager.shared.cachedCredits = credits

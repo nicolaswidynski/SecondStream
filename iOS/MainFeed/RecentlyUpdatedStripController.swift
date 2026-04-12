@@ -270,10 +270,10 @@ enum RecentlyUpdatedStripPayload {
 	func buildDiscoverSourceItems() -> [DiscoverSourceItem] {
 		var items = [DiscoverSourceItem]()
 
-		for source in Array(PodcastSourcesManager.shared.podcastSources.shuffled().prefix(2)) {
+		for source in Array(MediaSourcesManager.podcast.topSources.shuffled().prefix(2)) {
 			items.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, imageURLLight: source.imageURLLight, category: .podcast))
 		}
-		for source in Array(YoutubeSourcesManager.shared.youtubeSources.shuffled().prefix(2)) {
+		for source in Array(MediaSourcesManager.youtube.topSources.shuffled().prefix(2)) {
 			items.append(DiscoverSourceItem(name: source.name, author: source.author, url: source.url, imageURL: source.imageURL, imageURLLight: source.imageURLLight, category: .youtube))
 		}
 		for source in Array(NewsSourcesManager.shared.newsSources.shuffled().prefix(2)) {

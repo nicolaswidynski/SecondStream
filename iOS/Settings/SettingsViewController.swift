@@ -596,7 +596,7 @@ final class SettingsViewController: UITableViewController {
 				  let sceneDelegate = windowScene.delegate as? SceneDelegate else {
 				return
 			}
-			sceneDelegate.presentLandingPage(reason: .debug)
+			sceneDelegate.presentOnboarding(isDebug: true)
 		}
 	}
 
@@ -1019,10 +1019,10 @@ private extension SettingsViewController {
 				Task {
 					await SourceFileFetcher.clearLastModifiedCache()
 				}
-				PodcastSourcesManager.shared.podcastSources = []
-				PodcastSourcesManager.shared.podcastLibrarySources = []
-				YoutubeSourcesManager.shared.youtubeSources = []
-				YoutubeSourcesManager.shared.youtubeLibrarySources = []
+				MediaSourcesManager.podcast.topSources = []
+				MediaSourcesManager.podcast.librarySources = []
+				MediaSourcesManager.youtube.topSources = []
+				MediaSourcesManager.youtube.librarySources = []
 				NewsSourcesManager.shared.newsSources = []
 				RSSSourcesManager.shared.rssSources = []
 

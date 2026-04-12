@@ -23,7 +23,7 @@ import os.log
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "FeedStats")
 
-	private let allFeedRequestsURL = URL(string: "https://n8n.nwidynski.com/webhook/all-feed-requests")!
+	private let client = SecondStreamAPIClient.shared
 	private let outboxKey = "feedStats_deletionOutbox"
 	private let creditsKey = "feedStats_cachedCredits"
 	private var isDrainingOutbox = false
@@ -90,17 +90,6 @@ import os.log
 		return String(data: data, encoding: .utf8) ?? "Unknown error"
 	}
 
-	// MARK: - Bearer token
-
-	private var bearerToken: String? {
-		guard let tokenURL = Bundle.main.url(forResource: "podcast_token", withExtension: "txt"),
-			  let token = try? String(contentsOf: tokenURL, encoding: .utf8) else {
-			Self.logger.error("Failed to load bearer token from file")
-			return nil
-		}
-		return token.trimmingCharacters(in: .whitespacesAndNewlines)
-	}
-
 	// MARK: - Type mapping
 
 	private func typeString(for category: FeedCategory) -> String {
@@ -110,6 +99,52 @@ import os.log
 		case .rss: return "rss"
 		case .news: return "topics"
 		}
+	}
+
+	// MARK: - Get user feeds
+
+	/// POSTs `get-user-feeds` and returns the user's server-side subscriptions grouped by category.
+	///
+	/// - Throws: `FeedStatsError` on network failure, bad status, or a server-level error.
+	func getUserFeeds() async throws -> [FeedCategory: [String]] {
+		let appleUserID = AuthManager.shared.appleUserID ?? ""
+		guard !appleUserID.isEmpty else {
+			throw FeedStatsError.invalidResponse
+		}
+
+		let (data, statusCode): (Data, Int)
+		do {
+			(data, statusCode) = try await client.post(to: .allFeedRequests, body: [
+				"operation":     "get-user-feeds",
+				"apple_user_id": appleUserID,
+				"request_id":    UUID().uuidString
+			])
+		} catch {
+			throw FeedStatsError.serverError(statusCode: 0, body: error.localizedDescription)
+		}
+		let rawResponse = String(data: data, encoding: .utf8) ?? "<binary>"
+		Self.logger.debug("get-user-feeds HTTP \(statusCode, privacy: .public) — \(rawResponse, privacy: .public)")
+
+		let decoded = try JSONDecoder().decode(GetUserFeedsResponse.self, from: data)
+
+		guard statusCode == 200 else {
+			let message = decoded.message ?? "An unknown server error occurred (HTTP \(statusCode))."
+			Self.logger.error("get-user-feeds failed: \(message, privacy: .public)")
+			throw FeedStatsError.serverError(statusCode: statusCode, body: message)
+		}
+
+		func parseURLs(_ raw: String?) -> [String] {
+			guard let raw, !raw.isEmpty else { return [] }
+			return raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+		}
+
+		let result: [FeedCategory: [String]] = [
+			.podcast: parseURLs(decoded.summaryURLsPod),
+			.youtube:  parseURLs(decoded.summaryURLsYT),
+			.news:     parseURLs(decoded.summaryURLsTopics)
+		]
+		Self.logger.debug("get-user-feeds parsed — pod: \(result[.podcast]?.count ?? 0, privacy: .public), yt: \(result[.youtube]?.count ?? 0, privacy: .public), topics: \(result[.news]?.count ?? 0, privacy: .public)")
+		return result
 	}
 
 	// MARK: - Credits
@@ -156,8 +191,8 @@ import os.log
 		}
 
 		// Use the already-cached free source lists — no network call needed
-		let podFreeNames = Set(PodcastSourcesManager.shared.podcastSources.map { $0.name.lowercased() })
-		let ytFreeNames  = Set(YoutubeSourcesManager.shared.youtubeSources.map { $0.name.lowercased() })
+		let podFreeNames = Set(MediaSourcesManager.podcast.topSources.map { $0.name.lowercased() })
+		let ytFreeNames  = Set(MediaSourcesManager.youtube.topSources.map { $0.name.lowercased() })
 
 		let podFreeCount = podSources.filter { podFreeNames.contains($0.lowercased()) }.count
 		let ytFreeCount  = ytSources.filter  { ytFreeNames.contains($0.lowercased()) }.count
@@ -198,47 +233,27 @@ import os.log
 		show: String? = nil,
 		author: String? = nil
 	) async -> Int? {
-		guard let token = bearerToken else {
-			Self.logger.error("sendRequest: no bearer token")
-			return nil
-		}
 		let appleUserID = AuthManager.shared.appleUserID ?? ""
-		guard !appleUserID.isEmpty else {
-			return nil
-		}
+		guard !appleUserID.isEmpty else { return nil }
 
-		let feedsForUpdate = buildFeedsForUpdate()
 		let requestID = UUID().uuidString
-
 		var body: [String: Any] = [
 			"apple_user_id":    appleUserID,
 			"request_id":       requestID,
 			"operation":        operation,
-			"feeds_for_update": feedsForUpdate
+			"feeds_for_update": buildFeedsForUpdate()
 		]
 		if let type   { body["type"]   = type }
 		if let show   { body["show"]   = show }
 		if let author { body["author"] = author }
 
-		var request = URLRequest(url: allFeedRequestsURL)
-		request.httpMethod = "POST"
-		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
 		do {
-			request.httpBody = try JSONSerialization.data(withJSONObject: body)
-			let (data, response) = try await URLSession.shared.data(for: request)
-
-			guard let httpResponse = response as? HTTPURLResponse else {
-				Self.logger.error("all-feed-requests \(operation) — non-HTTP response")
-				return nil
-			}
-			guard (200...299).contains(httpResponse.statusCode) else {
+			let (data, statusCode) = try await client.post(to: .allFeedRequests, body: body)
+			guard (200...299).contains(statusCode) else {
 				let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
-				Self.logger.error("all-feed-requests \(operation) failed [\(httpResponse.statusCode, privacy: .public)]: \(rawBody, privacy: .public)")
+				Self.logger.error("all-feed-requests \(operation) failed [\(statusCode, privacy: .public)]: \(rawBody, privacy: .public)")
 				return nil
 			}
-
 			let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
 			if let echoed = json?["request_id"] as? String, echoed != requestID {
 				Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
@@ -409,6 +424,24 @@ enum FeedStatsError: LocalizedError {
 		case .serverError(_, let body):
 			return body
 		}
+	}
+}
+
+// MARK: - Response models
+
+private struct GetUserFeedsResponse: Decodable {
+	let status: String
+	let message: String?
+	let summaryURLsPod: String?
+	let summaryURLsYT: String?
+	let summaryURLsTopics: String?
+
+	enum CodingKeys: String, CodingKey {
+		case status
+		case message
+		case summaryURLsPod    = "summary_urls_pod"
+		case summaryURLsYT     = "summary_urls_yt"
+		case summaryURLsTopics = "summary_urls_topics"
 	}
 }
 

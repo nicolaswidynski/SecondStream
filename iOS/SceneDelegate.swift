@@ -10,6 +10,7 @@ import UIKit
 import UserNotifications
 import Account
 import AuthenticationServices
+import RSCore
 import os
 
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
@@ -37,9 +38,22 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		updateUserInterfaceStyle()
 
 		if !AuthManager.shared.isConnected {
-			presentRegistration()
+			if AppDefaults.shared.shouldShowLandingPage {
+				presentOnboarding()
+			} else {
+				presentRegistration()
+			}
 		} else if AppDefaults.shared.shouldShowLandingPage {
 			presentLandingPage()
+		} else {
+			Task {
+				guard let missing = try? await SubscriptionSyncManager.shared.detectMissingFeeds() else { return }
+				if missing.isEmpty {
+					await FeedStatsManager.shared.fetchCreditsIfNeeded()
+				} else {
+					presentSourceRestore(missing)
+				}
+			}
 		}
 
 		NotificationCenter.default.addObserver(self, selector: #selector(handleUserInterfaceColorPaletteDidUpdate(_:)), name: .userInterfaceColorPaletteDidUpdate, object: AppDefaults.self)
@@ -254,12 +268,62 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 			landingVC.reason = reason
 			landingVC.modalPresentationStyle = .fullScreen
 			landingVC.isModalInPresentation = true
-			if reason == .debug || reason == .newAccount {
-				landingVC.onReady = { [weak self] in
-					self?.coordinator.addDefaultSourcesIfNeeded()
+			self.window?.rootViewController?.present(landingVC, animated: true)
+		}
+	}
+
+	func presentSourceRestore(_ feeds: [MissingFeed]) {
+		DispatchQueue.main.async {
+			let restoreVC = SourceRestoreViewController(feeds: feeds)
+			restoreVC.modalPresentationStyle = .fullScreen
+			restoreVC.isModalInPresentation = true
+			restoreVC.onComplete = { [weak self] in
+				self?.window?.rootViewController?.dismiss(animated: true) {
+					guard let rootVC = self?.window?.rootViewController else { return }
+					appDelegate.manualRefresh(errorHandler: ErrorHandler.present(rootVC))
 				}
 			}
-			self.window?.rootViewController?.present(landingVC, animated: true)
+			self.window?.rootViewController?.present(restoreVC, animated: true)
+		}
+	}
+
+	func presentOnboarding(isDebug: Bool = false) {
+		DispatchQueue.main.async {
+			let onboardingVC = OnboardingViewController(isDebug: isDebug)
+			onboardingVC.modalPresentationStyle = .fullScreen
+			onboardingVC.isModalInPresentation = true
+			onboardingVC.onComplete = { [weak self] requests in
+				self?.addOnboardingFeeds(requests)
+			}
+			self.window?.rootViewController?.present(onboardingVC, animated: false)
+		}
+	}
+
+	private func addOnboardingFeeds(_ requests: [AddFeedRequest]) {
+		guard let account = AccountManager.shared.activeAccounts.first else { return }
+		Task { @MainActor in
+			BatchUpdate.shared.start()
+			for request in requests {
+				let normalized = request.urlString.normalizedURL
+				guard !normalized.isEmpty, let feedURL = URL(string: normalized) else { continue }
+				guard !account.hasFeed(withURL: feedURL.absoluteString) else { continue }
+				await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+					account.createFeed(url: feedURL.absoluteString, name: request.name, container: account, validateFeed: false) { result in
+						if case .success(let feed) = result {
+							feed.feedCategory = request.category
+							if let lightURL = request.imageURLLight {
+								LightFeedIconStore.shared.setLightIconURL(lightURL, for: feed.url)
+							}
+							NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
+						}
+						continuation.resume()
+					}
+				}
+			}
+			BatchUpdate.shared.end()
+			if let rootVC = self.window?.rootViewController {
+				appDelegate.manualRefresh(errorHandler: ErrorHandler.present(rootVC))
+			}
 		}
 	}
 }

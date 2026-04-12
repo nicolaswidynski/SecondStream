@@ -23,7 +23,7 @@ enum AddSourceResult {
 
 /// Common interface for managers that add sources via a server-side webhook.
 ///
-/// Conformers: `PodcastSourcesManager`, `YoutubeSourcesManager`, `NewsSourcesManager`.
+/// Conformers: `MediaSourcesManager` (.podcast and .youtube), `NewsSourcesManager`.
 /// `RSSSourcesManager` is excluded because RSS subscriptions use a direct URL and never
 /// call a webhook.
 @MainActor protocol WebhookSourcesManaging: AnyObject {

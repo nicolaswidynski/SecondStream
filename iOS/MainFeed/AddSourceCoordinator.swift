@@ -15,7 +15,7 @@ import Account
 ///
 /// Usage:
 /// ```swift
-/// let coordinator = AddSourceCoordinator(manager: PodcastSourcesManager.shared, category: .podcast)
+/// let coordinator = AddSourceCoordinator(manager: MediaSourcesManager.podcast, category: .podcast)
 /// await coordinator.add(name: name, author: author)
 /// // read coordinator.state for the outcome
 /// ```

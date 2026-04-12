@@ -183,13 +183,13 @@ final class LeftSideMenuViewController: UIViewController {
 	}
 
 	private func updateCredits() {
-		if let credits = FeedStatsManager.shared.cachedCredits {
-			creditsLabel.text = "\(credits) remaining credits"
-			creditsInfoButton.isHidden = false
-		} else {
-			creditsLabel.text = nil
-			creditsInfoButton.isHidden = true
+		guard let credits = FeedStatsManager.shared.cachedCredits else {
+			creditsRowStack.isHidden = true
+			return
 		}
+		creditsRowStack.isHidden = false
+		creditsLabel.text = "\(credits) remaining credits"
+		creditsInfoButton.isHidden = false
 	}
 
 	@MainActor
