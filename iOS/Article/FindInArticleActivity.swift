@@ -14,7 +14,7 @@ final class FindInArticleActivity: UIActivity {
 	}
 
 	override var activityType: UIActivity.ActivityType? {
-		UIActivity.ActivityType(rawValue: "com.ranchero.NetNewsWire.find")
+		UIActivity.ActivityType(rawValue: "com.stdn.SecondStream.find")
 	}
 
 	override var activityImage: UIImage? {

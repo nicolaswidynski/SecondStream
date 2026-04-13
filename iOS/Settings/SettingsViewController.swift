@@ -355,15 +355,7 @@ final class SettingsViewController: UITableViewController {
 			UIApplication.shared.open(URL(string: "\(UIApplication.openSettingsURLString)")!)
 			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
 		case 1:
-			let sortedAccounts = AccountManager.shared.sortedAccounts
-			if indexPath.row == sortedAccounts.count {
-				let controller = UIStoryboard.settings.instantiateController(ofType: AddAccountViewController.self)
-				self.navigationController?.pushViewController(controller, animated: true)
-			} else {
-				let controller = UIStoryboard.inspector.instantiateController(ofType: AccountInspectorViewController.self)
-				controller.account = sortedAccounts[indexPath.row]
-				self.navigationController?.pushViewController(controller, animated: true)
-			}
+			break
 		case 2:
 			switch indexPath.row {
 			case 0:

@@ -68,7 +68,9 @@ enum SourceFileFetcher {
 
 		private func persist() {
 			if let data = try? JSONEncoder().encode(values) {
-				UserDefaults.standard.set(data, forKey: defaultsKey)
+				Task { @MainActor in
+					UserDefaults.standard.set(data, forKey: defaultsKey)
+				}
 			}
 		}
 	}

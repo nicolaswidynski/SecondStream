@@ -112,6 +112,11 @@ private let apiClientLogger = Logger(subsystem: Bundle.main.bundleIdentifier!, c
 			return try await performPost(to: .allFeedRequests, body: body, timeout: timeout)
 		}
 
+		// del-show: fire immediately, independent of the add-show queue.
+		if operation == "del-show" {
+			return try await performPost(to: .allFeedRequests, body: body, timeout: timeout)
+		}
+
 		// add-show: serialize behind any currently queued add.
 		pendingAddCount += 1
 		let previous = allFeedRequestsTail

@@ -10,6 +10,10 @@ import UIKit
 import RSCore
 import Account
 
+protocol AddAccountDismissDelegate: UIViewController {
+	func dismiss()
+}
+
 final class LocalAccountViewController: UITableViewController {
 
 	@IBOutlet var nameTextField: UITextField!

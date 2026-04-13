@@ -317,13 +317,12 @@ extension MediaSourcesManager: WebhookSourcesManaging {
 
 		let requestID = UUID().uuidString
 		let body: [String: Any] = [
-			"operation":        "add-show",
-			"type":             typeString,
-			"show":             effectiveShow,
-			"author":           effectiveAuthor,
-			"apple_user_id":    AuthManager.shared.appleUserID ?? "",
-			"request_id":       requestID,
-			"feeds_for_update": FeedStatsManager.shared.buildFeedsForUpdate()
+			"operation":     "add-show",
+			"type":          typeString,
+			"show":          effectiveShow,
+			"author":        effectiveAuthor,
+			"apple_user_id": AuthManager.shared.appleUserID ?? "",
+			"request_id":    requestID
 		]
 
 		do {

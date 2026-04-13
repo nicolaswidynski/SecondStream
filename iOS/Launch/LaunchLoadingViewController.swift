@@ -22,31 +22,40 @@ final class LaunchLoadingViewController: UIViewController {
 		return label
 	}()
 
-	private let activityIndicator: UIActivityIndicatorView = {
-		let indicator = UIActivityIndicatorView(style: .medium)
-		indicator.translatesAutoresizingMaskIntoConstraints = false
-		return indicator
+	private let underlineView: UIView = {
+		let view = UIView()
+		view.backgroundColor = .label
+		view.translatesAutoresizingMaskIntoConstraints = false
+		return view
 	}()
+
+	private var underlineWidthConstraint: NSLayoutConstraint!
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
 		view.backgroundColor = Assets.Colors.background
 		view.addSubview(titleLabel)
-		view.addSubview(activityIndicator)
+		view.addSubview(underlineView)
+
+		underlineWidthConstraint = underlineView.widthAnchor.constraint(equalToConstant: 0)
 
 		NSLayoutConstraint.activate([
 			titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-			titleLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -20),
+			titleLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -40),
 
-			activityIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-			activityIndicator.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
+			underlineView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+			underlineView.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+			underlineView.heightAnchor.constraint(equalToConstant: 2),
+			underlineWidthConstraint,
 		])
-
-		activityIndicator.startAnimating()
 	}
 
 	override func viewDidAppear(_ animated: Bool) {
 		super.viewDidAppear(animated)
+		underlineWidthConstraint.constant = titleLabel.bounds.width
+		UIView.animate(withDuration: 1.0, delay: 0, options: .curveEaseInOut) {
+			self.view.layoutIfNeeded()
+		}
 		Task { await load() }
 	}
 

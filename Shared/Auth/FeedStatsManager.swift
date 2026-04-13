@@ -225,8 +225,8 @@ import os.log
 	/// POSTs to `all-feed-requests` and returns the `nb_credits` value from the
 	/// response, or `nil` on any failure.
 	///
-	/// Always includes `feeds_for_update` as required by the API contract.
-	/// Pass `type`, `show`, and `author` for `add-show` operations.
+	/// Includes `feeds_for_update` only for `update-user-stats`.
+	/// Pass `type`, `show`, and `author` for `del-show` operations.
 	func sendRequest(
 		operation: String,
 		type: String? = nil,
@@ -238,11 +238,13 @@ import os.log
 
 		let requestID = UUID().uuidString
 		var body: [String: Any] = [
-			"apple_user_id":    appleUserID,
-			"request_id":       requestID,
-			"operation":        operation,
-			"feeds_for_update": buildFeedsForUpdate()
+			"apple_user_id": appleUserID,
+			"request_id":    requestID,
+			"operation":     operation,
 		]
+		if operation == "update-user-stats" {
+			body["feeds_for_update"] = buildFeedsForUpdate()
+		}
 		if let type   { body["type"]   = type }
 		if let show   { body["show"]   = show }
 		if let author { body["author"] = author }
@@ -329,9 +331,8 @@ import os.log
 		Self.logger.info("Queued delete for \(name) — will drain on next ChildrenDidChange")
 	}
 
-	/// Attempts to send a stats update for all queued delete events.
-	/// Sends a single `update-user-stats` call (current subscription snapshot)
-	/// and clears all pending records on success.
+	/// Attempts to send a `del-show` for each queued delete event.
+	/// Clears each record from the outbox on success.
 	func drainOutbox() async {
 		guard !isDrainingOutbox else {
 			return
@@ -348,10 +349,18 @@ import os.log
 			return
 		}
 
-		if let credits = await sendRequest(operation: "update-user-stats") {
-			cachedCredits = credits
-			saveOutbox([])
-			Self.logger.info("Drained \(outbox.count) pending delete(s)")
+		var remaining = outbox
+		for record in outbox {
+			let credits = await sendRequest(
+				operation: "del-show",
+				type: record.type,
+				show: record.show,
+				author: record.author.isEmpty ? nil : record.author
+			)
+			if let credits { cachedCredits = credits }
+			remaining.removeFirst()
+			saveOutbox(remaining)
+			Self.logger.info("del-show sent for \(record.show) — \(remaining.count) remaining")
 		}
 	}
 

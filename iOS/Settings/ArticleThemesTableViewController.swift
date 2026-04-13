@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 import UIKit
 
 extension UTType {
-	static var netNewsWireTheme: UTType { UTType(importedAs: "com.ranchero.netnewswire.theme") }
+	static var netNewsWireTheme: UTType { UTType(importedAs: "com.stdn.secondstream.theme") }
 }
 
 final class ArticleThemesTableViewController: UITableViewController {

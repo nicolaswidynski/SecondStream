@@ -35,17 +35,6 @@ nonisolated public enum AccountType: Int, Codable, Sendable {
 	// Raw values should not change since they’re stored on disk.
 	case onMyMac = 1
 	case cloudKit = 2
-	case feedly = 16
-	case feedbin = 17
-	case newsBlur = 19
-	case freshRSS = 20
-	case inoreader = 21
-	case bazQux = 22
-	case theOldReader = 23
-
-	public var isDeveloperRestricted: Bool {
-		return self == .cloudKit || self == .feedbin || self == .feedly || self == .inoreader
-	}
 }
 
 public enum FetchType {
@@ -252,20 +241,6 @@ public enum FetchType {
 			self.delegate = LocalAccountDelegate()
 		case .cloudKit:
 			self.delegate = CloudKitAccountDelegate(dataFolder: dataFolder)
-		case .feedbin:
-			self.delegate = FeedbinAccountDelegate(dataFolder: dataFolder, transport: transport)
-		case .feedly:
-			self.delegate = FeedlyAccountDelegate(dataFolder: dataFolder, transport: transport, api: FeedlyAccountDelegate.environment)
-		case .newsBlur:
-			self.delegate = NewsBlurAccountDelegate(dataFolder: dataFolder, transport: transport)
-		case .freshRSS:
-			self.delegate = ReaderAPIAccountDelegate(dataFolder: dataFolder, transport: transport, variant: .freshRSS)
-		case .inoreader:
-			self.delegate = ReaderAPIAccountDelegate(dataFolder: dataFolder, transport: transport, variant: .inoreader)
-		case .bazQux:
-			self.delegate = ReaderAPIAccountDelegate(dataFolder: dataFolder, transport: transport, variant: .bazQux)
-		case .theOldReader:
-			self.delegate = ReaderAPIAccountDelegate(dataFolder: dataFolder, transport: transport, variant: .theOldReader)
 		}
 
 		self.delegate.accountMetadata = metadata
@@ -283,20 +258,6 @@ public enum FetchType {
 			defaultName = Account.defaultLocalAccountName
 		case .cloudKit:
 			defaultName = NSLocalizedString("iCloud", comment: "iCloud")
-		case .feedly:
-			defaultName = NSLocalizedString("Feedly", comment: "Feedly")
-		case .feedbin:
-			defaultName = NSLocalizedString("Feedbin", comment: "Feedbin")
-		case .newsBlur:
-			defaultName = NSLocalizedString("NewsBlur", comment: "NewsBlur")
-		case .freshRSS:
-			defaultName = NSLocalizedString("FreshRSS", comment: "FreshRSS")
-		case .inoreader:
-			defaultName = NSLocalizedString("Inoreader", comment: "Inoreader")
-		case .bazQux:
-			defaultName = NSLocalizedString("BazQux", comment: "BazQux")
-		case .theOldReader:
-			defaultName = NSLocalizedString("The Old Reader", comment: "The Old Reader")
 		}
 
 		NotificationCenter.default.addObserver(self, selector: #selector(progressInfoDidChange(_:)), name: .progressInfoDidChange, object: delegate)
@@ -345,57 +306,6 @@ public enum FetchType {
 			return
 		}
 		try CredentialsManager.removeCredentials(type: type, server: server, username: username)
-	}
-
-	public static func validateCredentials(transport: Transport = URLSession.webserviceTransport(), type: AccountType, credentials: Credentials, endpoint: URL? = nil) async throws -> Credentials? {
-		switch type {
-		case .feedbin:
-			return try await FeedbinAccountDelegate.validateCredentials(transport: transport, credentials: credentials, endpoint: endpoint)
-		case .newsBlur:
-			return try await NewsBlurAccountDelegate.validateCredentials(transport: transport, credentials: credentials, endpoint: endpoint)
-		case .freshRSS, .inoreader, .bazQux, .theOldReader:
-			return try await ReaderAPIAccountDelegate.validateCredentials(transport: transport, credentials: credentials, endpoint: endpoint)
-		default:
-			return nil
-		}
-	}
-
-	nonisolated internal static func oauthAuthorizationClient(for type: AccountType) -> OAuthAuthorizationClient {
-		switch type {
-		case .feedly:
-			return FeedlyAccountDelegate.environment.oauthAuthorizationClient
-		default:
-			fatalError("\(type) is not a client for OAuth authorization code granting.")
-		}
-	}
-
-	public static func oauthAuthorizationCodeGrantRequest(for type: AccountType) -> URLRequest {
-		let grantingType: OAuthAuthorizationGranting.Type
-		switch type {
-		case .feedly:
-			grantingType = FeedlyAccountDelegate.self
-		default:
-			fatalError("\(type) does not support OAuth authorization code granting.")
-		}
-
-		return grantingType.oauthAuthorizationCodeGrantRequest()
-	}
-
-	public static func requestOAuthAccessToken(with response: OAuthAuthorizationResponse,
-	                                           client: OAuthAuthorizationClient,
-	                                           accountType: AccountType,
-	                                           transport: Transport = URLSession.webserviceTransport(),
-	                                           completion: @escaping @MainActor (Result<OAuthAuthorizationGrant, Error>) -> Void) {
-		let grantingType: OAuthAuthorizationGranting.Type
-
-		switch accountType {
-		case .feedly:
-			grantingType = FeedlyAccountDelegate.self
-		default:
-			fatalError("\(accountType) does not support OAuth authorization code granting.")
-		}
-
-		grantingType.requestOAuthAccessToken(with: response, transport: transport, completion: completion)
 	}
 
 	public func receiveRemoteNotification(userInfo: [AnyHashable: Any]) async {
