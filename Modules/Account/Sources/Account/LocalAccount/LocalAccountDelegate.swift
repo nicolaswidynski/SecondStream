@@ -53,6 +53,11 @@ import Secrets
 		account.metadata.lastArticleFetchEndTime = Date()
 	}
 
+	@MainActor func refreshFeed(_ feed: Feed) async {
+		await refresher.refreshFeeds([feed])
+		account?.metadata.lastArticleFetchEndTime = Date()
+	}
+
 	@MainActor func syncArticleStatus(for account: Account) async throws {
 	}
 
@@ -101,6 +106,10 @@ import Secrets
 
 		let feed = account.createFeed(with: nil, url: url.absoluteString, feedID: url.absoluteString, homePageURL: nil)
 		feed.editedName = editedName
+		// Reset stale caching state so the first refresh always performs a full download,
+		// even if this URL was previously subscribed and its DB record survived the removal.
+		feed.conditionalGetInfo = nil
+		feed.contentHash = nil
 		container.addFeedToTreeAtTopLevel(feed)
 		return feed
 	}

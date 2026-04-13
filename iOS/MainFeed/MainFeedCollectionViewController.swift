@@ -98,13 +98,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		becomeFirstResponder()
 		stripController.refresh()
 
-		// Fetch sources on launch
-		SourcesRefreshManager.shared.forceRefresh()
-
-
-		// Refresh sources when app comes to foreground
+		// Refresh sources when app comes to foreground (launch is handled by LaunchLoadingViewController)
 		NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
-    }
+	}
 
 
 	private func configureNavigationBar() {
@@ -1122,6 +1118,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	@objc func refreshAccounts(_ sender: Any) {
 		collectionView.refreshControl?.endRefreshing()
+
+		// Also refresh source discovery JSON files (podcasts, YouTube, news, RSS catalogue).
+		SourcesRefreshManager.shared.refreshIfNeeded()
 
 		// This is a hack to make sure that an error dialog doesn't interfere with dismissing the refreshControl.
 		// If the error dialog appears too closely to the call to endRefreshing, then the refreshControl never disappears.

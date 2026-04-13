@@ -26,27 +26,57 @@ enum SourceFileFetcher {
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "SourceFileFetcher")
 
 	private static let baseURL = AppURLs.filesBase + "lib/"
-	private static let lastModifiedCache = LastModifiedCache()
+	private static let headersCache = HeadersCache()
 
-	private actor LastModifiedCache {
-		private var values = [String: String]()
-
-		func value(for fileName: String) -> String? {
-			values[fileName]
+	private actor HeadersCache {
+		private struct Entry: Codable {
+			var lastModified: String?
+			var contentLength: String?
 		}
 
-		func set(_ value: String, for fileName: String) {
-			values[fileName] = value
+		private var values = [String: Entry]()
+		private let defaultsKey = "SourceFileFetcherHeadersCache"
+
+		init() {
+			if let data = UserDefaults.standard.data(forKey: defaultsKey),
+			   let decoded = try? JSONDecoder().decode([String: Entry].self, from: data) {
+				values = decoded
+			}
+		}
+
+		/// Returns `true` when the server headers indicate the file has changed.
+		func isModified(fileName: String, serverLastModified: String?, serverContentLength: String?) -> Bool {
+			guard let entry = values[fileName] else { return true }
+			if let serverLM = serverLastModified, let storedLM = entry.lastModified, serverLM != storedLM { return true }
+			if let serverCL = serverContentLength, let storedCL = entry.contentLength, serverCL != storedCL { return true }
+			// No stored baseline yet — treat as modified.
+			if serverLastModified != nil && entry.lastModified == nil { return true }
+			return false
+		}
+
+		func update(fileName: String, lastModified: String?, contentLength: String?) {
+			values[fileName] = Entry(lastModified: lastModified, contentLength: contentLength)
+			persist()
 		}
 
 		func clear() -> Int {
 			let count = values.count
 			values.removeAll(keepingCapacity: false)
+			persist()
 			return count
+		}
+
+		private func persist() {
+			if let data = try? JSONEncoder().encode(values) {
+				UserDefaults.standard.set(data, forKey: defaultsKey)
+			}
 		}
 	}
 
-	/// Fetches entries from a static file, using Last-Modified to avoid redundant downloads.
+	/// Fetches entries from a static file, skipping the download when neither
+	/// `Last-Modified` nor `Content-Length` have changed since the last fetch.
+	/// The comparison values are persisted across launches so a cold start is
+	/// also fast when the server files haven't changed.
 	/// Returns nil if the file has not changed since the last fetch.
 	@MainActor static func fetchIfModified(fileName: String) async -> [SourceFileEntry]? {
 		guard let url = URL(string: baseURL + fileName) else {
@@ -54,11 +84,9 @@ enum SourceFileFetcher {
 			return nil
 		}
 
-		let storedLastModified = await lastModifiedCache.value(for: fileName)
 		let client = SecondStreamAPIClient.shared
 
 		do {
-			// HEAD request to check Last-Modified
 			let (headStatus, headHeaders) = try await client.head(url)
 			guard headStatus == 200 else {
 				logger.error("HEAD request failed for \(fileName)")
@@ -66,8 +94,15 @@ enum SourceFileFetcher {
 			}
 
 			let serverLastModified = headHeaders["Last-Modified"]
-			if let storedLastModified, let serverLastModified, storedLastModified == serverLastModified {
-				logger.info("File \(fileName) not modified, skipping download")
+			let serverContentLength = headHeaders["Content-Length"]
+
+			let modified = await headersCache.isModified(
+				fileName: fileName,
+				serverLastModified: serverLastModified,
+				serverContentLength: serverContentLength
+			)
+			guard modified else {
+				logger.info("File \(fileName) unchanged (Last-Modified + Content-Length match), skipping download")
 				return nil
 			}
 
@@ -77,9 +112,11 @@ enum SourceFileFetcher {
 				return nil
 			}
 
-			if let newLastModified = getHeaders["Last-Modified"] {
-				await lastModifiedCache.set(newLastModified, for: fileName)
-			}
+			await headersCache.update(
+				fileName: fileName,
+				lastModified: getHeaders["Last-Modified"] ?? serverLastModified,
+				contentLength: getHeaders["Content-Length"] ?? serverContentLength
+			)
 
 			return parseEntries(from: data, fileName: fileName)
 		} catch {
@@ -102,9 +139,11 @@ enum SourceFileFetcher {
 				return nil
 			}
 
-			if let newLastModified = headers["Last-Modified"] {
-				await lastModifiedCache.set(newLastModified, for: fileName)
-			}
+			await headersCache.update(
+				fileName: fileName,
+				lastModified: headers["Last-Modified"],
+				contentLength: headers["Content-Length"]
+			)
 
 			return parseEntries(from: data, fileName: fileName)
 		} catch {
@@ -152,8 +191,8 @@ enum SourceFileFetcher {
 		return nil
 	}
 
-	@MainActor static func clearLastModifiedCache() async {
-		let count = await lastModifiedCache.clear()
-		logger.info("Cleared \(count) SourceFileFetcher Last-Modified cache entries")
+	@MainActor static func clearHeadersCache() async {
+		let count = await headersCache.clear()
+		logger.info("Cleared \(count) SourceFileFetcher headers cache entries")
 	}
 }

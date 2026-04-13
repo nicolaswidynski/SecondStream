@@ -704,6 +704,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		super.viewDidAppear(true)
 		animateNavigationSubtitleIfNeeded()
 		isTimelineViewControllerPending = false
+
+		// Refresh the specific feed's articles when the user navigates into it.
+		if let feed = coordinator?.timelineFeed as? Feed {
+			Task { await feed.account?.refreshFeed(feed) }
+		}
 		if navigationController?.navigationBar.alpha == 0 {
 			UIView.animate(withDuration: 0.5) {
 				self.navigationController?.navigationBar.alpha = 1

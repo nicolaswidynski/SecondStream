@@ -408,6 +408,16 @@ public enum FetchType {
 		try await delegate.refreshAll(for: self)
 	}
 
+	/// Refreshes a single feed's articles. Only applicable to local accounts;
+	/// for cloud-backed accounts this falls back to a full refresh.
+	@MainActor public func refreshFeed(_ feed: Feed) async {
+		guard let localDelegate = delegate as? LocalAccountDelegate else {
+			try? await refreshAll()
+			return
+		}
+		await localDelegate.refreshFeed(feed)
+	}
+
 	// MARK: - Syncing Article Status
 
 	@MainActor public func sendArticleStatus() async throws {

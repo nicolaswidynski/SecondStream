@@ -46,14 +46,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		} else if AppDefaults.shared.shouldShowLandingPage {
 			presentLandingPage()
 		} else {
-			Task {
-				guard let missing = try? await SubscriptionSyncManager.shared.detectMissingFeeds() else { return }
-				if missing.isEmpty {
-					await FeedStatsManager.shared.fetchCreditsIfNeeded()
-				} else {
-					presentSourceRestore(missing)
-				}
-			}
+			presentLaunchLoading()
 		}
 
 		NotificationCenter.default.addObserver(self, selector: #selector(handleUserInterfaceColorPaletteDidUpdate(_:)), name: .userInterfaceColorPaletteDidUpdate, object: AppDefaults.self)
@@ -269,6 +262,21 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 			landingVC.modalPresentationStyle = .fullScreen
 			landingVC.isModalInPresentation = true
 			self.window?.rootViewController?.present(landingVC, animated: true)
+		}
+	}
+
+	func presentLaunchLoading() {
+		DispatchQueue.main.async {
+			let loadingVC = LaunchLoadingViewController()
+			loadingVC.modalPresentationStyle = .fullScreen
+			loadingVC.isModalInPresentation = true
+			loadingVC.onReady = { [weak self] missing in
+				self?.window?.rootViewController?.dismiss(animated: true) {
+					guard !missing.isEmpty else { return }
+					self?.presentSourceRestore(missing)
+				}
+			}
+			self.window?.rootViewController?.present(loadingVC, animated: false)
 		}
 	}
 
