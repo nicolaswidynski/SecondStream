@@ -127,20 +127,26 @@ import os
 	func downloadSession(_ downloadSession: DownloadSession, downloadDidComplete url: URL, response: URLResponse?, data: Data, error: NSError?) {
 
 		guard let feed = urlToFeedDictionary[url.absoluteString] else {
+			Self.logger.debug("LocalAccountRefresher: no feed in dictionary for \(url.absoluteString, privacy: .public)")
 			return
 		}
 		feed.lastCheckDate = Date()
 
 		guard error == nil else {
+			Self.logger.debug("LocalAccountRefresher: download error for \(url.absoluteString, privacy: .public): \(error!.localizedDescription, privacy: .public)")
 			return
 		}
 		guard let httpResponse = response as? HTTPURLResponse else {
+			Self.logger.debug("LocalAccountRefresher: non-HTTP response for \(url.absoluteString, privacy: .public)")
 			return
 		}
+
+		Self.logger.debug("LocalAccountRefresher: HTTP \(httpResponse.statusCode, privacy: .public) for \(url.absoluteString, privacy: .public), data: \(data.count, privacy: .public) bytes")
 
 		let statusIsOK = httpResponse.statusIsOK
 		let statusIsOKOrNotModified = statusIsOK || httpResponse.statusCode == HTTPResponseCode.notModified
 		guard statusIsOKOrNotModified else {
+			Self.logger.debug("LocalAccountRefresher: bad status \(httpResponse.statusCode, privacy: .public) for \(url.absoluteString, privacy: .public)")
 			return
 		}
 
@@ -164,6 +170,7 @@ import os
 
 		let dataHash = data.md5String
 		if dataHash == feed.contentHash {
+			Self.logger.debug("LocalAccountRefresher: contentHash unchanged for \(url.absoluteString, privacy: .public), skipping parse")
 			return
 		}
 
@@ -172,8 +179,10 @@ import os
 
 			let parserData = ParserData(url: feed.url, data: data)
 			guard let parsedFeed = try? await FeedParser.parse(parserData) else {
+				Self.logger.debug("LocalAccountRefresher: FeedParser returned nil for \(url.absoluteString, privacy: .public)")
 				return
 			}
+			Self.logger.debug("LocalAccountRefresher: parsed \(parsedFeed.items.count, privacy: .public) items for \(url.absoluteString, privacy: .public)")
 			guard let account = feed.account else {
 				return
 			}

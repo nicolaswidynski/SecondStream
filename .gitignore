@@ -83,3 +83,4 @@ fastlane/test_output
 # Mac app (iOS only fork)
 /Mac/
 .claude/settings.local.json
+.claude/settings.local.json

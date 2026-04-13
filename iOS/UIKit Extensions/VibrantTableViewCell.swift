@@ -17,7 +17,11 @@ class VibrantTableViewCell: UITableViewCell {
 	}
 
 	var secondaryLabelColor: UIColor {
-		return isHighlighted || isSelected ? Assets.Colors.vibrantText : UIColor.secondaryLabel
+		guard !isHighlighted && !isSelected else { return Assets.Colors.vibrantText }
+		// secondaryLabel is too faint in light mode on the app's off-white cell backgrounds.
+		return UIColor { traits in
+			traits.userInterfaceStyle == .dark ? .secondaryLabel : UIColor(white: 0.38, alpha: 1)
+		}
 	}
 
 	override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {

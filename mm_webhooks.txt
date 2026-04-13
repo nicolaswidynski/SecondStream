@@ -1,0 +1,94 @@
+flowchart TD
+    subgraph Triggers
+        T1([User: Create Account])
+        T2([User: Reconnect / Face ID])
+        T3([User: Delete Account])
+        T4([App Launch / Sync])
+        T5([App Foreground / Feed Delete])
+        T6([User: Add Podcast])
+        T7([User: Search Podcast])
+        T8([User: Add YouTube])
+        T9([User: Search YouTube])
+        T10([User: Add Topic])
+        T11([202 Response → poll every 10s])
+    end
+
+    subgraph Callers
+        AM["AuthManager"]
+        FSM["FeedStatsManager"]
+        PSM["PodcastSourcesManager"]
+        YSM["YoutubeSourcesManager"]
+        NSM["NewsSourcesManager"]
+        BPM["BootstrapProgressManager"]
+    end
+
+    subgraph manage-user
+        MW1["operation: creation
+        apple_user_id, email
+        is_private_email, real_user_status
+        first_name?, last_name?
+        request_id"]
+
+        MW2["operation: reconnection
+        apple_user_id, request_id"]
+
+        MW3["operation: deletion
+        apple_user_id, request_id"]
+    end
+
+    subgraph all-feed-requests
+        AFR1["operation: get-user-feeds
+        apple_user_id, request_id"]
+
+        AFR2["operation: update-user-stats
+        apple_user_id, request_id
+        feeds_for_update{pod,yt,topics,rss}
+        type?, show?, author?"]
+
+        AFR3["operation: add-show · type: pod
+        apple_user_id, request_id
+        show, author
+        feeds_for_update{pod,yt,topics,rss}"]
+
+        AFR4["operation: add-show · type: yt
+        apple_user_id, request_id
+        show, author(@handle)
+        feeds_for_update{pod,yt,topics,rss}"]
+
+        AFR5["operation: add-show · type: topics
+        apple_user_id, request_id
+        show, author
+        feeds_for_update{pod,yt,topics,rss}"]
+    end
+
+    subgraph find-show
+        FS1["type: pod
+        show, author
+        apple_user_id, request_id"]
+
+        FS2["type: yt
+        show (empty if @handle)
+        author (@handle)
+        apple_user_id, request_id"]
+    end
+
+    subgraph query-bootstrap-progress
+        QBP["apple_user_id
+        type: pod | yt
+        show, author?"]
+    end
+
+    T1 --> AM --> MW1
+    T2 --> AM --> MW2
+    T3 --> AM --> MW3
+
+    T4 --> FSM --> AFR1
+    T5 --> FSM --> AFR2
+
+    T6 --> PSM --> AFR3
+    T7 --> PSM --> FS1
+    T8 --> YSM --> AFR4
+    T9 --> YSM --> FS2
+    T10 --> NSM --> AFR5
+
+    T11 --> BPM --> QBP
