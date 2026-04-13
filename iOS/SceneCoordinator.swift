@@ -533,10 +533,6 @@ struct SidebarItemNode: Hashable, Sendable {
 		}
 	}
 
-	func addDefaultSourcesIfNeeded() {
-		mainFeedCollectionViewController.addDefaultSourcesIfNeeded()
-	}
-
 	func selectFirstUnreadInAllUnread() {
 		markExpanded(SmartFeedsController.shared)
 		self.ensureFeedIsAvailableToSelect(SmartFeedsController.shared.unreadFeed) {

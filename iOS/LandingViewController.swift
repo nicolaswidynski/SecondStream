@@ -128,19 +128,40 @@ final class LandingViewController: UIViewController {
 
 	private func startLoading() {
 		Task {
-			// Run source refresh and minimum display timer concurrently.
-			await withTaskGroup(of: Void.self) { group in
-				group.addTask {
-					await SourcesRefreshManager.shared.forceRefreshAndWait()
-				}
+			// Run source refresh, minimum display timer, and subscription sync concurrently.
+			// The sync task returns any error as a value to avoid capturing mutable state
+			// across @Sendable task boundaries.
+			let syncError: Error? = await withTaskGroup(of: Error?.self) { group in
+				group.addTask { await SourcesRefreshManager.shared.forceRefreshAndWait(); return nil }
 				group.addTask {
 					try? await Task.sleep(nanoseconds: UInt64(self.minimumDisplaySeconds * 1_000_000_000))
+					return nil
 				}
-				await group.waitForAll()
+				group.addTask {
+					do {
+						try await SubscriptionSyncManager.shared.sync()
+						return nil
+					} catch {
+						return error
+					}
+				}
+				var result: Error?
+				for await taskError in group {
+					if let taskError { result = taskError }
+				}
+				return result
 			}
 
 			AppDefaults.shared.hasShownLandingPage = true
 			AppDefaults.shared.debugShowLandingPage = false
+
+			if let error = syncError {
+				await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+					let alert = UIAlertController(title: "Sync Failed", message: error.localizedDescription, preferredStyle: .alert)
+					alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in cont.resume() })
+					self.present(alert, animated: true)
+				}
+			}
 
 			dismiss(animated: true) { [weak self] in
 				self?.onReady?()

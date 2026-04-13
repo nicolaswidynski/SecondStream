@@ -332,7 +332,7 @@ struct Assets {
 		// Table / collection section card shadows (native CALayer)
 		private static let tableShadowColorLight = UIColor.black
 		private static let tableShadowColorDark  = UIColor.clear  // no shadow in dark mode
-		private static let tableShadowOpacityLight: Float  = 0.05
+		private static let tableShadowOpacityLight: Float  = 0.03
 		private static let tableShadowOpacityDark:  Float  = 0
 		private static let tableShadowRadius:  CGFloat = 2
 		private static let tableShadowOffsetX: CGFloat = 3
