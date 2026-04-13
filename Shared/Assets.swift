@@ -60,8 +60,6 @@ struct Assets {
 		static var articleTheme: RSImage { RSImage(symbol: "doc.richtext")! }
 		static var cleanUp: RSImage { RSImage(symbol: "bubbles.and.sparkles")! }
 		static var delete: RSImage { RSImage(symbol: "xmark.bin")! }
-		static var marsEdit: RSImage { RSImage(named: "MarsEditIcon")! }
-		static var microblog: RSImage { RSImage(named: "MicroblogIcon")! }
 		static var filterActive: RSImage { RSImage(symbol: "line.horizontal.3.decrease.circle.fill")! }
 		static var filterInactive: RSImage { RSImage(symbol: "line.horizontal.3.decrease.circle")! }
 		static var markAllAsReadMenu: RSImage { RSImage(named: "markAllAsRead")! }
