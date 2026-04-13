@@ -234,7 +234,7 @@ final class SettingsViewController: UITableViewController {
 			// Adds Unread First, Gray Read Articles, Show Category Icons, and Collapsible Sections rows
 			return super.tableView(tableView, numberOfRowsInSection: section) + 4
 		case debugSection:
-			// Clean Temporary Files, Debug Dialog, Start Landing Page, Simulate iOS Sign Out
+			// Clear Temporary Files, Debug Dialog, Start Landing Page, Simulate iOS Sign Out
 			return 4
 		case aboutSection:
 			// About Second Stream, Enable Face ID, Disconnect Account, Delete Account
@@ -306,7 +306,7 @@ final class SettingsViewController: UITableViewController {
 			switch indexPath.row {
 			case debugCleanTempRow:
 				cell = UITableViewCell(style: .default, reuseIdentifier: "CleanTempFilesCell")
-				cell.textLabel?.text = NSLocalizedString("Clean Temporary Files", comment: "Clean Temporary Files")
+				cell.textLabel?.text = NSLocalizedString("Clear Temporary Files", comment: "Clear Temporary Files")
 			case debugDialogRow:
 				cell = makeDebugDialogCell(tableView)
 			case debugLandingPageRow:
@@ -596,7 +596,7 @@ final class SettingsViewController: UITableViewController {
 				  let sceneDelegate = windowScene.delegate as? SceneDelegate else {
 				return
 			}
-			sceneDelegate.presentLandingPage(reason: .debug)
+			sceneDelegate.presentOnboarding(isDebug: true)
 		}
 	}
 
@@ -1006,8 +1006,8 @@ private extension SettingsViewController {
 
 	func cleanTemporaryFiles() {
 		let alert = UIAlertController(
-			title: NSLocalizedString("Clean Temporary Files", comment: "Clean Temporary Files"),
-			message: NSLocalizedString("This will remove cached icons/images and cached source lists. They will be re-downloaded when needed.", comment: "Clean temp files message"),
+			title: NSLocalizedString("Clear Temporary Files", comment: "Clear Temporary Files"),
+			message: NSLocalizedString("This will remove cached icons/images and cached source lists. They will be re-downloaded when needed.", comment: "Clear temp files message"),
 			preferredStyle: .alert
 		)
 
@@ -1017,12 +1017,12 @@ private extension SettingsViewController {
 				FaviconDownloader.shared.resetCache()
 				IconImageCache.shared.emptyCache()
 				Task {
-					await SourceFileFetcher.clearLastModifiedCache()
+					await SourceFileFetcher.clearHeadersCache()
 				}
-				PodcastSourcesManager.shared.podcastSources = []
-				PodcastSourcesManager.shared.podcastLibrarySources = []
-				YoutubeSourcesManager.shared.youtubeSources = []
-				YoutubeSourcesManager.shared.youtubeLibrarySources = []
+				MediaSourcesManager.podcast.topSources = []
+				MediaSourcesManager.podcast.librarySources = []
+				MediaSourcesManager.youtube.topSources = []
+				MediaSourcesManager.youtube.librarySources = []
 				NewsSourcesManager.shared.newsSources = []
 				RSSSourcesManager.shared.rssSources = []
 

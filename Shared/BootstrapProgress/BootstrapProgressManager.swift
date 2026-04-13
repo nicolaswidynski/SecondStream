@@ -48,7 +48,7 @@ enum BootstrapJobState: Equatable {
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "Bootstrap")
 
-	private let queryURL = URL(string: "https://n8n.nwidynski.com/webhook/query-bootstrap-progress")!
+	private let client = SecondStreamAPIClient.shared
 	private let jobsKey = "bootstrapProgressJobs"
 	private let pollInterval: TimeInterval = 10
 	private let maxDuration: TimeInterval = 3600        // 1 hour absolute cap
@@ -69,17 +69,6 @@ enum BootstrapJobState: Equatable {
 
 	/// When the first pct > 0 was observed for each feed. Used for the 7-minute hard cap.
 	private var progressStartedAt: [String: Date] = [:]
-
-	// MARK: - Bearer token
-
-	private var bearerToken: String? {
-		guard let tokenURL = Bundle.main.url(forResource: "podcast_token", withExtension: "txt"),
-			  let token = try? String(contentsOf: tokenURL, encoding: .utf8) else {
-			Self.logger.error("Failed to load bearer token from file")
-			return nil
-		}
-		return token.trimmingCharacters(in: .whitespacesAndNewlines)
-	}
 
 	// MARK: - Persisted Jobs
 
@@ -216,11 +205,9 @@ enum BootstrapJobState: Equatable {
 	/// meaning the backend has finished populating the feed.
 	private func feedEntriesExist(job: BootstrapJob) async -> Bool {
 		guard let url = URL(string: job.feedURL) else { return false }
-		var request = URLRequest(url: url)
-		request.timeoutInterval = 10
 		do {
-			let (data, response) = try await URLSession.shared.data(for: request)
-			guard (response as? HTTPURLResponse)?.statusCode == 200 else { return false }
+			let (data, statusCode, _) = try await client.get(from: url, timeout: 10)
+			guard statusCode == 200 else { return false }
 			guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
 				  let entries = json["entries"] as? [Any] else { return false }
 			let hasEntries = !entries.isEmpty
@@ -315,47 +302,30 @@ enum BootstrapJobState: Equatable {
 			Self.logger.error("queryProgress aborted — appleUserID is nil")
 			return nil
 		}
-		guard let token = bearerToken else {
-			Self.logger.error("queryProgress aborted — bearerToken is nil")
-			return nil
-		}
 
 		var body: [String: Any] = [
 			"apple_user_id": appleUserID,
-			"type": job.type,
-			"show": job.show,
+			"type":          job.type,
+			"show":          job.show
 		]
 		if !job.author.isEmpty {
 			body["author"] = job.author
 		}
 
-		guard let jsonData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
-
-		var request = URLRequest(url: queryURL)
-		request.httpMethod = "POST"
-		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-		request.httpBody = jsonData
-		request.timeoutInterval = 15
-
 		do {
-			Self.logger.info("queryProgress — sending POST to \(self.queryURL) for \(job.feedURL)")
-			let (data, response) = try await URLSession.shared.data(for: request)
-			guard let http = response as? HTTPURLResponse else {
-				Self.logger.error("queryProgress — non-HTTP response")
-				return nil
-			}
-			Self.logger.info("queryProgress — HTTP \(http.statusCode) for \(job.feedURL)")
+			Self.logger.info("queryProgress — sending POST for \(job.feedURL)")
+			let (data, statusCode) = try await client.post(to: .queryBootstrapProgress, body: body, timeout: 15)
+			Self.logger.info("queryProgress — HTTP \(statusCode) for \(job.feedURL)")
 
 			// 551 = feed not found on server — consider bootstrap complete
-			if http.statusCode == 551 {
+			if statusCode == 551 {
 				Self.logger.info("Bootstrap got 551 (feed not found) for \(job.feedURL) — treating as 100")
 				return 100
 			}
 
-			guard http.statusCode == 200 else {
+			guard statusCode == 200 else {
 				let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
-				Self.logger.error("queryProgress unexpected status \(http.statusCode, privacy: .public): \(rawBody, privacy: .public)")
+				Self.logger.error("queryProgress unexpected status \(statusCode, privacy: .public): \(rawBody, privacy: .public)")
 				return nil
 			}
 

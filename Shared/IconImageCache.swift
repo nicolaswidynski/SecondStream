@@ -124,8 +124,8 @@ import Articles
 		// Path 2: Source managers — for library-sourced feeds whose source.url is empty.
 		// Find the dark icon URL that corresponds to this light URL, then match feeds by iconURL.
 		let darkIconURL = NewsSourcesManager.shared.iconURL(forLightImageURL: imageURL)
-			?? PodcastSourcesManager.shared.iconURL(forLightImageURL: imageURL)
-			?? YoutubeSourcesManager.shared.iconURL(forLightImageURL: imageURL)
+			?? MediaSourcesManager.podcast.iconURL(forLightImageURL: imageURL)
+			?? MediaSourcesManager.youtube.iconURL(forLightImageURL: imageURL)
 		if let darkIconURL {
 			for account in AccountManager.shared.activeAccounts {
 				for feed in account.flattenedFeeds() where feed.iconURL == darkIconURL {
@@ -187,9 +187,9 @@ private extension IconImageCache {
 				case .news:
 					lightURL = NewsSourcesManager.shared.lightImageURL(forIconURL: iconURL)
 				case .podcast:
-					lightURL = PodcastSourcesManager.shared.lightImageURL(forIconURL: iconURL)
+					lightURL = MediaSourcesManager.podcast.lightImageURL(forIconURL: iconURL)
 				case .youtube:
-					lightURL = YoutubeSourcesManager.shared.lightImageURL(forIconURL: iconURL)
+					lightURL = MediaSourcesManager.youtube.lightImageURL(forIconURL: iconURL)
 				case .rss:
 					break
 				}

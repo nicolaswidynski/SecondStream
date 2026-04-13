@@ -107,7 +107,7 @@ extension Notification.Name {
 				// Save resized JPEG to disk
 				let fileURL = diskURL(for: urlString)
 				if let jpegData = image.jpegData(compressionQuality: 0.8) {
-					try? jpegData.write(to: fileURL)
+					try? jpegData.write(to : fileURL)
 				}
 
 				// Save to memory
@@ -155,6 +155,42 @@ extension Notification.Name {
 			if !FileManager.default.fileExists(atPath: fileURL.path) {
 				startDownload(urlString)
 			}
+		}
+	}
+
+	/// Starts downloads for any uncached URLs and suspends until all are available
+	/// or `timeout` seconds have elapsed, whichever comes first.
+	func prefetchAndWait(for urlStrings: [String], timeout: TimeInterval) async {
+		let needed = urlStrings.filter {
+			memoryCache[$0] == nil && !FileManager.default.fileExists(atPath: diskURL(for: $0).path)
+		}
+		guard !needed.isEmpty else { return }
+
+		var remaining = Set(needed)
+		for url in needed { startDownload(url) }
+
+		let (stream, continuation) = AsyncStream.makeStream(of: String.self)
+
+		let observer = NotificationCenter.default.addObserver(
+			forName: .sourceImageDidBecomeAvailable,
+			object: nil,
+			queue: .main
+		) { notification in
+			if let url = notification.userInfo?["url"] as? String {
+				continuation.yield(url)
+			}
+		}
+		defer { NotificationCenter.default.removeObserver(observer) }
+
+		let timeoutTask = Task {
+			try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+			continuation.finish()
+		}
+		defer { timeoutTask.cancel() }
+
+		for await url in stream {
+			remaining.remove(url)
+			if remaining.isEmpty { break }
 		}
 	}
 

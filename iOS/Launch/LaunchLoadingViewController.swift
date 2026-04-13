@@ -1,0 +1,89 @@
+//
+//  LaunchLoadingViewController.swift
+//  NetNewsWire-iOS
+//
+
+import UIKit
+
+/// Full-screen loading overlay shown on normal launch while sources and icons are being prepared.
+/// Runs auth migration, source JSON fetch, and image prefetch in parallel, then calls `onReady`.
+final class LaunchLoadingViewController: UIViewController {
+
+	/// Called on the main thread when all loading is complete.
+	/// Receives any feeds that are missing from the local account and need to be restored.
+	var onReady: (([MissingFeed]) -> Void)?
+
+	private let titleLabel: UILabel = {
+		let label = UILabel()
+		label.text = "Second Stream"
+		label.font = .systemFont(ofSize: 28, weight: .bold)
+		label.textColor = .label
+		label.translatesAutoresizingMaskIntoConstraints = false
+		return label
+	}()
+
+	private let activityIndicator: UIActivityIndicatorView = {
+		let indicator = UIActivityIndicatorView(style: .medium)
+		indicator.translatesAutoresizingMaskIntoConstraints = false
+		return indicator
+	}()
+
+	override func viewDidLoad() {
+		super.viewDidLoad()
+		view.backgroundColor = Assets.Colors.background
+		view.addSubview(titleLabel)
+		view.addSubview(activityIndicator)
+
+		NSLayoutConstraint.activate([
+			titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+			titleLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -20),
+
+			activityIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+			activityIndicator.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
+		])
+
+		activityIndicator.startAnimating()
+	}
+
+	override func viewDidAppear(_ animated: Bool) {
+		super.viewDidAppear(animated)
+		Task { await load() }
+	}
+
+	// MARK: - Loading
+
+	private func load() async {
+		// Auth migration + subscription sync runs in parallel with sources + image prefetch.
+		async let missing = authAndSync()
+		async let sources: Void = sourcesAndImages()
+		let missingFeeds = await missing
+		await sources
+		await FeedStatsManager.shared.fetchCreditsIfNeeded()
+		onReady?(missingFeeds)
+	}
+
+	/// Silently reconnects if needed (per-user token migration) then detects missing feeds.
+	private func authAndSync() async -> [MissingFeed] {
+		if AuthManager.shared.sessionToken == nil {
+			try? await AuthManager.shared.reconnect()
+		}
+		return (try? await SubscriptionSyncManager.shared.detectMissingFeeds()) ?? []
+	}
+
+	/// Fetches fresh source JSON files then prefetches discover strip icons.
+	private func sourcesAndImages() async {
+		await SourcesRefreshManager.shared.forceRefreshAndWait()
+
+		// Build the payloads a temporary strip controller would show, then prefetch their icons.
+		let stripController = RecentlyUpdatedStripController()
+		let payloads = await stripController.buildPayloads()
+
+		let imageURLs: [String] = payloads.flatMap { payload -> [String] in
+			guard case .discover(let source) = payload else { return [] }
+			return [source.imageURL, source.imageURLLight].compactMap { $0 }
+		}
+
+		guard !imageURLs.isEmpty else { return }
+		await SourceImageCache.shared.prefetchAndWait(for: imageURLs, timeout: 3.0)
+	}
+}

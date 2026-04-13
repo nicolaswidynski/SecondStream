@@ -23,12 +23,13 @@ import os.log
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "Auth")
 
-	private let manageUserURL = URL(string: "https://n8n.nwidynski.com/webhook/manage-user")!
+	private let client = SecondStreamAPIClient.shared
 
 	// MARK: - Keychain keys
 
 	private let keychainService = Bundle.main.bundleIdentifier ?? "com.ranchero.NetNewsWire"
 	private let appleUserIDKey = "appleUserID"
+	private let sessionTokenKey = "userSessionToken"
 
 	// MARK: - Public state
 
@@ -48,6 +49,13 @@ import os.log
 	/// The stored Apple `sub` identifier, or `nil` if the user hasn't registered yet.
 	var appleUserID: String? {
 		keychainRead(key: appleUserIDKey)
+	}
+
+	/// Per-user session token issued by the server after `manage-user`.
+	/// Used as the bearer token on all non-auth requests. `nil` until the user
+	/// has gone through registration or reconnect with a server that issues tokens.
+	var sessionToken: String? {
+		keychainRead(key: sessionTokenKey)
 	}
 
 	// MARK: - Disconnect flag
@@ -95,56 +103,45 @@ import os.log
 		identityToken: Data?,
 		realUserStatus: String
 	) async throws {
-		guard let token = bearerToken else {
-			Self.logger.error("No bearer token available")
-			throw AuthError.missingToken
-		}
-
 		let tokenClaims = identityToken.flatMap { decodeJWTPayload($0) }
-		// `is_private_email` can be Bool or String in the JWT depending on Apple's implementation.
 		let isPrivateEmail: Bool = {
 			if let value = tokenClaims?["is_private_email"] as? Bool { return value }
 			if let value = tokenClaims?["is_private_email"] as? String { return value == "true" }
 			return false
 		}()
 
-		var request = URLRequest(url: manageUserURL)
-		request.httpMethod = "POST"
-		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
 		let requestID = UUID().uuidString
 		var body: [String: Any] = [
-			"apple_user_id": appleUserID,
-			"email": email,
+			"apple_user_id":    appleUserID,
+			"email":            email,
 			"is_private_email": isPrivateEmail,
 			"real_user_status": realUserStatus,
-			"operation": "creation",
-			"request_id": requestID
+			"operation":        "creation",
+			"request_id":       requestID
 		]
 		if let firstName { body["first_name"] = firstName }
-		if let lastName { body["last_name"] = lastName }
+		if let lastName  { body["last_name"]  = lastName }
 
-		request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-		let (data, response) = try await URLSession.shared.data(for: request)
-
-		guard let httpResponse = response as? HTTPURLResponse else {
-			throw AuthError.invalidResponse
+		do {
+			let (data, statusCode) = try await client.post(to: .manageUser, body: body)
+			guard (200...299).contains(statusCode) else {
+				throw AuthError.serverError(statusCode: statusCode, body: Self.webhookMessage(from: data))
+			}
+			let json = Self.firstJSON(from: data)
+			if let echoed = json?["request_id"] as? String, echoed != requestID {
+				Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
+			}
+			if let token = json?["user_token"] as? String, !token.isEmpty {
+				saveSessionToken(token)
+			} else {
+				Self.logger.warning("No user_token in registration response — body: \(String(data: data, encoding: .utf8) ?? "(empty)", privacy: .public)")
+			}
+		} catch let error as AuthError {
+			throw error
+		} catch {
+			throw AuthError.serverError(statusCode: 0, body: error.localizedDescription)
 		}
 
-		guard (200...299).contains(httpResponse.statusCode) else {
-			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
-			Self.logger.error("Registration failed [\(httpResponse.statusCode)]: \(rawBody)")
-			throw AuthError.serverError(statusCode: httpResponse.statusCode, body: Self.webhookMessage(from: data))
-		}
-
-		let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-		if let echoed = json?["request_id"] as? String, echoed != requestID {
-			Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
-		}
-
-		// Persist the Apple user ID locally only after a successful server response.
 		keychainWrite(key: appleUserIDKey, value: appleUserID)
 		isExplicitlyDisconnected = false
 		isSimulatingIOSSignOut = false
@@ -167,36 +164,32 @@ import os.log
 		guard let storedID = idToUse else {
 			throw AuthError.noStoredIdentity
 		}
-		guard let token = bearerToken else {
-			throw AuthError.missingToken
-		}
-
-		var request = URLRequest(url: manageUserURL)
-		request.httpMethod = "POST"
-		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
 		let requestID = UUID().uuidString
 		let body: [String: Any] = ["apple_user_id": storedID, "operation": "reconnection", "request_id": requestID]
-		request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-		let (data, response) = try await URLSession.shared.data(for: request)
-
-		guard let httpResponse = response as? HTTPURLResponse else {
-			throw AuthError.invalidResponse
-		}
-		guard (200...299).contains(httpResponse.statusCode) else {
+		do {
+			let (data, statusCode) = try await client.post(to: .manageUser, body: body)
+			guard (200...299).contains(statusCode) else {
+				throw AuthError.serverError(statusCode: statusCode, body: Self.webhookMessage(from: data))
+			}
 			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
-			Self.logger.error("Reconnect failed [\(httpResponse.statusCode)]: \(rawBody)")
-			throw AuthError.serverError(statusCode: httpResponse.statusCode, body: Self.webhookMessage(from: data))
+			Self.logger.info("manage-user reconnect response: \(rawBody, privacy: .public)")
+			let json = Self.firstJSON(from: data)
+			if let echoed = json?["request_id"] as? String, echoed != requestID {
+				Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
+			}
+			if let token = json?["user_token"] as? String, !token.isEmpty {
+				saveSessionToken(token)
+			} else {
+				Self.logger.warning("No user_token in reconnect response — body: \(rawBody, privacy: .public)")
+			}
+		} catch let error as AuthError {
+			throw error
+		} catch {
+			throw AuthError.serverError(statusCode: 0, body: error.localizedDescription)
 		}
 
-		let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-		if let echoed = json?["request_id"] as? String, echoed != requestID {
-			Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
-		}
-
-		// Persist the ID when reconnecting via a fresh Apple sign-in (no prior Keychain entry).
 		if overrideAppleUserID != nil {
 			keychainWrite(key: appleUserIDKey, value: storedID)
 		}
@@ -211,46 +204,55 @@ import os.log
 		guard let storedID = appleUserID else {
 			throw AuthError.noStoredIdentity
 		}
-		guard let token = bearerToken else {
-			throw AuthError.missingToken
-		}
-
-		var request = URLRequest(url: manageUserURL)
-		request.httpMethod = "POST"
-		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
 		let requestID = UUID().uuidString
 		let body: [String: Any] = ["apple_user_id": storedID, "operation": "deletion", "request_id": requestID]
-		request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-		let (data, response) = try await URLSession.shared.data(for: request)
-
-		guard let httpResponse = response as? HTTPURLResponse else {
-			throw AuthError.invalidResponse
-		}
-		guard (200...299).contains(httpResponse.statusCode) else {
-			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
-			Self.logger.error("Delete account failed [\(httpResponse.statusCode)]: \(rawBody)")
-			throw AuthError.serverError(statusCode: httpResponse.statusCode, body: Self.webhookMessage(from: data))
-		}
-
-		let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-		if let echoed = json?["request_id"] as? String, echoed != requestID {
-			Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
+		do {
+			let (data, statusCode) = try await client.post(to: .manageUser, body: body)
+			guard (200...299).contains(statusCode) else {
+				throw AuthError.serverError(statusCode: statusCode, body: Self.webhookMessage(from: data))
+			}
+			let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+			if let echoed = json?["request_id"] as? String, echoed != requestID {
+				Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
+			}
+		} catch let error as AuthError {
+			throw error
+		} catch {
+			throw AuthError.serverError(statusCode: 0, body: error.localizedDescription)
 		}
 
 		clearStoredIdentity()
 		Self.logger.info("Account deleted successfully")
 	}
 
-	/// Removes the stored Apple user ID from the Keychain (full sign-out, cannot auto-reconnect).
+	/// Removes the stored Apple user ID and session token from the Keychain (full sign-out).
 	func clearStoredIdentity() {
 		keychainDelete(key: appleUserIDKey)
+		keychainDelete(key: sessionTokenKey)
 		isExplicitlyDisconnected = false
 	}
 
-	// MARK: - Error helpers
+	/// Saves the session token to the Keychain.
+	private func saveSessionToken(_ token: String) {
+		keychainWrite(key: sessionTokenKey, value: token)
+		Self.logger.info("Session token saved (length: \(token.count, privacy: .public))")
+	}
+
+	// MARK: - Response helpers
+
+	/// Extracts the first JSON object from a webhook response, handling both
+	/// a bare object `{...}` and n8n's typical array wrapper `[{...}]`.
+	private static func firstJSON(from data: Data) -> [String: Any]? {
+		if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+			return obj
+		}
+		if let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+			return arr.first
+		}
+		return nil
+	}
 
 	/// Extracts the `"message"` field from a JSON webhook error body.
 	/// Falls back to the raw UTF-8 body if the field is absent or unparseable.
@@ -260,17 +262,6 @@ import os.log
 			return message
 		}
 		return String(data: data, encoding: .utf8) ?? "Unknown error"
-	}
-
-	// MARK: - Bearer token
-
-	private var bearerToken: String? {
-		guard let tokenURL = Bundle.main.url(forResource: "podcast_token", withExtension: "txt"),
-			  let token = try? String(contentsOf: tokenURL, encoding: .utf8) else {
-			Self.logger.error("Failed to load bearer token from file")
-			return nil
-		}
-		return token.trimmingCharacters(in: .whitespacesAndNewlines)
 	}
 
 	// MARK: - JWT

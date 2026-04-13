@@ -18,8 +18,7 @@ enum SourcePickerSection: Hashable {
 enum SourcePickerItem: Hashable {
 	case customEntryName
 	case customEntryURL
-	case podcastSource(PodcastSource)
-	case youtubeSource(YoutubeSource)
+	case mediaSource(MediaSource)
 	case newsSource(NewsSource)
 	case rssSource(RSSSource)
 	case findCandidate(FindShowCandidate)
