@@ -1,9 +1,9 @@
 //
 //  SourceRestoreViewController.swift
-//  NetNewsWire-iOS
+//  Second Stream
 //
 //  Created by Nicolas Widynski on 2026-04-11.
-//  Copyright © 2026 Ranchero Software. All rights reserved.
+//  Copyright © 2026 STDN. All rights reserved.
 //
 
 import UIKit
