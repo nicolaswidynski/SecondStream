@@ -507,6 +507,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		NotificationCenter.default.addObserver(self, selector: #selector(sourceImageDidBecomeAvailable(_:)), name: .sourceImageDidBecomeAvailable, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(bootstrapProgressDidUpdate(_:)), name: .bootstrapProgressDidUpdate, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(bootstrapProgressDidError(_:)), name: .bootstrapProgressDidError, object: nil)
 	}
 
 	// MARK: - Collection View Configuration
@@ -1112,6 +1113,25 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			}
 			cell.bootstrapProgress = BootstrapProgressManager.shared.progress(forFeedURL: feed.url)
 		}
+	}
+
+	@objc func bootstrapProgressDidError(_ note: Notification) {
+		guard let message = note.userInfo?["message"] as? String,
+			  let feedURL = note.userInfo?["feedURL"] as? String else { return }
+		let alert = UIAlertController(title: "Processing Error", message: message, preferredStyle: .alert)
+		alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+			self?.deleteBootstrappedFeed(withURL: feedURL)
+		})
+		present(alert, animated: true)
+	}
+
+	private func deleteBootstrappedFeed(withURL feedURL: String) {
+		guard let account = AccountManager.shared.activeAccounts.first,
+			  let feed = account.existingFeed(withURL: feedURL),
+			  let indexPath = coordinator.indexPathFor(feed as AnyObject) else {
+			return
+		}
+		performDelete(indexPath: indexPath)
 	}
 
 	// MARK: - Actions

@@ -11,6 +11,7 @@ import os.log
 
 extension Notification.Name {
 	static let bootstrapProgressDidUpdate = Notification.Name("bootstrapProgressDidUpdate")
+	static let bootstrapProgressDidError = Notification.Name("bootstrapProgressDidError")
 }
 
 /// Represents an in-progress bootstrap job for a newly added show.
@@ -234,13 +235,20 @@ enum BootstrapJobState: Equatable {
 			return
 		}
 
-		let pct = await queryProgress(job: job)
+		let result = await queryProgress(job: job)
 		if Task.isCancelled {
 			Self.logger.info("poll task cancelled after queryProgress for \(job.feedURL)")
 			return
 		}
 
-		if let pct {
+		switch result {
+		case .serverError(let message):
+			finish(job: job, atFull: false)
+			notifyError(feedURL: job.feedURL, message: message)
+			return
+		case .transientFailure:
+			break
+		case .percentage(let pct):
 			let fraction = min(1.0, max(0.0, Double(pct) / 100.0))
 			jobStates[job.feedURL] = .polling(progress: fraction)
 			notifyUpdate(feedURL: job.feedURL)
@@ -296,11 +304,17 @@ enum BootstrapJobState: Equatable {
 
 	// MARK: - Network
 
-	private func queryProgress(job: BootstrapJob) async -> Int? {
+	private enum ProgressResult {
+		case percentage(Int)
+		case serverError(message: String)
+		case transientFailure
+	}
+
+	private func queryProgress(job: BootstrapJob) async -> ProgressResult {
 		Self.logger.info("queryProgress — feedURL:\(job.feedURL)")
 		guard let appleUserID = AuthManager.shared.appleUserID else {
 			Self.logger.error("queryProgress aborted — appleUserID is nil")
-			return nil
+			return .transientFailure
 		}
 
 		var body: [String: Any] = [
@@ -320,35 +334,52 @@ enum BootstrapJobState: Equatable {
 			// 551 = feed not found on server — consider bootstrap complete
 			if statusCode == 551 {
 				Self.logger.info("Bootstrap got 551 (feed not found) for \(job.feedURL) — treating as 100")
-				return 100
+				return .percentage(100)
+			}
+
+			// 500 = server-side error — surface the message to the user
+			if statusCode == 500 {
+				let message: String
+				if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+				   let msg = json["message"] as? String {
+					message = msg
+				} else {
+					message = String(data: data, encoding: .utf8) ?? "An unknown server error occurred."
+				}
+				Self.logger.error("queryProgress server error for \(job.feedURL): \(message, privacy: .public)")
+				return .serverError(message: message)
 			}
 
 			guard statusCode == 200 else {
 				let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
 				Self.logger.error("queryProgress unexpected status \(statusCode, privacy: .public): \(rawBody, privacy: .public)")
-				return nil
+				return .transientFailure
 			}
 
 			// Response: {"percentage": 42} or [{"percentage": 42}]
+			// percentage may be an Int or a String depending on the n8n expression output.
 			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
 			Self.logger.info("queryProgress response body: \(rawBody, privacy: .public)")
-			if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-			   let pct = obj["percentage"] as? Int {
-				return pct
-			}
-			if let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
-			   let pct = arr.first?["percentage"] as? Int {
-				return pct
+			let dict = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
+				?? (try? JSONSerialization.jsonObject(with: data) as? [[String: Any]])?.first
+			if let dict, let pct = parsePercentage(from: dict) {
+				return .percentage(pct)
 			}
 			Self.logger.error("queryProgress — could not parse percentage from: \(rawBody, privacy: .public)")
-			return nil
+			return .transientFailure
 		} catch {
 			Self.logger.error("Bootstrap query failed for \(job.feedURL): \(error.localizedDescription)")
-			return nil
+			return .transientFailure
 		}
 	}
 
 	// MARK: - Helpers
+
+	private func parsePercentage(from dict: [String: Any]) -> Int? {
+		if let intValue = dict["percentage"] as? Int { return intValue }
+		if let strValue = dict["percentage"] as? String { return Int(strValue) }
+		return nil
+	}
 
 	private func removeJob(_ job: BootstrapJob) {
 		var current = jobs
@@ -361,6 +392,14 @@ enum BootstrapJobState: Equatable {
 			name: .bootstrapProgressDidUpdate,
 			object: self,
 			userInfo: ["feedURL": feedURL]
+		)
+	}
+
+	private func notifyError(feedURL: String, message: String) {
+		NotificationCenter.default.post(
+			name: .bootstrapProgressDidError,
+			object: self,
+			userInfo: ["feedURL": feedURL, "message": message]
 		)
 	}
 }
