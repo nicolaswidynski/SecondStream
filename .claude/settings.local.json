@@ -98,7 +98,10 @@
       "Bash(curl -s -X POST https://n8n.nwidynski.com/webhook/all-feed-requests -H 'Content-Type: application/json' -d '{\"operation\":\"get-user-feeds\",\"apple_user_id\":\"test_user\",\"request_id\":\"test-1234\"}')",
       "Bash(curl -s -w '\\\\nHTTP %{http_code}' -X POST https://n8n.nwidynski.com/webhook/all-feed-requests -H 'Content-Type: application/json' -d '{\"operation\":\"get-user-feeds\",\"apple_user_id\":\"test_user\",\"request_id\":\"test-1234\"}')",
       "Bash(curl -s https://files.nwidynski.com/pod/aaa/dwarkesh-podcast.json)",
-      "Bash(sips -g pixelWidth -g pixelHeight /Users/nwidynski/Documents/code/SecondStream/iOS/Resources/Assets.xcassets/AppIcon.appiconset/Icon_1024x1024.png /Users/nwidynski/Documents/code/SecondStream/Widget/Assets.xcassets/AppIcon.appiconset/Icon_1024x1024.png)"
+      "Bash(sips -g pixelWidth -g pixelHeight /Users/nwidynski/Documents/code/SecondStream/iOS/Resources/Assets.xcassets/AppIcon.appiconset/Icon_1024x1024.png /Users/nwidynski/Documents/code/SecondStream/Widget/Assets.xcassets/AppIcon.appiconset/Icon_1024x1024.png)",
+      "Bash(gh auth:*)",
+      "Bash(gh api:*)",
+      "Bash(git:*)"
     ],
     "deny": [],
     "ask": []

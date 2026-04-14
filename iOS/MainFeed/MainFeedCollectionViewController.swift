@@ -81,8 +81,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	var dataSource: UICollectionViewDiffableDataSource<String, SidebarItemNode>!
 
-	private let settingsPanel = SidebarSettingsPanelView()
-
 	override func viewDidLoad() {
 		super.viewDidLoad()
 		view.backgroundColor = Assets.Colors.background
@@ -95,7 +93,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		configureDiffableDataSource()
 		configureNavigationBar()
 		configureRecentlyUpdatedStrip()
-		configureSettingsPanel()
 		collectionView.dragDelegate = self
 		collectionView.dropDelegate = self
 		becomeFirstResponder()
@@ -146,16 +143,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			case .discover(let source):
 				addDiscoverSource(source)
 			}
-		}
-	}
-
-	private func configureSettingsPanel() {
-		settingsPanel.install(in: collectionView)
-		collectionView.contentInset.bottom = SidebarSettingsPanelView.panelHeight
-		collectionView.verticalScrollIndicatorInsets.bottom = SidebarSettingsPanelView.panelHeight
-
-		settingsPanel.onSelectItem = { [weak self] item in
-			self?.coordinator.showSidebarSettingsItem(item)
 		}
 	}
 

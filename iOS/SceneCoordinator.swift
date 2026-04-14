@@ -1756,10 +1756,11 @@ struct SidebarItemNode: Hashable, Sendable {
 		rootSplitViewController.present(alert, animated: true)
 	}
 
-	func showSettings(scrollToArticlesSection: Bool = false) {
+	func showSettings(scrollToArticlesSection: Bool = false, devOptionsUnlocked: Bool = false) {
 		let settingsNavController = UIStoryboard.settings.instantiateInitialViewController() as! UINavigationController
 		let settingsViewController = settingsNavController.topViewController as! SettingsViewController
 		settingsViewController.scrollToArticlesSection = scrollToArticlesSection
+		settingsViewController.openWithDevOptionsUnlocked = devOptionsUnlocked
 		settingsNavController.modalPresentationStyle = .formSheet
 		settingsViewController.presentingParentController = rootSplitViewController
 		rootSplitViewController.present(settingsNavController, animated: true)

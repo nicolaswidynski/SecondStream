@@ -243,6 +243,14 @@ struct Assets {
 //					: RSColor(red: 251/255, green: 252/255, blue: 255/255, alpha: 1)
 			}
 		}
+		
+		static var foregroundArticle: RSColor {
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark
+					? RSColor(red:  38/255, green:  38/255, blue:  36/255, alpha: 1)
+					: RSColor(red: 251/255, green: 252/255, blue: 255/255, alpha: 1)
+			}
+		}
 
 		/// Nav bar background for picker sheets. Use `.resolvedColor(with: traitCollection)`
 		/// at configuration time to lock in a static value and prevent iOS from flipping the

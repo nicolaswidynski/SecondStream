@@ -72,6 +72,7 @@ final class SettingsViewController: UITableViewController {
 	private let aboutDeleteRow = 2
 
 	var scrollToArticlesSection = false
+	var openWithDevOptionsUnlocked = false
 	weak var presentingParentController: UIViewController?
 
 	override func viewDidLoad() {
@@ -111,6 +112,10 @@ final class SettingsViewController: UITableViewController {
 
 	override func viewWillAppear(_ animated: Bool) {
 		super.viewWillAppear(animated)
+
+		if openWithDevOptionsUnlocked {
+			devOptionsUnlocked = true
+		}
 
 		if AppDefaults.shared.timelineSortDirection == .orderedAscending {
 			timelineSortOrderSwitch.isOn = true
@@ -644,15 +649,7 @@ final class SettingsViewController: UITableViewController {
 
 	@objc func buildLabelTripleTapped() {
 		devOptionsUnlocked.toggle()
-		let sectionsToToggle = IndexSet([ttsSection, debugSection])
-		let displayIndexSet = IndexSet([displaySection])
-		if devOptionsUnlocked {
-			tableView.insertSections(sectionsToToggle, with: .fade)
-			tableView.reloadSections(displayIndexSet, with: .fade)
-		} else {
-			tableView.deleteSections(sectionsToToggle, with: .fade)
-			tableView.reloadSections(displayIndexSet, with: .fade)
-		}
+		tableView.reloadSections(IndexSet([ttsSection, debugSection, displaySection]), with: .fade)
 	}
 
 	@objc func contentSizeCategoryDidChange() {
