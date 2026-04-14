@@ -49,7 +49,7 @@ final class SettingsViewController: UITableViewController {
 	@IBOutlet var obsidianRemoveOnUnbookmarkSwitch: UISwitch!
 	@IBOutlet var ttsVoiceDetailLabel: UILabel!
 
-	private var notificationsAuthorized = false
+	private var devOptionsUnlocked = false
 	private let displaySection = 5
 	private let ttsSection = 6
 	private let debugSection = 8
@@ -60,16 +60,16 @@ final class SettingsViewController: UITableViewController {
 	private let timelineReadStylingRow = 2
 	private let sectionHeaderIconsRow = 3
 	private let collapsibleSectionsRow = 4
+	private let displayFaceIDRow = 5
 	// Debug section rows
 	private let debugCleanTempRow = 0
 	private let debugDialogRow = 1
 	private let debugLandingPageRow = 2
 	private let debugIOSSignOutRow = 3
-	// About section rows
+	// More section rows
 	private let aboutAppRow = 0
-	private let aboutFaceIDRow = 1
-	private let aboutDisconnectRow = 2
-	private let aboutDeleteRow = 3
+	private let aboutDisconnectRow = 1
+	private let aboutDeleteRow = 2
 
 	var scrollToArticlesSection = false
 	weak var presentingParentController: UIViewController?
@@ -154,14 +154,12 @@ final class SettingsViewController: UITableViewController {
 
 		openLinksInNetNewsWire.isOn = !AppDefaults.shared.useSystemBrowser
 
-		updateNotificationSwitches()
-
+		// Obsidian switches are still connected in the storyboard; keep them in sync
+		// even though the Obsidian section is now a sub-page (they live in memory).
 		obsidianSyncSwitch.isOn = AppDefaults.shared.isObsidianSyncEnabled
 		obsidianSubfolderFeedTypeSwitch.isOn = AppDefaults.shared.obsidianSubfolderFeedType
 		obsidianSubfolderFeedNameSwitch.isOn = AppDefaults.shared.obsidianSubfolderFeedName
 		obsidianRemoveOnUnbookmarkSwitch.isOn = AppDefaults.shared.obsidianRemoveOnUnbookmark
-		updateObsidianVaultLabel()
-		updateObsidianSubfolderPreview()
 
 		updateTTSVoiceLabel()
 
@@ -176,6 +174,11 @@ final class SettingsViewController: UITableViewController {
 		wrapperView.translatesAutoresizingMaskIntoConstraints = false
 		wrapperView.addSubview(buildLabel)
 		tableView.tableFooterView = wrapperView
+
+		let tripleTap = UITapGestureRecognizer(target: self, action: #selector(buildLabelTripleTapped))
+		tripleTap.numberOfTapsRequired = 3
+		wrapperView.isUserInteractionEnabled = true
+		wrapperView.addGestureRecognizer(tripleTap)
 
 	}
 
@@ -192,19 +195,15 @@ final class SettingsViewController: UITableViewController {
 
 	// MARK: UITableView
 
-	// Hidden sections: 1 = Accounts, 2 = Feeds, 3 = Timeline, 4 = Articles
-	private let hiddenSections: Set<Int> = [1, 2, 3, 4]
-
-	/// Returns whether sub-options should be hidden for a section
-	private func shouldHideSubOptions(for section: Int) -> Bool {
-		switch section {
-		case 0:
-			return !notificationsAuthorized
-		case 7:
-			return !AppDefaults.shared.isObsidianSyncEnabled
-		default:
-			return false
+	// Permanently hidden sections: 1 = Accounts, 2 = Feeds, 3 = Timeline, 4 = Articles
+	// Dev-only sections (6 = TTS, 8 = Debug) are hidden until triple-tap on build label.
+	private var hiddenSections: Set<Int> {
+		var hidden: Set<Int> = [1, 2, 3, 4]
+		if !devOptionsUnlocked {
+			hidden.insert(ttsSection)
+			hidden.insert(debugSection)
 		}
+		return hidden
 	}
 
 	override func numberOfSections(in tableView: UITableView) -> Int {
@@ -219,26 +218,28 @@ final class SettingsViewController: UITableViewController {
 
 		switch section {
 		case 0:
-			// Section 0: row 0 = Open System Settings, rows 1-4 = notify toggles
-			return shouldHideSubOptions(for: 0) ? 1 : super.tableView(tableView, numberOfRowsInSection: section)
+			// Single "Notifications >" navigation row
+			return 1
 		case 1:
 			return AccountManager.shared.accounts.count + 1
 		case 4:
 			return traitCollection.userInterfaceIdiom == .phone ? 5 : 4
 		case 7:
-			// Section 7: row 0 = sync toggle, rows 1-5 = vault/subfolder/preview/remove
-			return shouldHideSubOptions(for: 7) ? 1 : super.tableView(tableView, numberOfRowsInSection: section)
+			// Single "Obsidian >" navigation row
+			return 1
 		case ttsSection:
 			return super.tableView(tableView, numberOfRowsInSection: section) + 1
 		case displaySection:
-			// Adds Unread First, Gray Read Articles, Show Category Icons, and Collapsible Sections rows
-			return super.tableView(tableView, numberOfRowsInSection: section) + 4
+			// When dev options are locked, show only the Appearance row.
+			if !devOptionsUnlocked { return 1 }
+			// Adds Unread First, Gray Read Articles, Show Category Icons, Collapsible Sections, and Face ID rows
+			return super.tableView(tableView, numberOfRowsInSection: section) + 5
 		case debugSection:
 			// Clear Temporary Files, Debug Dialog, Start Landing Page, Simulate iOS Sign Out
 			return 4
 		case aboutSection:
-			// About Second Stream, Enable Face ID, Disconnect Account, Delete Account
-			return 4
+			// About Second Stream, Disconnect Account, Delete Account
+			return 3
 		default:
 			return super.tableView(tableView, numberOfRowsInSection: section)
 		}
@@ -247,7 +248,8 @@ final class SettingsViewController: UITableViewController {
 	override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
 		if hiddenSections.contains(section) { return nil }
 		if section == debugSection { return NSLocalizedString("Debug", comment: "Debug section header") }
-		if section == aboutSection { return NSLocalizedString("About", comment: "About section header") }
+		if section == aboutSection { return NSLocalizedString("More", comment: "More section header") }
+		if section == displaySection { return NSLocalizedString("Settings", comment: "Settings section header") }
 		return super.tableView(tableView, titleForHeaderInSection: section)
 	}
 
@@ -279,6 +281,10 @@ final class SettingsViewController: UITableViewController {
 	override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 		let cell: UITableViewCell
 		switch indexPath.section {
+		case 0:
+			cell = UITableViewCell(style: .default, reuseIdentifier: "NotificationsNavCell")
+			cell.textLabel?.text = NSLocalizedString("Notifications", comment: "Notifications")
+			cell.accessoryType = .disclosureIndicator
 		case 1:
 			let sortedAccounts = AccountManager.shared.sortedAccounts
 			if indexPath.row == sortedAccounts.count {
@@ -292,6 +298,12 @@ final class SettingsViewController: UITableViewController {
 				acctCell.comboNameLabel?.text = account.nameForDisplay
 				cell = acctCell
 			}
+		case 7:
+			cell = UITableViewCell(style: .default, reuseIdentifier: "ObsidianNavCell")
+			cell.textLabel?.text = NSLocalizedString("Obsidian", comment: "Obsidian")
+			cell.accessoryType = .disclosureIndicator
+		case displaySection where indexPath.row == 0:
+			cell = makeAppearanceSegmentedCell(tableView)
 		case displaySection where indexPath.row == timelineReadStylingRow:
 			cell = makeTimelineReadStylingCell(tableView)
 		case displaySection where indexPath.row == sectionHeaderIconsRow:
@@ -300,6 +312,8 @@ final class SettingsViewController: UITableViewController {
 			cell = makeCollapsibleSectionsCell(tableView)
 		case displaySection where indexPath.row == timelineUnreadFirstRow:
 			cell = makeTimelineUnreadFirstCell(tableView)
+		case displaySection where indexPath.row == displayFaceIDRow:
+			cell = makeFaceIDCell(tableView)
 		case ttsSection where indexPath.row == ttsEnabledRow:
 			cell = makeTTSEnabledCell(tableView)
 		case debugSection:
@@ -324,12 +338,9 @@ final class SettingsViewController: UITableViewController {
 				cell = UITableViewCell(style: .default, reuseIdentifier: "AboutAppCell")
 				cell.textLabel?.text = NSLocalizedString("About Second Stream", comment: "About Second Stream")
 				cell.accessoryType = .disclosureIndicator
-			case aboutFaceIDRow:
-				cell = makeFaceIDCell(tableView)
 			case aboutDisconnectRow:
 				cell = UITableViewCell(style: .default, reuseIdentifier: "DisconnectAccountCell")
-				cell.textLabel?.text = NSLocalizedString("Disconnect Account", comment: "Disconnect Account")
-				cell.textLabel?.textColor = .systemRed
+				cell.textLabel?.text = NSLocalizedString("Log Out", comment: "Log Out")
 			case aboutDeleteRow:
 				cell = UITableViewCell(style: .default, reuseIdentifier: "DeleteAccountCell")
 				cell.textLabel?.text = NSLocalizedString("Delete Account", comment: "Delete Account")
@@ -352,8 +363,9 @@ final class SettingsViewController: UITableViewController {
 
 		switch indexPath.section {
 		case 0:
-			UIApplication.shared.open(URL(string: "\(UIApplication.openSettingsURLString)")!)
-			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
+			navigationController?.pushViewController(NotificationsSettingsViewController(), animated: true)
+		case 7:
+			navigationController?.pushViewController(ObsidianSettingsViewController(), animated: true)
 		case 1:
 			break
 		case 2:
@@ -390,28 +402,11 @@ final class SettingsViewController: UITableViewController {
 				break
 			}
 		case 5:
-			if indexPath.row == 0 {
-				let colorPalette = UIStoryboard.settings.instantiateController(ofType: ColorPaletteTableViewController.self)
-				self.navigationController?.pushViewController(colorPalette, animated: true)
-			} else {
-				tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
-			}
+			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
 		case 6:
 			// Text-to-Speech section
 			if indexPath.row == ttsVoiceRow {
 				presentTTSVoicePicker()
-			}
-			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
-		case 7:
-			// Obsidian section
-			switch indexPath.row {
-			case 1:
-				// Only allow vault picker when sync is enabled
-				if obsidianSyncSwitch.isOn {
-					presentObsidianVaultPicker()
-				}
-			default:
-				break
 			}
 			tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
 		case debugSection:
@@ -435,6 +430,8 @@ final class SettingsViewController: UITableViewController {
 				self.navigationController?.pushViewController(hosting, animated: true)
 			case aboutDisconnectRow:
 				confirmDisconnect()
+				tableView.selectRow(at: nil, animated: true, scrollPosition: .none)
+				return
 			case aboutDeleteRow:
 				confirmDeleteAccount()
 			default:
@@ -561,6 +558,12 @@ final class SettingsViewController: UITableViewController {
 		AppDefaults.shared.notifyWeeklyNews = notifyWeeklyNewsSwitch.isOn
 	}
 
+	@objc func appearanceSegmentedChanged(_ sender: UISegmentedControl) {
+		if let palette = UserInterfaceColorPalette(rawValue: sender.selectedSegmentIndex) {
+			AppDefaults.userInterfaceColorPalette = palette
+		}
+	}
+
 	@objc func switchTimelineReadStyling(_ sender: UISwitch) {
 		AppDefaults.shared.timelineDimReadArticles = sender.isOn
 	}
@@ -639,6 +642,19 @@ final class SettingsViewController: UITableViewController {
 
 	// MARK: - Notifications
 
+	@objc func buildLabelTripleTapped() {
+		devOptionsUnlocked.toggle()
+		let sectionsToToggle = IndexSet([ttsSection, debugSection])
+		let displayIndexSet = IndexSet([displaySection])
+		if devOptionsUnlocked {
+			tableView.insertSections(sectionsToToggle, with: .fade)
+			tableView.reloadSections(displayIndexSet, with: .fade)
+		} else {
+			tableView.deleteSections(sectionsToToggle, with: .fade)
+			tableView.reloadSections(displayIndexSet, with: .fade)
+		}
+	}
+
 	@objc func contentSizeCategoryDidChange() {
 		tableView.reloadData()
 	}
@@ -697,6 +713,20 @@ extension SettingsViewController: UIDocumentPickerDelegate {
 // MARK: - Private
 
 private extension SettingsViewController {
+
+	func makeAppearanceSegmentedCell(_ tableView: UITableView) -> UITableViewCell {
+		let cell = tableView.dequeueReusableCell(withIdentifier: "AppearanceSegmentedCell") ??
+			UITableViewCell(style: .default, reuseIdentifier: "AppearanceSegmentedCell")
+		cell.selectionStyle = .none
+		cell.textLabel?.text = NSLocalizedString("Appearance", comment: "Appearance")
+		let items = UserInterfaceColorPalette.allCases.map { $0.description }
+		let control = (cell.accessoryView as? UISegmentedControl) ?? UISegmentedControl(items: items)
+		control.selectedSegmentIndex = AppDefaults.userInterfaceColorPalette.rawValue
+		control.removeTarget(self, action: #selector(appearanceSegmentedChanged(_:)), for: .valueChanged)
+		control.addTarget(self, action: #selector(appearanceSegmentedChanged(_:)), for: .valueChanged)
+		cell.accessoryView = control
+		return cell
+	}
 
 	func makeTimelineUnreadFirstCell(_ tableView: UITableView) -> UITableViewCell {
 		let cell = tableView.dequeueReusableCell(withIdentifier: "TimelineUnreadFirstCell") ??
@@ -1036,56 +1066,6 @@ private extension SettingsViewController {
 		present(alert, animated: true)
 	}
 
-	func updateNotificationSwitches() {
-		UNUserNotificationCenter.current().getNotificationSettings { settings in
-			let authorized = settings.authorizationStatus == .authorized
-			DispatchQueue.main.async {
-				let previouslyAuthorized = self.notificationsAuthorized
-				self.notificationsAuthorized = authorized
-
-				// Initialize defaults on first check if notifications are authorized
-				if authorized {
-					let store = AppDefaults.store
-					if store.object(forKey: AppDefaults.Key.notifyFeeds) == nil {
-						AppDefaults.shared.notifyFeeds = true
-					}
-					if store.object(forKey: AppDefaults.Key.notifyPodcasts) == nil {
-						AppDefaults.shared.notifyPodcasts = true
-					}
-					if store.object(forKey: AppDefaults.Key.notifyYouTube) == nil {
-						AppDefaults.shared.notifyYouTube = true
-					}
-					if store.object(forKey: AppDefaults.Key.notifyWeeklyNews) == nil {
-						AppDefaults.shared.notifyWeeklyNews = true
-					}
-				}
-
-				let switches = [
-					self.notifyPodcastsSwitch,
-					self.notifyYouTubeSwitch,
-					self.notifyWeeklyNewsSwitch,
-					self.notifyFeedsSwitch
-				]
-
-				let values = [
-					AppDefaults.shared.notifyPodcasts,
-					AppDefaults.shared.notifyYouTube,
-					AppDefaults.shared.notifyWeeklyNews,
-					AppDefaults.shared.notifyFeeds
-				]
-
-				for (toggle, value) in zip(switches, values) {
-					toggle?.isOn = authorized && value
-					toggle?.isEnabled = authorized
-					toggle?.alpha = authorized ? 1.0 : 0.5
-				}
-
-				if previouslyAuthorized != authorized {
-					self.tableView.reloadData()
-				}
-			}
-		}
-	}
 
 	func updateObsidianSubfolderPreview() {
 		obsidianSubfolderPreviewLabel.text = ObsidianFileManager.subfolderPreviewWithVault()

@@ -215,8 +215,6 @@ struct Assets {
 				tc.userInterfaceStyle == .dark
 				? RSColor(red: 0.04, green: 0.52, blue: 1.0, alpha: 1)
 				: RSColor(red: 0.0, green: 0.48, blue:  1.0, alpha: 1)
-//				? RSColor(red: 232/255, green: 134/255, blue: 106/255, alpha: 1)
-//				: RSColor(red: 217/255, green: 119/255, blue:  87/255, alpha: 1)
 			}
 		}
 
@@ -225,8 +223,6 @@ struct Assets {
 				tc.userInterfaceStyle == .dark
 				? RSColor(red: 0.04, green: 0.52, blue: 1.0, alpha: 1)
 				: RSColor(red: 0.0, green: 0.48, blue:  1.0, alpha: 1)
-//				? RSColor(red: 212/255, green: 149/255, blue: 110/255, alpha: 1)
-//				: RSColor(red: 217/255, green: 119/255, blue:  87/255, alpha: 1)
 			}
 		}
 
@@ -241,8 +237,10 @@ struct Assets {
 		static var foreground: RSColor {
 			RSColor { tc in
 				tc.userInterfaceStyle == .dark
-					? RSColor(red:  38/255, green:  38/255, blue:  36/255, alpha: 1)
-					: RSColor(red: 251/255, green: 252/255, blue: 255/255, alpha: 1)
+				? RSColor(red:  27/255, green:  26/255, blue:  25/255, alpha: 1)
+				: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 1)
+//					? RSColor(red:  38/255, green:  38/255, blue:  36/255, alpha: 1)
+//					: RSColor(red: 251/255, green: 252/255, blue: 255/255, alpha: 1)
 			}
 		}
 

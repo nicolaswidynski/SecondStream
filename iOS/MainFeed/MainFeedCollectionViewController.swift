@@ -81,6 +81,8 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	var dataSource: UICollectionViewDiffableDataSource<String, SidebarItemNode>!
 
+	private let settingsPanel = SidebarSettingsPanelView()
+
 	override func viewDidLoad() {
 		super.viewDidLoad()
 		view.backgroundColor = Assets.Colors.background
@@ -93,6 +95,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		configureDiffableDataSource()
 		configureNavigationBar()
 		configureRecentlyUpdatedStrip()
+		configureSettingsPanel()
 		collectionView.dragDelegate = self
 		collectionView.dropDelegate = self
 		becomeFirstResponder()
@@ -143,6 +146,16 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			case .discover(let source):
 				addDiscoverSource(source)
 			}
+		}
+	}
+
+	private func configureSettingsPanel() {
+		settingsPanel.install(in: collectionView)
+		collectionView.contentInset.bottom = SidebarSettingsPanelView.panelHeight
+		collectionView.verticalScrollIndicatorInsets.bottom = SidebarSettingsPanelView.panelHeight
+
+		settingsPanel.onSelectItem = { [weak self] item in
+			self?.coordinator.showSidebarSettingsItem(item)
 		}
 	}
 
@@ -1126,9 +1139,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 	private func deleteBootstrappedFeed(withURL feedURL: String) {
-		guard let account = AccountManager.shared.activeAccounts.first,
-			  let feed = account.existingFeed(withURL: feedURL),
-			  let indexPath = coordinator.indexPathFor(feed as AnyObject) else {
+		guard let sidebarItemNode = dataSource.snapshot().itemIdentifiers.first(where: {
+			($0.node.representedObject as? Feed)?.url == feedURL
+		}), let indexPath = dataSource.indexPath(for: sidebarItemNode) else {
 			return
 		}
 		performDelete(indexPath: indexPath)

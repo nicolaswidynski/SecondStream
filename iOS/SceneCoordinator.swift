@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import SwiftUI
 import os
 import UserNotifications
 import Account
@@ -174,6 +175,9 @@ struct SidebarItemNode: Hashable, Sendable {
 
 	/// `Bool` to track whether a refresh is scheduled.
 	private var isNavigationBarSubtitleRefreshScheduled: Bool = false
+
+	/// `Bool` to track whether settings are currently shown in the supplementary column.
+	private var isShowingSettingsInSupplementary = false
 
 	private(set) var sortDirection = AppDefaults.shared.timelineSortDirection {
 		didSet {
@@ -1109,6 +1113,8 @@ struct SidebarItemNode: Hashable, Sendable {
 			return
 		}
 
+		restoreTimelineIfNeeded()
+
 		currentFeedIndexPath = indexPath
 		mainFeedCollectionViewController.updateFeedSelection(animations: animations)
 
@@ -1646,6 +1652,108 @@ struct SidebarItemNode: Hashable, Sendable {
 
 	func showRSSPicker() {
 		mainFeedCollectionViewController.showRSSPicker()
+	}
+
+	// MARK: - Sidebar settings
+
+	func showSidebarSettingsItem(_ item: SettingsSidebarItem) {
+		// Deselect any current feed selection
+		currentFeedIndexPath = nil
+		mainFeedCollectionViewController.updateFeedSelection(animations: [.select])
+		selectArticle(nil)
+
+		switch item {
+		case .logOut:
+			confirmDisconnectFromSidebar()
+			return
+		case .deleteAccount:
+			confirmDeleteAccountFromSidebar()
+			return
+		default:
+			break
+		}
+
+		let settingsVC = makeSettingsVC(for: item)
+		if rootSplitViewController.isCollapsed {
+			mainFeedCollectionViewController.navigationController?.pushViewController(settingsVC, animated: true)
+		} else {
+			let navVC = UINavigationController(rootViewController: settingsVC)
+			rootSplitViewController.setViewController(navVC, for: .supplementary)
+			rootSplitViewController.show(.supplementary)
+			isShowingSettingsInSupplementary = true
+		}
+	}
+
+	private func restoreTimelineIfNeeded() {
+		guard isShowingSettingsInSupplementary else {
+			return
+		}
+		isShowingSettingsInSupplementary = false
+		rootSplitViewController.setViewController(mainTimelineViewController, for: .supplementary)
+	}
+
+	private func makeSettingsVC(for item: SettingsSidebarItem) -> UIViewController {
+		switch item {
+		case .notifications:
+			return NotificationsSettingsViewController()
+		case .appearance:
+			return AppearanceSettingsViewController()
+		case .faceID:
+			return FaceIDSettingsViewController()
+		case .obsidian:
+			return ObsidianSettingsViewController()
+		case .about:
+			return UIHostingController(rootView: AboutWPodView())
+		case .logOut, .deleteAccount:
+			// Handled before this method is called
+			return UIViewController()
+		}
+	}
+
+	private func confirmDisconnectFromSidebar() {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Log Out", comment: "Log Out"),
+			message: NSLocalizedString("You will be signed out of your Second Stream account. Sign in again to reconnect.", comment: "Disconnect confirmation"),
+			preferredStyle: .alert
+		)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Log Out", comment: "Log Out"), style: .destructive) { _ in
+			AuthManager.shared.disconnect()
+			guard let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+				  let sceneDelegate = windowScene.delegate as? SceneDelegate else {
+				return
+			}
+			sceneDelegate.presentRegistration()
+		})
+		rootSplitViewController.present(alert, animated: true)
+	}
+
+	private func confirmDeleteAccountFromSidebar() {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Delete Account", comment: "Delete Account"),
+			message: NSLocalizedString("This will permanently delete your Second Stream account and all associated data. This action cannot be undone.", comment: "Delete account confirmation"),
+			preferredStyle: .alert
+		)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Delete", comment: "Delete"), style: .destructive) { _ in
+			Task {
+				do {
+					try await AuthManager.shared.deleteAccount()
+					await MainActor.run {
+						guard let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+							  let sceneDelegate = windowScene.delegate as? SceneDelegate else {
+							return
+						}
+						sceneDelegate.presentRegistration()
+					}
+				} catch {
+					await MainActor.run { [weak self] in
+						self?.rootSplitViewController.presentError(error)
+					}
+				}
+			}
+		})
+		rootSplitViewController.present(alert, animated: true)
 	}
 
 	func showSettings(scrollToArticlesSection: Bool = false) {
