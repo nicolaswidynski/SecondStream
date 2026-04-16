@@ -911,7 +911,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 			separator.topAnchor.constraint(equalTo: container.topAnchor),
 			separator.heightAnchor.constraint(equalToConstant: 0.5),
 
-			label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+			label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
 			label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
 			label.topAnchor.constraint(equalTo: separator.bottomAnchor, constant: 6),
 			label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6)

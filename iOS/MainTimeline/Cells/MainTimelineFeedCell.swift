@@ -141,12 +141,13 @@ class MainTimelineFeedCell: UITableViewCell {
 
 	private func updateIndicatorView(_ cellData: MainTimelineCellData) {
 		let dimReadArticles = AppDefaults.shared.timelineDimReadArticles
+		let wasStarred = isStarred
+
 		if cellData.starred {
 			isStarred = true
 			setIndicatorViewSize(22)
 			indicatorView.iconImage = Assets.Images.starredCellIndicator
 			indicatorView.tintColor = .label
-			// Bookmark: center indicator in the date column
 			indicatorCenterXConstraint?.isActive = false
 			indicatorCenterXConstraint = indicatorView.centerXAnchor.constraint(equalTo: inlineDateLabel.centerXAnchor)
 			indicatorCenterXConstraint?.isActive = true
@@ -158,30 +159,67 @@ class MainTimelineFeedCell: UITableViewCell {
 				self.inlineDateLabel.isHidden = true
 				self.inlineDateLabel.alpha = 1.0
 			}
+
 		} else if cellData.read == false && !dimReadArticles {
 			isStarred = false
-			setIndicatorViewSize(10)
-			indicatorView.iconImage = Assets.Images.unreadCellIndicator
-			indicatorView.tintColor = Assets.Colors.secondaryAccent
-			// Unread dot: just to the left of the date column, no layout space consumed
 			indicatorCenterXConstraint?.isActive = false
 			indicatorCenterXConstraint = indicatorView.centerXAnchor.constraint(equalTo: inlineDateLabel.leadingAnchor, constant: -6)
 			indicatorCenterXConstraint?.isActive = true
-			inlineDateLabel.isHidden = false
-			UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut) {
-				self.indicatorView.alpha = 1.0
-				self.inlineDateLabel.alpha = 1.0
-				self.contentView.layoutIfNeeded()
+
+			if wasStarred {
+				// Phase 1: fade out bookmark; date stays hidden.
+				inlineDateLabel.alpha = 0.0
+				inlineDateLabel.isHidden = false
+				UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
+					self.indicatorView.alpha = 0.0
+					self.contentView.layoutIfNeeded()
+				} completion: { _ in
+					self.setIndicatorViewSize(10)
+					self.indicatorView.iconImage = Assets.Images.unreadCellIndicator
+					self.indicatorView.tintColor = Assets.Colors.secondaryAccent
+					// Phase 2: fade in date and unread dot together.
+					UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
+						self.inlineDateLabel.alpha = 1.0
+						self.indicatorView.alpha = 1.0
+					}
+				}
+			} else {
+				setIndicatorViewSize(10)
+				indicatorView.iconImage = Assets.Images.unreadCellIndicator
+				indicatorView.tintColor = Assets.Colors.secondaryAccent
+				inlineDateLabel.isHidden = false
+				UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut) {
+					self.indicatorView.alpha = 1.0
+					self.inlineDateLabel.alpha = 1.0
+					self.contentView.layoutIfNeeded()
+				}
 			}
+
 		} else {
 			isStarred = false
-			setIndicatorViewSize(10)
-			inlineDateLabel.isHidden = false
-			UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut) {
-				self.indicatorView.alpha = 0.0
-				self.inlineDateLabel.alpha = 1.0
-			} completion: { _ in
-				self.indicatorView.iconImage = nil
+
+			if wasStarred {
+				// Phase 1: fade out bookmark; date stays hidden.
+				inlineDateLabel.alpha = 0.0
+				inlineDateLabel.isHidden = false
+				UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
+					self.indicatorView.alpha = 0.0
+				} completion: { _ in
+					self.indicatorView.iconImage = nil
+					// Phase 2: fade in date.
+					UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
+						self.inlineDateLabel.alpha = 1.0
+					}
+				}
+			} else {
+				setIndicatorViewSize(10)
+				inlineDateLabel.isHidden = false
+				UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut) {
+					self.indicatorView.alpha = 0.0
+					self.inlineDateLabel.alpha = 1.0
+				} completion: { _ in
+					self.indicatorView.iconImage = nil
+				}
 			}
 		}
 	}
