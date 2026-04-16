@@ -59,19 +59,6 @@ import Secrets
 	}
 
 	func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-		// Force a consistent chrome appearance on every navigation bar regardless of scroll
-		// position or what content is behind it. configureWithDefaultBackground() uses a blur
-		// that samples the content behind the bar, so the same blur can look different on each
-		// screen (web view vs. table vs. collection). configureWithOpaqueBackground() gives a
-		// solid adaptive colour that is identical everywhere.
-		let consistentAppearance = UINavigationBarAppearance()
-		consistentAppearance.configureWithOpaqueBackground()
-		consistentAppearance.backgroundColor = Assets.Colors.foreground
-		UINavigationBar.appearance().standardAppearance = consistentAppearance
-		UINavigationBar.appearance().scrollEdgeAppearance = consistentAppearance
-		UINavigationBar.appearance().compactAppearance = consistentAppearance
-		UINavigationBar.appearance().compactScrollEdgeAppearance = consistentAppearance
-
 		AppDefaults.registerDefaults()
 
 		let isFirstRun = AppDefaults.shared.isFirstRun

@@ -37,10 +37,15 @@ final class TimelineCustomizerTableViewController: UITableViewController {
 				status: ArticleStatus(articleID: "_testArticleID", read: false, starred: false, dateArrived: .now))
 	}
 
+	override func viewWillAppear(_ animated: Bool) {
+		super.viewWillAppear(animated)
+		applySettingsNavBarAppearance()
+	}
+
     override func viewDidLoad() {
         super.viewDidLoad()
 		title = NSLocalizedString("Timeline Customizer", comment: "Timeline Customizer")
-		tableView.backgroundColor = Assets.Colors.background
+		tableView.backgroundColor = Assets.Colors.SettingsContentBgColor
 
 		NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
 			Task { @MainActor in
@@ -51,7 +56,7 @@ final class TimelineCustomizerTableViewController: UITableViewController {
 
 	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
 		var bg = UIBackgroundConfiguration.listCell()
-		bg.backgroundColor = Assets.Colors.foreground
+		bg.backgroundColor = Assets.Colors.SettingsContentTableColor
 		cell.backgroundConfiguration = bg
 	}
 

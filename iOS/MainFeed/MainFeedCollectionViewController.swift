@@ -83,7 +83,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
-		view.backgroundColor = Assets.Colors.background
+		view.backgroundColor = Assets.Colors.FeedSceneContentBgColor
 		registerForNotifications()
 		configureCollectionView()
 		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (_: MainFeedCollectionViewController, _: UITraitCollection) in
@@ -212,7 +212,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	private func applyPickerNavigationBarAppearance(to navController: UINavigationController) {
 		let appearance = UINavigationBarAppearance()
 		appearance.configureWithOpaqueBackground()
-		appearance.backgroundColor = Assets.Colors.foreground
+		appearance.backgroundColor = Assets.Colors.FeedSceneNavBarColor
 		navController.navigationBar.standardAppearance = appearance
 		navController.navigationBar.scrollEdgeAppearance = appearance
 		navController.navigationBar.compactAppearance = appearance
@@ -434,7 +434,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 
 	override func viewWillAppear(_ animated: Bool) {
-		navigationController?.view.backgroundColor = Assets.Colors.background
+		navigationController?.view.backgroundColor = Assets.Colors.FeedSceneContentBgColor
 		navigationController?.setToolbarHidden(false, animated: animated)
 		navigationController?.additionalSafeAreaInsets.bottom = 60
 		stripController.applyNavigationBarBackgroundStyle()
@@ -512,38 +512,49 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	// MARK: - Collection View Configuration
 	func configureCollectionView() {
-		var config = UICollectionLayoutListConfiguration(appearance: traitCollection.userInterfaceIdiom == .pad ? .sidebar : .insetGrouped)
-		config.backgroundColor = .clear
-		config.separatorConfiguration.color = .tertiarySystemFill
-		config.headerMode = .supplementary
-		// Don't use section footers - we use a standalone footer label instead
+		let isPhone = traitCollection.userInterfaceIdiom == .phone
+		let layout = UICollectionViewCompositionalLayout { [weak self] _, layoutEnvironment in
+			guard let self else { return nil }
+			var config = UICollectionLayoutListConfiguration(appearance: traitCollection.userInterfaceIdiom == .pad ? .sidebar : .grouped)
+			config.backgroundColor = Assets.Colors.FeedSceneContentBgColor
+			config.separatorConfiguration.color = Assets.Colors.separator
+			config.headerMode = .supplementary
+			// Don't use section footers - we use a standalone footer label instead
 
-		config.trailingSwipeActionsConfigurationProvider = { [unowned self] indexPath in
-			let deleteTitle = NSLocalizedString("Delete", comment: "Delete")
-			let deleteAction = UIContextualAction(style: .destructive, title: nil) { [weak self] _, _, completion in
-				self?.delete(indexPath: indexPath)
-				completion(true)
+			config.trailingSwipeActionsConfigurationProvider = { [unowned self] indexPath in
+				let deleteTitle = NSLocalizedString("Delete", comment: "Delete")
+				let deleteAction = UIContextualAction(style: .destructive, title: nil) { [weak self] _, _, completion in
+					self?.delete(indexPath: indexPath)
+					completion(true)
+				}
+				deleteAction.image = UIImage(systemName: "trash")
+				deleteAction.accessibilityLabel = deleteTitle
+				deleteAction.backgroundColor = UIColor.systemRed
+
+				let config = UISwipeActionsConfiguration(actions: [deleteAction])
+				config.performsFirstActionWithFullSwipe = false
+
+				return config
 			}
-			deleteAction.image = UIImage(systemName: "trash")
-			deleteAction.accessibilityLabel = deleteTitle
-			deleteAction.backgroundColor = UIColor.systemRed
 
-			let config = UISwipeActionsConfiguration(actions: [deleteAction])
-			config.performsFirstActionWithFullSwipe = false
-
-			return config
+			let section = NSCollectionLayoutSection.list(using: config, layoutEnvironment: layoutEnvironment)
+			if isPhone {
+				let hMargin = layoutEnvironment.container.effectiveContentSize.width * 0.05
+				section.contentInsets = NSDirectionalEdgeInsets(top: Assets.Colors.feedSectionSpacingTop, leading: hMargin, bottom: Assets.Colors.feedSectionSpacingBottom, trailing: hMargin)
+				section.interGroupSpacing = Assets.Colors.feedSeparatorVerticalPadding
+			}
+			return section
 		}
-
-		let layout = UICollectionViewCompositionalLayout.list(using: config)
 		collectionView.setCollectionViewLayout(layout, animated: false)
 		collectionView.refreshControl = UIRefreshControl()
 		collectionView.refreshControl!.addTarget(self, action: #selector(refreshAccounts(_:)), for: .valueChanged)
 
-		if config.appearance == .sidebar {
+		if traitCollection.userInterfaceIdiom == .pad {
 			// This defrosts the glass.
 			collectionView.backgroundColor = .clear
 		} else {
-			collectionView.backgroundColor = Assets.Colors.background
+			collectionView.backgroundColor = Assets.Colors.FeedSceneContentBgColor
+			collectionView.backgroundView = nil
 		}
 
 		updateScrollIndicatorStyle()
@@ -607,6 +618,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			headerView.configure(title: feedSection.displayName, icon: icon)
 				headerView.unreadCount = self.unreadCountForSection(feedSection)
 				headerView.disclosureExpanded = self.coordinator.isCategorySectionExpanded(feedSection)
+				headerView.showTopSeparator = indexPath.section > 0
 				// Don't add context menu to category headers (no account actions apply)
 				return headerView
 			}

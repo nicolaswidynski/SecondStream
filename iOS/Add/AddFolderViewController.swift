@@ -64,7 +64,7 @@ final class AddFolderViewController: UITableViewController {
 		NotificationCenter.default.addObserver(self, selector: #selector(textDidChange(_:)), name: UITextField.textDidChangeNotification, object: nameTextField)
 
 		nameTextField.becomeFirstResponder()
-		tableView.backgroundColor = Assets.Colors.background
+		tableView.backgroundColor = Assets.Colors.AddContentBgColor
     }
 
 	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {

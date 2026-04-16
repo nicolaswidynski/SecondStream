@@ -38,7 +38,7 @@ final class SourcePickerCell: UICollectionViewCell {
 
 	override init(frame: CGRect) {
 		super.init(frame: frame)
-		backgroundColor = Assets.Colors.background
+		backgroundColor = Assets.Colors.AddContentBgColor
 		contentView.addSubview(iconImageView)
 		contentView.addSubview(nameLabel)
 

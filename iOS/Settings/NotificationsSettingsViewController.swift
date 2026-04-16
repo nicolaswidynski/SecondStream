@@ -26,12 +26,14 @@ final class NotificationsSettingsViewController: UITableViewController {
 	override func viewDidLoad() {
 		super.viewDidLoad()
 		title = NSLocalizedString("Notifications", comment: "Notifications")
-		tableView.backgroundColor = Assets.Colors.background
+		tableView.backgroundColor = Assets.Colors.SettingsContentBgColor
+		tableView.separatorStyle = .none
 		UISwitch.appearance(whenContainedInInstancesOf: [NotificationsSettingsViewController.self]).onTintColor = Assets.Colors.primaryAccent
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
 		super.viewWillAppear(animated)
+		applySettingsNavBarAppearance()
 		refreshAuthorization()
 	}
 
@@ -73,7 +75,7 @@ final class NotificationsSettingsViewController: UITableViewController {
 			let cell = UITableViewCell(style: .default, reuseIdentifier: "OpenSettings")
 			cell.textLabel?.text = NSLocalizedString("Open System Settings", comment: "Open System Settings")
 			cell.textLabel?.adjustsFontForContentSizeCategory = true
-			cell.backgroundColor = Assets.Colors.foreground
+			cell.backgroundColor = Assets.Colors.SettingsContentTableColor
 			return cell
 		case .podcasts:
 			return makeToggleCell(title: NSLocalizedString("Notify Podcasts", comment: "Notify Podcasts"),
@@ -102,7 +104,7 @@ final class NotificationsSettingsViewController: UITableViewController {
 	}
 
 	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-		cell.backgroundColor = Assets.Colors.foreground
+		cell.backgroundColor = Assets.Colors.SettingsContentTableColor
 	}
 
 	// MARK: - Helpers

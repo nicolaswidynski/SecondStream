@@ -14,12 +14,14 @@ final class FaceIDSettingsViewController: UITableViewController {
 	override func viewDidLoad() {
 		super.viewDidLoad()
 		title = NSLocalizedString("Face ID", comment: "Face ID")
-		tableView.backgroundColor = Assets.Colors.background
+		tableView.backgroundColor = Assets.Colors.SettingsContentBgColor
+		tableView.separatorStyle = .none
 		UISwitch.appearance(whenContainedInInstancesOf: [FaceIDSettingsViewController.self]).onTintColor = Assets.Colors.primaryAccent
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
 		super.viewWillAppear(animated)
+		applySettingsNavBarAppearance()
 		tableView.reloadData()
 	}
 
@@ -33,7 +35,7 @@ final class FaceIDSettingsViewController: UITableViewController {
 		cell.textLabel?.text = NSLocalizedString("Enable Face ID", comment: "Enable Face ID")
 		cell.textLabel?.adjustsFontForContentSizeCategory = true
 		cell.selectionStyle = .none
-		cell.backgroundColor = Assets.Colors.foreground
+		cell.backgroundColor = Assets.Colors.SettingsContentTableColor
 		let toggle = UISwitch()
 		toggle.isOn = AppDefaults.shared.faceIDEnabled
 		toggle.addTarget(self, action: #selector(switchFaceID(_:)), for: .valueChanged)
@@ -42,7 +44,7 @@ final class FaceIDSettingsViewController: UITableViewController {
 	}
 
 	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-		cell.backgroundColor = Assets.Colors.foreground
+		cell.backgroundColor = Assets.Colors.SettingsContentTableColor
 	}
 
 	// MARK: - Actions

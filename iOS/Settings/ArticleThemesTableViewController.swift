@@ -16,9 +16,14 @@ extension UTType {
 
 final class ArticleThemesTableViewController: UITableViewController {
 
+	override func viewWillAppear(_ animated: Bool) {
+		super.viewWillAppear(animated)
+		applySettingsNavBarAppearance()
+	}
+
 	override func viewDidLoad() {
 		super.viewDidLoad()
-		tableView.backgroundColor = Assets.Colors.background
+		tableView.backgroundColor = Assets.Colors.SettingsContentBgColor
 		let importBarButtonItem = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(importTheme(_:)))
 //		importBarButtonItem.title = NSLocalizedString("Import Theme", comment: "Import Theme")
 		navigationItem.rightBarButtonItem = importBarButtonItem
@@ -28,7 +33,7 @@ final class ArticleThemesTableViewController: UITableViewController {
 
 	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
 		var bg = UIBackgroundConfiguration.listCell()
-		bg.backgroundColor = Assets.Colors.foreground
+		bg.backgroundColor = Assets.Colors.SettingsContentTableColor
 		cell.backgroundConfiguration = bg
 	}
 

@@ -485,7 +485,7 @@ a.footnote:hover,
 		/* Palette — injected from Assets.Colors at render time */
 		--page-bg:     [[color-page-bg-light]];
 		--groupbox-bg: [[color-groupbox-bg-light]];
-		--separator:   #C6C6C8;
+		--separator:   [[color-separator-article-light]];
 	}
 
 	@media(prefers-color-scheme: dark) {
@@ -499,7 +499,7 @@ a.footnote:hover,
 			/* Palette — injected from Assets.Colors at render time */
 			--page-bg:     [[color-page-bg-dark]];
 			--groupbox-bg: [[color-groupbox-bg-dark]];
-			--separator:   #3D3B3699;
+			--separator:   [[color-separator-article-dark]];
 		}
 
 		.nnw-collapsible {

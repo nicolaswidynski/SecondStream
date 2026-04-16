@@ -24,7 +24,7 @@ final class NewsPickerViewController: UIViewController {
 		super.viewDidLoad()
 
 		title = NSLocalizedString("Add Weekly News", comment: "Add Weekly News")
-		view.backgroundColor = Assets.Colors.background
+		view.backgroundColor = Assets.Colors.AddContentBgColor
 
 		navigationItem.leftBarButtonItem = UIBarButtonItem(
 			barButtonSystemItem: .cancel,
@@ -60,7 +60,7 @@ final class NewsPickerViewController: UIViewController {
 	private func configureOpaqueNavigationBar() {
 		let appearance = UINavigationBarAppearance()
 		appearance.configureWithOpaqueBackground()
-		appearance.backgroundColor = Assets.Colors.pickerNavBar.resolvedColor(with: traitCollection)
+		appearance.backgroundColor = Assets.Colors.AddNavBarColor.resolvedColor(with: traitCollection)
 		let textColor = UIColor.label.resolvedColor(with: traitCollection)
 		appearance.titleTextAttributes = [.foregroundColor: textColor]
 		appearance.largeTitleTextAttributes = [.foregroundColor: textColor]
@@ -76,7 +76,7 @@ final class NewsPickerViewController: UIViewController {
 		let layout = createLayout()
 		collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
 		collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-		collectionView.backgroundColor = Assets.Colors.background
+		collectionView.backgroundColor = Assets.Colors.AddContentBgColor
 		collectionView.delegate = self
 		collectionView.register(SourcePickerCell.self, forCellWithReuseIdentifier: SourcePickerCell.reuseIdentifier)
 		collectionView.register(

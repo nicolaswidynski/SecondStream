@@ -34,13 +34,15 @@ final class ObsidianSettingsViewController: UITableViewController, UIDocumentPic
 	override func viewDidLoad() {
 		super.viewDidLoad()
 		title = NSLocalizedString("Obsidian", comment: "Obsidian")
-		tableView.backgroundColor = Assets.Colors.background
+		tableView.backgroundColor = Assets.Colors.SettingsContentBgColor
+		tableView.separatorStyle = .none
 		UISwitch.appearance(whenContainedInInstancesOf: [ObsidianSettingsViewController.self]).onTintColor = Assets.Colors.primaryAccent
 		rebuildRows()
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
 		super.viewWillAppear(animated)
+		applySettingsNavBarAppearance()
 		tableView.reloadData()
 	}
 
@@ -81,7 +83,7 @@ final class ObsidianSettingsViewController: UITableViewController, UIDocumentPic
 			cell.textLabel?.isEnabled = AppDefaults.shared.isObsidianSyncEnabled
 			cell.detailTextLabel?.isEnabled = AppDefaults.shared.isObsidianSyncEnabled
 			vaultDetailLabel = cell.detailTextLabel
-			cell.backgroundColor = Assets.Colors.foreground
+			cell.backgroundColor = Assets.Colors.SettingsContentTableColor
 			return cell
 
 		case .subfolderFeedType:
@@ -105,7 +107,7 @@ final class ObsidianSettingsViewController: UITableViewController, UIDocumentPic
 			cell.textLabel?.font = .preferredFont(forTextStyle: .subheadline)
 			cell.textLabel?.adjustsFontForContentSizeCategory = true
 			cell.selectionStyle = .none
-			cell.backgroundColor = Assets.Colors.foreground
+			cell.backgroundColor = Assets.Colors.SettingsContentTableColor
 			previewLabel = cell.textLabel
 			return cell
 
@@ -126,7 +128,7 @@ final class ObsidianSettingsViewController: UITableViewController, UIDocumentPic
 	}
 
 	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-		cell.backgroundColor = Assets.Colors.foreground
+		cell.backgroundColor = Assets.Colors.SettingsContentTableColor
 	}
 
 	// MARK: - Switch actions

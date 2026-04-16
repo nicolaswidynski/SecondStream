@@ -24,6 +24,14 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 		window!.tintColor = Assets.Colors.primaryAccent
 
+		let globalNavAppearance = UINavigationBarAppearance()
+		globalNavAppearance.configureWithOpaqueBackground()
+		globalNavAppearance.backgroundColor = Assets.Colors.FeedSceneNavBarColor
+		UINavigationBar.appearance().standardAppearance = globalNavAppearance
+		UINavigationBar.appearance().scrollEdgeAppearance = globalNavAppearance
+		UINavigationBar.appearance().compactAppearance = globalNavAppearance
+		UINavigationBar.appearance().compactScrollEdgeAppearance = globalNavAppearance
+
 		let rootViewController = window!.rootViewController as! RootSplitViewController
 		rootViewController.presentsWithGesture = true
 		rootViewController.showsSecondaryOnlyButton = true

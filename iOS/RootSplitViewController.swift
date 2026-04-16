@@ -135,6 +135,7 @@ final class RootSplitViewController: UISplitViewController {
 		guard !isLeftMenuOpen else {
 			return
 		}
+		UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 		isLeftMenuOpen = true
 		leftMenuDimView?.isHidden = false
 		leftMenuLeadingConstraint?.constant = 0
@@ -150,6 +151,7 @@ final class RootSplitViewController: UISplitViewController {
 			return
 		}
 		isLeftMenuOpen = false
+		leftMenuViewController?.resetNavigation()
 		leftMenuLeadingConstraint?.constant = -leftMenuWidth
 		UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseIn) {
 			self.view.layoutIfNeeded()

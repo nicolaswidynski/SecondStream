@@ -147,12 +147,12 @@ enum RecentlyUpdatedStripPayload {
 		])
 	}
 
-	/// Applies the navigation bar background style (opaque, uses `Assets.Colors.foreground`).
+	/// Applies the navigation bar background style using `FeedSceneRecentlyUpdatedColor`.
 	func applyNavigationBarBackgroundStyle() {
 		backgroundView.effect = nil
-		backgroundView.backgroundColor = Assets.Colors.foreground
+		backgroundView.backgroundColor = Assets.Colors.FeedSceneRecentlyUpdatedColor
 		navBarExtendedBackgroundView.effect = nil
-		navBarExtendedBackgroundView.backgroundColor = Assets.Colors.foreground
+		navBarExtendedBackgroundView.backgroundColor = Assets.Colors.FeedSceneRecentlyUpdatedColor
 		navBarExtendedBackgroundView.alpha = 1.0
 	}
 

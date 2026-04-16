@@ -4,9 +4,74 @@
 //
 
 import UIKit
+import SwiftUI
 import RSCore
 
+// MARK: - Container
+
 final class LeftSideMenuViewController: UIViewController {
+
+	weak var coordinator: SceneCoordinator? {
+		didSet { contentVC.coordinator = coordinator }
+	}
+
+	private let contentVC = LeftSideMenuContentViewController()
+
+	private lazy var menuNavController: UINavigationController = {
+		let nav = UINavigationController(rootViewController: contentVC)
+		let appearance = UINavigationBarAppearance()
+		appearance.configureWithOpaqueBackground()
+		appearance.backgroundColor = Assets.Colors.SettingsNavBarColor
+		appearance.shadowColor = Assets.Colors.separator
+		nav.navigationBar.standardAppearance = appearance
+		nav.navigationBar.scrollEdgeAppearance = appearance
+		nav.navigationBar.compactAppearance = appearance
+		nav.navigationBar.tintColor = Assets.Colors.primaryAccent
+		return nav
+	}()
+
+	override func viewDidLoad() {
+		super.viewDidLoad()
+		view.backgroundColor = Assets.Colors.SettingsContentBgColor
+		contentVC.coordinator = coordinator
+
+		addChild(menuNavController)
+		menuNavController.view.translatesAutoresizingMaskIntoConstraints = false
+		view.addSubview(menuNavController.view)
+		NSLayoutConstraint.activate([
+			menuNavController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+			menuNavController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+			menuNavController.view.topAnchor.constraint(equalTo: view.topAnchor),
+			menuNavController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+		])
+		menuNavController.didMove(toParent: self)
+		menuNavController.delegate = self
+
+		let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(handleLeftSwipe))
+		swipeLeft.direction = .left
+		view.addGestureRecognizer(swipeLeft)
+	}
+
+	/// Called by RootSplitViewController when the drawer is closed so the next open starts fresh.
+	func resetNavigation() {
+		menuNavController.popToRootViewController(animated: false)
+	}
+
+	@objc private func handleLeftSwipe() {
+		coordinator?.hideLeftMenu()
+	}
+}
+
+extension LeftSideMenuViewController: UINavigationControllerDelegate {
+	func navigationController(_ navigationController: UINavigationController, willShow viewController: UIViewController, animated: Bool) {
+		let isRoot = viewController is LeftSideMenuContentViewController
+		navigationController.setNavigationBarHidden(isRoot, animated: animated)
+	}
+}
+
+// MARK: - Content
+
+private final class LeftSideMenuContentViewController: UIViewController {
 
 	weak var coordinator: SceneCoordinator?
 
@@ -29,10 +94,12 @@ final class LeftSideMenuViewController: UIViewController {
 	}()
 
 	private lazy var creditsInfoButton: UIButton = {
+		var config = UIButton.Configuration.plain()
 		let symbolConfig = UIImage.SymbolConfiguration(pointSize: 11, weight: .regular)
-		let button = UIButton(type: .system)
-		button.setImage(UIImage(systemName: "arrow.clockwise", withConfiguration: symbolConfig), for: .normal)
-		button.tintColor = .secondaryLabel
+		config.image = UIImage(systemName: "arrow.clockwise", withConfiguration: symbolConfig)
+		config.contentInsets = .zero
+		config.baseForegroundColor = .secondaryLabel
+		let button = UIButton(configuration: config)
 		button.addAction(UIAction { [weak self] _ in
 			Task { @MainActor [weak self] in await self?.handleCreditsInfo() }
 		}, for: .touchUpInside)
@@ -43,8 +110,10 @@ final class LeftSideMenuViewController: UIViewController {
 		let stack = UIStackView(arrangedSubviews: [creditsLabel, creditsInfoButton])
 		stack.translatesAutoresizingMaskIntoConstraints = false
 		stack.axis = .horizontal
-		stack.alignment = .top
+		stack.alignment = .center
 		stack.spacing = 4
+		creditsLabel.setContentHuggingPriority(.required, for: .horizontal)
+		creditsLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 		return stack
 	}()
 
@@ -105,15 +174,11 @@ final class LeftSideMenuViewController: UIViewController {
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
-		view.backgroundColor = Assets.Colors.background
+		view.backgroundColor = Assets.Colors.SettingsContentBgColor
 		setupViews()
 		updateCredits()
 
 		NotificationCenter.default.addObserver(self, selector: #selector(creditsDidUpdate), name: .creditsDidUpdate, object: nil)
-
-		let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(handleLeftSwipe))
-		swipeLeft.direction = .left
-		view.addGestureRecognizer(swipeLeft)
 
 		let tripleTap = UITapGestureRecognizer(target: self, action: #selector(buildLabelTripleTapped))
 		tripleTap.numberOfTapsRequired = 3
@@ -129,7 +194,7 @@ final class LeftSideMenuViewController: UIViewController {
 			(RSImage(named: "rss_thin-symbol") ?? UIImage(systemName: "dot.radiowaves.left.and.right"), NSLocalizedString("RSS", comment: "RSS"), #selector(addRSSTapped)),
 		]
 		for item in addItems {
-			addStackView.addArrangedSubview(makeMenuRow(icon: item.icon, title: item.title, tintColor: .label, action: item.action))
+			addStackView.addArrangedSubview(makeMenuRow(icon: item.icon, title: item.title, action: item.action))
 		}
 
 		// Settings section rows
@@ -142,15 +207,13 @@ final class LeftSideMenuViewController: UIViewController {
 		contentStack.addArrangedSubview(titleLabel)
 		contentStack.addArrangedSubview(makePadding(height: 4))
 		contentStack.addArrangedSubview(creditsRowStack)
-		contentStack.addArrangedSubview(makePadding(height: 28))
-		contentStack.addArrangedSubview(makeSeparator())
 		contentStack.addArrangedSubview(makePadding(height: 16))
+		contentStack.addArrangedSubview(makeSeparator())
+		contentStack.addArrangedSubview(makePadding(height: 12))
 		contentStack.addArrangedSubview(addSectionLabel)
 		contentStack.addArrangedSubview(makePadding(height: 8))
 		contentStack.addArrangedSubview(addStackView)
 		contentStack.addArrangedSubview(makePadding(height: 24))
-		contentStack.addArrangedSubview(makeSeparator())
-		contentStack.addArrangedSubview(makePadding(height: 16))
 		contentStack.addArrangedSubview(settingsSectionLabel)
 		contentStack.addArrangedSubview(makePadding(height: 8))
 		contentStack.addArrangedSubview(settingsStackView)
@@ -187,21 +250,21 @@ final class LeftSideMenuViewController: UIViewController {
 
 	// MARK: - Row builders
 
-	private func makeMenuRow(icon: UIImage?, title: String, tintColor: UIColor, action: Selector) -> UIControl {
+	private func makeMenuRow(icon: UIImage?, title: String, action: Selector) -> UIControl {
 		let row = UIControl()
 		row.heightAnchor.constraint(equalToConstant: 44).isActive = true
 
 		let iconView = UIImageView()
 		iconView.image = icon
 		iconView.contentMode = .center
-		iconView.tintColor = tintColor
+		iconView.tintColor = Assets.Colors.primaryAccent
 		iconView.translatesAutoresizingMaskIntoConstraints = false
 		iconView.widthAnchor.constraint(equalToConstant: 22).isActive = true
 
 		let label = UILabel()
 		label.text = title
 		label.font = .systemFont(ofSize: 16)
-		label.textColor = tintColor
+		label.textColor = .label
 		label.translatesAutoresizingMaskIntoConstraints = false
 
 		let stack = UIStackView(arrangedSubviews: [iconView, label])
@@ -368,8 +431,31 @@ final class LeftSideMenuViewController: UIViewController {
 
 	@objc private func settingsRowTapped(_ sender: UIControl) {
 		let item = SettingsSidebarItem.allCases[sender.tag]
-		coordinator?.hideLeftMenu { [weak self] in
-			self?.coordinator?.showSidebarSettingsItem(item)
+		switch item {
+		case .logOut, .deleteAccount:
+			// These show alerts — keep them going through the coordinator
+			coordinator?.showSidebarSettingsItem(item)
+		default:
+			navigationController?.pushViewController(makeSettingsVC(for: item), animated: true)
+		}
+	}
+
+	private func makeSettingsVC(for item: SettingsSidebarItem) -> UIViewController {
+		switch item {
+		case .notifications:
+			return NotificationsSettingsViewController()
+		case .appearance:
+			return AppearanceSettingsViewController()
+		case .faceID:
+			return FaceIDSettingsViewController()
+		case .obsidian:
+			return ObsidianSettingsViewController()
+		case .about:
+			let vc = UIHostingController(rootView: AboutWPodView())
+			vc.view.backgroundColor = Assets.Colors.SettingsContentBgColor
+			return vc
+		case .logOut, .deleteAccount:
+			return UIViewController()
 		}
 	}
 
@@ -377,9 +463,5 @@ final class LeftSideMenuViewController: UIViewController {
 		coordinator?.hideLeftMenu { [weak self] in
 			self?.coordinator?.showSettings(devOptionsUnlocked: true)
 		}
-	}
-
-	@objc private func handleLeftSwipe() {
-		coordinator?.hideLeftMenu()
 	}
 }

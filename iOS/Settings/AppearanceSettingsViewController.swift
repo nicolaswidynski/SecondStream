@@ -21,12 +21,14 @@ final class AppearanceSettingsViewController: UITableViewController {
 	override func viewDidLoad() {
 		super.viewDidLoad()
 		title = NSLocalizedString("Appearance", comment: "Appearance")
-		tableView.backgroundColor = Assets.Colors.background
+		tableView.backgroundColor = Assets.Colors.SettingsContentBgColor
+		tableView.separatorStyle = .none
 		UISwitch.appearance(whenContainedInInstancesOf: [AppearanceSettingsViewController.self]).onTintColor = Assets.Colors.primaryAccent
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
 		super.viewWillAppear(animated)
+		applySettingsNavBarAppearance()
 		tableView.reloadData()
 	}
 
@@ -70,21 +72,43 @@ final class AppearanceSettingsViewController: UITableViewController {
 	}
 
 	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-		cell.backgroundColor = Assets.Colors.foreground
+		cell.backgroundColor = Assets.Colors.SettingsContentTableColor
 	}
 
 	// MARK: - Helpers
 
 	private func makeAppearanceSegmentedCell() -> UITableViewCell {
-		let cell = UITableViewCell(style: .default, reuseIdentifier: "AppearanceSegmentedCell")
-		cell.textLabel?.text = NSLocalizedString("Appearance", comment: "Appearance")
-		cell.textLabel?.adjustsFontForContentSizeCategory = true
+		let cell = UITableViewCell(style: .default, reuseIdentifier: "ColorsCell")
+		cell.textLabel?.isHidden = true
 		cell.selectionStyle = .none
+
+		let titleLabel = UILabel()
+		titleLabel.text = NSLocalizedString("Colors", comment: "Colors palette label")
+		titleLabel.font = .preferredFont(forTextStyle: .body)
+		titleLabel.adjustsFontForContentSizeCategory = true
+		titleLabel.numberOfLines = 1
+		titleLabel.translatesAutoresizingMaskIntoConstraints = false
+
 		let items = UserInterfaceColorPalette.allCases.map { $0.description }
 		let control = UISegmentedControl(items: items)
 		control.selectedSegmentIndex = AppDefaults.userInterfaceColorPalette.rawValue
 		control.addTarget(self, action: #selector(appearanceSegmentedChanged(_:)), for: .valueChanged)
-		cell.accessoryView = control
+		control.translatesAutoresizingMaskIntoConstraints = false
+
+		cell.contentView.addSubview(titleLabel)
+		cell.contentView.addSubview(control)
+
+		NSLayoutConstraint.activate([
+			titleLabel.topAnchor.constraint(equalTo: cell.contentView.topAnchor, constant: 12),
+			titleLabel.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor, constant: 16),
+			titleLabel.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor, constant: -16),
+
+			control.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
+			control.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor, constant: 16),
+			control.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor, constant: -16),
+			control.bottomAnchor.constraint(equalTo: cell.contentView.bottomAnchor, constant: -12),
+		])
+
 		return cell
 	}
 

@@ -58,7 +58,7 @@ final class AddFeedViewController: UITableViewController {
 			addButton.isEnabled = false
 		}
 
-		tableView.backgroundColor = Assets.Colors.background
+		tableView.backgroundColor = Assets.Colors.AddContentBgColor
 
 		updateFolderLabel()
 
