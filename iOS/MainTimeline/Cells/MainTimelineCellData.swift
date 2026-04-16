@@ -17,6 +17,7 @@ import Articles
 	let attributedTitle: NSAttributedString
 	let summary: String
 	let dateString: String
+	let inlineDateString: String
 	let feedName: String
 	let byline: String
 	let showFeedName: ShowFeedName
@@ -44,6 +45,7 @@ import Articles
 		}
 
 		self.dateString = dateStringOverride ?? ArticleStringFormatter.dateString(article.logicalDatePublished)
+		self.inlineDateString = ArticleStringFormatter.inlineDateString(article.logicalDatePublished)
 
 		if let feedName = feedName {
 			self.feedName = ArticleStringFormatter.truncatedFeedName(feedName)
@@ -74,6 +76,7 @@ import Articles
 		self.attributedTitle = NSAttributedString()
 		self.summary = ""
 		self.dateString = ""
+		self.inlineDateString = ""
 		self.feedName = ""
 		self.byline = ""
 		self.showFeedName = .none

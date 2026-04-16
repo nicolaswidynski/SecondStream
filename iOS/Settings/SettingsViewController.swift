@@ -66,6 +66,7 @@ final class SettingsViewController: UITableViewController {
 	private let debugDialogRow = 1
 	private let debugLandingPageRow = 2
 	private let debugIOSSignOutRow = 3
+	private let debugColorHighlightRow = 4
 	// More section rows
 	private let aboutAppRow = 0
 	private let aboutDisconnectRow = 1
@@ -94,7 +95,7 @@ final class SettingsViewController: UITableViewController {
 
 		tableView.rowHeight = UITableView.automaticDimension
 		tableView.estimatedRowHeight = 44
-		tableView.backgroundColor = Assets.Colors.background
+		tableView.backgroundColor = Assets.Colors.SettingsContentBgColor
 	}
 
 	private var sectionShadowViews: [UIView] = []
@@ -106,12 +107,13 @@ final class SettingsViewController: UITableViewController {
 
 	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
 		var bg = UIBackgroundConfiguration.listCell()
-		bg.backgroundColor = Assets.Colors.foreground
+		bg.backgroundColor = Assets.Colors.SettingsContentTableColor
 		cell.backgroundConfiguration = bg
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
 		super.viewWillAppear(animated)
+		applySettingsNavBarAppearance()
 
 		if openWithDevOptionsUnlocked {
 			devOptionsUnlocked = true
@@ -240,8 +242,8 @@ final class SettingsViewController: UITableViewController {
 			// Adds Unread First, Gray Read Articles, Show Category Icons, Collapsible Sections, and Face ID rows
 			return super.tableView(tableView, numberOfRowsInSection: section) + 5
 		case debugSection:
-			// Clear Temporary Files, Debug Dialog, Start Landing Page, Simulate iOS Sign Out
-			return 4
+			// Clear Temporary Files, Debug Dialog, Start Landing Page, Simulate iOS Sign Out, Color Highlight
+			return 5
 		case aboutSection:
 			// About Second Stream, Disconnect Account, Delete Account
 			return 3
@@ -334,6 +336,8 @@ final class SettingsViewController: UITableViewController {
 				cell = UITableViewCell(style: .default, reuseIdentifier: "DebugIOSSignOutCell")
 				cell.textLabel?.text = "Simulate iOS Sign Out"
 				cell.textLabel?.textColor = .systemOrange
+			case debugColorHighlightRow:
+				cell = makeDebugColorHighlightCell(tableView)
 			default:
 				cell = super.tableView(tableView, cellForRowAt: indexPath)
 			}
@@ -432,6 +436,7 @@ final class SettingsViewController: UITableViewController {
 			switch indexPath.row {
 			case aboutAppRow:
 				let hosting = UIHostingController(rootView: AboutWPodView())
+				hosting.view.backgroundColor = Assets.Colors.SettingsContentBgColor
 				self.navigationController?.pushViewController(hosting, animated: true)
 			case aboutDisconnectRow:
 				confirmDisconnect()
@@ -588,6 +593,10 @@ final class SettingsViewController: UITableViewController {
 
 	@objc func switchDebugDialog(_ sender: UISwitch) {
 		AppDefaults.shared.showHomepageResolutionDebugDialog = sender.isOn
+	}
+
+	@objc func switchDebugColorHighlight(_ sender: UISwitch) {
+		AppDefaults.shared.debugColorHighlightEnabled = sender.isOn
 	}
 
 	func showDebugLandingPage() {
@@ -796,6 +805,21 @@ private extension SettingsViewController {
 		toggle.removeTarget(self, action: #selector(switchDebugDialog(_:)), for: .valueChanged)
 		toggle.addTarget(self, action: #selector(switchDebugDialog(_:)), for: .valueChanged)
 		toggle.isOn = AppDefaults.shared.showHomepageResolutionDebugDialog
+		cell.accessoryView = toggle
+		return cell
+	}
+
+	func makeDebugColorHighlightCell(_ tableView: UITableView) -> UITableViewCell {
+		let cell = tableView.dequeueReusableCell(withIdentifier: "DebugColorHighlightCell") ??
+			UITableViewCell(style: .default, reuseIdentifier: "DebugColorHighlightCell")
+		var content = cell.defaultContentConfiguration()
+		content.text = "Color Highlight"
+		cell.contentConfiguration = content
+		cell.selectionStyle = .none
+		let toggle = (cell.accessoryView as? UISwitch) ?? UISwitch(frame: .zero)
+		toggle.removeTarget(self, action: #selector(switchDebugColorHighlight(_:)), for: .valueChanged)
+		toggle.addTarget(self, action: #selector(switchDebugColorHighlight(_:)), for: .valueChanged)
+		toggle.isOn = AppDefaults.shared.debugColorHighlightEnabled
 		cell.accessoryView = toggle
 		return cell
 	}
@@ -1138,5 +1162,21 @@ private extension SettingsViewController {
 		let vc = SFSafariViewController(url: URL(string: urlString)!)
 		vc.modalPresentationStyle = .pageSheet
 		present(vc, animated: true)
+	}
+}
+
+extension UIViewController {
+
+	/// Applies the standard settings nav bar appearance (opaque background, settings color, separator).
+	/// Call from `viewWillAppear(_:)` in every settings VC so the look is consistent regardless of
+	/// how the VC was pushed (from SettingsViewController, from LeftSideMenuViewController, or on iPad
+	/// in a fresh navigation controller).
+	func applySettingsNavBarAppearance() {
+		let appearance = UINavigationBarAppearance()
+		appearance.configureWithOpaqueBackground()
+		appearance.backgroundColor = Assets.Colors.SettingsNavBarColor
+		navigationController?.navigationBar.standardAppearance = appearance
+		navigationController?.navigationBar.scrollEdgeAppearance = appearance
+		navigationController?.navigationBar.compactAppearance = appearance
 	}
 }

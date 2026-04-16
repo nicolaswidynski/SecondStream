@@ -63,7 +63,7 @@ struct AboutView: View {
 			.scenePadding(.horizontal)
 		}
 		.multilineTextAlignment(.center)
-		.background(Color(uiColor: Assets.Colors.background))
+		.background(Color(uiColor: Assets.Colors.SettingsContentBgColor))
 		.navigationTitle(Text(verbatim: "About"))
     }
 }

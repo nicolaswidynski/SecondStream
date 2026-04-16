@@ -29,6 +29,18 @@ import RSParser
 		return formatter
 	}()
 
+	private static let inlineDayFormatter: DateFormatter = {
+		let f = DateFormatter()
+		f.dateFormat = "MMM d"
+		return f
+	}()
+
+	private static let inlineYearFormatter: DateFormatter = {
+		let f = DateFormatter()
+		f.dateFormat = "yyyy"
+		return f
+	}()
+
 	static func emptyCaches() {
 		feedNameCache = [String: String]()
 		titleCache = [String: String]()
@@ -111,5 +123,14 @@ import RSParser
 			return timeFormatter.string(from: date)
 		}
 		return dateFormatter.string(from: date)
+	}
+
+	/// Two-line date for the left-column date label in the article listing.
+	/// Today → "Today\n3:45 PM"; other days → "April 7\n2026".
+	static func inlineDateString(_ date: Date) -> String {
+		if Calendar.dateIsToday(date) {
+			return NSLocalizedString("Today", comment: "Today date label") + "\n" + timeFormatter.string(from: date)
+		}
+		return inlineDayFormatter.string(from: date) + "\n" + inlineYearFormatter.string(from: date)
 	}
 }

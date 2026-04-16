@@ -22,6 +22,11 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 	@IBOutlet var unreadCountLabel: UILabel!
 
 	private var unreadLabelWidthConstraint: NSLayoutConstraint?
+	private var topSeparatorView: UIView?
+
+	var showTopSeparator: Bool = false {
+		didSet { topSeparatorView?.isHidden = !showTopSeparator }
+	}
 
 	override var accessibilityLabel: String? {
 		get {
@@ -80,10 +85,27 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 			unreadLabelWidthConstraint = unreadCountLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 80)
 			unreadLabelWidthConstraint?.isActive = true
 			tightenUnreadChevronSpacing()
+			reduceHeaderTitleLeading()
 			unreadCountLabel.alpha = 0  // Start hidden
 			configureUI()
 			addTapGesture()
+			setupTopSeparator()
 		}
+	}
+
+	private func setupTopSeparator() {
+		let sep = UIView()
+		sep.backgroundColor = Assets.Colors.separatorSection
+		sep.translatesAutoresizingMaskIntoConstraints = false
+		sep.isHidden = true
+		addSubview(sep)
+		NSLayoutConstraint.activate([
+			sep.leadingAnchor.constraint(equalTo: leadingAnchor),
+			sep.trailingAnchor.constraint(equalTo: trailingAnchor),
+			sep.topAnchor.constraint(equalTo: topAnchor),
+			sep.heightAnchor.constraint(equalToConstant: 0.5),
+		])
+		topSeparatorView = sep
 	}
 
 	override func prepareForReuse() {
@@ -95,6 +117,7 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 		sectionTitleText = ""
 		sectionIcon = nil
 		headerTitle.attributedText = nil
+		showTopSeparator = false
 	}
 
 	func configureUI() {
@@ -102,6 +125,14 @@ final class MainFeedCollectionHeaderReusableView: UICollectionReusableView {
 		disclosureIndicator.tintColor = Assets.Colors.secondaryAccent
 		unreadCountLabel.textColor = Assets.Colors.primaryAccent
 		updateAttributedTitle()
+	}
+
+	private func reduceHeaderTitleLeading() {
+		for c in constraints {
+			guard c.firstItem as AnyObject? === headerTitle,
+				  c.firstAttribute == .leading else { continue }
+			c.constant = 8
+		}
 	}
 
 	private func tightenUnreadChevronSpacing() {
