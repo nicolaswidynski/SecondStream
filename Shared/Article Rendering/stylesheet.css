@@ -557,8 +557,8 @@ a.footnote:hover,
 	.nnw-collapsible {
 		background-color: var(--groupbox-bg);
 		border-radius: [[groupbox-border-radius]];
-		padding: 6px 14px 10px; /* less top so title sits close to card edge */
-		margin: 12px 8px;
+		padding: [[groupbox-padding-top]] [[groupbox-padding-horizontal]] [[groupbox-padding-bottom]];
+		margin: [[groupbox-spacing-vertical]] [[groupbox-spacing-horizontal]];
 		box-shadow: [[groupbox-box-shadow]];
 	}
 

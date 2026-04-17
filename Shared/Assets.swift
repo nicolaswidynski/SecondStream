@@ -225,7 +225,7 @@ struct Assets {
 			RSColor { tc in
 				tc.userInterfaceStyle == .dark
 				? RSColor(red:  27/255, green:  26/255, blue:  30/255, alpha: 1)
-				: RSColor(red: 232/255, green: 234/255, blue: 243/255, alpha: 1)
+				: RSColor(red: 236/255, green: 238/255, blue: 245/255, alpha: 1)
 //				? RSColor(red:  32/255, green:  31/255, blue:  30/255, alpha: 1)
 //				: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 1)
 			}
@@ -241,23 +241,13 @@ struct Assets {
 			}
 		}
 
-		static var foregroundLighter: RSColor { foreground
-//			RSColor { tc in
-//				tc.userInterfaceStyle == .dark
-//				? RSColor(red:  38/255, green:  38/255, blue:  36/255, alpha: 1)
-//				: RSColor(red: 251/255, green: 252/255, blue: 255/255, alpha: 1)
-//			}
+		static var foregroundLighter: RSColor { //foreground
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark
+				? RSColor(red:  33/255, green:  32/255, blue:  36/255, alpha: 1)
+				: RSColor(red: 244/255, green: 246/255, blue: 253/255, alpha: 1)
+			}
 		}
-
-		/// Nav bar for picker sheets. Use `.resolvedColor(with: traitCollection)` at
-		/// configuration time to prevent iOS from flipping the color based on luminance.
-//		static var pickerNavBar: RSColor {
-//			RSColor { tc in
-//				tc.userInterfaceStyle == .dark
-//				? RSColor(red: 0.14, green: 0.14, blue: 0.15, alpha: 1)
-//				: RSColor(red: 0.96, green: 0.96, blue: 0.98, alpha: 1)
-//			}
-//		}
 
 		
 		// MARK: - Debug
@@ -356,7 +346,6 @@ struct Assets {
 		// MARK: - Geometry
 
 		static let shadowTablesCornerRadius: CGFloat = 20
-		static let boxCornerRadius: CGFloat = 20
 
 		// MARK: - Layout Spacing — Feeds Scene
 
@@ -377,18 +366,28 @@ struct Assets {
 		/// Fixed width of the date column — all titles left-align at the same offset.
 		static let timelineDateColumnWidth: CGFloat   = 44
 
+		// MARK: - Layout Spacing — Article Scene
+
+		static let articleBoxCornerRadius: CGFloat       = 12  // top corners
+		static let articleBoxBottomCornerRadius: CGFloat = 12  // bottom corners (0 = flat)
+		static let articleBoxSpacingVertical: CGFloat    = 18  // margin between boxes
+		static let articleBoxSpacingHorizontal: CGFloat  = 2   // margin left/right of boxes
+		static let articleBoxPaddingTop: CGFloat         = 6
+		static let articleBoxPaddingHorizontal: CGFloat  = 14
+		static let articleBoxPaddingBottom: CGFloat      = 10
+
 		// MARK: - Shadow System
 		// All native shadow appearances derive from these constants.
 
 		private static let tableShadowColorLight      = UIColor.black
 		private static let tableShadowColorDark       = UIColor.clear
-		private static let tableShadowOpacityLight: Float = 0.03
+		private static let tableShadowOpacityLight: Float = 0//0.03
 		private static let tableShadowOpacityDark:  Float = 0
 		private static let tableShadowRadius:  CGFloat    = 2
 		private static let tableShadowOffsetX: CGFloat    = 3
 		private static let tableShadowOffsetY: CGFloat    = 3
 
-		private static let boxShadowOpacityLight: Float   = 0.1
+		private static let boxShadowOpacityLight: Float   = 0//0.1
 		private static let boxShadowOpacityDark:  Float   = 0
 		private static let boxShadowRadius:  CGFloat      = 3
 		private static let boxShadowOffsetX: CGFloat      = 3

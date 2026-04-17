@@ -423,9 +423,16 @@ private extension ArticleRenderer {
 		d["color-accent2-dark"]            = Assets.Colors.secondaryAccent.hexString(forStyle: .dark)
 		d["color-separator-article-light"] = Assets.Colors.separatorArticle.cssHexString(forStyle: .light)
 		d["color-separator-article-dark"]  = Assets.Colors.separatorArticle.cssHexString(forStyle: .dark)
-		d["groupbox-box-shadow"]           = Assets.Colors.groupboxBoxShadow
-		d["groupbox-box-shadow-dark"]      = Assets.Colors.groupboxBoxShadowDark
-		d["groupbox-border-radius"]        = "\(Int(Assets.Colors.boxCornerRadius))px"
+		d["groupbox-box-shadow"]            = Assets.Colors.groupboxBoxShadow
+		d["groupbox-box-shadow-dark"]       = Assets.Colors.groupboxBoxShadowDark
+		let tr = Int(Assets.Colors.articleBoxCornerRadius)
+		let br = Int(Assets.Colors.articleBoxBottomCornerRadius)
+		d["groupbox-border-radius"]         = "\(tr)px \(tr)px \(br)px \(br)px"
+		d["groupbox-spacing-vertical"]      = "\(Int(Assets.Colors.articleBoxSpacingVertical))px"
+		d["groupbox-spacing-horizontal"]    = "\(Int(Assets.Colors.articleBoxSpacingHorizontal))px"
+		d["groupbox-padding-top"]           = "\(Int(Assets.Colors.articleBoxPaddingTop))px"
+		d["groupbox-padding-horizontal"]    = "\(Int(Assets.Colors.articleBoxPaddingHorizontal))px"
+		d["groupbox-padding-bottom"]        = "\(Int(Assets.Colors.articleBoxPaddingBottom))px"
 		return d
 	}
 	#else
