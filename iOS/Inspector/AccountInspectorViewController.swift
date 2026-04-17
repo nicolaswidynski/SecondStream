@@ -61,46 +61,15 @@ final class AccountInspectorViewController: UITableViewController {
 	}
 
 	@IBAction func credentials(_ sender: Any) {
-		guard let account = account else { return }
-		switch account.type {
-		case .feedbin:
-			let navController = UIStoryboard.account.instantiateViewController(withIdentifier: "FeedbinAccountNavigationViewController") as! UINavigationController
-			let addViewController = navController.topViewController as! FeedbinAccountViewController
-			addViewController.account = account
-			navController.modalPresentationStyle = .currentContext
-			present(navController, animated: true)
-		case .newsBlur:
-			let navController = UIStoryboard.account.instantiateViewController(withIdentifier: "NewsBlurAccountNavigationViewController") as! UINavigationController
-			let addViewController = navController.topViewController as! NewsBlurAccountViewController
-			addViewController.account = account
-			navController.modalPresentationStyle = .currentContext
-			present(navController, animated: true)
-		case .inoreader, .bazQux, .theOldReader, .freshRSS:
-			let navController = UIStoryboard.account.instantiateViewController(withIdentifier: "ReaderAPIAccountNavigationViewController") as! UINavigationController
-			let addViewController = navController.topViewController as! ReaderAPIAccountViewController
-			addViewController.accountType = account.type
-			addViewController.account = account
-			navController.modalPresentationStyle = .currentContext
-			present(navController, animated: true)
-		default:
-			break
-		}
 	}
 
 	@IBAction func deleteAccount(_ sender: Any) {
-		guard let account = account else {
+		guard account != nil else {
 			return
 		}
 
 		let title = NSLocalizedString("Remove Account", comment: "Remove Account")
-		let message: String = {
-			switch account.type {
-			case .feedly:
-				return NSLocalizedString("Are you sure you want to remove this account? NetNewsWire will no longer be able to access articles and feeds unless the account is added again.", comment: "Log Out and Remove Account")
-			default:
-				return NSLocalizedString("Are you sure you want to remove this account? This cannot be undone.", comment: "Remove Account")
-			}
-		}()
+		let message = NSLocalizedString("Are you sure you want to remove this account? This cannot be undone.", comment: "Remove Account")
 		let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
 		let cancelTitle = NSLocalizedString("Cancel", comment: "Cancel")
 		let cancelAction = UIAlertAction(title: cancelTitle, style: .cancel)
@@ -136,15 +105,7 @@ final class AccountInspectorViewController: UITableViewController {
 extension AccountInspectorViewController {
 
 	var hidesCredentialsSection: Bool {
-		guard let account = account else {
-			return true
-		}
-		switch account.type {
-		case .onMyMac, .cloudKit, .feedly:
-			return true
-		default:
-			return false
-		}
+		return true
 	}
 
 	override func numberOfSections(in tableView: UITableView) -> Int {

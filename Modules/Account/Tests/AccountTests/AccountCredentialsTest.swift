@@ -16,7 +16,7 @@ import Secrets
 	private var account: Account!
 
 	override func setUp() async throws {
-		account = TestAccountManager.shared.createAccount(type: .feedbin, transport: TestTransport())
+		account = TestAccountManager.shared.createAccount(type: .onMyMac, transport: TestTransport())
     }
 
 	override func tearDown() async throws {

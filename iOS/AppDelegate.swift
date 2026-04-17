@@ -59,19 +59,6 @@ import Secrets
 	}
 
 	func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-		// Force a consistent chrome appearance on every navigation bar regardless of scroll
-		// position or what content is behind it. configureWithDefaultBackground() uses a blur
-		// that samples the content behind the bar, so the same blur can look different on each
-		// screen (web view vs. table vs. collection). configureWithOpaqueBackground() gives a
-		// solid adaptive colour that is identical everywhere.
-		let consistentAppearance = UINavigationBarAppearance()
-		consistentAppearance.configureWithOpaqueBackground()
-		consistentAppearance.backgroundColor = Assets.Colors.foreground
-		UINavigationBar.appearance().standardAppearance = consistentAppearance
-		UINavigationBar.appearance().scrollEdgeAppearance = consistentAppearance
-		UINavigationBar.appearance().compactAppearance = consistentAppearance
-		UINavigationBar.appearance().compactScrollEdgeAppearance = consistentAppearance
-
 		AppDefaults.registerDefaults()
 
 		let isFirstRun = AppDefaults.shared.isFirstRun
@@ -262,15 +249,15 @@ private extension AppDelegate {
 	private func initializeHomeScreenQuickActions() {
 		let unreadTitle = NSLocalizedString("First Unread", comment: "First Unread")
 		let unreadIcon = UIApplicationShortcutIcon(systemImageName: "chevron.down.circle")
-		let unreadItem = UIApplicationShortcutItem(type: "com.ranchero.NetNewsWire.FirstUnread", localizedTitle: unreadTitle, localizedSubtitle: nil, icon: unreadIcon, userInfo: nil)
+		let unreadItem = UIApplicationShortcutItem(type: "com.stdn.SecondStream.FirstUnread", localizedTitle: unreadTitle, localizedSubtitle: nil, icon: unreadIcon, userInfo: nil)
 
 		let searchTitle = NSLocalizedString("Search", comment: "Search")
 		let searchIcon = UIApplicationShortcutIcon(systemImageName: "magnifyingglass")
-		let searchItem = UIApplicationShortcutItem(type: "com.ranchero.NetNewsWire.ShowSearch", localizedTitle: searchTitle, localizedSubtitle: nil, icon: searchIcon, userInfo: nil)
+		let searchItem = UIApplicationShortcutItem(type: "com.stdn.SecondStream.ShowSearch", localizedTitle: searchTitle, localizedSubtitle: nil, icon: searchIcon, userInfo: nil)
 
 		let addTitle = NSLocalizedString("Add Feed", comment: "Add Feed")
 		let addIcon = UIApplicationShortcutIcon(systemImageName: "plus")
-		let addItem = UIApplicationShortcutItem(type: "com.ranchero.NetNewsWire.ShowAdd", localizedTitle: addTitle, localizedSubtitle: nil, icon: addIcon, userInfo: nil)
+		let addItem = UIApplicationShortcutItem(type: "com.stdn.SecondStream.ShowAdd", localizedTitle: addTitle, localizedSubtitle: nil, icon: addIcon, userInfo: nil)
 
 		UIApplication.shared.shortcutItems = [addItem, searchItem, unreadItem]
 	}
@@ -380,7 +367,7 @@ private extension AppDelegate {
 	/// Register all background tasks.
 	nonisolated func registerBackgroundTasks() {
 		// Register background feed refresh.
-		BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.ranchero.NetNewsWire.FeedRefresh", using: nil) { task in
+		BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.stdn.SecondStream.FeedRefresh", using: nil) { task in
 			self.performBackgroundFeedRefresh(with: task as! BGAppRefreshTask)
 		}
 	}
@@ -391,7 +378,7 @@ private extension AppDelegate {
 		// task scheduler can hang indefinitely.
 		backgroundTaskDispatchQueue.async {
 			do {
-				let request = BGAppRefreshTaskRequest(identifier: "com.ranchero.NetNewsWire.FeedRefresh")
+				let request = BGAppRefreshTaskRequest(identifier: "com.stdn.SecondStream.FeedRefresh")
 				request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
 				try BGTaskScheduler.shared.submit(request)
 			} catch {

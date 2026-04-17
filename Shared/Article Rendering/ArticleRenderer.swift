@@ -414,16 +414,25 @@ private extension ArticleRenderer {
 		var d = [String: String]()
 		let bodyFont = UIFont.preferredFont(forTextStyle: .body)
 		d["font-size"] = String(describing: bodyFont.pointSize)
-		d["color-page-bg-light"]      = Assets.Colors.background.hexString(forStyle: .light)
-		d["color-page-bg-dark"]       = Assets.Colors.background.hexString(forStyle: .dark)
-		d["color-groupbox-bg-light"]  = Assets.Colors.foreground.hexString(forStyle: .light)
-		d["color-groupbox-bg-dark"]   = Assets.Colors.foreground.hexString(forStyle: .dark)
-		d["color-accent-light"]       = Assets.Colors.primaryAccent.hexString(forStyle: .light)
-		d["color-accent-dark"]        = Assets.Colors.primaryAccent.hexString(forStyle: .dark)
-		d["color-accent2-dark"]       = Assets.Colors.secondaryAccent.hexString(forStyle: .dark)
-		d["groupbox-box-shadow"]      = Assets.Colors.groupboxBoxShadow
-		d["groupbox-box-shadow-dark"] = Assets.Colors.groupboxBoxShadowDark
-		d["groupbox-border-radius"]   = "\(Int(Assets.Colors.boxCornerRadius))px"
+		d["color-page-bg-light"]           = Assets.Colors.ArticleSceneContentBgColor.hexString(forStyle: .light)
+		d["color-page-bg-dark"]            = Assets.Colors.ArticleSceneContentBgColor.hexString(forStyle: .dark)
+		d["color-groupbox-bg-light"]       = Assets.Colors.TimelineSceneContentBoxesColor.hexString(forStyle: .light)
+		d["color-groupbox-bg-dark"]        = Assets.Colors.TimelineSceneContentBoxesColor.hexString(forStyle: .dark)
+		d["color-accent-light"]            = Assets.Colors.primaryAccent.hexString(forStyle: .light)
+		d["color-accent-dark"]             = Assets.Colors.primaryAccent.hexString(forStyle: .dark)
+		d["color-accent2-dark"]            = Assets.Colors.secondaryAccent.hexString(forStyle: .dark)
+		d["color-separator-article-light"] = Assets.Colors.separatorArticle.cssHexString(forStyle: .light)
+		d["color-separator-article-dark"]  = Assets.Colors.separatorArticle.cssHexString(forStyle: .dark)
+		d["groupbox-box-shadow"]            = Assets.Colors.groupboxBoxShadow
+		d["groupbox-box-shadow-dark"]       = Assets.Colors.groupboxBoxShadowDark
+		let tr = Int(Assets.Colors.articleBoxCornerRadius)
+		let br = Int(Assets.Colors.articleBoxBottomCornerRadius)
+		d["groupbox-border-radius"]         = "\(tr)px \(tr)px \(br)px \(br)px"
+		d["groupbox-spacing-vertical"]      = "\(Int(Assets.Colors.articleBoxSpacingVertical))px"
+		d["groupbox-spacing-horizontal"]    = "\(Int(Assets.Colors.articleBoxSpacingHorizontal))px"
+		d["groupbox-padding-top"]           = "\(Int(Assets.Colors.articleBoxPaddingTop))px"
+		d["groupbox-padding-horizontal"]    = "\(Int(Assets.Colors.articleBoxPaddingHorizontal))px"
+		d["groupbox-padding-bottom"]        = "\(Int(Assets.Colors.articleBoxPaddingBottom))px"
 		return d
 	}
 	#else

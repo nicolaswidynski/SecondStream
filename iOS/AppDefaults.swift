@@ -89,6 +89,7 @@ final class AppDefaults: Sendable {
 		static let notifyWeeklyNews = "notifyWeeklyNews"
 		static let showAddShowSourceFailureDialog = "showAddShowSourceFailureDialog"
 		static let showHomepageResolutionDebugDialog = "showHomepageResolutionDebugDialog"
+		static let debugColorHighlightEnabled = "debugColorHighlightEnabled"
 		static let timelineDimReadArticles = "timelineDimReadArticles"
 		static let timelineUnreadFirst = "timelineUnreadFirst"
 		static let showSectionHeaderIcons = "showSectionHeaderIcons"
@@ -525,6 +526,15 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	var debugColorHighlightEnabled: Bool {
+		get {
+			AppDefaults.bool(for: Key.debugColorHighlightEnabled)
+		}
+		set {
+			AppDefaults.setBool(for: Key.debugColorHighlightEnabled, newValue)
+		}
+	}
+
 	/// Timeline styling toggle:
 	/// when enabled, read article titles are grayed and unread blue-dot indicators are hidden.
 	var timelineDimReadArticles: Bool {
@@ -611,6 +621,7 @@ final class AppDefaults: Sendable {
 										   Key.ttsEnabled: false,
 										   Key.showAddShowSourceFailureDialog: false,
 									   Key.showHomepageResolutionDebugDialog: false,
+								   Key.debugColorHighlightEnabled: false,
 									   Key.timelineDimReadArticles: true,
 									   Key.timelineUnreadFirst: false,
 									   Key.showSectionHeaderIcons: true,

@@ -436,7 +436,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		var titleColor: UIColor {
 			switch self {
 			case .justIn: return Assets.Colors.primaryAccent
-			default:      return .label
+			default:      return Assets.Colors.secondaryAccent
 			}
 		}
 
@@ -586,7 +586,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 
 		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (_: MainTimelineViewController, _: UITraitCollection) in
 			guard let self else { return }
-			tableView.layoutSectionCardShadows(in: &sectionShadowViews)
+			tableView.reloadData()
 		}
 
 		NotificationCenter.default.addObserver(self, selector: #selector(unreadCountDidChange(_:)), name: .UnreadCountDidChange, object: nil)
@@ -639,8 +639,11 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		tableView.isPrefetchingEnabled = false
 		tableView.estimatedSectionHeaderHeight = 50
 		tableView.sectionHeaderTopPadding = 0
-		// Match the main feed's insetGrouped background (storyboard overrides this to systemBackground).
-		tableView.backgroundColor = Assets.Colors.background
+		tableView.separatorColor = Assets.Colors.separator
+		tableView.backgroundColor = Assets.Colors.TimelineSceneContentBgColor
+		tableView.cellLayoutMarginsFollowReadableWidth = false
+		tableView.preservesSuperviewLayoutMargins = false
+		tableView.layoutMargins = .zero
 
 		numberOfTextLines = AppDefaults.shared.timelineNumberOfLines
 		iconSize = AppDefaults.shared.timelineIconSize
@@ -669,16 +672,24 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		updateNavigationFeedIcon()
 	}
 
-	private var sectionShadowViews: [UIView] = []
 
 	override func viewDidLayoutSubviews() {
 		super.viewDidLayoutSubviews()
-		tableView.layoutSectionCardShadows(in: &sectionShadowViews)
+		if traitCollection.userInterfaceIdiom == .phone {
+			let margin = (tableView.bounds.width * 0.05).rounded()
+			tableView.separatorInset = UIEdgeInsets(top: 0, left: margin, bottom: Assets.Colors.timelineSeparatorVerticalPadding, right: margin)
+		}
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
 		super.viewWillAppear(animated)
-		navigationController?.view.backgroundColor = Assets.Colors.background
+		let navAppearance = UINavigationBarAppearance()
+		navAppearance.configureWithOpaqueBackground()
+		navAppearance.backgroundColor = Assets.Colors.TimelineSceneNavBarColor
+		navigationController?.navigationBar.standardAppearance = navAppearance
+		navigationController?.navigationBar.scrollEdgeAppearance = navAppearance
+		navigationController?.navigationBar.compactAppearance = navAppearance
+		navigationController?.view.backgroundColor = Assets.Colors.TimelineSceneContentBgColor
 		navigationController?.setNavigationBarHidden(false, animated: false)
 		self.navigationController?.isToolbarHidden = false
 		shouldFadeInNavigationSubtitle = true
@@ -881,23 +892,45 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		let sectionID = sections[section]
 		let container = UIView()
 		container.backgroundColor = .clear
+
+		let separator = UIView()
+		separator.backgroundColor = Assets.Colors.separatorSection
+		separator.translatesAutoresizingMaskIntoConstraints = false
+
 		let label = UILabel()
 		label.text = sectionID.title
-		label.font = UIFont.systemFont(ofSize: 18, weight: .semibold)
+		label.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
 		label.textColor = sectionID.titleColor
 		label.translatesAutoresizingMaskIntoConstraints = false
+
+		container.addSubview(separator)
 		container.addSubview(label)
 		NSLayoutConstraint.activate([
-			label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+			separator.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+			separator.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+			separator.topAnchor.constraint(equalTo: container.topAnchor),
+			separator.heightAnchor.constraint(equalToConstant: 0.5),
+
+			label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
 			label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
-			label.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
-			label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10)
+			label.topAnchor.constraint(equalTo: separator.bottomAnchor, constant: 6),
+			label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -(6 + Assets.Colors.timelineSectionSpacingTop))
 		])
 		return container
 	}
 
 	override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
 		return UITableView.automaticDimension
+	}
+
+	override func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
+		let footer = UIView()
+		footer.backgroundColor = .clear
+		return footer
+	}
+
+	override func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
+		return Assets.Colors.timelineSectionSpacingBottom
 	}
 
 	override func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
@@ -1588,12 +1621,10 @@ private extension MainTimelineViewController {
 				if self!.showIcons {
 					let cell = tableView.dequeueReusableCell(withIdentifier: "MainTimelineIconFeedCell", for: indexPath) as! MainTimelineIconFeedCell
 					cell.cellData = cellData
-					cell.accessoryType = .disclosureIndicator
 					return cell
 				} else {
 					let cell = tableView.dequeueReusableCell(withIdentifier: "MainTimelineFeedCell", for: indexPath) as! MainTimelineFeedCell
 					cell.cellData = cellData
-					cell.accessoryType = .disclosureIndicator
 					return cell
 				}
 			})
@@ -1605,18 +1636,16 @@ private extension MainTimelineViewController {
 	func configure(article: Article) -> MainTimelineCellData {
 		let iconImage = iconImageFor(article)
 		let showIcon = showIcons && iconImage != nil
-		let byline = ArticleStringFormatter.dateString(article.logicalDatePublished)
 		let cellData = MainTimelineCellData(
 			article: article,
-			showFeedName: .byline,
+			showFeedName: .none,
 			feedName: article.feed?.nameForDisplay,
-			byline: byline,
+			byline: nil,
 			iconImage: iconImage,
 			showIcon: showIcon,
 			numberOfLines: numberOfTextLines,
 			iconSize: iconSize,
-			includeListingSummary: false,
-			dateStringOverride: ""
+			includeListingSummary: false
 		)
 		return cellData
 	}

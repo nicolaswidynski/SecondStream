@@ -27,7 +27,7 @@ import os.log
 
 	// MARK: - Keychain keys
 
-	private let keychainService = Bundle.main.bundleIdentifier ?? "com.ranchero.NetNewsWire"
+	private let keychainService = Bundle.main.bundleIdentifier ?? "com.stdn.SecondStream"
 	private let appleUserIDKey = "appleUserID"
 	private let sessionTokenKey = "userSessionToken"
 

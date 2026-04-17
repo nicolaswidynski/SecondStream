@@ -485,7 +485,7 @@ a.footnote:hover,
 		/* Palette — injected from Assets.Colors at render time */
 		--page-bg:     [[color-page-bg-light]];
 		--groupbox-bg: [[color-groupbox-bg-light]];
-		--separator:   #C6C6C8;
+		--separator:   [[color-separator-article-light]];
 	}
 
 	@media(prefers-color-scheme: dark) {
@@ -499,7 +499,7 @@ a.footnote:hover,
 			/* Palette — injected from Assets.Colors at render time */
 			--page-bg:     [[color-page-bg-dark]];
 			--groupbox-bg: [[color-groupbox-bg-dark]];
-			--separator:   #3D3B3699;
+			--separator:   [[color-separator-article-dark]];
 		}
 
 		.nnw-collapsible {
@@ -557,8 +557,8 @@ a.footnote:hover,
 	.nnw-collapsible {
 		background-color: var(--groupbox-bg);
 		border-radius: [[groupbox-border-radius]];
-		padding: 6px 14px 10px; /* less top so title sits close to card edge */
-		margin: 12px 8px;
+		padding: [[groupbox-padding-top]] [[groupbox-padding-horizontal]] [[groupbox-padding-bottom]];
+		margin: [[groupbox-spacing-vertical]] [[groupbox-spacing-horizontal]];
 		box-shadow: [[groupbox-box-shadow]];
 	}
 

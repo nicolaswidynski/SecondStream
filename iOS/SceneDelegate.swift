@@ -24,6 +24,14 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 		window!.tintColor = Assets.Colors.primaryAccent
 
+		let globalNavAppearance = UINavigationBarAppearance()
+		globalNavAppearance.configureWithOpaqueBackground()
+		globalNavAppearance.backgroundColor = Assets.Colors.FeedSceneNavBarColor
+		UINavigationBar.appearance().standardAppearance = globalNavAppearance
+		UINavigationBar.appearance().scrollEdgeAppearance = globalNavAppearance
+		UINavigationBar.appearance().compactAppearance = globalNavAppearance
+		UINavigationBar.appearance().compactScrollEdgeAppearance = globalNavAppearance
+
 		let rootViewController = window!.rootViewController as! RootSplitViewController
 		rootViewController.presentsWithGesture = true
 		rootViewController.showsSecondaryOnlyButton = true
@@ -266,18 +274,24 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 	}
 
 	func presentLaunchLoading() {
-		DispatchQueue.main.async {
-			let loadingVC = LaunchLoadingViewController()
-			loadingVC.modalPresentationStyle = .fullScreen
-			loadingVC.isModalInPresentation = true
-			loadingVC.onReady = { [weak self] missing in
-				self?.window?.rootViewController?.dismiss(animated: true) {
-					guard !missing.isEmpty else { return }
-					self?.presentSourceRestore(missing)
-				}
-			}
-			self.window?.rootViewController?.present(loadingVC, animated: false)
+		guard let rootVC = window?.rootViewController else { return }
+		let loadingVC = LaunchLoadingViewController()
+		loadingVC.onReady = { [weak self] missing in
+			UIView.animate(withDuration: 0.25, animations: {
+				loadingVC.view.alpha = 0
+			}, completion: { _ in
+				loadingVC.willMove(toParent: nil)
+				loadingVC.view.removeFromSuperview()
+				loadingVC.removeFromParent()
+				guard !missing.isEmpty else { return }
+				self?.presentSourceRestore(missing)
+			})
 		}
+		rootVC.addChild(loadingVC)
+		loadingVC.view.frame = rootVC.view.bounds
+		loadingVC.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+		rootVC.view.addSubview(loadingVC.view)
+		loadingVC.didMove(toParent: rootVC)
 	}
 
 	func presentSourceRestore(_ feeds: [MissingFeed]) {
@@ -340,11 +354,11 @@ private extension SceneDelegate {
 
 	func handleShortcutItem(_ shortcutItem: UIApplicationShortcutItem) {
 		switch shortcutItem.type {
-		case "com.ranchero.NetNewsWire.FirstUnread":
+		case "com.stdn.SecondStream.FirstUnread":
 			coordinator.selectFirstUnreadInAllUnread()
-		case "com.ranchero.NetNewsWire.ShowSearch":
+		case "com.stdn.SecondStream.ShowSearch":
 			coordinator.showSearch()
-		case "com.ranchero.NetNewsWire.ShowAdd":
+		case "com.stdn.SecondStream.ShowAdd":
 			coordinator.showAddFeed()
 		default:
 			break

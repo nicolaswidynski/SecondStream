@@ -95,6 +95,8 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 			faviconLeadingConstraint = faviconView.leadingAnchor.constraint(equalTo: contentView.safeAreaLayoutGuide.leadingAnchor)
 			faviconLeadingConstraint?.isActive = true
 
+			applyVerticalPadding()
+
 			// Overlay the circular progress view on top of the unreadCountLabel area
 			unreadCountLabel.superview?.addSubview(circularProgressView)
 			NSLayoutConstraint.activate([
@@ -105,6 +107,25 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 			])
 		}
     }
+
+	private func applyVerticalPadding() {
+		let padding = Assets.Colors.feedCellVerticalPadding
+		let safeArea = contentView.safeAreaLayoutGuide
+		for c in contentView.constraints {
+			if (c.firstItem as? UIView) === feedTitle,
+			   c.firstAttribute == .top,
+			   (c.secondItem as? UILayoutGuide) === safeArea,
+			   c.secondAttribute == .top {
+				c.constant = padding
+			}
+			if (c.firstItem as? UILayoutGuide) === safeArea,
+			   c.firstAttribute == .bottom,
+			   (c.secondItem as? UIView) === feedTitle,
+			   c.secondAttribute == .bottom {
+				c.constant = padding
+			}
+		}
+	}
 
 	override func updateConfiguration(using state: UICellConfigurationState) {
 		var backgroundConfig = UIBackgroundConfiguration.listCell().updated(for: state)
@@ -124,7 +145,9 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 				faviconView.tintColor = .white
 			}
 		default:
-			backgroundConfig.backgroundColor = Assets.Colors.foreground
+			backgroundConfig.backgroundColor = traitCollection.userInterfaceIdiom == .phone
+				? Assets.Colors.FeedSceneContentTableColor
+				: Assets.Colors.foreground
 			feedTitle.textColor = .label
 			feedTitle.font = UIFont.preferredFont(forTextStyle: .body)
 			unreadCountLabel.font = UIFont.preferredFont(forTextStyle: .body)

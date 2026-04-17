@@ -259,13 +259,12 @@ enum AddNewsResult {
 	private func sendAddNewsRequest(show: String, author: String) async -> AddNewsResult {
 		let requestID = UUID().uuidString
 		let body: [String: Any] = [
-			"operation":        "add-show",
-			"type":             "topics",
-			"show":             show,
-			"author":           author,
-			"apple_user_id":    AuthManager.shared.appleUserID ?? "",
-			"request_id":       requestID,
-			"feeds_for_update": FeedStatsManager.shared.buildFeedsForUpdate()
+			"operation":     "add-show",
+			"type":          "topics",
+			"show":          show,
+			"author":        author,
+			"apple_user_id": AuthManager.shared.appleUserID ?? "",
+			"request_id":    requestID
 		]
 
 		do {

@@ -16,7 +16,25 @@ class MainTimelineIconFeedCell: UITableViewCell {
 	@IBOutlet var articleDate: UILabel!
 	@IBOutlet var metaDataStackView: UIStackView!
 
-	private(set) var usedTitleLineCount: Int = 0
+	private let chevronView: UIImageView = {
+		let config = UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+		let image = UIImage(systemName: "chevron.right", withConfiguration: config)
+		let view = UIImageView(image: image)
+		view.tintColor = .tertiaryLabel
+		view.translatesAutoresizingMaskIntoConstraints = false
+		view.contentMode = .center
+		return view
+	}()
+
+	private let inlineDateLabel: UILabel = {
+		let label = UILabel()
+		label.numberOfLines = 2
+		label.font = UIFont.preferredFont(forTextStyle: .caption1)
+		label.textColor = .secondaryLabel
+		label.textAlignment = .center
+		label.translatesAutoresizingMaskIntoConstraints = false
+		return label
+	}()
 
 	var cellData: MainTimelineCellData! {
 		didSet {
@@ -26,13 +44,47 @@ class MainTimelineIconFeedCell: UITableViewCell {
 
 	var isPreview: Bool = false
 
+	private var contentLeadingConstraint: NSLayoutConstraint?
+	private var chevronTrailingConstraint: NSLayoutConstraint?
+
 	override func awakeFromNib() {
 		MainActor.assumeIsolated {
 			super.awakeFromNib()
 			indicatorView.alpha = 0.0
-			iconView.translatesAutoresizingMaskIntoConstraints = false
 			configureStackView()
+			articleDate.isHidden = true
+			contentView.addSubview(inlineDateLabel)
+			contentView.addSubview(chevronView)
+			setupConstraints()
 		}
+	}
+
+	private func setupConstraints() {
+		for c in contentView.constraints {
+			if c.firstAttribute == .leading || c.firstAttribute == .trailing {
+				c.priority = UILayoutPriority(1)
+			}
+		}
+
+		let iconLeading = iconView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16)
+		let chevTrailing = chevronView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
+		contentLeadingConstraint = iconLeading
+		chevronTrailingConstraint = chevTrailing
+
+		NSLayoutConstraint.activate([
+			iconLeading,
+			indicatorView.trailingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 4),
+			indicatorView.topAnchor.constraint(equalTo: iconView.topAnchor, constant: -4),
+			inlineDateLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 8),
+			inlineDateLabel.widthAnchor.constraint(equalToConstant: Assets.Colors.timelineDateColumnWidth),
+			inlineDateLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+			articleTitle.leadingAnchor.constraint(equalTo: inlineDateLabel.trailingAnchor, constant: 8),
+			articleTitle.trailingAnchor.constraint(equalTo: chevronView.leadingAnchor, constant: -6),
+			metaDataStackView.trailingAnchor.constraint(equalTo: chevronView.leadingAnchor, constant: -6),
+			chevTrailing,
+			chevronView.widthAnchor.constraint(equalToConstant: 10),
+			chevronView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+		])
 	}
 
 	private func configureStackView() {
@@ -55,15 +107,19 @@ class MainTimelineIconFeedCell: UITableViewCell {
 
 		if cellData.showFeedName == .feed {
 			authorByLine.text = cellData.feedName
+			authorByLine.isHidden = false
 		} else if cellData.showFeedName == .byline {
 			authorByLine.text = cellData.byline
+			authorByLine.isHidden = false
 		} else if cellData.showFeedName == .none {
 			authorByLine.text = ""
+			authorByLine.isHidden = true
 		}
 
 		setIconImage(cellData.iconImage, with: cellData.iconSize)
 
 		articleDate.text = cellData.dateString
+		inlineDateLabel.text = cellData.inlineDateString
 	}
 
 	private func setIconImage(_ iconImage: IconImage?, with size: IconSize) {
@@ -126,79 +182,11 @@ class MainTimelineIconFeedCell: UITableViewCell {
 	}
 
 	private func applyTitleTextWithAttributes(_ state: UICellConfigurationState) {
-		let attributedCellText = NSMutableAttributedString()
-		if cellData.title != "" {
-			let paragraphStyle = NSMutableParagraphStyle()
-			paragraphStyle.minimumLineHeight = UIFont.preferredFont(forTextStyle: .headline).lineHeight
-			paragraphStyle.maximumLineHeight = UIFont.preferredFont(forTextStyle: .headline).lineHeight
-			let titleAttributes: [NSAttributedString.Key: Any] = [
-				.font: UIFont.preferredFont(forTextStyle: .headline),
-				.paragraphStyle: paragraphStyle,
-				.foregroundColor: titleTextColor(for: state)
-			]
-			let titleAttributed = NSAttributedString(string: cellData.title, attributes: titleAttributes)
-			attributedCellText.append(titleAttributed)
-		}
-
-		articleTitle.attributedText = attributedCellText
-
-		if linesUsedForTitleGreaterThanOrEqualToPreference() {
-			// No need to add cell summary as we're already at maximum.
-			articleTitle.lineBreakMode = .byTruncatingTail
-			return
-		} else {
-			if cellData.summary != "" {
-				let paragraphStyle = NSMutableParagraphStyle()
-				paragraphStyle.minimumLineHeight = UIFont.preferredFont(forTextStyle: .body).lineHeight
-				paragraphStyle.maximumLineHeight = UIFont.preferredFont(forTextStyle: .body).lineHeight
-				let summaryAttributes: [NSAttributedString.Key: Any] = [
-					.font: UIFont.preferredFont(forTextStyle: .body),
-					.paragraphStyle: paragraphStyle,
-					.foregroundColor: titleTextColor(for: state)
-				]
-				var summaryAttributed: NSAttributedString
-				if cellData.title != "" {
-					summaryAttributed = NSAttributedString(string: "\n" + cellData.summary, attributes: summaryAttributes)
-				} else {
-					summaryAttributed = NSAttributedString(string: cellData.summary, attributes: summaryAttributes)
-				}
-				attributedCellText.append(summaryAttributed)
-			}
-			articleTitle.attributedText = attributedCellText
-			if linesUsedForTitleGreaterThanOrEqualToPreference() {
-				articleTitle.lineBreakMode = .byTruncatingTail
-			}
-		}
-	}
-
-	func linesUsedForTitleGreaterThanOrEqualToPreference() -> Bool {
-		contentView.layoutIfNeeded()
-
-		let attributed = articleTitle.attributedText ?? NSAttributedString()
-		let textStorage = NSTextStorage(attributedString: attributed)
-		let containerSize = CGSize(width: articleTitle.bounds.width, height: .greatestFiniteMagnitude)
-		let textContainer = NSTextContainer(size: containerSize)
-		textContainer.lineFragmentPadding = 0
-		textContainer.maximumNumberOfLines = articleTitle.numberOfLines // 0 means unlimited
-		textContainer.lineBreakMode = articleTitle.lineBreakMode
-
-		let layoutManager = NSLayoutManager()
-		layoutManager.addTextContainer(textContainer)
-		textStorage.addLayoutManager(layoutManager)
-
-		_ = layoutManager.glyphRange(for: textContainer)
-
-		var lineCount = 0
-		var glyphIndex = 0
-		let glyphs = layoutManager.numberOfGlyphs
-		while glyphIndex < glyphs {
-			var lineRange = NSRange()
-			_ = layoutManager.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: &lineRange)
-			glyphIndex = NSMaxRange(lineRange)
-			lineCount += 1
-		}
-		usedTitleLineCount = lineCount
-		return usedTitleLineCount >= AppDefaults.shared.timelineNumberOfLines
+		guard cellData != nil else { return }
+		articleTitle.text = cellData.title
+		articleTitle.font = UIFont.preferredFont(forTextStyle: .body)
+		articleTitle.textColor = titleTextColor(for: state)
+		articleTitle.lineBreakMode = .byTruncatingTail
 	}
 
 	func titleTextColor(for state: UICellConfigurationState) -> UIColor {
@@ -206,17 +194,29 @@ class MainTimelineIconFeedCell: UITableViewCell {
 		if isSelected {
 			return .white
 		} else if AppDefaults.shared.timelineDimReadArticles, cellData?.read == true {
-			return traitCollection.userInterfaceStyle == .dark ? .tertiaryLabel : .quaternaryLabel
+			return Assets.Colors.readArticleTitle
 		} else {
 			return .label
 		}
+	}
+
+	override func layoutSubviews() {
+		super.layoutSubviews()
+		guard traitCollection.userInterfaceIdiom == .phone else { return }
+		let inset = (bounds.width * 0.05).rounded()
+		contentLeadingConstraint?.constant = inset + 6
+		chevronTrailingConstraint?.constant = -(inset + 12)
 	}
 
 	override func updateConfiguration(using state: UICellConfigurationState) {
 		super.updateConfiguration(using: state)
 
 		var backgroundConfig = UIBackgroundConfiguration.listCell().updated(for: state)
-		backgroundConfig.cornerRadius = 20
+		if traitCollection.userInterfaceIdiom == .phone {
+			backgroundConfig.edgesAddingLayoutMarginsToBackgroundInsets = []
+			let hInset = (bounds.width * 0.05).rounded()
+			backgroundConfig.backgroundInsets = NSDirectionalEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset)
+		}
 		if traitCollection.userInterfaceIdiom == .pad {
 			backgroundConfig.edgesAddingLayoutMarginsToBackgroundInsets = [.leading, .trailing]
 			backgroundConfig.backgroundInsets = NSDirectionalEdgeInsets(top: 0, leading: !isPreview ? -4 : -12, bottom: 0, trailing: !isPreview ? -4 : -12)
@@ -224,14 +224,20 @@ class MainTimelineIconFeedCell: UITableViewCell {
 
 		if state.isSelected || state.isHighlighted || state.isFocused || state.isSwiped {
 			backgroundConfig.backgroundColor = Assets.Colors.primaryAccent
-			articleTitle.textColor = titleTextColor(for: state)
+			applyTitleTextWithAttributes(state)
 			articleDate.textColor = .lightText
 			authorByLine.textColor = .lightText
+			inlineDateLabel.textColor = .lightText
+			chevronView.tintColor = UIColor.white.withAlphaComponent(0.6)
 		} else {
-			backgroundConfig.backgroundColor = Assets.Colors.foreground
-			articleTitle.textColor = titleTextColor(for: state)
+			backgroundConfig.backgroundColor = traitCollection.userInterfaceIdiom == .phone
+				? Assets.Colors.TimelineSceneContentTableColor
+				: Assets.Colors.foreground
+			applyTitleTextWithAttributes(state)
 			articleDate.textColor = .secondaryLabel
 			authorByLine.textColor = .secondaryLabel
+			inlineDateLabel.textColor = .secondaryLabel
+			chevronView.tintColor = .tertiaryLabel
 		}
 
 		self.backgroundConfiguration = backgroundConfig

@@ -11,7 +11,8 @@ extension UITableView {
 
 	/// Creates / updates one shadow `UIView` per section, placed behind all cells.
 	/// Call from `viewDidLayoutSubviews()` and `traitCollectionDidChange(_:)`.
-	func layoutSectionCardShadows(in views: inout [UIView]) {
+	/// Pass `horizontalInset` to shrink shadow bounds inward on each side (used when cell backgrounds are inset).
+	func layoutSectionCardShadows(in views: inout [UIView], horizontalInset: CGFloat = 0) {
 		let sectionCount = numberOfSections
 
 		while views.count < sectionCount {
@@ -32,7 +33,8 @@ extension UITableView {
 
 			let firstRect = rectForRow(at: IndexPath(row: 0, section: section))
 			let lastRect = rectForRow(at: IndexPath(row: rowCount - 1, section: section))
-			v.frame = firstRect.union(lastRect)
+			let unionRect = firstRect.union(lastRect)
+			v.frame = horizontalInset > 0 ? unionRect.insetBy(dx: horizontalInset, dy: 0) : unionRect
 
 			Assets.Colors.applyForegroundShadow(to: v.layer, traitCollection: traitCollection)
 			v.layer.shadowPath = UIBezierPath(

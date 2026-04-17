@@ -23,14 +23,7 @@ typealias RSColor = UIColor
 
 struct Assets {
 	struct Images {
-		static var accountBazQux: RSImage { RSImage(named: "accountBazQux")! }
 		static var accountCloudKit: RSImage { RSImage(named: "accountCloudKit")! }
-		static var accountFeedbin: RSImage { RSImage(named: "accountFeedbin")! }
-		static var accountFeedly: RSImage { RSImage(named: "accountFeedly")! }
-		static var accountFreshRSS: RSImage { RSImage(named: "accountFreshRSS")! }
-		static var accountInoreader: RSImage { RSImage(named: "accountInoreader")! }
-		static var accountNewsBlur: RSImage { RSImage(named: "accountNewsBlur")! }
-		static var accountTheOldReader: RSImage { RSImage(named: "accountTheOldReader")! }
 
 //		static var starOpen: RSImage { RSImage(symbol: "star")! }
 //		static var starClosed: RSImage { RSImage(symbol: "star.fill")! }
@@ -60,8 +53,6 @@ struct Assets {
 		static var articleTheme: RSImage { RSImage(symbol: "doc.richtext")! }
 		static var cleanUp: RSImage { RSImage(symbol: "bubbles.and.sparkles")! }
 		static var delete: RSImage { RSImage(symbol: "xmark.bin")! }
-		static var marsEdit: RSImage { RSImage(named: "MarsEditIcon")! }
-		static var microblog: RSImage { RSImage(named: "MicroblogIcon")! }
 		static var filterActive: RSImage { RSImage(symbol: "line.horizontal.3.decrease.circle.fill")! }
 		static var filterInactive: RSImage { RSImage(symbol: "line.horizontal.3.decrease.circle")! }
 		static var markAllAsReadMenu: RSImage { RSImage(named: "markAllAsRead")! }
@@ -199,20 +190,6 @@ struct Assets {
 #endif
 		case .cloudKit:
 			return Assets.Images.accountCloudKit
-		case .bazQux:
-			return Assets.Images.accountBazQux
-		case .feedbin:
-			return Assets.Images.accountFeedbin
-		case .feedly:
-			return Assets.Images.accountFeedly
-		case .freshRSS:
-			return Assets.Images.accountFreshRSS
-		case .inoreader:
-			return Assets.Images.accountInoreader
-		case .newsBlur:
-			return Assets.Images.accountNewsBlur
-		case .theOldReader:
-			return Assets.Images.accountTheOldReader
 		}
 	}
 
@@ -220,26 +197,19 @@ struct Assets {
 #if os(macOS)
 		static var primaryAccent: RSColor { RSColor(named: "AccentColor")! }
 		static var timelineSeparator: RSColor { NSColor(named: "timelineSeparatorColor")! }
-		static var iconLightBackground: RSColor { NSColor(named: "iconLightBackgroundColor")! }
-		static var iconDarkBackground: RSColor { NSColor(named: "iconDarkBackgroundColor")! }
+		static var iconLightBackground: RSColor { RSColor(named: "iconLightBackgroundColor")! }
+		static var iconDarkBackground: RSColor { RSColor(named: "iconDarkBackgroundColor")! }
 		static var star: RSColor { RSColor(named: "StarColor")! }
 #else // iOS
 
-		// MARK: - Color palette
-		//
-		// Single source of truth — edit values here only.
-		//
-		//  accent     #086AEE / #0A85FF  (blue)
-		//  background #F1F3F8 / #1F1E1D
-		//  foreground #F7F8FC / #262624
+		// MARK: - Core Palette
+		// Single source of truth for base colors. Scene variables below reference these.
 
 		static var primaryAccent: RSColor {
 			RSColor { tc in
 				tc.userInterfaceStyle == .dark
 				? RSColor(red: 0.04, green: 0.52, blue: 1.0, alpha: 1)
-				: RSColor(red: 0.0, green: 0.48, blue:  1.0, alpha: 1)
-//				? RSColor(red: 232/255, green: 134/255, blue: 106/255, alpha: 1)
-//				: RSColor(red: 217/255, green: 119/255, blue:  87/255, alpha: 1)
+				: RSColor(red: 0.0,  green: 0.48, blue: 1.0, alpha: 1)
 			}
 		}
 
@@ -247,115 +217,189 @@ struct Assets {
 			RSColor { tc in
 				tc.userInterfaceStyle == .dark
 				? RSColor(red: 0.04, green: 0.52, blue: 1.0, alpha: 1)
-				: RSColor(red: 0.0, green: 0.48, blue:  1.0, alpha: 1)
-//				? RSColor(red: 212/255, green: 149/255, blue: 110/255, alpha: 1)
-//				: RSColor(red: 217/255, green: 119/255, blue:  87/255, alpha: 1)
+				: RSColor(red: 0.0,  green: 0.48, blue: 1.0, alpha: 1)
 			}
 		}
 
 		static var background: RSColor {
 			RSColor { tc in
 				tc.userInterfaceStyle == .dark
-					? RSColor(red:  27/255, green:  26/255, blue:  25/255, alpha: 1)
-					: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 1)
+				? RSColor(red:  27/255, green:  26/255, blue:  30/255, alpha: 1)
+				: RSColor(red: 236/255, green: 238/255, blue: 245/255, alpha: 1)
+//				? RSColor(red:  32/255, green:  31/255, blue:  30/255, alpha: 1)
+//				: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 1)
 			}
 		}
 
 		static var foreground: RSColor {
 			RSColor { tc in
 				tc.userInterfaceStyle == .dark
-					? RSColor(red:  38/255, green:  38/255, blue:  36/255, alpha: 1)
-					: RSColor(red: 251/255, green: 252/255, blue: 255/255, alpha: 1)
+				? RSColor(red:  39/255, green:  39/255, blue: 43/255, alpha: 1)
+				: RSColor(red: 247/255, green: 248/255, blue: 255/255, alpha: 1)
+//				? RSColor(red:  27/255, green:  26/255, blue:  25/255, alpha: 1)
+//				: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 1)
 			}
 		}
 
-		/// Nav bar background for picker sheets. Use `.resolvedColor(with: traitCollection)`
-		/// at configuration time to lock in a static value and prevent iOS from flipping the
-		/// color based on luminance detection behind the bar.
-		static var pickerNavBar: RSColor {
-			RSColor {
-				tc in
+		static var foregroundLighter: RSColor { //foreground
+			RSColor { tc in
 				tc.userInterfaceStyle == .dark
-					? RSColor(red: 0.14, green: 0.14, blue: 0.15, alpha: 1)
-					: RSColor(red: 0.96, green: 0.96, blue: 0.98, alpha: 1)
+				? RSColor(red:  33/255, green:  32/255, blue:  36/255, alpha: 1)
+				: RSColor(red: 244/255, green: 246/255, blue: 253/255, alpha: 1)
 			}
 		}
 
-		static var sectionHeader: RSColor         { background }
-		static var iconBackground: RSColor        { foreground }
-		static var fullScreenBackground: RSColor  { background }
-
-		static var star: RSColor {
-			RSColor(red: 249/255, green: 198/255, blue: 52/255, alpha: 1)
+		
+		// MARK: - Debug
+		
+		static func dbg(dbgColor: RSColor, color: RSColor) -> RSColor {
+			AppDefaults.shared.debugColorHighlightEnabled ? dbgColor : color
 		}
+		
+		// MARK: - Feed Scene
+
+		static var FeedSceneNavBarColor: RSColor          { dbg(dbgColor: .blue, color: foreground) }
+		static var FeedSceneRecentlyUpdatedColor: RSColor { dbg(dbgColor: .red, color: foreground) }
+		static var FeedSceneContentBgColor: RSColor       { dbg(dbgColor: .yellow, color: background) }
+		static var FeedSceneContentTableColor: RSColor    { dbg(dbgColor: .green, color: background) }
+
+		// MARK: - Timeline Scene
+
+		static var TimelineSceneNavBarColor: RSColor       { FeedSceneNavBarColor }
+		static var TimelineSceneContentBgColor: RSColor    { FeedSceneContentBgColor }
+		static var TimelineSceneContentTableColor: RSColor { FeedSceneContentTableColor }
+		static var TimelineSceneContentBoxesColor: RSColor { dbg(dbgColor: .cyan, color: foregroundLighter) }
+
+		// MARK: - Article Scene
+
+		static var ArticleSceneNavBarColor: RSColor        { FeedSceneNavBarColor }
+		static var ArticleSceneContentBgColor: RSColor     { FeedSceneContentBgColor }
+		static var ArticleSceneContentTableColor: RSColor  { FeedSceneContentTableColor }
+
+		// MARK: - Settings
+
+		static var SettingsNavBarColor: RSColor       { FeedSceneNavBarColor }
+		static var SettingsContentBgColor: RSColor    { FeedSceneNavBarColor }
+		static var SettingsContentTableColor: RSColor { FeedSceneNavBarColor }
+
+		// MARK: - Add
+
+		static var AddNavBarColor: RSColor    { FeedSceneNavBarColor }
+		static var AddContentBgColor: RSColor { FeedSceneContentTableColor }
+
+		// MARK: - Utility Colors
+
+		static var sectionHeader: RSColor        { background }
+		static var iconBackground: RSColor       { foreground }
+		static var fullScreenBackground: RSColor { background }
+
+		static var star: RSColor { RSColor(red: 249/255, green: 198/255, blue: 52/255, alpha: 1) }
 
 		static var vibrantText: RSColor {
-			RSColor { tc in
-				tc.userInterfaceStyle == .dark ? .label : .white
-			}
+			RSColor { tc in tc.userInterfaceStyle == .dark ? .label : .white }
 		}
 
 		static var readArticleTitle: RSColor {
-			RSColor { tc in
-				tc.userInterfaceStyle == .dark ? .secondaryLabel : .secondaryLabel//.quaternaryLabel
-			}
+			RSColor { tc in tc.userInterfaceStyle == .dark ? .secondaryLabel : .secondaryLabel }
 		}
 
 		static var controlBackground: RSColor {
 			RSColor { tc in
 				tc.userInterfaceStyle == .dark
-					? RSColor.white.withAlphaComponent(0.25)
-					: RSColor.black.withAlphaComponent(0.25)
+				? RSColor.white.withAlphaComponent(0.25)
+				: RSColor.black.withAlphaComponent(0.25)
 			}
 		}
 
 		/// Background for interactive input elements (text fields, search bars, icon tiles).
-		/// Full white in light mode; black in dark mode.
 		static var interactionBackground: RSColor {
+			RSColor { tc in tc.userInterfaceStyle == .dark ? .black : .white }
+		}
+
+		// MARK: - Separators
+
+		static var separator: RSColor {
 			RSColor { tc in
-				tc.userInterfaceStyle == .dark ? .black : .white
+				tc.userInterfaceStyle == .dark
+				? RSColor(red:  27/255, green:  26/255, blue:  25/255, alpha: 0)
+				: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 0)
+			}
+		}
+
+		static var separatorSection: RSColor {
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark
+				? RSColor(red:  27/255, green:  26/255, blue:  25/255, alpha: 0)
+				: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 0)
+			}
+		}
+
+		/// Separator inside article reading cards (between paragraphs).
+		static var separatorArticle: RSColor {
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark
+				? RSColor(red: 61/255, green: 59/255, blue: 54/255, alpha: 153/255)
+				: RSColor(red: 198/255, green: 198/255, blue: 200/255, alpha: 1)
 			}
 		}
 
 		// MARK: - Geometry
-		/// Corner radius for the shadow path on table/collection section cards.
-		/// UIKit controls the actual cell corners in insetGrouped — this only affects the shadow.
+
 		static let shadowTablesCornerRadius: CGFloat = 20
-		/// Corner radius for article reading boxes (CSS border-radius — fully controllable).
-		static let boxCornerRadius: CGFloat = 20
 
-		// MARK: - Shadow — single source of truth
-		//
-		// All shadow appearances (native CALayer and CSS box-shadow) are derived
-		// from these constants.  Change here, it propagates everywhere.
+		// MARK: - Layout Spacing — Feeds Scene
 
-		// Table / collection section card shadows (native CALayer)
-		private static let tableShadowColorLight = UIColor.black
-		private static let tableShadowColorDark  = UIColor.clear  // no shadow in dark mode
-		private static let tableShadowOpacityLight: Float  = 0.03
-		private static let tableShadowOpacityDark:  Float  = 0
-		private static let tableShadowRadius:  CGFloat = 2
-		private static let tableShadowOffsetX: CGFloat = 3
-		private static let tableShadowOffsetY: CGFloat = 3
+		static let feedCellVerticalPadding: CGFloat      = 10
+		static let feedSeparatorVerticalPadding: CGFloat = 0
+		static let feedSectionSpacingTop: CGFloat        = 0
+		static let feedSectionSpacingBottom: CGFloat     = 15
 
-		// Article reading box shadows (CSS)
-		// Note: CSS box-shadow has no corner radius — it follows border-radius automatically.
-		private static let boxShadowOpacityLight: Float = 0.1
-		private static let boxShadowOpacityDark:  Float = 0
-		private static let boxShadowRadius:  CGFloat = 3
-		private static let boxShadowOffsetX: CGFloat = 3
-		private static let boxShadowOffsetY: CGFloat = 3
+		// MARK: - Layout Spacing — Timeline Scene
+
+		static let timelineCellVerticalPadding: CGFloat      = 7
+		static let timelineSeparatorVerticalPadding: CGFloat = 0
+		static let timelineSectionSpacingTop: CGFloat        = 0
+		static let timelineSectionSpacingBottom: CGFloat     = 15
+
+		/// Storyboard constraint IDs: arj-Vg-UZ3 (IconFeedCell), nQe-AM-26Q (FeedCell).
+		static let timelineCellBottomPadding: CGFloat = 6
+		/// Fixed width of the date column — all titles left-align at the same offset.
+		static let timelineDateColumnWidth: CGFloat   = 44
+
+		// MARK: - Layout Spacing — Article Scene
+
+		static let articleBoxCornerRadius: CGFloat       = 12  // top corners
+		static let articleBoxBottomCornerRadius: CGFloat = 12  // bottom corners (0 = flat)
+		static let articleBoxSpacingVertical: CGFloat    = 18  // margin between boxes
+		static let articleBoxSpacingHorizontal: CGFloat  = 2   // margin left/right of boxes
+		static let articleBoxPaddingTop: CGFloat         = 6
+		static let articleBoxPaddingHorizontal: CGFloat  = 14
+		static let articleBoxPaddingBottom: CGFloat      = 10
+
+		// MARK: - Shadow System
+		// All native shadow appearances derive from these constants.
+
+		private static let tableShadowColorLight      = UIColor.black
+		private static let tableShadowColorDark       = UIColor.clear
+		private static let tableShadowOpacityLight: Float = 0//0.03
+		private static let tableShadowOpacityDark:  Float = 0
+		private static let tableShadowRadius:  CGFloat    = 2
+		private static let tableShadowOffsetX: CGFloat    = 3
+		private static let tableShadowOffsetY: CGFloat    = 3
+
+		private static let boxShadowOpacityLight: Float   = 0//0.1
+		private static let boxShadowOpacityDark:  Float   = 0
+		private static let boxShadowRadius:  CGFloat      = 3
+		private static let boxShadowOffsetX: CGFloat      = 3
+		private static let boxShadowOffsetY: CGFloat      = 3
 
 		private static func cssBoxShadow(opacity: Float) -> String {
-			let blur    = Int(boxShadowRadius * 2)
-			let offsetX = Int(boxShadowOffsetX)
-			let offsetY = Int(boxShadowOffsetY)
-			return "\(offsetX)px \(offsetY)px \(blur)px rgba(0, 0, 0, \(opacity))"
+			"\(Int(boxShadowOffsetX))px \(Int(boxShadowOffsetY))px \(Int(boxShadowRadius * 2))px rgba(0,0,0,\(opacity))"
 		}
 
-		/// CSS box-shadow for light mode — injected via [[groupbox-box-shadow]].
+		/// CSS box-shadow injected via [[groupbox-box-shadow]] (light mode).
 		static let groupboxBoxShadow:     String = cssBoxShadow(opacity: boxShadowOpacityLight)
-		/// CSS box-shadow for dark mode  — injected via [[groupbox-box-shadow-dark]].
+		/// CSS box-shadow injected via [[groupbox-box-shadow-dark]] (dark mode).
 		static let groupboxBoxShadowDark: String = cssBoxShadow(opacity: boxShadowOpacityDark)
 
 		@MainActor static var tableShadowEnabled = true
@@ -388,6 +432,18 @@ extension UIColor {
 		var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
 		resolved.getRed(&r, green: &g, blue: &b, alpha: &a)
 		return String(format: "#%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255))
+	}
+
+	/// Like `hexString(forStyle:)` but emits an 8-digit `#RRGGBBAA` string when alpha < 1.
+	func cssHexString(forStyle style: InterfaceStyle) -> String {
+		let tc = UITraitCollection(userInterfaceStyle: style == .dark ? .dark : .light)
+		let resolved = resolvedColor(with: tc)
+		var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+		resolved.getRed(&r, green: &g, blue: &b, alpha: &a)
+		if abs(a - 1.0) < 0.001 {
+			return String(format: "#%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255))
+		}
+		return String(format: "#%02X%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255), Int(a * 255))
 	}
 }
 #endif

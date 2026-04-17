@@ -2,8 +2,8 @@
 
 BUNDLE_LOADER = $(TEST_HOST)
 COMBINE_HIDPI_IMAGES = YES
-INFOPLIST_FILE = Tests/NetNewsWire-iOSTests/Info.plist
+INFOPLIST_FILE = Tests/SecondStream-iOSTests/Info.plist
 LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks @loader_path/../Frameworks
-PRODUCT_BUNDLE_IDENTIFIER = $(ORGANIZATION_IDENTIFIER).NetNewsWire-iOSTests
+PRODUCT_BUNDLE_IDENTIFIER = $(ORGANIZATION_IDENTIFIER).SecondStream-iOSTests
 PRODUCT_NAME = $(TARGET_NAME)
 SUPPORTED_PLATFORMS = iphoneos iphonesimulator

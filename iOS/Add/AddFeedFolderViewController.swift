@@ -23,7 +23,7 @@ final class AddFeedFolderViewController: UITableViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-		tableView.backgroundColor = Assets.Colors.background
+		tableView.backgroundColor = Assets.Colors.AddContentBgColor
 
 		let sortedActiveAccounts = AccountManager.shared.sortedActiveAccounts
 

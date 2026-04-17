@@ -10,14 +10,19 @@ import UIKit
 
 final class ColorPaletteTableViewController: UITableViewController {
 
+	override func viewWillAppear(_ animated: Bool) {
+		super.viewWillAppear(animated)
+		applySettingsNavBarAppearance()
+	}
+
 	override func viewDidLoad() {
 		super.viewDidLoad()
-		tableView.backgroundColor = Assets.Colors.background
+		tableView.backgroundColor = Assets.Colors.SettingsContentBgColor
 	}
 
 	override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
 		var bg = UIBackgroundConfiguration.listCell()
-		bg.backgroundColor = Assets.Colors.foreground
+		bg.backgroundColor = Assets.Colors.SettingsContentTableColor
 		cell.backgroundConfiguration = bg
 	}
 

@@ -14,7 +14,12 @@ struct AboutWPodView: View {
 			NavigationLink(destination: LegalView()) {
 				Text("Legal")
 			}
+			.listRowBackground(Color(uiColor: Assets.Colors.foreground))
+			.listRowSeparator(.hidden)
 		}
+		.listStyle(.plain)
+		.scrollContentBackground(.hidden)
+		.background(Color(uiColor: Assets.Colors.SettingsContentBgColor))
 		.navigationTitle("About Second Stream")
 	}
 }

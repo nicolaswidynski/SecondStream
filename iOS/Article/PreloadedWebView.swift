@@ -8,6 +8,7 @@
 
 import Foundation
 import WebKit
+import UIKit
 
 final class PreloadedWebView: WKWebView {
 
@@ -17,6 +18,13 @@ final class PreloadedWebView: WKWebView {
 	init(articleIconSchemeHandler: ArticleIconSchemeHandler) {
 		let configuration = WebViewConfiguration.configuration(with: articleIconSchemeHandler)
 		super.init(frame: .zero, configuration: configuration)
+		isOpaque = false
+		backgroundColor = Assets.Colors.ArticleSceneContentBgColor
+		scrollView.backgroundColor = Assets.Colors.ArticleSceneContentBgColor
+		updateScrollIndicatorStyle()
+		registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (self: Self, _: UITraitCollection) in
+			self.updateScrollIndicatorStyle()
+		}
 		NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
 			Task { @MainActor in
 				self?.userDefaultsDidChange()
@@ -40,6 +48,10 @@ final class PreloadedWebView: WKWebView {
 		} else {
 			readyCompletion = completion
 		}
+	}
+
+	func updateScrollIndicatorStyle() {
+		scrollView.indicatorStyle = traitCollection.userInterfaceStyle == .dark ? .white : .default
 	}
 
 	func userDefaultsDidChange() {

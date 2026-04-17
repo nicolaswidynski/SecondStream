@@ -15,7 +15,25 @@ class MainTimelineFeedCell: UITableViewCell {
 	@IBOutlet var articleDate: UILabel!
 	@IBOutlet var metaDataStackView: UIStackView!
 
-    private(set) var usedTitleLineCount: Int = 0
+	private let chevronView: UIImageView = {
+		let config = UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+		let image = UIImage(systemName: "chevron.right", withConfiguration: config)
+		let view = UIImageView(image: image)
+		view.tintColor = .tertiaryLabel
+		view.translatesAutoresizingMaskIntoConstraints = false
+		view.contentMode = .center
+		return view
+	}()
+
+	private let inlineDateLabel: UILabel = {
+		let label = UILabel()
+		label.numberOfLines = 2
+		label.font = UIFont.preferredFont(forTextStyle: .caption1)
+		label.textColor = .secondaryLabel
+		label.textAlignment = .center
+		label.translatesAutoresizingMaskIntoConstraints = false
+		return label
+	}()
 
 	var cellData: MainTimelineCellData! {
 		didSet {
@@ -25,12 +43,66 @@ class MainTimelineFeedCell: UITableViewCell {
 
 	var isPreview: Bool = false
 
+	// The date column anchors everything. The indicator is not in the layout chain —
+	// it's positioned relative to the date label without consuming horizontal space:
+	//   - bookmark   → centered in the date column (date hidden)
+	//   - unread dot → just to the left of the date column
+	private var dateLabelLeadingConstraint: NSLayoutConstraint?
+	private var indicatorCenterXConstraint: NSLayoutConstraint?
+	private var chevronTrailingConstraint: NSLayoutConstraint?
+	private var isStarred = false
+
 	override func awakeFromNib() {
 		MainActor.assumeIsolated {
 			super.awakeFromNib()
 			indicatorView.alpha = 0.0
 			configureStackView()
+			articleDate.isHidden = true
+			contentView.addSubview(inlineDateLabel)
+			contentView.addSubview(chevronView)
+			setupConstraints()
 		}
+	}
+
+	private func setupConstraints() {
+		// Demote all storyboard leading/trailing constraints.
+		// Also demote indicatorView vertical constraints so we control its centerY.
+		for c in contentView.constraints {
+			if c.firstAttribute == .leading || c.firstAttribute == .trailing {
+				c.priority = UILayoutPriority(1)
+			}
+			let touchesIndicator = c.firstItem as? UIView === indicatorView
+				|| c.secondItem as? UIView === indicatorView
+			if touchesIndicator,
+			   c.firstAttribute == .top || c.firstAttribute == .bottom || c.firstAttribute == .centerY {
+				c.priority = UILayoutPriority(1)
+			}
+		}
+
+		// Date label anchors the entire layout. Initial constant updated in layoutSubviews.
+		let dateLeading = inlineDateLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16)
+		// Indicator starts at the date column center (bookmark) or to its left (unread dot).
+		// Default to bookmark position; updateIndicatorView switches it.
+		let indCenterX = indicatorView.centerXAnchor.constraint(equalTo: inlineDateLabel.centerXAnchor)
+		let chevTrailing = chevronView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
+		dateLabelLeadingConstraint = dateLeading
+		indicatorCenterXConstraint = indCenterX
+		chevronTrailingConstraint = chevTrailing
+
+		NSLayoutConstraint.activate([
+			dateLeading,
+			inlineDateLabel.widthAnchor.constraint(equalToConstant: Assets.Colors.timelineDateColumnWidth),
+			inlineDateLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+			indCenterX,
+			indicatorView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+			articleTitle.leadingAnchor.constraint(equalTo: inlineDateLabel.trailingAnchor, constant: 8),
+			articleTitle.trailingAnchor.constraint(equalTo: chevronView.leadingAnchor, constant: -6),
+			metaDataStackView.leadingAnchor.constraint(equalTo: articleTitle.leadingAnchor),
+			metaDataStackView.trailingAnchor.constraint(equalTo: chevronView.leadingAnchor, constant: -6),
+			chevTrailing,
+			chevronView.widthAnchor.constraint(equalToConstant: 10),
+			chevronView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+		])
 	}
 
 	private func configureStackView() {
@@ -54,42 +126,100 @@ class MainTimelineFeedCell: UITableViewCell {
 
 		if cellData.showFeedName == .feed {
 			authorByLine.text = cellData.feedName
+			authorByLine.isHidden = false
 		} else if cellData.showFeedName == .byline {
 			authorByLine.text = cellData.byline
+			authorByLine.isHidden = false
 		} else if cellData.showFeedName == .none {
 			authorByLine.text = ""
+			authorByLine.isHidden = true
 		}
 
 		articleDate.text = cellData.dateString
+		inlineDateLabel.text = cellData.inlineDateString
 	}
 
 	private func updateIndicatorView(_ cellData: MainTimelineCellData) {
 		let dimReadArticles = AppDefaults.shared.timelineDimReadArticles
+		let wasStarred = isStarred
+
 		if cellData.starred {
-			if indicatorView.alpha == 0.0 {
-				indicatorView.alpha = 1.0
-			}
+			isStarred = true
 			setIndicatorViewSize(22)
-			UIView.animate(withDuration: 0.25) {
-				self.indicatorView.iconImage = Assets.Images.starredCellIndicator
-				self.indicatorView.tintColor = .label
+			indicatorView.iconImage = Assets.Images.starredCellIndicator
+			indicatorView.tintColor = .label
+			indicatorCenterXConstraint?.isActive = false
+			indicatorCenterXConstraint = indicatorView.centerXAnchor.constraint(equalTo: inlineDateLabel.centerXAnchor)
+			indicatorCenterXConstraint?.isActive = true
+			UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut) {
+				self.indicatorView.alpha = 1.0
+				self.inlineDateLabel.alpha = 0.0
+				self.contentView.layoutIfNeeded()
+			} completion: { _ in
+				self.inlineDateLabel.isHidden = true
+				self.inlineDateLabel.alpha = 1.0
 			}
-			return
+
 		} else if cellData.read == false && !dimReadArticles {
-			if indicatorView.alpha == 0.0 {
-				indicatorView.alpha = 1.0
+			isStarred = false
+			indicatorCenterXConstraint?.isActive = false
+			indicatorCenterXConstraint = indicatorView.centerXAnchor.constraint(equalTo: inlineDateLabel.leadingAnchor, constant: -6)
+			indicatorCenterXConstraint?.isActive = true
+
+			if wasStarred {
+				// Phase 1: fade out bookmark; date stays hidden.
+				inlineDateLabel.alpha = 0.0
+				inlineDateLabel.isHidden = false
+				UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
+					self.indicatorView.alpha = 0.0
+					self.contentView.layoutIfNeeded()
+				} completion: { _ in
+					self.setIndicatorViewSize(10)
+					self.indicatorView.iconImage = Assets.Images.unreadCellIndicator
+					self.indicatorView.tintColor = Assets.Colors.secondaryAccent
+					// Phase 2: fade in date and unread dot together.
+					UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
+						self.inlineDateLabel.alpha = 1.0
+						self.indicatorView.alpha = 1.0
+					}
+				}
+			} else {
+				setIndicatorViewSize(10)
+				indicatorView.iconImage = Assets.Images.unreadCellIndicator
+				indicatorView.tintColor = Assets.Colors.secondaryAccent
+				inlineDateLabel.isHidden = false
+				UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut) {
+					self.indicatorView.alpha = 1.0
+					self.inlineDateLabel.alpha = 1.0
+					self.contentView.layoutIfNeeded()
+				}
 			}
-			setIndicatorViewSize(16)
-			UIView.animate(withDuration: 0.25) {
-				self.indicatorView.iconImage = Assets.Images.unreadCellIndicator
-				self.indicatorView.tintColor = Assets.Colors.secondaryAccent
-			}
-			return
-		} else if indicatorView.alpha == 1.0 {
-			setIndicatorViewSize(16)
-			UIView.animate(withDuration: 0.25) {
-				self.indicatorView.alpha = 0.0
-				self.indicatorView.iconImage = nil
+
+		} else {
+			isStarred = false
+
+			if wasStarred {
+				// Phase 1: fade out bookmark; date stays hidden.
+				inlineDateLabel.alpha = 0.0
+				inlineDateLabel.isHidden = false
+				UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
+					self.indicatorView.alpha = 0.0
+				} completion: { _ in
+					self.indicatorView.iconImage = nil
+					// Phase 2: fade in date.
+					UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
+						self.inlineDateLabel.alpha = 1.0
+					}
+				}
+			} else {
+				setIndicatorViewSize(10)
+				inlineDateLabel.isHidden = false
+				UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut) {
+					self.indicatorView.alpha = 0.0
+					self.inlineDateLabel.alpha = 1.0
+				} completion: { _ in
+					self.indicatorView.iconImage = nil
+				}
 			}
 		}
 	}
@@ -101,49 +231,11 @@ class MainTimelineFeedCell: UITableViewCell {
 	}
 
 	private func applyTitleTextWithAttributes(_ state: UICellConfigurationState) {
-		let attributedCellText = NSMutableAttributedString()
-		if cellData.title != "" {
-			let paragraphStyle = NSMutableParagraphStyle()
-			paragraphStyle.minimumLineHeight = UIFont.preferredFont(forTextStyle: .headline).lineHeight
-			paragraphStyle.maximumLineHeight = UIFont.preferredFont(forTextStyle: .headline).lineHeight
-			let titleAttributes: [NSAttributedString.Key: Any] = [
-				.font: UIFont.preferredFont(forTextStyle: .headline),
-				.paragraphStyle: paragraphStyle,
-				.foregroundColor: titleTextColor(for: state)
-			]
-			let titleAttributed = NSAttributedString(string: cellData.title, attributes: titleAttributes)
-			attributedCellText.append(titleAttributed)
-		}
-
-		articleTitle.attributedText = attributedCellText
-
-		if linesUsedForTitleGreaterThanOrEqualToPreference() {
-			// No need to add cell summary as we're already at maximum.
-			articleTitle.lineBreakMode = .byTruncatingTail
-			return
-		} else {
-			if cellData.summary != "" {
-				let paragraphStyle = NSMutableParagraphStyle()
-				paragraphStyle.minimumLineHeight = UIFont.preferredFont(forTextStyle: .body).lineHeight
-				paragraphStyle.maximumLineHeight = UIFont.preferredFont(forTextStyle: .body).lineHeight
-				let summaryAttributes: [NSAttributedString.Key: Any] = [
-					.font: UIFont.preferredFont(forTextStyle: .body),
-					.paragraphStyle: paragraphStyle,
-					.foregroundColor: titleTextColor(for: state)
-				]
-				var summaryAttributed: NSAttributedString
-				if cellData.title != "" {
-					summaryAttributed = NSAttributedString(string: "\n" + cellData.summary, attributes: summaryAttributes)
-				} else {
-					summaryAttributed = NSAttributedString(string: cellData.summary, attributes: summaryAttributes)
-				}
-				attributedCellText.append(summaryAttributed)
-			}
-			articleTitle.attributedText = attributedCellText
-			if linesUsedForTitleGreaterThanOrEqualToPreference() {
-				articleTitle.lineBreakMode = .byTruncatingTail
-			}
-		}
+		guard cellData != nil else { return }
+		articleTitle.text = cellData.title
+		articleTitle.font = UIFont.preferredFont(forTextStyle: .body)
+		articleTitle.textColor = titleTextColor(for: state)
+		articleTitle.lineBreakMode = .byTruncatingTail
 	}
 
 	func titleTextColor(for state: UICellConfigurationState) -> UIColor {
@@ -157,41 +249,23 @@ class MainTimelineFeedCell: UITableViewCell {
 		}
 	}
 
-	func linesUsedForTitleGreaterThanOrEqualToPreference() -> Bool {
-		contentView.layoutIfNeeded()
-
-		let attributed = articleTitle.attributedText ?? NSAttributedString()
-		let textStorage = NSTextStorage(attributedString: attributed)
-		let containerSize = CGSize(width: articleTitle.bounds.width, height: .greatestFiniteMagnitude)
-		let textContainer = NSTextContainer(size: containerSize)
-		textContainer.lineFragmentPadding = 0
-		textContainer.maximumNumberOfLines = articleTitle.numberOfLines // 0 means unlimited
-		textContainer.lineBreakMode = articleTitle.lineBreakMode
-
-		let layoutManager = NSLayoutManager()
-		layoutManager.addTextContainer(textContainer)
-		textStorage.addLayoutManager(layoutManager)
-
-		_ = layoutManager.glyphRange(for: textContainer)
-
-		var lineCount = 0
-		var glyphIndex = 0
-		let glyphs = layoutManager.numberOfGlyphs
-		while glyphIndex < glyphs {
-			var lineRange = NSRange()
-			_ = layoutManager.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: &lineRange)
-			glyphIndex = NSMaxRange(lineRange)
-			lineCount += 1
-		}
-		usedTitleLineCount = lineCount
-		return usedTitleLineCount >= AppDefaults.shared.timelineNumberOfLines
+	override func layoutSubviews() {
+		super.layoutSubviews()
+		guard traitCollection.userInterfaceIdiom == .phone else { return }
+		let inset = (bounds.width * 0.05).rounded()
+		dateLabelLeadingConstraint?.constant = inset + 6
+		chevronTrailingConstraint?.constant = -(inset + 12)
 	}
 
 	override func updateConfiguration(using state: UICellConfigurationState) {
 		super.updateConfiguration(using: state)
 
 		var backgroundConfig = UIBackgroundConfiguration.listCell().updated(for: state)
-		backgroundConfig.cornerRadius = 20
+		if traitCollection.userInterfaceIdiom == .phone {
+			backgroundConfig.edgesAddingLayoutMarginsToBackgroundInsets = []
+			let hInset = (bounds.width * 0.05).rounded()
+			backgroundConfig.backgroundInsets = NSDirectionalEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset)
+		}
 		if traitCollection.userInterfaceIdiom == .pad {
 			backgroundConfig.edgesAddingLayoutMarginsToBackgroundInsets = [.leading, .trailing]
 			backgroundConfig.backgroundInsets = NSDirectionalEdgeInsets(top: 0, leading: !isPreview ? -4 : -12, bottom: 0, trailing: !isPreview ? -4 : -12)
@@ -199,14 +273,20 @@ class MainTimelineFeedCell: UITableViewCell {
 
 		if state.isSelected || state.isHighlighted || state.isFocused || state.isSwiped {
 			backgroundConfig.backgroundColor = Assets.Colors.primaryAccent
-			articleTitle.textColor = titleTextColor(for: state)
+			applyTitleTextWithAttributes(state)
 			articleDate.textColor = .lightText
 			authorByLine.textColor = .lightText
+			inlineDateLabel.textColor = .lightText
+			chevronView.tintColor = UIColor.white.withAlphaComponent(0.6)
 		} else {
-			backgroundConfig.backgroundColor = Assets.Colors.foreground
-			articleTitle.textColor = titleTextColor(for: state)
+			backgroundConfig.backgroundColor = traitCollection.userInterfaceIdiom == .phone
+				? Assets.Colors.TimelineSceneContentTableColor
+				: Assets.Colors.foreground
+			applyTitleTextWithAttributes(state)
 			articleDate.textColor = .secondaryLabel
 			authorByLine.textColor = .secondaryLabel
+			inlineDateLabel.textColor = .secondaryLabel
+			chevronView.tintColor = .tertiaryLabel
 		}
 
 		self.backgroundConfiguration = backgroundConfig

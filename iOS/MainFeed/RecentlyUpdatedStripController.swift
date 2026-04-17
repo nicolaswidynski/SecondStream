@@ -1,9 +1,9 @@
 //
 //  RecentlyUpdatedStripController.swift
-//  NetNewsWire-iOS
+//  Second Stream
 //
 //  Created by Nicolas Widynski on 2026-04-10.
-//  Copyright © 2026 Ranchero Software. All rights reserved.
+//  Copyright © 2026 STDN. All rights reserved.
 //
 
 import UIKit
@@ -147,12 +147,12 @@ enum RecentlyUpdatedStripPayload {
 		])
 	}
 
-	/// Applies the navigation bar background style (opaque, uses `Assets.Colors.foreground`).
+	/// Applies the navigation bar background style using `FeedSceneRecentlyUpdatedColor`.
 	func applyNavigationBarBackgroundStyle() {
 		backgroundView.effect = nil
-		backgroundView.backgroundColor = Assets.Colors.foreground
+		backgroundView.backgroundColor = Assets.Colors.FeedSceneRecentlyUpdatedColor
 		navBarExtendedBackgroundView.effect = nil
-		navBarExtendedBackgroundView.backgroundColor = Assets.Colors.foreground
+		navBarExtendedBackgroundView.backgroundColor = Assets.Colors.FeedSceneRecentlyUpdatedColor
 		navBarExtendedBackgroundView.alpha = 1.0
 	}
 

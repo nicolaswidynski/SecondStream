@@ -21,7 +21,7 @@ final class OpenInBrowserActivity: UIActivity {
 	}
 
 	override var activityType: UIActivity.ActivityType? {
-		return UIActivity.ActivityType(rawValue: "com.ranchero.NetNewsWire-Evergreen.safari")
+		return UIActivity.ActivityType(rawValue: "com.stdn.SecondStream.safari")
 	}
 
 	override static var activityCategory: UIActivity.Category {

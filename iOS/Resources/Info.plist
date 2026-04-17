@@ -10,7 +10,7 @@
 	<string>$(AppIdentifierPrefix)</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.ranchero.NetNewsWire.FeedRefresh</string>
+		<string>com.stdn.SecondStream.FeedRefresh</string>
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
@@ -31,7 +31,7 @@
 			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>com.ranchero.netnewswire.theme</string>
+				<string>com.stdn.secondstream.theme</string>
 			</array>
 			<key>LSTypeIsPackage</key>
 			<true/>
@@ -55,7 +55,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>CFBundleURLName</key>
-			<string>com.ranchero.NetNewsWire-Evergreen.iOS.feed</string>
+			<string>com.stdn.SecondStream.iOS.feed</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>feed</string>
@@ -66,7 +66,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>CFBundleURLName</key>
-			<string>com.ranchero.NetNewsWire-Evergreen.iOS</string>
+			<string>com.stdn.SecondStream.iOS</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>netnewswire</string>
@@ -207,7 +207,7 @@
 			<key>UTTypeDescription</key>
 			<string>NetNewsWire Theme</string>
 			<key>UTTypeIdentifier</key>
-			<string>com.ranchero.netnewswire.theme</string>
+			<string>com.stdn.secondstream.theme</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>

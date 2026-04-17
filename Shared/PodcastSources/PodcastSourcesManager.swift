@@ -1,9 +1,9 @@
 //
 //  MediaSource.swift + MediaSourcesManager.swift
-//  NetNewsWire
+//  Second Stream
 //
 //  Created by Nicolas Widynski on 2026-04-11.
-//  Copyright © 2026 Ranchero Software. All rights reserved.
+//  Copyright © 2026 STDN. All rights reserved.
 //
 
 import Foundation
@@ -317,13 +317,12 @@ extension MediaSourcesManager: WebhookSourcesManaging {
 
 		let requestID = UUID().uuidString
 		let body: [String: Any] = [
-			"operation":        "add-show",
-			"type":             typeString,
-			"show":             effectiveShow,
-			"author":           effectiveAuthor,
-			"apple_user_id":    AuthManager.shared.appleUserID ?? "",
-			"request_id":       requestID,
-			"feeds_for_update": FeedStatsManager.shared.buildFeedsForUpdate()
+			"operation":     "add-show",
+			"type":          typeString,
+			"show":          effectiveShow,
+			"author":        effectiveAuthor,
+			"apple_user_id": AuthManager.shared.appleUserID ?? "",
+			"request_id":    requestID
 		]
 
 		do {

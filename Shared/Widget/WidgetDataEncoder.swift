@@ -90,25 +90,25 @@ import Account
 			var shouldRefreshSummary = false
 
 			if existingData.unreadArticles != newData.unreadArticles {
-				WidgetCenter.shared.reloadTimelines(ofKind: "com.ranchero.NetNewsWire.UnreadWidget")
+				WidgetCenter.shared.reloadTimelines(ofKind: "com.stdn.SecondStream.UnreadWidget")
 				shouldRefreshSummary = true
 				Self.logger.debug("WidgetDataEncoder: Reloading Unread widget")
 			}
 
 			if existingData.todayArticles != newData.todayArticles || existingData.totalTodayUnreadCount != newData.totalTodayUnreadCount {
-				WidgetCenter.shared.reloadTimelines(ofKind: "com.ranchero.NetNewsWire.TodayWidget")
+				WidgetCenter.shared.reloadTimelines(ofKind: "com.stdn.SecondStream.TodayWidget")
 				shouldRefreshSummary = true
 				Self.logger.debug("WidgetDataEncoder: Reloading Today widget")
 			}
 
 			if existingData.starredArticles != newData.starredArticles {
-				WidgetCenter.shared.reloadTimelines(ofKind: "com.ranchero.NetNewsWire.StarredWidget")
+				WidgetCenter.shared.reloadTimelines(ofKind: "com.stdn.SecondStream.StarredWidget")
 				shouldRefreshSummary = true
 				Self.logger.debug("WidgetDataEncoder: Reloading Starred widget")
 			}
 
 			if shouldRefreshSummary {
-				WidgetCenter.shared.reloadTimelines(ofKind: "com.ranchero.NetNewsWire.LockScreenSummaryWidget")
+				WidgetCenter.shared.reloadTimelines(ofKind: "com.stdn.SecondStream.LockScreenSummaryWidget")
 				Self.logger.debug("WidgetDataEncoder: Reloading Summary widget")
 			}
 		}

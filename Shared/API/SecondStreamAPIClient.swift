@@ -1,9 +1,9 @@
 //
 //  SecondStreamAPIClient.swift
-//  NetNewsWire
+//  Second Stream
 //
 //  Created by Nicolas Widynski on 2026-04-11.
-//  Copyright © 2026 Ranchero Software. All rights reserved.
+//  Copyright © 2026 STDN. All rights reserved.
 //
 
 import Foundation
@@ -109,6 +109,11 @@ private let apiClientLogger = Logger(subsystem: Bundle.main.bundleIdentifier!, c
 				apiClientLogger.info("update-user-stats skipped — \(self.pendingAddCount) add(s) pending")
 				throw APIError.skipped
 			}
+			return try await performPost(to: .allFeedRequests, body: body, timeout: timeout)
+		}
+
+		// del-show: fire immediately, independent of the add-show queue.
+		if operation == "del-show" {
 			return try await performPost(to: .allFeedRequests, body: body, timeout: timeout)
 		}
 

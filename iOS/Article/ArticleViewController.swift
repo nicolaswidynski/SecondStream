@@ -81,7 +81,7 @@ final class ArticleViewController: UIViewController {
 	override func viewDidLoad() {
 		super.viewDidLoad()
 
-		view.backgroundColor = Assets.Colors.background
+		view.backgroundColor = Assets.Colors.ArticleSceneContentBgColor
 
 		NotificationCenter.default.addObserver(self, selector: #selector(unreadCountDidChange(_:)), name: .UnreadCountDidChange, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(statusesDidChange(_:)), name: .StatusesDidChange, object: nil)
@@ -110,6 +110,7 @@ final class ArticleViewController: UIViewController {
 		pageViewController.dataSource = self
 
 		pageViewController.view.translatesAutoresizingMaskIntoConstraints = false
+		pageViewController.view.backgroundColor = Assets.Colors.ArticleSceneContentBgColor
 		view.addSubview(pageViewController.view)
 		addChild(pageViewController!)
 
@@ -155,7 +156,15 @@ final class ArticleViewController: UIViewController {
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
-		navigationController?.view.backgroundColor = Assets.Colors.background
+		super.viewWillAppear(animated)
+		let navAppearance = UINavigationBarAppearance()
+		navAppearance.configureWithOpaqueBackground()
+		navAppearance.backgroundColor = Assets.Colors.ArticleSceneNavBarColor.resolvedColor(with: traitCollection)
+		navigationController?.navigationBar.standardAppearance = navAppearance
+		navigationController?.navigationBar.scrollEdgeAppearance = navAppearance
+		navigationController?.navigationBar.compactAppearance = navAppearance
+		navigationController?.navigationBar.compactScrollEdgeAppearance = navAppearance
+		navigationController?.view.backgroundColor = Assets.Colors.ArticleSceneContentBgColor
 		let hideToolbars = AppDefaults.shared.logicalArticleFullscreenEnabled
 		if hideToolbars {
 			currentWebViewController?.hideBars()
@@ -164,7 +173,6 @@ final class ArticleViewController: UIViewController {
 		}
 		updateNavigationHeader()
 		navigationController?.setNavigationBarHidden(false, animated: false)
-		super.viewWillAppear(animated)
 	}
 
 	override func viewDidAppear(_ animated: Bool) {

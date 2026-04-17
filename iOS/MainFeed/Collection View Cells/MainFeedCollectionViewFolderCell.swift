@@ -59,6 +59,26 @@ class MainFeedCollectionViewFolderCell: UICollectionViewCell {
 		MainActor.assumeIsolated {
 			super.awakeFromNib()
 			disclosureButton.addInteraction(UIPointerInteraction())
+			applyVerticalPadding()
+		}
+	}
+
+	private func applyVerticalPadding() {
+		let padding = Assets.Colors.feedCellVerticalPadding
+		let safeArea = contentView.safeAreaLayoutGuide
+		for c in contentView.constraints {
+			if (c.firstItem as? UIView) === folderTitle,
+			   c.firstAttribute == .top,
+			   (c.secondItem as? UILayoutGuide) === safeArea,
+			   c.secondAttribute == .top {
+				c.constant = padding
+			}
+			if (c.firstItem as? UILayoutGuide) === safeArea,
+			   c.firstAttribute == .bottom,
+			   (c.secondItem as? UIView) === folderTitle,
+			   c.secondAttribute == .bottom {
+				c.constant = padding
+			}
 		}
 	}
 
@@ -124,7 +144,9 @@ class MainFeedCollectionViewFolderCell: UICollectionViewCell {
 			unreadCountLabel.textColor = .secondaryLabel
 			faviconView.tintColor = .white
 		default:
-			backgroundConfig.backgroundColor = Assets.Colors.foreground
+			backgroundConfig.backgroundColor = traitCollection.userInterfaceIdiom == .phone
+				? Assets.Colors.FeedSceneContentTableColor
+				: Assets.Colors.foreground
 			folderTitle.textColor = .label
 			unreadCountLabel.textColor = Assets.Colors.primaryAccent
 			faviconView.tintColor = Assets.Colors.primaryAccent
