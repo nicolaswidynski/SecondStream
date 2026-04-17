@@ -677,7 +677,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		super.viewDidLayoutSubviews()
 		if traitCollection.userInterfaceIdiom == .phone {
 			let margin = (tableView.bounds.width * 0.05).rounded()
-			tableView.separatorInset = UIEdgeInsets(top: 0, left: margin, bottom: 0, right: margin)
+			tableView.separatorInset = UIEdgeInsets(top: 0, left: margin, bottom: Assets.Colors.timelineSeparatorVerticalPadding, right: margin)
 		}
 	}
 
@@ -914,13 +914,23 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 			label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
 			label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
 			label.topAnchor.constraint(equalTo: separator.bottomAnchor, constant: 6),
-			label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6)
+			label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -(6 + Assets.Colors.timelineSectionSpacingTop))
 		])
 		return container
 	}
 
 	override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
 		return UITableView.automaticDimension
+	}
+
+	override func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
+		let footer = UIView()
+		footer.backgroundColor = .clear
+		return footer
+	}
+
+	override func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
+		return Assets.Colors.timelineSectionSpacingBottom
 	}
 
 	override func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {

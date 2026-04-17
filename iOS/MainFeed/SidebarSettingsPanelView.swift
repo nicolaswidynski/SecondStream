@@ -36,10 +36,22 @@ enum SettingsSidebarItem: CaseIterable {
 		case .notifications: return UIImage(systemName: "bell")
 		case .appearance: return UIImage(systemName: "sun.max")
 		case .faceID: return UIImage(systemName: "faceid")
-		case .obsidian: return UIImage(systemName: "leaf")
+		case .obsidian: return UIImage(named: "obsidian-symbol")
 		case .about: return UIImage(systemName: "info.circle")
 		case .logOut: return UIImage(systemName: "rectangle.portrait.and.arrow.right")
 		case .deleteAccount: return UIImage(systemName: "trash")
+		}
+	}
+
+	var iconWidth: CGFloat {
+		switch self {
+		default: return 22
+		}
+	}
+
+	var iconHeight: CGFloat {
+		switch self {
+		default: return 22
 		}
 	}
 
@@ -176,6 +188,9 @@ private final class SidebarSettingsRowControl: UIControl {
 	private func setupViews() {
 		// Icon
 		iconView.image = item.icon
+		if item == .obsidian {
+			iconView.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 28, weight: .regular)
+		}
 		iconView.contentMode = .scaleAspectFit
 		iconView.tintColor = item.isDestructive ? .systemRed : Assets.Colors.primaryAccent
 		iconView.translatesAutoresizingMaskIntoConstraints = false
@@ -207,8 +222,8 @@ private final class SidebarSettingsRowControl: UIControl {
 		var constraints: [NSLayoutConstraint] = [
 			iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
 			iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
-			iconView.widthAnchor.constraint(equalToConstant: 22),
-			iconView.heightAnchor.constraint(equalToConstant: 22),
+			iconView.widthAnchor.constraint(equalToConstant: item.iconWidth),
+			iconView.heightAnchor.constraint(equalToConstant: item.iconHeight),
 
 			titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 14),
 			titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),

@@ -367,6 +367,11 @@ struct Assets {
 
 		// MARK: - Layout Spacing — Timeline Scene
 
+		static let timelineCellVerticalPadding: CGFloat      = 7
+		static let timelineSeparatorVerticalPadding: CGFloat = 0
+		static let timelineSectionSpacingTop: CGFloat        = 0
+		static let timelineSectionSpacingBottom: CGFloat     = 15
+
 		/// Storyboard constraint IDs: arj-Vg-UZ3 (IconFeedCell), nQe-AM-26Q (FeedCell).
 		static let timelineCellBottomPadding: CGFloat = 6
 		/// Fixed width of the date column — all titles left-align at the same offset.
