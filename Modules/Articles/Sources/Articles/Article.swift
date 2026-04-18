@@ -29,8 +29,9 @@ public final class Article: Hashable, Sendable {
 	public let authors: Set<Author>?
 	public let status: ArticleStatus
 	public let mp3URL: String?
+	public let durationInSeconds: Int?
 
-	public init(accountID: String, articleID: String?, feedID: String, uniqueID: String, title: String?, contentHTML: String?, contentText: String?, markdown: String?, contentJSON: String? = nil, url: String?, externalURL: String?, summary: String?, imageURL: String?, datePublished: Date?, dateModified: Date?, authors: Set<Author>?, status: ArticleStatus, mp3URL: String? = nil) {
+	public init(accountID: String, articleID: String?, feedID: String, uniqueID: String, title: String?, contentHTML: String?, contentText: String?, markdown: String?, contentJSON: String? = nil, url: String?, externalURL: String?, summary: String?, imageURL: String?, datePublished: Date?, dateModified: Date?, authors: Set<Author>?, status: ArticleStatus, mp3URL: String? = nil, durationInSeconds: Int? = nil) {
 		self.accountID = accountID
 		self.feedID = feedID
 		self.uniqueID = uniqueID
@@ -48,6 +49,7 @@ public final class Article: Hashable, Sendable {
 		self.authors = authors
 		self.status = status
 		self.mp3URL = mp3URL
+		self.durationInSeconds = durationInSeconds
 
 		if let articleID = articleID {
 			self.articleID = articleID
@@ -69,7 +71,7 @@ public final class Article: Hashable, Sendable {
 	// MARK: - Equatable
 
 	static public func ==(lhs: Article, rhs: Article) -> Bool {
-		return lhs.articleID == rhs.articleID && lhs.accountID == rhs.accountID && lhs.feedID == rhs.feedID && lhs.uniqueID == rhs.uniqueID && lhs.title == rhs.title && lhs.contentHTML == rhs.contentHTML && lhs.contentText == rhs.contentText && lhs.markdown == rhs.markdown && lhs.contentJSON == rhs.contentJSON && lhs.rawLink == rhs.rawLink && lhs.rawExternalLink == rhs.rawExternalLink && lhs.summary == rhs.summary && lhs.rawImageLink == rhs.rawImageLink && lhs.datePublished == rhs.datePublished && lhs.dateModified == rhs.dateModified && lhs.authors == rhs.authors && lhs.mp3URL == rhs.mp3URL
+		return lhs.articleID == rhs.articleID && lhs.accountID == rhs.accountID && lhs.feedID == rhs.feedID && lhs.uniqueID == rhs.uniqueID && lhs.title == rhs.title && lhs.contentHTML == rhs.contentHTML && lhs.contentText == rhs.contentText && lhs.markdown == rhs.markdown && lhs.contentJSON == rhs.contentJSON && lhs.rawLink == rhs.rawLink && lhs.rawExternalLink == rhs.rawExternalLink && lhs.summary == rhs.summary && lhs.rawImageLink == rhs.rawImageLink && lhs.datePublished == rhs.datePublished && lhs.dateModified == rhs.dateModified && lhs.authors == rhs.authors && lhs.mp3URL == rhs.mp3URL && lhs.durationInSeconds == rhs.durationInSeconds
 	}
 }
 

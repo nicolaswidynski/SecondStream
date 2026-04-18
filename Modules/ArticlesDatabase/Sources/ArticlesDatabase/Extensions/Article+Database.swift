@@ -40,8 +40,9 @@ extension Article {
 		let datePublished = row.date(forColumn: DatabaseKey.datePublished)
 		let dateModified = row.date(forColumn: DatabaseKey.dateModified)
 		let mp3URL = row.string(forColumn: DatabaseKey.mp3URL)
+		let durationInSeconds: Int? = row.columnIsNull(DatabaseKey.durationInSeconds) ? nil : Int(row.int(forColumn: DatabaseKey.durationInSeconds))
 
-		self.init(accountID: accountID, articleID: articleID, feedID: feedID, uniqueID: uniqueID, title: title, contentHTML: contentHTML, contentText: contentText, markdown: markdown, contentJSON: contentJSON, url: url, externalURL: externalURL, summary: summary, imageURL: imageURL, datePublished: datePublished, dateModified: dateModified, authors: nil, status: status, mp3URL: mp3URL)
+		self.init(accountID: accountID, articleID: articleID, feedID: feedID, uniqueID: uniqueID, title: title, contentHTML: contentHTML, contentText: contentText, markdown: markdown, contentJSON: contentJSON, url: url, externalURL: externalURL, summary: summary, imageURL: imageURL, datePublished: datePublished, dateModified: dateModified, authors: nil, status: status, mp3URL: mp3URL, durationInSeconds: durationInSeconds)
 	}
 
 	convenience init(parsedItem: ParsedItem, maximumDateAllowed: Date, accountID: String, feedID: String, status: ArticleStatus) {
@@ -61,7 +62,9 @@ extension Article {
 			dateModified = nil
 		}
 
-		self.init(accountID: accountID, articleID: parsedItem.syncServiceID, feedID: feedID, uniqueID: parsedItem.uniqueID, title: parsedItem.title, contentHTML: parsedItem.contentHTML, contentText: parsedItem.contentText, markdown: parsedItem.markdown, contentJSON: parsedItem.contentJSON, url: parsedItem.url, externalURL: parsedItem.externalURL, summary: parsedItem.summary, imageURL: parsedItem.imageURL, datePublished: datePublished, dateModified: dateModified, authors: authors, status: status, mp3URL: parsedItem.mp3URL)
+		let durationInSeconds = parsedItem.attachments?.compactMap(\.durationInSeconds).first
+
+		self.init(accountID: accountID, articleID: parsedItem.syncServiceID, feedID: feedID, uniqueID: parsedItem.uniqueID, title: parsedItem.title, contentHTML: parsedItem.contentHTML, contentText: parsedItem.contentText, markdown: parsedItem.markdown, contentJSON: parsedItem.contentJSON, url: parsedItem.url, externalURL: parsedItem.externalURL, summary: parsedItem.summary, imageURL: parsedItem.imageURL, datePublished: datePublished, dateModified: dateModified, authors: authors, status: status, mp3URL: parsedItem.mp3URL, durationInSeconds: durationInSeconds)
 	}
 
 	private func addPossibleStringChangeWithKeyPath(_ comparisonKeyPath: KeyPath<Article, String?>, _ otherArticle: Article, _ key: String, _ dictionary: inout DatabaseDictionary) {
@@ -74,7 +77,7 @@ extension Article {
 		if authors.isEmpty {
 			return self
 		}
-		return Article(accountID: self.accountID, articleID: self.articleID, feedID: self.feedID, uniqueID: self.uniqueID, title: self.title, contentHTML: self.contentHTML, contentText: self.contentText, markdown: self.markdown, contentJSON: self.contentJSON, url: self.rawLink, externalURL: self.rawExternalLink, summary: self.summary, imageURL: self.rawImageLink, datePublished: self.datePublished, dateModified: self.dateModified, authors: authors, status: self.status, mp3URL: self.mp3URL)
+		return Article(accountID: self.accountID, articleID: self.articleID, feedID: self.feedID, uniqueID: self.uniqueID, title: self.title, contentHTML: self.contentHTML, contentText: self.contentText, markdown: self.markdown, contentJSON: self.contentJSON, url: self.rawLink, externalURL: self.rawExternalLink, summary: self.summary, imageURL: self.rawImageLink, datePublished: self.datePublished, dateModified: self.dateModified, authors: authors, status: self.status, mp3URL: self.mp3URL, durationInSeconds: self.durationInSeconds)
 	}
 
 	func changesFrom(_ existingArticle: Article) -> DatabaseDictionary? {
@@ -109,6 +112,11 @@ extension Article {
 		if dateModified != existingArticle.dateModified {
 			if let updatedDateModified = dateModified {
 				d[DatabaseKey.dateModified] = updatedDateModified
+			}
+		}
+		if durationInSeconds != existingArticle.durationInSeconds {
+			if let updated = durationInSeconds {
+				d[DatabaseKey.durationInSeconds] = updated
 			}
 		}
 
@@ -187,6 +195,9 @@ extension Article: @retroactive DatabaseObject {
 		}
 		if let mp3URL = mp3URL {
 			d[DatabaseKey.mp3URL] = mp3URL
+		}
+		if let durationInSeconds = durationInSeconds {
+			d[DatabaseKey.durationInSeconds] = durationInSeconds
 		}
 		return d
 	}

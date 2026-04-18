@@ -170,16 +170,19 @@ final class SettingsViewController: UITableViewController {
 
 		updateTTSVoiceLabel()
 
-		let buildLabel = NonIntrinsicLabel(frame: CGRect(x: 32.0, y: 0.0, width: 0.0, height: 0.0))
+		let buildLabel = NonIntrinsicLabel()
 		buildLabel.font = UIFont.systemFont(ofSize: 11.0)
 		buildLabel.textColor = UIColor.gray
 		buildLabel.text = "\(Bundle.main.appName) \(Bundle.main.versionNumber) (Build \(Bundle.main.buildNumber))"
 		buildLabel.sizeToFit()
 		buildLabel.translatesAutoresizingMaskIntoConstraints = false
 
-		let wrapperView = UIView(frame: CGRect(x: 0, y: 0, width: buildLabel.frame.width, height: buildLabel.frame.height + 10.0))
-		wrapperView.translatesAutoresizingMaskIntoConstraints = false
+		let wrapperView = UIView(frame: CGRect(x: 0, y: 0, width: tableView.bounds.width, height: buildLabel.frame.height + 10.0))
 		wrapperView.addSubview(buildLabel)
+		NSLayoutConstraint.activate([
+			buildLabel.leadingAnchor.constraint(equalTo: wrapperView.leadingAnchor, constant: 32),
+			buildLabel.centerYAnchor.constraint(equalTo: wrapperView.centerYAnchor),
+		])
 		tableView.tableFooterView = wrapperView
 
 		let tripleTap = UITapGestureRecognizer(target: self, action: #selector(buildLabelTripleTapped))
