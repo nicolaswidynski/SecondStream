@@ -56,23 +56,64 @@ class MainTimelineIconFeedCell: UITableViewCell {
 			contentView.addSubview(inlineDateLabel)
 			contentView.addSubview(chevronView)
 			setupConstraints()
+			applyVerticalPadding()
+		}
+	}
+
+	private func applyVerticalPadding() {
+		let padding = Assets.Colors.timelineCellVerticalPadding
+		let safeArea = contentView.safeAreaLayoutGuide
+		for c in contentView.constraints {
+			let safeIsFirst  = c.firstItem  as? UILayoutGuide === safeArea
+			let safeIsSecond = c.secondItem as? UILayoutGuide === safeArea
+			guard safeIsFirst || safeIsSecond else { continue }
+			if c.firstAttribute == .top || c.firstAttribute == .bottom {
+				c.constant = padding
+			}
 		}
 	}
 
 	private func setupConstraints() {
+		let safeArea = contentView.safeAreaLayoutGuide
+		// Collect storyboard constraints to deactivate. Priority mutation of required
+		// constraints while active is a no-op in UIKit; deactivation is the correct approach.
+		var toDeactivate: [NSLayoutConstraint] = []
 		for c in contentView.constraints {
+			// Horizontal constraints — replaced by our explicit leading/trailing anchors.
 			if c.firstAttribute == .leading || c.firstAttribute == .trailing {
-				c.priority = UILayoutPriority(1)
+				toDeactivate.append(c)
+			}
+			// Storyboard top/bottom anchors that pin views to the safe area — replaced
+			// by UILayoutGuide centering and explicit centerY constraints below.
+			let involvesSafeArea = c.firstItem as? UILayoutGuide === safeArea
+				|| c.secondItem as? UILayoutGuide === safeArea
+			let touchesCentered = c.firstItem as? UIView === articleTitle
+				|| c.secondItem as? UIView === articleTitle
+				|| c.firstItem as? UIView === metaDataStackView
+				|| c.secondItem as? UIView === metaDataStackView
+				|| c.firstItem as? UIView === iconView
+				|| c.secondItem as? UIView === iconView
+				|| c.firstItem as? UIView === indicatorView
+				|| c.secondItem as? UIView === indicatorView
+			if involvesSafeArea && touchesCentered
+				&& (c.firstAttribute == .top || c.firstAttribute == .bottom) {
+				toDeactivate.append(c)
 			}
 		}
+		NSLayoutConstraint.deactivate(toDeactivate)
 
 		let iconLeading = iconView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16)
 		let chevTrailing = chevronView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
 		contentLeadingConstraint = iconLeading
 		chevronTrailingConstraint = chevTrailing
 
+		// Center the title+metadata group as a unit within the cell.
+		let groupGuide = UILayoutGuide()
+		contentView.addLayoutGuide(groupGuide)
+
 		NSLayoutConstraint.activate([
 			iconLeading,
+			iconView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
 			indicatorView.trailingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 4),
 			indicatorView.topAnchor.constraint(equalTo: iconView.topAnchor, constant: -4),
 			inlineDateLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 8),
@@ -84,6 +125,10 @@ class MainTimelineIconFeedCell: UITableViewCell {
 			chevTrailing,
 			chevronView.widthAnchor.constraint(equalToConstant: 10),
 			chevronView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+			groupGuide.topAnchor.constraint(equalTo: articleTitle.topAnchor),
+			groupGuide.bottomAnchor.constraint(equalTo: metaDataStackView.bottomAnchor),
+			groupGuide.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+			contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: Assets.Colors.timelineCellMinimumHeight),
 		])
 	}
 
@@ -223,7 +268,9 @@ class MainTimelineIconFeedCell: UITableViewCell {
 		}
 
 		if state.isSelected || state.isHighlighted || state.isFocused || state.isSwiped {
-			backgroundConfig.backgroundColor = Assets.Colors.primaryAccent
+			if let selectionColor = Assets.Colors.cellSelectionColor {
+				backgroundConfig.backgroundColor = selectionColor
+			}
 			applyTitleTextWithAttributes(state)
 			articleDate.textColor = .lightText
 			authorByLine.textColor = .lightText

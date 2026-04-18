@@ -188,7 +188,7 @@ private final class LeftSideMenuContentViewController: UIViewController {
 	private func setupViews() {
 		// Add section rows
 		let addItems: [(icon: UIImage?, title: String, action: Selector)] = [
-			(UIImage(systemName: "mic.fill"),       NSLocalizedString("Podcasts", comment: "Podcasts"), #selector(addPodcastTapped)),
+			(RSImage(named: "podcast_thin-symbol") ?? UIImage(systemName: "mic.fill"), NSLocalizedString("Podcasts", comment: "Podcasts"), #selector(addPodcastTapped)),
 			(UIImage(systemName: "play.rectangle"), NSLocalizedString("YouTube",  comment: "YouTube"),  #selector(addYoutubeTapped)),
 			(UIImage(systemName: "newspaper"),      NSLocalizedString("News",     comment: "News"),     #selector(addNewsTapped)),
 			(RSImage(named: "rss_thin-symbol") ?? UIImage(systemName: "dot.radiowaves.left.and.right"), NSLocalizedString("RSS", comment: "RSS"), #selector(addRSSTapped)),
