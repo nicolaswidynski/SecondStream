@@ -285,6 +285,15 @@ private extension ArticleRenderer {
 
 		d["byline"] = byline()
 
+		// Duration (podcast / YouTube only, optional)
+		let showDuration = (feedCategory == .podcast || feedCategory == .youtube)
+		if showDuration, let seconds = article.durationInSeconds {
+			let formatted = Self.durationString(from: seconds)
+			d["duration_html"] = "<span class=\"nnw-duration\">\(formatted)</span>"
+		} else {
+			d["duration_html"] = ""
+		}
+
 		// Only show a timestamp when the feed actually supplied a date.
 		// logicalDatePublished falls back to dateArrived, which is meaningless to display.
 		guard let datePublished = article.datePublished ?? article.dateModified else {
@@ -321,6 +330,17 @@ private extension ArticleRenderer {
 		d["time_short"] = Self.shortTimeFormatter.string(from: datePublished)
 
 		return d
+	}
+
+	static func durationString(from seconds: Int) -> String {
+		let hours = seconds / 3600
+		let minutes = (seconds % 3600) / 60
+		let secs = seconds % 60
+		if hours > 0 {
+			return String(format: "%d:%02d:%02d", hours, minutes, secs)
+		} else {
+			return String(format: "%d:%02d", minutes, secs)
+		}
 	}
 
 	func topTitleMediaLink(for article: Article, feedCategory: FeedCategory) -> String? {
@@ -416,8 +436,8 @@ private extension ArticleRenderer {
 		d["font-size"] = String(describing: bodyFont.pointSize)
 		d["color-page-bg-light"]           = Assets.Colors.ArticleSceneContentBgColor.hexString(forStyle: .light)
 		d["color-page-bg-dark"]            = Assets.Colors.ArticleSceneContentBgColor.hexString(forStyle: .dark)
-		d["color-groupbox-bg-light"]       = Assets.Colors.TimelineSceneContentBoxesColor.hexString(forStyle: .light)
-		d["color-groupbox-bg-dark"]        = Assets.Colors.TimelineSceneContentBoxesColor.hexString(forStyle: .dark)
+		d["color-groupbox-bg-light"]       = Assets.Colors.ArticleSceneContentBoxesColor.hexString(forStyle: .light)
+		d["color-groupbox-bg-dark"]        = Assets.Colors.ArticleSceneContentBoxesColor.hexString(forStyle: .dark)
 		d["color-accent-light"]            = Assets.Colors.primaryAccent.hexString(forStyle: .light)
 		d["color-accent-dark"]             = Assets.Colors.primaryAccent.hexString(forStyle: .dark)
 		d["color-accent2-dark"]            = Assets.Colors.secondaryAccent.hexString(forStyle: .dark)
