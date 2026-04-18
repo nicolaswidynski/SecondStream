@@ -112,7 +112,7 @@ body > .systemMessage {
 
 .articleTitle a.nnw-top-media-link:link,
 .articleTitle a.nnw-top-media-link:visited {
-	color: #0a84ff !important;
+	color: var(--primary-accent-color) !important;
 	display: inline-block;
 	font-size: 1.18em;
 	font-weight: 700;
@@ -137,6 +137,11 @@ body > .systemMessage {
 
 .articleDateline:empty, .articleDatelineTitle:empty {
 	display: none;
+}
+
+.nnw-duration {
+	margin-left: 0.5em;
+	opacity: 0.7;
 }
 
 .articleDateline a:link, .articleDateline a:visited {

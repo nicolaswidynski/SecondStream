@@ -27,6 +27,7 @@ final class RootSplitViewController: UISplitViewController {
 	private var leftMenuDimView: UIView?
 	private var leftMenuLeadingConstraint: NSLayoutConstraint?
 	private var isLeftMenuOpen = false
+	private var panStartX: CGFloat = 0
 
 	override var prefersStatusBarHidden: Bool {
 		return coordinator.prefersStatusBarHidden
@@ -41,6 +42,43 @@ final class RootSplitViewController: UISplitViewController {
 		view.backgroundColor = Assets.Colors.background
 		setupMiniPlayer()
 		setupLeftMenuDrawer()
+	}
+
+	// MARK: - Scene Pane Styling
+
+	private let styledColumns: [Column] = [.supplementary, .secondary]
+	private var styledPaneViews = Set<ObjectIdentifier>()
+
+	private func targetPaneView(for vc: UIViewController) -> UIView {
+		if let navView = vc.navigationController?.view { return navView }
+		return vc.view
+	}
+
+	override func setViewController(_ vc: UIViewController?, for column: Column) {
+		super.setViewController(vc, for: column)
+		guard styledColumns.contains(column), let vc else { return }
+		let target = targetPaneView(for: vc)
+		applyScenePaneStyle(to: target)
+		styledPaneViews.insert(ObjectIdentifier(target))
+	}
+
+	override func viewDidLayoutSubviews() {
+		super.viewDidLayoutSubviews()
+		for column in styledColumns {
+			guard let vc = viewController(for: column) else { continue }
+			let target = targetPaneView(for: vc)
+			let id = ObjectIdentifier(target)
+			if !styledPaneViews.contains(id) {
+				applyScenePaneStyle(to: target)
+				styledPaneViews.insert(id)
+			}
+		}
+	}
+
+	private func applyScenePaneStyle(to view: UIView) {
+		view.layer.cornerRadius = Assets.Colors.scenePaneCornerRadius
+		view.layer.cornerCurve = .continuous
+		view.clipsToBounds = true
 	}
 
 	override func viewDidAppear(_ animated: Bool) {
@@ -94,53 +132,54 @@ final class RootSplitViewController: UISplitViewController {
 	// MARK: - Left Menu Drawer
 
 	private func setupLeftMenuDrawer() {
+		let menuVC = LeftSideMenuViewController()
+		menuVC.coordinator = coordinator
+		addChild(menuVC)
+
+		let menuView = menuVC.view!
+		menuView.translatesAutoresizingMaskIntoConstraints = false
+		// Start off-screen to the left
+		menuView.transform = CGAffineTransform(translationX: -leftMenuWidth, y: 0)
+
+		// Dim overlay — sits behind the menu, above the content
 		let dimView = UIView()
-		dimView.translatesAutoresizingMaskIntoConstraints = false
 		dimView.backgroundColor = UIColor.black.withAlphaComponent(0.4)
 		dimView.alpha = 0
 		dimView.isHidden = true
+		dimView.translatesAutoresizingMaskIntoConstraints = false
 		let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dimViewTapped))
 		dimView.addGestureRecognizer(tapGesture)
+
 		view.addSubview(dimView)
+		view.addSubview(menuView)
+		menuVC.didMove(toParent: self)
+
 		NSLayoutConstraint.activate([
 			dimView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
 			dimView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
 			dimView.topAnchor.constraint(equalTo: view.topAnchor),
 			dimView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+			menuView.topAnchor.constraint(equalTo: view.topAnchor),
+			menuView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+			menuView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+			menuView.widthAnchor.constraint(equalToConstant: leftMenuWidth),
 		])
+
+		leftMenuViewController = menuVC
 		leftMenuDimView = dimView
 
-		let menuVC = LeftSideMenuViewController()
-		menuVC.coordinator = coordinator
-		addChild(menuVC)
-		menuVC.view.translatesAutoresizingMaskIntoConstraints = false
-		menuVC.view.layer.shadowColor = UIColor.black.cgColor
-		menuVC.view.layer.shadowOpacity = 0.2
-		menuVC.view.layer.shadowRadius = 8
-		menuVC.view.layer.shadowOffset = CGSize(width: 4, height: 0)
-		view.addSubview(menuVC.view)
-		let leadingConstraint = menuVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: -leftMenuWidth)
-		NSLayoutConstraint.activate([
-			leadingConstraint,
-			menuVC.view.widthAnchor.constraint(equalToConstant: leftMenuWidth),
-			menuVC.view.topAnchor.constraint(equalTo: view.topAnchor),
-			menuVC.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-		])
-		leftMenuLeadingConstraint = leadingConstraint
-		leftMenuViewController = menuVC
-		menuVC.didMove(toParent: self)
+		let pan = UIPanGestureRecognizer(target: self, action: #selector(handleMenuPan(_:)))
+		pan.delegate = self
+		view.addGestureRecognizer(pan)
 	}
 
 	func showLeftMenu() {
-		guard !isLeftMenuOpen else {
-			return
-		}
+		guard !isLeftMenuOpen else { return }
 		UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 		isLeftMenuOpen = true
 		leftMenuDimView?.isHidden = false
-		leftMenuLeadingConstraint?.constant = 0
-		UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseOut) {
-			self.view.layoutIfNeeded()
+		UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0, options: []) {
+			self.leftMenuViewController?.view.transform = .identity
 			self.leftMenuDimView?.alpha = 1
 		}
 	}
@@ -151,19 +190,64 @@ final class RootSplitViewController: UISplitViewController {
 			return
 		}
 		isLeftMenuOpen = false
-		leftMenuViewController?.resetNavigation()
-		leftMenuLeadingConstraint?.constant = -leftMenuWidth
 		UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseIn) {
-			self.view.layoutIfNeeded()
+			self.leftMenuViewController?.view.transform = CGAffineTransform(translationX: -self.leftMenuWidth, y: 0)
 			self.leftMenuDimView?.alpha = 0
 		} completion: { _ in
 			self.leftMenuDimView?.isHidden = true
+			self.leftMenuViewController?.resetNavigation()
 			completion?()
 		}
 	}
 
 	@objc private func dimViewTapped() {
 		hideLeftMenu()
+	}
+
+	@objc private func handleMenuPan(_ gesture: UIPanGestureRecognizer) {
+		let translation = gesture.translation(in: view).x
+		let velocity = gesture.velocity(in: view).x
+
+		guard let menuView = leftMenuViewController?.view else { return }
+
+		switch gesture.state {
+		case .began:
+			panStartX = isLeftMenuOpen ? 0 : -leftMenuWidth
+			if !isLeftMenuOpen {
+				leftMenuDimView?.isHidden = false
+			}
+		case .changed:
+			let newX = max(-leftMenuWidth, min(0, panStartX + translation))
+			menuView.transform = CGAffineTransform(translationX: newX, y: 0)
+			let progress = (newX + leftMenuWidth) / leftMenuWidth
+			leftMenuDimView?.alpha = progress
+		case .ended, .cancelled:
+			let currentX = menuView.transform.tx
+			let progress = (currentX + leftMenuWidth) / leftMenuWidth
+			let shouldOpen = velocity > 300 || (velocity > -300 && progress > 0.4)
+			if shouldOpen {
+				if !isLeftMenuOpen {
+					UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+				}
+				isLeftMenuOpen = true
+				let springVel = max(0, velocity) / max(1, abs(currentX))
+				UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: springVel, options: []) {
+					menuView.transform = .identity
+					self.leftMenuDimView?.alpha = 1
+				}
+			} else {
+				isLeftMenuOpen = false
+				UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseIn) {
+					menuView.transform = CGAffineTransform(translationX: -self.leftMenuWidth, y: 0)
+					self.leftMenuDimView?.alpha = 0
+				} completion: { _ in
+					self.leftMenuDimView?.isHidden = true
+					self.leftMenuViewController?.resetNavigation()
+				}
+			}
+		default:
+			break
+		}
 	}
 
 	// MARK: Keyboard Shortcuts
@@ -277,5 +361,28 @@ final class RootSplitViewController: UISplitViewController {
 
 	@objc func toggleStarred(_ sender: Any?) {
 		coordinator.toggleStarredForCurrentArticle()
+	}
+}
+
+// MARK: - UIGestureRecognizerDelegate
+
+extension RootSplitViewController: UIGestureRecognizerDelegate {
+
+	func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+		guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+		let vel = pan.velocity(in: view)
+		guard abs(vel.x) > abs(vel.y) else { return false }
+		// When the menu is closed, only begin for rightward swipes so we don't
+		// compete with table view trailing-swipe actions (read/unread toggle).
+		if !isLeftMenuOpen { return vel.x > 0 }
+		return true
+	}
+
+	func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+		// Wait for the system back-swipe gesture to fail before our menu pan can begin.
+		// When the user is inside an article and can go back, the edge pan succeeds and
+		// ours is never started. When there is nothing to pop, the edge pan fails
+		// immediately and our gesture proceeds.
+		return otherGestureRecognizer is UIScreenEdgePanGestureRecognizer
 	}
 }

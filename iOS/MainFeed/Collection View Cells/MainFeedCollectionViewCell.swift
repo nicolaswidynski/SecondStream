@@ -132,13 +132,17 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 
 		switch (state.isHighlighted || state.isSelected || state.isFocused, traitCollection.userInterfaceIdiom) {
 		case (true, .pad):
-			backgroundConfig.backgroundColor = Assets.Colors.primaryAccent.withAlphaComponent(0.12)
-			feedTitle.textColor = Assets.Colors.primaryAccent
+			if let selectionColor = Assets.Colors.cellSelectionColor {
+				backgroundConfig.backgroundColor = selectionColor.withAlphaComponent(0.12)
+				feedTitle.textColor = selectionColor
+			}
 			feedTitle.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize,
 											   weight: .semibold)
 			unreadCountLabel.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .semibold)
 		case (true, .phone):
-			backgroundConfig.backgroundColor = Assets.Colors.primaryAccent
+			if let selectionColor = Assets.Colors.cellSelectionColor {
+				backgroundConfig.backgroundColor = selectionColor
+			}
 			feedTitle.textColor = .white
 			unreadCountLabel.textColor = .white
 			if feedTitle.text == "All Unread" {

@@ -134,12 +134,16 @@ class MainFeedCollectionViewFolderCell: UICollectionViewCell {
 
 		switch (state.isHighlighted || state.isSelected || state.isFocused, traitCollection.userInterfaceIdiom) {
 		case (true, .pad):
-			backgroundConfig.backgroundColor = Assets.Colors.primaryAccent.withAlphaComponent(0.12)
-			folderTitle.textColor = Assets.Colors.primaryAccent
+			if let selectionColor = Assets.Colors.cellSelectionColor {
+				backgroundConfig.backgroundColor = selectionColor.withAlphaComponent(0.12)
+				folderTitle.textColor = selectionColor
+			}
 			folderTitle.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .semibold)
 			unreadCountLabel.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .semibold)
 		case (true, .phone):
-			backgroundConfig.backgroundColor = Assets.Colors.primaryAccent
+			if let selectionColor = Assets.Colors.cellSelectionColor {
+				backgroundConfig.backgroundColor = selectionColor
+			}
 			folderTitle.textColor = .white
 			unreadCountLabel.textColor = .secondaryLabel
 			faviconView.tintColor = .white
@@ -154,8 +158,8 @@ class MainFeedCollectionViewFolderCell: UICollectionViewCell {
 			unreadCountLabel.font = UIFont.preferredFont(forTextStyle: .body)
 		}
 
-		if state.cellDropState == .targeted {
-			backgroundConfig.backgroundColor = Assets.Colors.primaryAccent.withAlphaComponent(0.18)
+		if state.cellDropState == .targeted, let selectionColor = Assets.Colors.cellSelectionColor {
+			backgroundConfig.backgroundColor = selectionColor.withAlphaComponent(0.18)
 		}
 
 		self.backgroundConfiguration = backgroundConfig
