@@ -397,8 +397,8 @@ struct Assets {
 
 		// MARK: - Geometry
 
-		static let shadowTablesCornerRadius: CGFloat = 20
-		static let scenePaneCornerRadius: CGFloat    = 24
+		static let shadowTablesCornerRadius: CGFloat = 10
+		static let scenePaneCornerRadius: CGFloat    = 0//24
 		static let menuOpenCornerRadius: CGFloat     = 28
 
 		// MARK: - Layout Spacing — Feeds Scene
@@ -410,8 +410,8 @@ struct Assets {
 
 		// MARK: - Layout Spacing — Timeline Scene
 
-		static let timelineCellVerticalPadding: CGFloat      = 2
-		static let timelineCellMinimumHeight: CGFloat        = 64
+		static let timelineCellVerticalPadding: CGFloat      = 8
+		static let timelineCellMinimumHeight: CGFloat        = 35
 		static let timelineSeparatorVerticalPadding: CGFloat = 0
 		static let timelineSectionSpacingTop: CGFloat        = 0
 		static let timelineSectionSpacingBottom: CGFloat     = 15

@@ -1702,6 +1702,10 @@ struct SidebarItemNode: Hashable, Sendable {
 			return FaceIDSettingsViewController()
 		case .obsidian:
 			return ObsidianSettingsViewController()
+		case .donation:
+			let vc = UIHostingController(rootView: DonationView())
+			vc.view.backgroundColor = Assets.Colors.SettingsContentBgColor
+			return vc
 		case .about:
 			return UIHostingController(rootView: AboutWPodView())
 		case .logOut, .deleteAccount:

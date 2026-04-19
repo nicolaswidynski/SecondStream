@@ -15,6 +15,7 @@ enum SettingsSidebarItem: CaseIterable {
 	case appearance
 	case faceID
 	case obsidian
+	case donation
 	case about
 	case logOut
 	case deleteAccount
@@ -25,6 +26,7 @@ enum SettingsSidebarItem: CaseIterable {
 		case .appearance: return NSLocalizedString("Appearance", comment: "Appearance")
 		case .faceID: return NSLocalizedString("Face ID", comment: "Face ID")
 		case .obsidian: return NSLocalizedString("Obsidian", comment: "Obsidian")
+		case .donation: return NSLocalizedString("Donation", comment: "Donation")
 		case .about: return NSLocalizedString("About", comment: "About")
 		case .logOut: return NSLocalizedString("Log Out", comment: "Log Out")
 		case .deleteAccount: return NSLocalizedString("Delete Account", comment: "Delete Account")
@@ -37,6 +39,7 @@ enum SettingsSidebarItem: CaseIterable {
 		case .appearance: return UIImage(systemName: "sun.max")
 		case .faceID: return UIImage(systemName: "faceid")
 		case .obsidian: return UIImage(named: "obsidian-symbol")
+		case .donation: return UIImage(systemName: "heart")
 		case .about: return UIImage(systemName: "info.circle")
 		case .logOut: return UIImage(systemName: "rectangle.portrait.and.arrow.right")
 		case .deleteAccount: return UIImage(systemName: "trash")
@@ -61,7 +64,7 @@ enum SettingsSidebarItem: CaseIterable {
 
 	var showsChevron: Bool {
 		switch self {
-		case .notifications, .appearance, .faceID, .obsidian, .about:
+		case .notifications, .appearance, .faceID, .obsidian, .donation, .about:
 			return true
 		case .logOut, .deleteAccount:
 			return false
