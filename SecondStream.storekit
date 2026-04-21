@@ -1,0 +1,102 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "C7FC3767",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "10.0",
+      "familyShareable" : false,
+      "internalID" : "6762559698",
+      "localizations" : [
+        {
+          "description" : "Help cover Second Stream costs",
+          "displayName" : "Tier 3",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "secondstream_10_dollars",
+      "referenceName" : "tip_10_dollars",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "2.0",
+      "familyShareable" : false,
+      "internalID" : "6762559753",
+      "localizations" : [
+        {
+          "description" : "Help cover Second Stream costs",
+          "displayName" : "Tier 1",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "secondstream_2_dollars",
+      "referenceName" : "tip_2_dollars",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "30.0",
+      "familyShareable" : false,
+      "internalID" : "6762559643",
+      "localizations" : [
+        {
+          "description" : "Help cover Second Stream costs",
+          "displayName" : "Tier 4",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "secondstream_30_dollars",
+      "referenceName" : "tip_30_dollars",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "5.0",
+      "familyShareable" : false,
+      "internalID" : "6762559347",
+      "localizations" : [
+        {
+          "description" : "Help cover Second Stream costs",
+          "displayName" : "Tier 2",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "secondstream_5_dollars",
+      "referenceName" : "tip_5_dollars",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6760979035",
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_developerTeamID" : "TA7LM6E222",
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 798328067.40799403,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

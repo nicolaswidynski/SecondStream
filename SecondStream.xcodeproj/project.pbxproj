@@ -267,6 +267,7 @@
 
 /* Begin PBXFileReference section */
 		176813F32564BB2C00D98635 /* SecondStream iOS Widget Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "SecondStream iOS Widget Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		29D2D9CE2F958501007599B7 /* SecondStream.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = SecondStream.storekit; sourceTree = "<group>"; };
 		510C415C24E5CDE3008226FD /* SecondStream Share Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "SecondStream Share Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		51314637235A7BBE00387FDC /* SecondStream iOS Intents Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "SecondStream iOS Intents Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		513146B1235A81A400387FDC /* AddWebFeedIntentHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddWebFeedIntentHandler.swift; sourceTree = "<group>"; };
@@ -542,6 +543,7 @@
 		849C64571ED37A5D003D8FC0 = {
 			isa = PBXGroup;
 			children = (
+				29D2D9CE2F958501007599B7 /* SecondStream.storekit */,
 				845B14A51FC2299E0013CF92 /* README.md */,
 				840A1F0A2E4133F400CFCCFC /* CLAUDE.md */,
 				84A6CFB52D1B4EC500F23315 /* iOS */,
@@ -1249,9 +1251,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSwidgetextension_target.xcconfig;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 0004;
+				CURRENT_PROJECT_VERSION = 0008;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 0.22;
+				MARKETING_VERSION = 0.4;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.WE;
 			};
@@ -1262,9 +1264,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSwidgetextension_target.xcconfig;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 0004;
+				CURRENT_PROJECT_VERSION = 0008;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 0.22;
+				MARKETING_VERSION = 0.4;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.WE;
 			};
@@ -1275,9 +1277,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_shareextension_target.xcconfig;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 0004;
+				CURRENT_PROJECT_VERSION = 0008;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 0.22;
+				MARKETING_VERSION = 0.4;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.SE;
 			};
@@ -1288,9 +1290,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_shareextension_target.xcconfig;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 0004;
+				CURRENT_PROJECT_VERSION = 0008;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 0.22;
+				MARKETING_VERSION = 0.4;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.SE;
 			};
@@ -1301,9 +1303,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSintentextension_target.xcconfig;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 0004;
+				CURRENT_PROJECT_VERSION = 0008;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 0.22;
+				MARKETING_VERSION = 0.4;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.IE;
 			};
@@ -1314,9 +1316,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSintentextension_target.xcconfig;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 0004;
+				CURRENT_PROJECT_VERSION = 0008;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 0.22;
+				MARKETING_VERSION = 0.4;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.IE;
 			};
@@ -1327,9 +1329,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSshareextension_target.xcconfig;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 0004;
+				CURRENT_PROJECT_VERSION = 0008;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 0.22;
+				MARKETING_VERSION = 0.4;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.SE;
 			};
@@ -1340,9 +1342,9 @@
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSshareextension_target.xcconfig;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 0004;
+				CURRENT_PROJECT_VERSION = 0008;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 0.22;
+				MARKETING_VERSION = 0.4;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.SE;
 			};
@@ -1404,11 +1406,11 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSapp_target.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CURRENT_PROJECT_VERSION = 0007;
+				CURRENT_PROJECT_VERSION = 0008;
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				MARKETING_VERSION = 0.3;
+				MARKETING_VERSION = 0.4;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -1423,11 +1425,11 @@
 			baseConfigurationReferenceRelativePath = NetNewsWire_iOSapp_target.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CURRENT_PROJECT_VERSION = 0007;
+				CURRENT_PROJECT_VERSION = 0008;
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				MARKETING_VERSION = 0.3;
+				MARKETING_VERSION = 0.4;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -1462,7 +1464,7 @@
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				MARKETING_VERSION = 0.23;
+				MARKETING_VERSION = 0.4;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
 			};
@@ -1478,7 +1480,7 @@
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				MARKETING_VERSION = 0.23;
+				MARKETING_VERSION = 0.4;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
 			};

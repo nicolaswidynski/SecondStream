@@ -1104,15 +1104,22 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		}
 	}
 
-	@objc func userDefaultsDidChange(_ note: Notification) {
-		let snapshot = dataSource.snapshot()
-		for (sectionIndex, sectionID) in snapshot.sectionIdentifiers.enumerated() {
-			guard let feedSection = FeedSectionIdentifier(rawValue: sectionID),
-				  let headerView = collectionView.supplementaryView(forElementKind: UICollectionView.elementKindSectionHeader, at: IndexPath(item: 0, section: sectionIndex)) as? MainFeedCollectionHeaderReusableView else {
-				continue
+	// nonisolated: UserDefaults.didChangeNotification can be posted from any thread
+	// (e.g. StoreKit writes UserDefaults from the cooperative pool). Selector-based
+	// observers are called on the posting thread, so this must not require @MainActor
+	// at the call site. Dispatch the actual UIKit work to the main actor explicitly.
+	@objc nonisolated func userDefaultsDidChange(_ note: Notification) {
+		Task { @MainActor [weak self] in
+			guard let self else { return }
+			let snapshot = dataSource.snapshot()
+			for (sectionIndex, sectionID) in snapshot.sectionIdentifiers.enumerated() {
+				guard let feedSection = FeedSectionIdentifier(rawValue: sectionID),
+					  let headerView = collectionView.supplementaryView(forElementKind: UICollectionView.elementKindSectionHeader, at: IndexPath(item: 0, section: sectionIndex)) as? MainFeedCollectionHeaderReusableView else {
+					continue
+				}
+				let icon = AppDefaults.shared.showSectionHeaderIcons ? feedSection.sectionIcon : nil
+				headerView.configure(title: feedSection.displayName, icon: icon)
 			}
-			let icon = AppDefaults.shared.showSectionHeaderIcons ? feedSection.sectionIcon : nil
-			headerView.configure(title: feedSection.displayName, icon: icon)
 		}
 	}
 

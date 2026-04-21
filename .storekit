@@ -1,0 +1,78 @@
+{
+  "identifier" : "SecondStream",
+  "nonConsumableProducts" : [],
+  "consumableProducts" : [
+    {
+      "displayPrice" : "2.00",
+      "familyShareable" : false,
+      "internalID" : "1a2b3c4d-0001-0000-0000-000000000001",
+      "localizations" : [
+        {
+          "description" : "Support Second Stream with a small tip",
+          "displayName" : "Tip $2",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "secondstream_2_dollars",
+      "referenceName" : "Tip $2",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "5.00",
+      "familyShareable" : false,
+      "internalID" : "1a2b3c4d-0002-0000-0000-000000000002",
+      "localizations" : [
+        {
+          "description" : "Support Second Stream with a tip",
+          "displayName" : "Tip $5",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "secondstream_5_dollars",
+      "referenceName" : "Tip $5",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "10.00",
+      "familyShareable" : false,
+      "internalID" : "1a2b3c4d-0003-0000-0000-000000000003",
+      "localizations" : [
+        {
+          "description" : "Support Second Stream with a generous tip",
+          "displayName" : "Tip $10",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "secondstream_10_dollars",
+      "referenceName" : "Tip $10",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "30.00",
+      "familyShareable" : false,
+      "internalID" : "1a2b3c4d-0004-0000-0000-000000000004",
+      "localizations" : [
+        {
+          "description" : "Support Second Stream with a very generous tip",
+          "displayName" : "Tip $30",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "secondstream_30_dollars",
+      "referenceName" : "Tip $30",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_customerInfoEnabled" : false,
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 2,
+    "minor" : 0,
+    "patch" : 0
+  }
+}

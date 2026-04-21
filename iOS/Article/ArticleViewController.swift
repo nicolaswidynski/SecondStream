@@ -314,12 +314,15 @@ final class ArticleViewController: UIViewController {
 		}
 	}
 
-	@objc func userDefaultsDidChange(_ note: Notification) {
-		if !AppDefaults.shared.ttsEnabled, TextToSpeechManager.shared.isActive {
-			TextToSpeechManager.shared.stop()
+	@objc nonisolated func userDefaultsDidChange(_ note: Notification) {
+		Task { @MainActor [weak self] in
+			guard let self else { return }
+			if !AppDefaults.shared.ttsEnabled, TextToSpeechManager.shared.isActive {
+				TextToSpeechManager.shared.stop()
+			}
+			configureToolbarAsSingleBlock()
+			updateUI()
 		}
-		configureToolbarAsSingleBlock()
-		updateUI()
 	}
 
 	// MARK: Actions

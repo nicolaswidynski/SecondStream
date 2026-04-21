@@ -38,7 +38,7 @@ enum SettingsSidebarItem: CaseIterable {
 		case .notifications: return UIImage(systemName: "bell")
 		case .appearance: return UIImage(systemName: "sun.max")
 		case .faceID: return UIImage(systemName: "faceid")
-		case .obsidian: return UIImage(named: "obsidian-symbol")
+		case .obsidian: return UIImage(named: "obsidian_light-symbol")
 		case .donation: return UIImage(systemName: "heart")
 		case .about: return UIImage(systemName: "info.circle")
 		case .logOut: return UIImage(systemName: "rectangle.portrait.and.arrow.right")

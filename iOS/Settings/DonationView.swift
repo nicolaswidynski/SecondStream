@@ -7,9 +7,12 @@
 //
 
 import SwiftUI
+import StoreKit
 import os.log
 
 private let donationLogger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "DonationView")
+
+// MARK: - Costs model
 
 private struct Costs {
 	let priorInvestment: Int
@@ -21,27 +24,26 @@ private struct Costs {
 	let totalGrossTarget: Int
 	let totalGrossDonation: Int
 
-	/// Parse from a flat dictionary (snake_case keys).
 	init?(dict: [String: Any]) {
 		guard
-			let priorInv = dict["prior_investment"] as? Int,
-			let priorDon = dict["prior_donation"] as? Int,
-			let priorTarget = dict["prior_gross_target"] as? Int,
-			let monthlyInv = dict["monthly_investment"] as? Int,
-			let monthlyDon = dict["monthly_donation"] as? Int,
+			let priorInv    = dict["prior_investment"]    as? Int,
+			let priorDon    = dict["prior_donation"]      as? Int,
+			let priorTarget = dict["prior_gross_target"]  as? Int,
+			let monthlyInv  = dict["monthly_investment"]  as? Int,
+			let monthlyDon  = dict["monthly_donation"]    as? Int,
 			let monthlyTarget = dict["monthly_gross_target"] as? Int,
-			let totalTarget = dict["total_gross_target"] as? Int,
-			let totalDon = dict["total_gross_donation"] as? Int
+			let totalTarget = dict["total_gross_target"]  as? Int,
+			let totalDon    = dict["total_gross_donation"] as? Int
 		else {
 			return nil
 		}
-		priorInvestment = priorInv
-		priorDonation = priorDon
-		priorGrossTarget = priorTarget
+		priorInvestment   = priorInv
+		priorDonation     = priorDon
+		priorGrossTarget  = priorTarget
 		monthlyInvestment = monthlyInv
-		monthlyDonation = monthlyDon
+		monthlyDonation   = monthlyDon
 		monthlyGrossTarget = monthlyTarget
-		totalGrossTarget = totalTarget
+		totalGrossTarget  = totalTarget
 		totalGrossDonation = totalDon
 	}
 }
@@ -55,24 +57,21 @@ private func parseCosts(from data: Data) -> Costs? {
 		return nil
 	}
 
-	// Pattern 1: [{..., "costs": {...}}, ...] — n8n array with costs key
+	// Pattern 1: [{..., "costs": {...}}, ...]
 	if let arr = json as? [[String: Any]], let first = arr.first,
 	   let costsDict = first["costs"] as? [String: Any] {
 		return Costs(dict: costsDict)
 	}
-
-	// Pattern 2: {"costs": {...}} — top-level object with costs key
+	// Pattern 2: {"costs": {...}}
 	if let dict = json as? [String: Any],
 	   let costsDict = dict["costs"] as? [String: Any] {
 		return Costs(dict: costsDict)
 	}
-
-	// Pattern 3: [{...}] — n8n array where the item IS the costs object
+	// Pattern 3: [{...}]
 	if let arr = json as? [[String: Any]], let first = arr.first {
 		return Costs(dict: first)
 	}
-
-	// Pattern 4: {...} — the object IS the costs object
+	// Pattern 4: {...}
 	if let dict = json as? [String: Any] {
 		return Costs(dict: dict)
 	}
@@ -81,19 +80,52 @@ private func parseCosts(from data: Data) -> Costs? {
 	return nil
 }
 
-private enum LoadState {
+private enum CostsLoadState {
 	case loading
 	case loaded(Costs)
-	case failed(String)
+	case failed
 }
+
+// MARK: - DonationView
 
 struct DonationView: View {
 
-	@State private var state: LoadState = .loading
+	@StateObject private var store = StoreManager()
+	@State private var costsState: CostsLoadState = .loading
+	@State private var purchaseSucceeded = false
 
 	var body: some View {
 		List {
-			switch state {
+			// Description
+			Section {
+				Text("Second Stream is free and I intend to keep it that way. Tips help cover server hosting, AI APIs, and other services that power the app.")
+					.font(.body)
+					.foregroundStyle(.secondary)
+					.padding(.vertical, 4)
+			}
+			.listRowBackground(Color(uiColor: Assets.Colors.foreground))
+			.listRowSeparator(.hidden)
+
+			// IAP tip options
+			Section(header: Text("Tip Jar")) {
+				TipJarContent(store: store)
+			}
+			.listRowBackground(Color(uiColor: Assets.Colors.foreground))
+			.listRowSeparator(.hidden)
+
+			if let error = store.lastError {
+				Section {
+					Text(error)
+						.font(.footnote)
+						.foregroundStyle(.red)
+						.padding(.vertical, 4)
+				}
+				.listRowBackground(Color(uiColor: Assets.Colors.foreground))
+				.listRowSeparator(.hidden)
+			}
+
+			// Cost scales
+			switch costsState {
 			case .loading:
 				Section {
 					HStack {
@@ -106,26 +138,10 @@ struct DonationView: View {
 				.listRowBackground(Color(uiColor: Assets.Colors.foreground))
 				.listRowSeparator(.hidden)
 
-			case .failed(let message):
-				Section {
-					Text(message)
-						.font(.body)
-						.foregroundStyle(.secondary)
-						.padding(.vertical, 4)
-				}
-				.listRowBackground(Color(uiColor: Assets.Colors.foreground))
-				.listRowSeparator(.hidden)
+			case .failed:
+				EmptyView()
 
 			case .loaded(let costs):
-				Section {
-					Text("Second Stream is free and I intend to keep it that way. Below are the running infrastructure costs. Donations help cover server hosting, AI APIs, and other services that power the app.")
-						.font(.body)
-						.foregroundStyle(.secondary)
-						.padding(.vertical, 4)
-				}
-				.listRowBackground(Color(uiColor: Assets.Colors.foreground))
-				.listRowSeparator(.hidden)
-
 				Section(header: Text("Monthly Costs")) {
 					CostScaleRow(
 						donated: Double(costs.monthlyDonation),
@@ -150,28 +166,91 @@ struct DonationView: View {
 		.background(Color(uiColor: Assets.Colors.SettingsContentBgColor))
 		.navigationTitle("Donation")
 		.task { await loadCosts() }
+		.onChange(of: store.donationCount) {
+			purchaseSucceeded = true
+			Task { await loadCosts() }
+		}
+		.alert("Thank you for your support!", isPresented: $purchaseSucceeded) {
+			Button("Done", role: .cancel) { }
+		}
 	}
 
 	private func loadCosts() async {
 		let body: [String: Any] = [
-			"request_id": UUID().uuidString,
-			"operation": "get-costs",
-			"apple_user_id": AuthManager.shared.appleUserID ?? ""
+			"request_id":    UUID().uuidString,
+			"operation":     "get-costs",
+			"apple_user_id": AuthManager.shared.appleUserID ?? "",
 		]
 		do {
 			let (data, statusCode) = try await SecondStreamAPIClient.shared.post(to: .costsAndDonations, body: body)
 			donationLogger.debug("costs_and_donations HTTP \(statusCode, privacy: .public)")
 			guard let costs = parseCosts(from: data) else {
-				state = .failed("Could not load costs. Please try again later.")
+				costsState = .failed
 				return
 			}
-			state = .loaded(costs)
+			costsState = .loaded(costs)
 		} catch {
 			donationLogger.error("costs_and_donations error: \(error.localizedDescription, privacy: .public)")
-			state = .failed("Could not load costs. Please try again later.")
+			costsState = .failed
 		}
 	}
 }
+
+// MARK: - TipJarContent
+
+private struct TipJarContent: View {
+	@ObservedObject var store: StoreManager
+
+	var body: some View {
+		if store.isLoading {
+			HStack {
+				Spacer()
+				ProgressView()
+				Spacer()
+			}
+			.padding(.vertical, 8)
+		} else if store.products.isEmpty {
+			Button {
+				Task { await store.fetchProducts() }
+			} label: {
+				Text("Could not load options. Tap to retry.")
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+			}
+			.padding(.vertical, 4)
+		} else {
+			ForEach(store.products) { product in
+				TipRow(product: product, store: store)
+			}
+		}
+	}
+}
+
+// MARK: - TipRow
+
+private struct TipRow: View {
+	let product: Product
+	let store: StoreManager
+
+	var body: some View {
+		Button {
+			Task { await store.purchase(product) }
+		} label: {
+			HStack {
+				Text(product.displayName)
+					.font(.body)
+					.foregroundStyle(.primary)
+				Spacer()
+				Text(product.displayPrice)
+					.font(.body.monospacedDigit())
+					.foregroundStyle(Color(uiColor: Assets.Colors.primaryAccent))
+			}
+		}
+		.disabled(store.isPurchasing)
+	}
+}
+
+// MARK: - CostScaleRow
 
 private struct CostScaleRow: View {
 
@@ -185,15 +264,11 @@ private struct CostScaleRow: View {
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 12) {
-			// Scale bar
 			GeometryReader { geo in
 				ZStack(alignment: .leading) {
-					// Background track
 					RoundedRectangle(cornerRadius: 6, style: .continuous)
 						.fill(Color(uiColor: Assets.Colors.SettingsContentBgColor))
 						.frame(height: 12)
-
-					// Donation fill (accent)
 					if donatedFraction > 0 {
 						RoundedRectangle(cornerRadius: 6, style: .continuous)
 							.fill(Color(uiColor: Assets.Colors.primaryAccent))
@@ -203,7 +278,6 @@ private struct CostScaleRow: View {
 			}
 			.frame(height: 12)
 
-			// Legend
 			VStack(alignment: .leading, spacing: 4) {
 				LegendRow(color: Color(uiColor: Assets.Colors.primaryAccent), label: "Donations", amount: donated)
 				LegendRow(color: .secondary.opacity(0.4), label: "Funding target", amount: target)
@@ -212,6 +286,8 @@ private struct CostScaleRow: View {
 		.padding(.vertical, 8)
 	}
 }
+
+// MARK: - LegendRow
 
 private struct LegendRow: View {
 	let color: Color

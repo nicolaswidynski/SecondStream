@@ -16,7 +16,7 @@ struct AboutWPodView: View {
 					.font(.body)
 					.foregroundStyle(.secondary)
 					.padding(.vertical, 4)
-				Text("Second Stream code is based on NetNewsWire — I wish to thank their numerous contributors for their excellent work.")
+				Text("Second Stream code is based on NetNewsWire — I wish to thank their numerous contributors for their excellent apps.")
 					.font(.body)
 					.foregroundStyle(.secondary)
 					.padding(.vertical, 4)

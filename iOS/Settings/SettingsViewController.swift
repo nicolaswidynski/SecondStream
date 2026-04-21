@@ -67,6 +67,7 @@ final class SettingsViewController: UITableViewController {
 	private let debugLandingPageRow = 2
 	private let debugIOSSignOutRow = 3
 	private let debugColorHighlightRow = 4
+	private let debugDeleteSQLiteRow = 5
 	// More section rows
 	private let aboutAppRow = 0
 	private let aboutDisconnectRow = 1
@@ -245,8 +246,8 @@ final class SettingsViewController: UITableViewController {
 			// Adds Unread First, Gray Read Articles, Show Category Icons, Collapsible Sections, and Face ID rows
 			return super.tableView(tableView, numberOfRowsInSection: section) + 5
 		case debugSection:
-			// Clear Temporary Files, Debug Dialog, Start Landing Page, Simulate iOS Sign Out, Color Highlight
-			return 5
+			// Clear Temporary Files, Debug Dialog, Start Landing Page, Simulate iOS Sign Out, Color Highlight, Delete SQLite
+			return 6
 		case aboutSection:
 			// About Second Stream, Disconnect Account, Delete Account
 			return 3
@@ -341,6 +342,10 @@ final class SettingsViewController: UITableViewController {
 				cell.textLabel?.textColor = .systemOrange
 			case debugColorHighlightRow:
 				cell = makeDebugColorHighlightCell(tableView)
+			case debugDeleteSQLiteRow:
+				cell = UITableViewCell(style: .default, reuseIdentifier: "DeleteSQLiteCell")
+				cell.textLabel?.text = "Delete SQLite"
+				cell.textLabel?.textColor = .systemRed
 			default:
 				cell = super.tableView(tableView, cellForRowAt: indexPath)
 			}
@@ -431,6 +436,8 @@ final class SettingsViewController: UITableViewController {
 				showDebugLandingPage()
 			case debugIOSSignOutRow:
 				simulateIOSSignOut()
+			case debugDeleteSQLiteRow:
+				deleteSQLite()
 			default:
 				break
 			}
@@ -1090,6 +1097,20 @@ private extension SettingsViewController {
 		present(alert, animated: true)
 	}
 
+
+	func deleteSQLite() {
+		let alert = UIAlertController(
+			title: "Delete SQLite",
+			message: "This will delete all article databases. The app will terminate and must be relaunched.",
+			preferredStyle: .alert
+		)
+		alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+		alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { _ in
+			AccountManager.shared.deleteAllArticleDatabases()
+			exit(0)
+		})
+		present(alert, animated: true)
+	}
 
 	func updateObsidianSubfolderPreview() {
 		obsidianSubfolderPreviewLabel.text = ObsidianFileManager.subfolderPreviewWithVault()

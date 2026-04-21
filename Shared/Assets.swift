@@ -238,7 +238,7 @@ struct Assets {
 				RSColor { tc in
 					tc.userInterfaceStyle == .dark
 					? RSColor(red:  25/255, green:  25/255, blue:  25/255, alpha: 1)
-					: RSColor(red: 248/255, green: 248/255, blue: 246/255, alpha: 1)
+					: RSColor(red: 239/255, green: 237/255, blue: 236/255, alpha: 1)
 				}
 			}
 			else { // gray
@@ -262,7 +262,7 @@ struct Assets {
 				RSColor { tc in
 					tc.userInterfaceStyle == .dark
 					? RSColor(red:  44/255, green:  44/255, blue:  44/255, alpha: 1)
-					: RSColor(red: 244/255, green: 244/255, blue: 240/255, alpha: 1)
+					: RSColor(red: 251/255, green: 249/255, blue: 249/255, alpha: 1)
 				}
 			}
 			else { // gray
@@ -286,7 +286,7 @@ struct Assets {
 				RSColor { tc in
 					tc.userInterfaceStyle == .dark
 					? RSColor(red:  31/255, green:  31/255, blue:  31/255, alpha: 1)
-					: RSColor(red: 244/255, green: 244/255, blue: 240/255, alpha: 1)
+					: RSColor(red: 245/255, green: 244/255, blue: 244/255, alpha: 1)
 				}
 			}
 			else { // gray
