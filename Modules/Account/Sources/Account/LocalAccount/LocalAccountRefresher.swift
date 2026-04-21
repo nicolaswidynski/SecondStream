@@ -183,14 +183,43 @@ import os
 				return
 			}
 			Self.logger.debug("LocalAccountRefresher: parsed \(parsedFeed.items.count, privacy: .public) items for \(url.absoluteString, privacy: .public)")
+
 			guard let account = feed.account else {
 				return
 			}
 
 			assert(Thread.isMainThread)
-			guard let articleChanges = try? await account.updateAsync(feed: feed, parsedFeed: parsedFeed) else {
-				return
+
+			// Apply feed metadata (title, homepage URL, etc.) from the parsed feed.
+			feed.takeSettings(from: parsedFeed)
+
+			// Process items in batches to bound peak memory use on first load.
+			// All items are stored in SQLite; only batchSize Article objects exist
+			// in memory at a time. deleteOlder is only true for the last batch —
+			// items from prior batches are already in the DB with dateArrived = now,
+			// so they won't be touched by the 30-day deletion filter.
+			let batchSize = 200
+			let allItems = Array(parsedFeed.items)
+			let batches = stride(from: 0, to: allItems.count, by: batchSize).map {
+				Set(allItems[$0..<min($0 + batchSize, allItems.count)])
 			}
+			Self.logger.debug("LocalAccountRefresher: processing \(allItems.count, privacy: .public) items in \(batches.count, privacy: .public) batch(es) for \(url.absoluteString, privacy: .public)")
+
+			var accumulatedNew = Set<Article>()
+			var accumulatedUpdated = Set<Article>()
+			var accumulatedDeleted = Set<Article>()
+
+			for (index, batch) in batches.enumerated() {
+				let isLastBatch = index == batches.count - 1
+				guard let changes = try? await account.updateAsync(feedID: feed.feedID, parsedItems: batch, deleteOlder: isLastBatch) else {
+					continue
+				}
+				if let new = changes.new { accumulatedNew.formUnion(new) }
+				if let updated = changes.updated { accumulatedUpdated.formUnion(updated) }
+				if let deleted = changes.deleted { accumulatedDeleted.formUnion(deleted) }
+			}
+
+			let articleChanges = ArticleChanges(new: accumulatedNew, updated: accumulatedUpdated, deleted: accumulatedDeleted)
 
 			Self.logger.debug("LocalAccountRefresher: setting contentHash for \(url.absoluteString)")
 			feed.contentHash = dataHash

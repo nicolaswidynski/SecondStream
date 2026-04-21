@@ -50,6 +50,7 @@ class MainTimelineFeedCell: UITableViewCell {
 	private var dateLabelLeadingConstraint: NSLayoutConstraint?
 	private var indicatorCenterXConstraint: NSLayoutConstraint?
 	private var chevronTrailingConstraint: NSLayoutConstraint?
+	private var minimumHeightConstraint: NSLayoutConstraint?
 	private var isStarred = false
 
 	override func awakeFromNib() {
@@ -61,20 +62,6 @@ class MainTimelineFeedCell: UITableViewCell {
 			contentView.addSubview(inlineDateLabel)
 			contentView.addSubview(chevronView)
 			setupConstraints()
-			applyVerticalPadding()
-		}
-	}
-
-	private func applyVerticalPadding() {
-		let padding = Assets.Colors.timelineCellVerticalPadding
-		let safeArea = contentView.safeAreaLayoutGuide
-		for c in contentView.constraints {
-			let safeIsFirst  = c.firstItem  as? UILayoutGuide === safeArea
-			let safeIsSecond = c.secondItem as? UILayoutGuide === safeArea
-			guard safeIsFirst || safeIsSecond else { continue }
-			if c.firstAttribute == .top || c.firstAttribute == .bottom {
-				c.constant = padding
-			}
 		}
 	}
 
@@ -121,6 +108,7 @@ class MainTimelineFeedCell: UITableViewCell {
 		let groupGuide = UILayoutGuide()
 		contentView.addLayoutGuide(groupGuide)
 
+		let padding = Assets.Colors.timelineCellVerticalPadding
 		NSLayoutConstraint.activate([
 			dateLeading,
 			inlineDateLabel.widthAnchor.constraint(equalToConstant: Assets.Colors.timelineDateColumnWidth),
@@ -137,8 +125,13 @@ class MainTimelineFeedCell: UITableViewCell {
 			groupGuide.topAnchor.constraint(equalTo: articleTitle.topAnchor),
 			groupGuide.bottomAnchor.constraint(equalTo: metaDataStackView.bottomAnchor),
 			groupGuide.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-			contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: Assets.Colors.timelineCellMinimumHeight),
+			groupGuide.topAnchor.constraint(greaterThanOrEqualTo: contentView.topAnchor, constant: padding),
+			contentView.bottomAnchor.constraint(greaterThanOrEqualTo: groupGuide.bottomAnchor, constant: padding),
 		])
+
+		let minH = contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: Assets.Colors.timelineCellMinimumHeight)
+		minH.isActive = true
+		minimumHeightConstraint = minH
 	}
 
 	private func configureStackView() {
@@ -291,6 +284,22 @@ class MainTimelineFeedCell: UITableViewCell {
 		let inset = (bounds.width * 0.05).rounded()
 		dateLabelLeadingConstraint?.constant = inset + 6
 		chevronTrailingConstraint?.constant = -(inset + 12)
+	}
+
+	override func systemLayoutSizeFitting(
+		_ targetSize: CGSize,
+		withHorizontalFittingPriority horizontalFittingPriority: UILayoutPriority,
+		verticalFittingPriority: UILayoutPriority
+	) -> CGSize {
+		// Force layout so articleTitle.frame reflects actual rendered height.
+		setNeedsLayout()
+		layoutIfNeeded()
+		let font = UIFont.preferredFont(forTextStyle: .body)
+		let isMultiLine = articleTitle.frame.height > ceil(font.lineHeight) * 1.5
+		if minimumHeightConstraint?.isActive != !isMultiLine {
+			minimumHeightConstraint?.isActive = !isMultiLine
+		}
+		return super.systemLayoutSizeFitting(targetSize, withHorizontalFittingPriority: horizontalFittingPriority, verticalFittingPriority: verticalFittingPriority)
 	}
 
 	override func updateConfiguration(using state: UICellConfigurationState) {

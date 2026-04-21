@@ -450,6 +450,10 @@ private final class LeftSideMenuContentViewController: UIViewController {
 			return FaceIDSettingsViewController()
 		case .obsidian:
 			return ObsidianSettingsViewController()
+		case .donation:
+			let vc = UIHostingController(rootView: DonationView())
+			vc.view.backgroundColor = Assets.Colors.SettingsContentBgColor
+			return vc
 		case .about:
 			let vc = UIHostingController(rootView: AboutWPodView())
 			vc.view.backgroundColor = Assets.Colors.SettingsContentBgColor

@@ -11,13 +11,28 @@ import SwiftUI
 struct AboutWPodView: View {
 	var body: some View {
 		List {
-			NavigationLink(destination: LegalView()) {
-				Text("Legal")
+			Section {
+				Text("I intend to keep Second Stream free, please read Donation for more information.")
+					.font(.body)
+					.foregroundStyle(.secondary)
+					.padding(.vertical, 4)
+				Text("Second Stream code is based on NetNewsWire — I wish to thank their numerous contributors for their excellent apps.")
+					.font(.body)
+					.foregroundStyle(.secondary)
+					.padding(.vertical, 4)
+			}
+			.listRowBackground(Color(uiColor: Assets.Colors.foreground))
+			.listRowSeparator(.hidden)
+
+			Section {
+				NavigationLink(destination: LegalView()) {
+					Text("Legal")
+				}
 			}
 			.listRowBackground(Color(uiColor: Assets.Colors.foreground))
 			.listRowSeparator(.hidden)
 		}
-		.listStyle(.plain)
+		.listStyle(.insetGrouped)
 		.scrollContentBackground(.hidden)
 		.background(Color(uiColor: Assets.Colors.SettingsContentBgColor))
 		.navigationTitle("About Second Stream")

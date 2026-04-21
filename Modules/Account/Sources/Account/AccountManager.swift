@@ -165,6 +165,15 @@ import RSDatabase
 		return account
 	}
 
+	public func deleteAllArticleDatabases() {
+		for account in Array(accountsDictionary.values) {
+			let dbPath = (account.dataFolder as NSString).appendingPathComponent("DB.sqlite3")
+			try? FileManager.default.removeItem(atPath: dbPath)
+			try? FileManager.default.removeItem(atPath: dbPath + "-shm")
+			try? FileManager.default.removeItem(atPath: dbPath + "-wal")
+		}
+	}
+
 	public func deleteAccount(_ account: Account) {
 		guard !account.refreshInProgress else {
 			return
