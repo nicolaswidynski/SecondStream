@@ -393,13 +393,36 @@ private final class LeftSideMenuContentViewController: UIViewController {
 	@MainActor
 	private func handleCreditsInfo() async {
 		await FeedStatsManager.shared.reportUpdate()
+		presentPaidFeedsAlert()
+	}
+
+	@MainActor
+	private func presentPaidFeedsAlert() {
 		let credits = FeedStatsManager.shared.cachedCredits ?? 0
+		let paid = FeedStatsManager.shared.paidFeeds()
+
+		var message = String(format: NSLocalizedString("You have %d remaining credits.", comment: "Credits info message"), credits)
+		if !paid.isEmpty {
+			message += "\n\n" + NSLocalizedString("The following feeds use paid credits. Remove any you no longer need:", comment: "Paid feeds list intro")
+		}
+
 		let alert = UIAlertController(
 			title: NSLocalizedString("Remaining Credits", comment: "Credits info title"),
-			message: String(format: NSLocalizedString("You have %d remaining credits, please buy new ones or remove non-free Podcasts and YouTube Channels contents.", comment: "Credits info message"), credits),
+			message: message,
 			preferredStyle: .alert
 		)
-		alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
+
+		for feed in paid {
+			let name = feed.nameForDisplay
+			alert.addAction(UIAlertAction(title: String(format: NSLocalizedString("Remove \"%@\"", comment: "Remove paid feed action"), name), style: .destructive) { [weak self] _ in
+				guard let account = feed.account else { return }
+				account.removeFeed(feed, from: account) { [weak self] _ in
+					DispatchQueue.main.async { self?.presentPaidFeedsAlert() }
+				}
+			})
+		}
+
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Done", comment: "Done"), style: .cancel))
 		present(alert, animated: true)
 	}
 

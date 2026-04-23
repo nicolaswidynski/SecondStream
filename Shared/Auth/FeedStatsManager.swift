@@ -35,6 +35,11 @@ import os.log
 	private let foregroundFetchInterval: TimeInterval = 60
 	private var lastForegroundFetchDate: Date?
 
+	/// Feed names (lowercased) that the server has classified as paid.
+	/// Populated from `stats_pod.sub_list` / `stats_yt.sub_list` where `is_free == "NO"`.
+	/// Empty until the first successful `update-user-stats` response.
+	private(set) var cachedPaidFeedNames: Set<String> = []
+
 	private init() {
 		// Drain the outbox whenever the account structure changes (feeds added/removed).
 		// Account posts .ChildrenDidChange after removeFeed/addFeed completes, so
@@ -164,6 +169,57 @@ import os.log
 		}
 	}
 
+	// MARK: - Paid feed classification
+
+	/// Parses paid feed names from `stats_pod.sub_list` and `stats_yt.sub_list`
+	/// in a server response dictionary, caching names where `is_free == "NO"`.
+	private func parsePaidFeedNames(from json: [String: Any]?) {
+		guard let json else { return }
+		var paid = Set<String>()
+		for key in ["stats_pod", "stats_yt"] {
+			guard let section = json[key] as? [String: Any],
+				  let subList = section["sub_list"] as? [[String: Any]] else { continue }
+			for entry in subList {
+				if let name = entry["name"] as? String, (entry["is_free"] as? String) == "NO" {
+					paid.insert(name.lowercased())
+				}
+			}
+		}
+		if !paid.isEmpty {
+			Self.logger.info("cachedPaidFeedNames updated: \(paid, privacy: .public)")
+			cachedPaidFeedNames = paid
+		}
+	}
+
+	/// Returns Feed objects the server (or local catalog as fallback) has classified as paid.
+	/// Server classification from the last `update-user-stats` response takes priority.
+	func paidFeeds() -> [Feed] {
+		let podFreeNames = Set(MediaSourcesManager.podcast.topSources.map { $0.name.lowercased() })
+		let ytFreeNames  = Set(MediaSourcesManager.youtube.topSources.map { $0.name.lowercased() })
+		let podPaidNames = Set(MediaSourcesManager.podcast.librarySources.map { $0.name.lowercased() })
+		let ytPaidNames  = Set(MediaSourcesManager.youtube.librarySources.map { $0.name.lowercased() })
+
+		var result: [Feed] = []
+		for account in AccountManager.shared.activeAccounts {
+			for feed in account.flattenedFeeds() {
+				guard feed.feedCategory == .podcast || feed.feedCategory == .youtube else { continue }
+				let nameLower = feed.nameForDisplay.lowercased()
+				let isPaid: Bool
+				if !cachedPaidFeedNames.isEmpty {
+					isPaid = cachedPaidFeedNames.contains(nameLower)
+				} else {
+					switch feed.feedCategory {
+					case .podcast: isPaid = podPaidNames.contains(nameLower) && !podFreeNames.contains(nameLower)
+					case .youtube: isPaid = ytPaidNames.contains(nameLower) && !ytFreeNames.contains(nameLower)
+					default: isPaid = false
+					}
+				}
+				if isPaid { result.append(feed) }
+			}
+		}
+		return result.sorted { $0.nameForDisplay < $1.nameForDisplay }
+	}
+
 	// MARK: - Feeds payload
 
 	/// Builds the `feeds_for_update` dictionary that must accompany every request
@@ -262,6 +318,7 @@ import os.log
 			}
 			if let credits = json.flatMap({ Self.parseCredits($0) }) {
 				Self.logger.info("all-feed-requests \(operation) ok — nb_credits: \(credits, privacy: .public)")
+				parsePaidFeedNames(from: json)
 				return credits
 			}
 			let rawForLog = String(data: data, encoding: .utf8) ?? "(empty)"

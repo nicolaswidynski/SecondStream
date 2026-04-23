@@ -1195,7 +1195,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	@objc private func reloadAllVisibleCells() {
-		let visibleArticles = tableView.indexPathsForVisibleRows!.compactMap { return dataSource.itemIdentifier(for: $0) }
+		let visibleArticles = (tableView.indexPathsForVisibleRows ?? []).compactMap { dataSource.itemIdentifier(for: $0) }
 		reloadCells(visibleArticles)
 	}
 

@@ -48,10 +48,23 @@ class MainTimelineFeedCell: UITableViewCell {
 	//   - bookmark   → centered in the date column (date hidden)
 	//   - unread dot → just to the left of the date column
 	private var dateLabelLeadingConstraint: NSLayoutConstraint?
+	private var dateLabelWidthConstraint: NSLayoutConstraint?
+	private var topPaddingConstraint: NSLayoutConstraint?
+	private var bottomPaddingConstraint: NSLayoutConstraint?
 	private var indicatorCenterXConstraint: NSLayoutConstraint?
 	private var chevronTrailingConstraint: NSLayoutConstraint?
 	private var minimumHeightConstraint: NSLayoutConstraint?
 	private var isStarred = false
+
+	private func scaledDateColumnWidth() -> CGFloat {
+		let base = Assets.Colors.timelineDateColumnWidth
+		return max(base, UIFontMetrics(forTextStyle: .caption1).scaledValue(for: base))
+	}
+
+	private func scaledVerticalPadding() -> CGFloat {
+		let base = Assets.Colors.timelineCellVerticalPadding
+		return max(base, UIFontMetrics(forTextStyle: .caption1).scaledValue(for: base))
+	}
 
 	override func awakeFromNib() {
 		MainActor.assumeIsolated {
@@ -62,6 +75,13 @@ class MainTimelineFeedCell: UITableViewCell {
 			contentView.addSubview(inlineDateLabel)
 			contentView.addSubview(chevronView)
 			setupConstraints()
+			registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (self: MainTimelineFeedCell, _: UITraitCollection) in
+				self.configureStackView()
+				self.dateLabelWidthConstraint?.constant = self.scaledDateColumnWidth()
+				let vPad = self.scaledVerticalPadding()
+				self.topPaddingConstraint?.constant = vPad
+				self.bottomPaddingConstraint?.constant = vPad
+			}
 		}
 	}
 
@@ -108,10 +128,17 @@ class MainTimelineFeedCell: UITableViewCell {
 		let groupGuide = UILayoutGuide()
 		contentView.addLayoutGuide(groupGuide)
 
-		let padding = Assets.Colors.timelineCellVerticalPadding
+		let dateWidth = inlineDateLabel.widthAnchor.constraint(equalToConstant: scaledDateColumnWidth())
+		dateLabelWidthConstraint = dateWidth
+
+		let topPad = groupGuide.topAnchor.constraint(greaterThanOrEqualTo: contentView.topAnchor, constant: scaledVerticalPadding())
+		let bottomPad = contentView.bottomAnchor.constraint(greaterThanOrEqualTo: groupGuide.bottomAnchor, constant: scaledVerticalPadding())
+		topPaddingConstraint = topPad
+		bottomPaddingConstraint = bottomPad
+
 		NSLayoutConstraint.activate([
 			dateLeading,
-			inlineDateLabel.widthAnchor.constraint(equalToConstant: Assets.Colors.timelineDateColumnWidth),
+			dateWidth,
 			inlineDateLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
 			indCenterX,
 			indicatorView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
@@ -125,8 +152,8 @@ class MainTimelineFeedCell: UITableViewCell {
 			groupGuide.topAnchor.constraint(equalTo: articleTitle.topAnchor),
 			groupGuide.bottomAnchor.constraint(equalTo: metaDataStackView.bottomAnchor),
 			groupGuide.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-			groupGuide.topAnchor.constraint(greaterThanOrEqualTo: contentView.topAnchor, constant: padding),
-			contentView.bottomAnchor.constraint(greaterThanOrEqualTo: groupGuide.bottomAnchor, constant: padding),
+			topPad,
+			bottomPad,
 		])
 
 		let minH = contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: Assets.Colors.timelineCellMinimumHeight)
