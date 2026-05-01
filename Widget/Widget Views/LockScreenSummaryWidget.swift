@@ -24,14 +24,14 @@ struct LockScreenSummaryWidgetView: View {
 			}
 			HStack(alignment: .center) {
 				todayImage
-				Text("label.text.today", comment: "Today")
+				Text("label.text.today", comment: "Just in")
 				Spacer()
 				Text(verbatim: entry.widgetData.totalTodayCount.formatted())
 					.frame(maxWidth: .infinity, alignment: .trailing)
 			}
 			HStack(alignment: .center) {
 				starredImage
-				Text("label.text.starred", comment: "Starred")
+				Text("label.text.starred", comment: "Bookmarks")
 				Spacer()
 				Text(verbatim: entry.widgetData.totalStarredCount.formatted())
 					.frame(maxWidth: .infinity, alignment: .trailing)
@@ -41,7 +41,7 @@ struct LockScreenSummaryWidgetView: View {
     }
 
 	var starredImage: some View {
-		Image(systemName: "bookmark.fill")//star.fill")
+		Image(systemName: "bookmark.fill")
 			.resizable()
 			.frame(width: 14, height: 14)
 	}

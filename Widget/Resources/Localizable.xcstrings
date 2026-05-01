@@ -24,7 +24,7 @@
       }
     },
     "label.text.starred" : {
-      "comment" : "Starred",
+      "comment" : "Bookmarks\nStarred",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -57,7 +57,7 @@
       }
     },
     "label.text.today" : {
-      "comment" : "Today",
+      "comment" : "Just in\nToday",
       "localizations" : {
         "en" : {
           "stringUnit" : {

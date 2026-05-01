@@ -252,10 +252,10 @@ final class ArticleViewController: UIViewController {
 		let bookmarkConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
 		if article.status.starred {
 			starBarButtonItem.image = UIImage(systemName: "bookmark.fill", withConfiguration: bookmarkConfig)
-			starBarButtonItem.accLabelText = NSLocalizedString("Selected - Star Article", comment: "Selected - Star Article")
+			starBarButtonItem.accLabelText = NSLocalizedString("Selected - Bookmark", comment: "Selected - Bookmark")
 		} else {
 			starBarButtonItem.image = UIImage(systemName: "bookmark", withConfiguration: bookmarkConfig)
-			starBarButtonItem.accLabelText = NSLocalizedString("Star Article", comment: "Star Article")
+			starBarButtonItem.accLabelText = NSLocalizedString("Star Article", comment: "Bookmark")
 		}
 
 	}

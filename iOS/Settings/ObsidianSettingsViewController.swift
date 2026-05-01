@@ -64,7 +64,7 @@ final class ObsidianSettingsViewController: UITableViewController, UIDocumentPic
 		switch rows[indexPath.row] {
 		case .sync:
 			let cell = makeToggleCell(
-				title: NSLocalizedString("Sync Starred Articles", comment: "Obsidian sync toggle"),
+				title: NSLocalizedString("Sync Bookmark Articles", comment: "Obsidian sync toggle"),
 				isOn: AppDefaults.shared.isObsidianSyncEnabled,
 				action: #selector(switchSync(_:))
 			)
@@ -111,9 +111,9 @@ final class ObsidianSettingsViewController: UITableViewController, UIDocumentPic
 			previewLabel = cell.textLabel
 			return cell
 
-		case .removeOnUnbookmark:
+		case .removeOnUnbookmark:	
 			return makeToggleCell(
-				title: NSLocalizedString("Remove Entry when Unbookmarked", comment: "Obsidian remove on unbookmark"),
+				title: NSLocalizedString("Remove Unbookmarked", comment: "Obsidian remove on unbookmark"),
 				isOn: AppDefaults.shared.obsidianRemoveOnUnbookmark,
 				action: #selector(switchRemoveOnUnbookmark(_:))
 			)
