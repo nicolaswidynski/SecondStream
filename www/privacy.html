@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Privacy Policy — Second Stream</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #f5f3ef;
+    --surface: #eeece8;
+    --border: rgba(0,0,0,0.08);
+    --text: #1a1a1a;
+    --text-muted: #6b6860;
+    --accent: #0A85FF;
+    --pill-bg: rgba(10,133,255,0.08);
+    --card-bg: #ffffff;
+    --shadow: 0 2px 20px rgba(0,0,0,0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1017;
+      --surface: #131620;
+      --border: rgba(255,255,255,0.07);
+      --text: #e8e5df;
+      --text-muted: #7a7870;
+      --accent: #3d9bff;
+      --pill-bg: rgba(10,133,255,0.12);
+      --card-bg: #131620;
+      --shadow: 0 2px 20px rgba(0,0,0,0.3);
+    }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 18px 5vw;
+    display: flex; align-items: center; justify-content: space-between;
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    background: rgba(245,243,239,0.82);
+    border-bottom: 1px solid var(--border);
+  }
+  @media (prefers-color-scheme: dark) {
+    nav { background: rgba(13,16,23,0.88); }
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1rem; font-weight: 700;
+    color: var(--text); text-decoration: none;
+    letter-spacing: -0.01em;
+  }
+  .nav-logo img { width: 30px; height: 30px; border-radius: 7px; }
+  .nav-back {
+    font-size: 0.82rem; color: var(--accent);
+    text-decoration: none; font-weight: 500;
+    display: flex; align-items: center; gap: 5px;
+    transition: opacity 0.2s;
+  }
+  .nav-back:hover { opacity: 0.7; }
+
+  .container {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 120px 5vw 100px;
+  }
+
+  .page-label {
+    font-size: 0.7rem; font-weight: 500; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 14px;
+    display: block;
+  }
+
+  h1 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: clamp(1.9rem, 5vw, 2.8rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  .effective-date {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 56px;
+    display: block;
+  }
+
+  .section {
+    margin-bottom: 48px;
+  }
+
+  h2 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+
+  p {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    line-height: 1.75;
+  }
+  p:last-child { margin-bottom: 0; }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0 0;
+  }
+  ul li {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    padding: 6px 0 6px 18px;
+    position: relative;
+    line-height: 1.65;
+  }
+  ul li::before {
+    content: '';
+    position: absolute; left: 0; top: 14px;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.6;
+  }
+
+  .highlight-box {
+    background: var(--pill-bg);
+    border: 1px solid rgba(10,133,255,0.15);
+    border-radius: 14px;
+    padding: 20px 22px;
+    margin-bottom: 48px;
+  }
+  .highlight-box p {
+    font-size: 0.9rem;
+    color: var(--text);
+    margin: 0;
+    font-weight: 400;
+  }
+  .highlight-box strong { color: var(--accent); font-weight: 500; }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 48px 0;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 28px 5vw;
+    display: flex; flex-wrap: wrap;
+    align-items: center; justify-content: space-between;
+    gap: 14px;
+  }
+  .footer-left {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.82rem; color: var(--text-muted);
+  }
+  .footer-left img { width: 22px; height: 22px; border-radius: 5px; }
+  .footer-links { display: flex; flex-wrap: wrap; gap: 20px; }
+  .footer-links a { font-size: 0.82rem; color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+  .footer-links a:hover { color: var(--text); }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">
+    <img src="Icon_1024x1024.png" alt="Second Stream icon"/>
+    Second Stream
+  </a>
+  <a href="index.html" class="nav-back">
+    ← Back
+  </a>
+</nav>
+
+<div class="container">
+  <span class="page-label">Legal</span>
+  <h1>Privacy Policy</h1>
+  <span class="effective-date">Effective date: May 1, 2026</span>
+
+  <div class="highlight-box">
+    <p><strong>The short version:</strong> Second Stream does not sell your data, does not track you across apps or websites, and does not show you ads. The app is free and supported by optional tips.</p>
+  </div>
+
+  <div class="section">
+    <h2>1. Who We Are</h2>
+    <p>Second Stream is an iOS app developed by Nicolas Widynski ("we", "us", or "our"). If you have any questions about this policy, you can reach us at <a href="mailto:secondstream@nwidynski.com">secondstream@nwidynski.com</a>.</p>
+  </div>
+
+  <div class="section">
+    <h2>2. What We Collect</h2>
+    <p>We collect the minimum information necessary to provide the service:</p>
+    <ul>
+      <li><strong>Account information</strong> — when you sign in with Apple, we receive a unique identifier and, optionally, your name. We do not receive your Apple ID email unless you choose to share it.</li>
+      <li><strong>Subscription data</strong> — the feed URLs, podcast subscriptions, and YouTube channels you add are stored on our servers so your library syncs across reinstalls and devices.</li>
+      <li><strong>Read state</strong> — which articles you've read or bookmarked, so your timeline stays consistent.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>3. What We Do Not Collect</h2>
+    <ul>
+      <li>We do not collect your precise location.</li>
+      <li>We do not collect device identifiers for advertising purposes.</li>
+      <li>We do not track your behavior across other apps or websites.</li>
+      <li>We do not build advertising profiles.</li>
+      <li>We do not access your contacts, photos, camera, or microphone.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>4. How We Use Your Data</h2>
+    <p>Your data is used solely to operate the app:</p>
+    <ul>
+      <li>Syncing your subscriptions and read state to our servers so you don't lose your library.</li>
+      <li>Generating AI summaries for podcast episodes and YouTube videos you subscribe to.</li>
+      <li>Delivering curated weekly news digests based on the topics you configure.</li>
+    </ul>
+    <p>We do not use your data for any purpose beyond what is necessary to provide these features.</p>
+  </div>
+
+  <div class="section">
+    <h2>5. Third-Party Services</h2>
+    <p>Second Stream fetches content from the RSS feeds, podcast feeds, and YouTube channels you subscribe to. Those sources are governed by their own privacy policies. We do not share your identity with them.</p>
+    <p>AI summaries are generated using a third-party language model API. Feed content is transmitted to generate summaries but is not stored beyond what is necessary for processing.</p>
+    <p>In-app purchases (tip jar) are processed entirely by Apple through StoreKit. We do not receive or store any payment information.</p>
+  </div>
+
+  <div class="section">
+    <h2>6. Data Retention</h2>
+    <p>Your account data is retained for as long as your account is active. You may request deletion at any time by contacting us at <a href="mailto:secondstream@nwidynski.com">secondstream@nwidynski.com</a>. We will delete your data within 30 days of the request.</p>
+  </div>
+
+  <div class="section">
+    <h2>7. Children's Privacy</h2>
+    <p>Second Stream is not directed at children under the age of 13. We do not knowingly collect personal information from children. If you believe a child has provided us with personal information, please contact us and we will delete it promptly.</p>
+  </div>
+
+  <div class="section">
+    <h2>8. Security</h2>
+    <p>All data transmitted between the app and our servers is encrypted via HTTPS. Authentication is handled through Sign in with Apple, which does not expose your Apple ID credentials to us.</p>
+  </div>
+
+  <div class="section">
+    <h2>9. Changes to This Policy</h2>
+    <p>If we make material changes to this policy, we will update the effective date at the top of this page. Continued use of the app after changes are posted constitutes acceptance of the updated policy.</p>
+  </div>
+
+  <div class="section">
+    <h2>10. Contact</h2>
+    <p>Questions, concerns, or data deletion requests can be sent to <a href="mailto:secondstream@nwidynski.com">secondstream@nwidynski.com</a>.</p>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-left">
+    <img src="Icon_1024x1024.png" alt="Second Stream"/>
+    © 2026 Nicolas Widynski
+  </div>
+  <div class="footer-links">
+    <a href="https://apps.apple.com/app/secondstream/id0000000000">App Store</a>
+    <a href="mailto:secondstream@nwidynski.com">Contact</a>
+  </div>
+</footer>
+
+</body>
+</html>
