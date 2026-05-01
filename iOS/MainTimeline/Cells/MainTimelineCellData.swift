@@ -28,7 +28,7 @@ import Articles
 	let numberOfLines: Int
 	let iconSize: IconSize
 
-	init(article: Article, showFeedName: ShowFeedName, feedName: String?, byline: String?, iconImage: IconImage?, showIcon: Bool, numberOfLines: Int, iconSize: IconSize, includeListingSummary: Bool = true, dateStringOverride: String? = nil) {
+	init(article: Article, showFeedName: ShowFeedName, feedName: String?, byline: String?, iconImage: IconImage?, showIcon: Bool, numberOfLines: Int, iconSize: IconSize, includeListingSummary: Bool = true, dateStringOverride: String? = nil, overrideStarred: Bool? = nil) {
 
 		self.title = ArticleStringFormatter.truncatedTitle(article)
 		self.attributedTitle = ArticleStringFormatter.attributedTruncatedTitle(article)
@@ -65,7 +65,7 @@ import Articles
 		self.iconImage = iconImage
 
 		self.read = article.status.read
-		self.starred = article.status.starred
+		self.starred = overrideStarred ?? article.status.starred
 		self.numberOfLines = numberOfLines
 		self.iconSize = iconSize
 

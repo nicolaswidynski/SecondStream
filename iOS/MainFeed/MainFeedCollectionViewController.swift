@@ -103,6 +103,32 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	}
 
 
+	override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+		guard motion == .motionShake else { return }
+		confirmMarkAllFeedsAsRead()
+	}
+
+	private func confirmMarkAllFeedsAsRead() {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Mark All as Read", comment: "Mark All as Read"),
+			message: NSLocalizedString("Mark all feeds as read?", comment: "Mark all feeds as read?"),
+			preferredStyle: .alert
+		)
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Mark All as Read", comment: "Mark All as Read"), style: .destructive) { [weak self] _ in
+			guard let self else { return }
+			Task { @MainActor in
+				var articles = Set<Article>()
+				for account in AccountManager.shared.activeAccounts {
+					let fetched = (try? await account.fetchArticlesAsync(.unread(nil))) ?? []
+					articles.formUnion(fetched)
+				}
+				self.coordinator.markAllAsRead(Array(articles))
+			}
+		})
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
+		present(alert, animated: true)
+	}
+
 	private func configureNavigationBar() {
 		navigationItem.title = nil
 
@@ -1172,6 +1198,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		SourcesRefreshManager.shared.refreshIfNeeded()
 		stripController.refresh()
 		Task { await FeedStatsManager.shared.fetchCreditsIfNeeded() }
+		ServerMessageManager.shared.fetchAndPresentIfNeeded(presentingViewController: self)
 	}
 
 	private func showEnterRSSURLDialog() {
@@ -2097,7 +2124,10 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 			case .existsOnServer(let summaryURL):
 				Self.logger.debug("addWithWebhook: existsOnServer summaryURL=\(summaryURL, privacy: .public)")
 				let feedURL = URL(string: summaryURL.normalizedURL)?.absoluteString ?? summaryURL
-				BootstrapProgressManager.shared.cancelBootstrap(feedURL: feedURL)
+				let bootstrapType = coordinator.bootstrapType
+				if !bootstrapType.isEmpty {
+					BootstrapProgressManager.shared.startBootstrap(type: bootstrapType, show: name, author: author ?? "", feedURL: feedURL)
+				}
 				self.addFeedDirectly(AddFeedRequest(urlString: summaryURL, category: category, name: name, author: author, validateFeed: false, summaryURL: summaryURL, skipLoadingIndicator: true)) {
 					Self.logger.debug("addWithWebhook: existsOnServer addFeedDirectly completion called")
 					appDelegate.manualRefresh(errorHandler: ErrorHandler.present(self))

@@ -35,10 +35,12 @@ import os.log
 	private let foregroundFetchInterval: TimeInterval = 60
 	private var lastForegroundFetchDate: Date?
 
-	/// Feed names (lowercased) that the server has classified as paid.
-	/// Populated from `stats_pod.sub_list` / `stats_yt.sub_list` where `is_free == "NO"`.
-	/// Empty until the first successful `update-user-stats` response.
-	private(set) var cachedPaidFeedNames: Set<String> = []
+	/// Podcast feed names (lowercased) the server classified as paid.
+	/// Non-nil only after a response that included `stats_pod.sub_list`.
+	private(set) var cachedPaidPodNames: Set<String>? = nil
+	/// YouTube feed names (lowercased) the server classified as paid.
+	/// Non-nil only after a response that included `stats_yt.sub_list`.
+	private(set) var cachedPaidYTNames: Set<String>? = nil
 
 	private init() {
 		// Drain the outbox whenever the account structure changes (feeds added/removed).
@@ -175,44 +177,52 @@ import os.log
 	/// in a server response dictionary, caching names where `is_free == "NO"`.
 	private func parsePaidFeedNames(from json: [String: Any]?) {
 		guard let json else { return }
-		var paid = Set<String>()
-		for key in ["stats_pod", "stats_yt"] {
+		for (key, category) in [("stats_pod", "pod"), ("stats_yt", "yt")] {
 			guard let section = json[key] as? [String: Any],
 				  let subList = section["sub_list"] as? [[String: Any]] else { continue }
+			var paid = Set<String>()
 			for entry in subList {
 				if let name = entry["name"] as? String, (entry["is_free"] as? String) == "NO" {
 					paid.insert(name.lowercased())
 				}
 			}
-		}
-		if !paid.isEmpty {
-			Self.logger.info("cachedPaidFeedNames updated: \(paid, privacy: .public)")
-			cachedPaidFeedNames = paid
+			if category == "pod" {
+				Self.logger.info("cachedPaidPodNames updated: \(paid, privacy: .public)")
+				cachedPaidPodNames = paid
+			} else {
+				Self.logger.info("cachedPaidYTNames updated: \(paid, privacy: .public)")
+				cachedPaidYTNames = paid
+			}
 		}
 	}
 
 	/// Returns Feed objects the server (or local catalog as fallback) has classified as paid.
-	/// Server classification from the last `update-user-stats` response takes priority.
+	/// Server classification is used per-category when available; falls back to local catalog
+	/// for categories not yet represented in a server response.
 	func paidFeeds() -> [Feed] {
 		let podFreeNames = Set(MediaSourcesManager.podcast.topSources.map { $0.name.lowercased() })
 		let ytFreeNames  = Set(MediaSourcesManager.youtube.topSources.map { $0.name.lowercased() })
-		let podPaidNames = Set(MediaSourcesManager.podcast.librarySources.map { $0.name.lowercased() })
-		let ytPaidNames  = Set(MediaSourcesManager.youtube.librarySources.map { $0.name.lowercased() })
 
 		var result: [Feed] = []
 		for account in AccountManager.shared.activeAccounts {
 			for feed in account.flattenedFeeds() {
-				guard feed.feedCategory == .podcast || feed.feedCategory == .youtube else { continue }
 				let nameLower = feed.nameForDisplay.lowercased()
 				let isPaid: Bool
-				if !cachedPaidFeedNames.isEmpty {
-					isPaid = cachedPaidFeedNames.contains(nameLower)
-				} else {
-					switch feed.feedCategory {
-					case .podcast: isPaid = podPaidNames.contains(nameLower) && !podFreeNames.contains(nameLower)
-					case .youtube: isPaid = ytPaidNames.contains(nameLower) && !ytFreeNames.contains(nameLower)
-					default: isPaid = false
+				switch feed.feedCategory {
+				case .podcast:
+					if let serverNames = cachedPaidPodNames {
+						isPaid = serverNames.contains(nameLower)
+					} else {
+						isPaid = !podFreeNames.contains(nameLower)
 					}
+				case .youtube:
+					if let serverNames = cachedPaidYTNames {
+						isPaid = serverNames.contains(nameLower)
+					} else {
+						isPaid = !ytFreeNames.contains(nameLower)
+					}
+				default:
+					continue
 				}
 				if isPaid { result.append(feed) }
 			}
@@ -235,14 +245,14 @@ import os.log
 		var podSources: [String] = []
 		var ytSources: [String] = []
 		var topicSources: [String] = []
-		var rssCount = 0
+		var rssSources: [String] = []
 
 		for feed in allFeeds {
 			switch feed.feedCategory {
 			case .podcast: podSources.append(feed.nameForDisplay)
 			case .youtube: ytSources.append(feed.nameForDisplay)
 			case .news:    topicSources.append(feed.nameForDisplay)
-			case .rss:     rssCount += 1
+			case .rss:     rssSources.append(feed.url)
 			}
 		}
 
@@ -270,8 +280,9 @@ import os.log
 				"sources":    topicSources
 			],
 			"rss": [
-				"count":      String(rssCount),
-				"count_free": String(rssCount)
+				"count":      String(rssSources.count),
+				"count_free": String(rssSources.count),
+				"sources":    rssSources
 			]
 		]
 	}
@@ -312,7 +323,8 @@ import os.log
 				Self.logger.error("all-feed-requests \(operation) failed [\(statusCode, privacy: .public)]: \(rawBody, privacy: .public)")
 				return nil
 			}
-			let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+			let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
+				?? (try? JSONSerialization.jsonObject(with: data) as? [[String: Any]])?.first
 			if let echoed = json?["request_id"] as? String, echoed != requestID {
 				Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
 			}
@@ -331,6 +343,24 @@ import os.log
 	}
 
 	// MARK: - Credits
+
+	/// Suspends until the next `creditsDidUpdate` notification fires, or `timeout` seconds elapse.
+	/// Use this after triggering a server operation that will update credits asynchronously.
+	func waitForNextCreditsUpdate(timeout: TimeInterval = 3) async {
+		await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+			let box = ContinuationBox(continuation)
+			let observer = NotificationCenter.default.addObserver(
+				forName: .creditsDidUpdate,
+				object: nil,
+				queue: .main
+			) { _ in box.resume() }
+			Task { @MainActor in
+				try? await Task.sleep(for: .seconds(timeout))
+				NotificationCenter.default.removeObserver(observer)
+				box.resume()
+			}
+		}
+	}
 
 	/// Sends `update-user-stats` and caches the returned credit count.
 	/// Best-effort — errors are only logged.
@@ -471,6 +501,22 @@ import os.log
 			saveOutbox(freshRecords)
 		}
 		return freshRecords
+	}
+}
+
+// MARK: - ContinuationBox
+
+/// A reference-type wrapper around a `CheckedContinuation` so it can be
+/// shared across closures without Sendable complaints. `resume()` is
+/// idempotent — only the first call has any effect.
+private final class ContinuationBox: @unchecked Sendable {
+	private var continuation: CheckedContinuation<Void, Never>?
+	init(_ continuation: CheckedContinuation<Void, Never>) {
+		self.continuation = continuation
+	}
+	func resume() {
+		continuation?.resume()
+		continuation = nil
 	}
 }
 

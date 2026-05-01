@@ -763,6 +763,9 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		let markReadTitle = NSLocalizedString("Mark All as Read", comment: "Mark All as Read")
 		alert.addAction(UIAlertAction(title: markReadTitle, style: .default) { [weak self] _ in
 			self?.coordinator?.markAllAsReadInTimeline()
+			guard self?.traitCollection.userInterfaceIdiom == .phone,
+				  self?.timelineFeed is Feed else { return }
+			self?.coordinator?.navigateToFeeds()
 		})
 
 		let markUnreadTitle = NSLocalizedString("Mark All as Unread", comment: "Mark All as Unread")
@@ -1636,6 +1639,7 @@ private extension MainTimelineViewController {
 	func configure(article: Article) -> MainTimelineCellData {
 		let iconImage = iconImageFor(article)
 		let showIcon = showIcons && iconImage != nil
+		let isStarredFeed = timelineFeed as? SmartFeed === SmartFeedsController.shared.starredFeed
 		let cellData = MainTimelineCellData(
 			article: article,
 			showFeedName: .none,
@@ -1645,7 +1649,8 @@ private extension MainTimelineViewController {
 			showIcon: showIcon,
 			numberOfLines: numberOfTextLines,
 			iconSize: iconSize,
-			includeListingSummary: false
+			includeListingSummary: false,
+			overrideStarred: isStarredFeed ? false : nil
 		)
 		return cellData
 	}

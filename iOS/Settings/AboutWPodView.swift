@@ -12,7 +12,7 @@ struct AboutWPodView: View {
 	var body: some View {
 		List {
 			Section {
-				Text("I intend to keep Second Stream free, please read Donation for more information.")
+				Text("Second Stream is free, please read Donation for more information.")
 					.font(.body)
 					.foregroundStyle(.secondary)
 					.padding(.vertical, 4)

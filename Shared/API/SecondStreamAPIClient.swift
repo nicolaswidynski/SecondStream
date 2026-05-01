@@ -51,6 +51,8 @@ private let apiClientLogger = Logger(subsystem: Bundle.main.bundleIdentifier!, c
 		case findShow
 		case queryBootstrapProgress
 		case costsAndDonations
+		case queryMessages
+		case reportBug
 
 		var url: URL {
 			switch self {
@@ -64,6 +66,10 @@ private let apiClientLogger = Logger(subsystem: Bundle.main.bundleIdentifier!, c
 				return URL(string: "https://n8n.nwidynski.com/webhook/query-bootstrap-progress")!
 			case .costsAndDonations:
 				return URL(string: "https://n8n.nwidynski.com/webhook/costs_and_donations")!
+			case .queryMessages:
+				return URL(string: "https://n8n.nwidynski.com/webhook/query-messages")!
+			case .reportBug:
+				return URL(string: "https://n8n.nwidynski.com/webhook/report-bug")!
 			}
 		}
 	}

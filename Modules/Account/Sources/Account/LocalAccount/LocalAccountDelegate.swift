@@ -110,6 +110,9 @@ import Secrets
 		// even if this URL was previously subscribed and its DB record survived the removal.
 		feed.conditionalGetInfo = nil
 		feed.contentHash = nil
+		// Also purge any Downloader-level cache for this URL. removeFeed clears it at
+		// deletion time, but a background download could have repopulated it in the interim.
+		Downloader.shared.removeCache(for: url)
 		container.addFeedToTreeAtTopLevel(feed)
 		return feed
 	}

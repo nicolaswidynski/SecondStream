@@ -298,8 +298,16 @@ final class MediaPickerViewController: UIViewController {
 			let name = feed.nameForDisplay
 			alert.addAction(UIAlertAction(title: String(format: NSLocalizedString("Remove \"%@\"", comment: "Remove paid feed action"), name), style: .destructive) { [weak self] _ in
 				guard let account = feed.account else { return }
+				FeedStatsManager.shared.queueDelete(
+					type: feed.feedCategory,
+					name: feed.nameForDisplay,
+					author: feed.authors?.first?.name
+				)
 				account.removeFeed(feed, from: account) { [weak self] _ in
-					DispatchQueue.main.async { self?.presentPaidFeedsAlert() }
+					Task { @MainActor [weak self] in
+						await FeedStatsManager.shared.waitForNextCreditsUpdate()
+						self?.presentPaidFeedsAlert()
+					}
 				}
 			})
 		}

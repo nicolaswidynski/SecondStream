@@ -42,13 +42,25 @@ import UserNotifications
 			return
 		}
 
-		for article in articles {
-			if !article.status.read, let feed = article.feed {
-				guard isCategoryNotificationEnabled(for: feed) else {
-					continue
-				}
-				sendNotification(feed: feed, article: article)
-			}
+		let maxPerFeed = 1
+		let maxTotal = 1
+
+		// Sort newest-first so the most recent articles get the notification slots.
+		let sorted = articles
+			.filter { !$0.status.read }
+			.sorted { ($0.datePublished ?? $0.dateModified ?? .distantPast) > ($1.datePublished ?? $1.dateModified ?? .distantPast) }
+
+		var countPerFeed: [String: Int] = [:]
+		var total = 0
+
+		for article in sorted {
+			guard total < maxTotal, let feed = article.feed else { break }
+			guard isCategoryNotificationEnabled(for: feed) else { continue }
+			let feedCount = countPerFeed[feed.feedID, default: 0]
+			guard feedCount < maxPerFeed else { continue }
+			sendNotification(feed: feed, article: article)
+			countPerFeed[feed.feedID] = feedCount + 1
+			total += 1
 		}
 	}
 
@@ -92,7 +104,17 @@ private extension UserNotificationManager {
 		if !ArticleStringFormatter.truncatedTitle(article).isEmpty {
 			content.subtitle = ArticleStringFormatter.truncatedTitle(article)
 		}
-		content.body = ArticleStringFormatter.truncatedSummary(article)
+		// Podcasts and YouTube use the full show notes / video description as body,
+		// which typically opens with chapter timestamps. Use the short summary field
+		// instead, or leave the body empty — the episode title already provides context.
+		switch feed.feedCategory {
+		case .podcast, .youtube:
+			if let summary = article.summary, !summary.isEmpty {
+				content.body = String(summary.prefix(300))
+			}
+		case .rss, .news:
+			content.body = ArticleStringFormatter.truncatedSummary(article)
+		}
 		content.threadIdentifier = feed.feedID
 		content.sound = UNNotificationSound.default
 		content.userInfo = [UserInfoKey.articlePath: article.pathUserInfo]

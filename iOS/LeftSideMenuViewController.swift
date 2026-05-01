@@ -96,7 +96,7 @@ private final class LeftSideMenuContentViewController: UIViewController {
 	private lazy var creditsInfoButton: UIButton = {
 		var config = UIButton.Configuration.plain()
 		let symbolConfig = UIImage.SymbolConfiguration(pointSize: 11, weight: .regular)
-		config.image = UIImage(systemName: "arrow.clockwise", withConfiguration: symbolConfig)
+		config.image = UIImage(systemName: "info.circle", withConfiguration: symbolConfig)
 		config.contentInsets = .zero
 		config.baseForegroundColor = .secondaryLabel
 		let button = UIButton(configuration: config)
@@ -199,25 +199,32 @@ private final class LeftSideMenuContentViewController: UIViewController {
 
 		// Settings section rows
 		for item in SettingsSidebarItem.allCases {
+			if item == .about {
+				settingsStackView.addArrangedSubview(makeMenuRow(
+					icon: UIImage(systemName: "ladybug"),
+					title: NSLocalizedString("Report a Bug", comment: "Report a Bug"),
+					action: #selector(reportBugTapped)
+				))
+			}
 			settingsStackView.addArrangedSubview(makeSettingsRow(for: item))
 		}
 
 		// Assemble content stack
-		contentStack.addArrangedSubview(makePadding(height: 24))
+		contentStack.addArrangedSubview(makePadding(height: 14))
 		contentStack.addArrangedSubview(titleLabel)
 		contentStack.addArrangedSubview(makePadding(height: 4))
 		contentStack.addArrangedSubview(creditsRowStack)
-		contentStack.addArrangedSubview(makePadding(height: 16))
-		contentStack.addArrangedSubview(makeSeparator())
 		contentStack.addArrangedSubview(makePadding(height: 12))
+		contentStack.addArrangedSubview(makeSeparator())
+		contentStack.addArrangedSubview(makePadding(height: 8))
 		contentStack.addArrangedSubview(addSectionLabel)
-		contentStack.addArrangedSubview(makePadding(height: 8))
+		contentStack.addArrangedSubview(makePadding(height: 6))
 		contentStack.addArrangedSubview(addStackView)
-		contentStack.addArrangedSubview(makePadding(height: 24))
+		contentStack.addArrangedSubview(makePadding(height: 14))
 		contentStack.addArrangedSubview(settingsSectionLabel)
-		contentStack.addArrangedSubview(makePadding(height: 8))
+		contentStack.addArrangedSubview(makePadding(height: 6))
 		contentStack.addArrangedSubview(settingsStackView)
-		contentStack.addArrangedSubview(makePadding(height: 16))
+		contentStack.addArrangedSubview(makePadding(height: 10))
 
 		// Scroll view
 		scrollView.addSubview(contentStack)
@@ -416,8 +423,16 @@ private final class LeftSideMenuContentViewController: UIViewController {
 			let name = feed.nameForDisplay
 			alert.addAction(UIAlertAction(title: String(format: NSLocalizedString("Remove \"%@\"", comment: "Remove paid feed action"), name), style: .destructive) { [weak self] _ in
 				guard let account = feed.account else { return }
+				FeedStatsManager.shared.queueDelete(
+					type: feed.feedCategory,
+					name: feed.nameForDisplay,
+					author: feed.authors?.first?.name
+				)
 				account.removeFeed(feed, from: account) { [weak self] _ in
-					DispatchQueue.main.async { self?.presentPaidFeedsAlert() }
+					Task { @MainActor [weak self] in
+						await FeedStatsManager.shared.waitForNextCreditsUpdate()
+						self?.presentPaidFeedsAlert()
+					}
 				}
 			})
 		}
@@ -484,6 +499,52 @@ private final class LeftSideMenuContentViewController: UIViewController {
 		case .logOut, .deleteAccount:
 			return UIViewController()
 		}
+	}
+
+	@objc private func reportBugTapped() {
+		let alert = UIAlertController(
+			title: NSLocalizedString("Report a Bug", comment: "Report a Bug"),
+			message: NSLocalizedString("Describe the issue you encountered.", comment: "Bug report prompt"),
+			preferredStyle: .alert
+		)
+		alert.addTextField { field in
+			field.placeholder = NSLocalizedString("Description", comment: "Bug description placeholder")
+			field.autocapitalizationType = .sentences
+			field.returnKeyType = .send
+		}
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
+		alert.addAction(UIAlertAction(title: NSLocalizedString("Send", comment: "Send bug report"), style: .default) { [weak self, weak alert] _ in
+			guard let self,
+				  let text = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+				  !text.isEmpty else { return }
+			Task {
+				await self.sendBugReport(text)
+			}
+		})
+		present(alert, animated: true)
+	}
+
+	private func sendBugReport(_ bug: String) async {
+		guard let appleUserID = AuthManager.shared.appleUserID, !appleUserID.isEmpty else { return }
+		let body: [String: Any] = [
+			"apple_user_id": appleUserID,
+			"request_id": UUID().uuidString,
+			"bug": bug
+		]
+		guard let (data, statusCode) = try? await SecondStreamAPIClient.shared.post(to: .reportBug, body: body),
+			  statusCode == 200 else { return }
+		let message: String
+		if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+		   let serverMessage = json["message"] as? String {
+			message = serverMessage
+		} else {
+			return
+		}
+		let confirmation = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+		confirmation.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "OK"), style: .default))
+		var presenter: UIViewController = self
+		while let p = presenter.presentedViewController { presenter = p }
+		presenter.present(confirmation, animated: true)
 	}
 
 	@objc private func buildLabelTripleTapped() {
