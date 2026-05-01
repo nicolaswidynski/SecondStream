@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Second Stream — Your Content, One Stream</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #f5f3ef;
+    --surface: #eeece8;
+    --border: rgba(0,0,0,0.08);
+    --text: #1a1a1a;
+    --text-muted: #6b6860;
+    --accent: #0A85FF;
+    --accent-light: #3a9fff;
+    --pill-bg: rgba(10,133,255,0.08);
+    --card-bg: #ffffff;
+    --shadow: 0 2px 20px rgba(0,0,0,0.06);
+    --shadow-hover: 0 8px 40px rgba(0,0,0,0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1017;
+      --surface: #131620;
+      --border: rgba(255,255,255,0.07);
+      --text: #e8e5df;
+      --text-muted: #7a7870;
+      --accent: #3d9bff;
+      --accent-light: #60b0ff;
+      --pill-bg: rgba(10,133,255,0.12);
+      --card-bg: #131620;
+      --shadow: 0 2px 20px rgba(0,0,0,0.3);
+      --shadow-hover: 0 8px 40px rgba(0,0,0,0.5);
+    }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 18px 5vw;
+    display: flex; align-items: center; justify-content: space-between;
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    background: rgba(245,243,239,0.82);
+    border-bottom: 1px solid var(--border);
+    transition: background 0.3s;
+  }
+  @media (prefers-color-scheme: dark) {
+    nav { background: rgba(13,16,23,0.88); }
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1rem; font-weight: 700;
+    color: var(--text); text-decoration: none;
+    letter-spacing: -0.01em;
+  }
+  .nav-logo img { width: 30px; height: 30px; border-radius: 7px; }
+  .nav-cta {
+    background: var(--accent); color: #fff;
+    padding: 9px 20px; border-radius: 100px;
+    font-size: 0.82rem; font-weight: 500; letter-spacing: 0.01em;
+    text-decoration: none; transition: opacity 0.2s, transform 0.2s;
+    white-space: nowrap;
+  }
+  .nav-cta:hover { opacity: 0.85; transform: translateY(-1px); }
+
+  /* HERO */
+  .hero {
+    min-height: 100svh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
+    padding: 120px 5vw 80px;
+    position: relative;
+  }
+  .hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--pill-bg);
+    color: var(--accent);
+    font-size: 0.75rem; font-weight: 500; letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 14px; border-radius: 100px;
+    margin-bottom: 28px;
+    opacity: 0; animation: fadeUp 0.6s 0.1s forwards;
+  }
+  .hero-eyebrow::before {
+    content: '';
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+  }
+  h1 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: clamp(2.4rem, 7vw, 5.2rem);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    max-width: 820px;
+    opacity: 0; animation: fadeUp 0.7s 0.2s forwards;
+  }
+  h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+  .hero-sub {
+    margin-top: 22px;
+    font-size: clamp(1rem, 2.2vw, 1.15rem);
+    color: var(--text-muted);
+    max-width: 520px;
+    font-weight: 300;
+    opacity: 0; animation: fadeUp 0.7s 0.35s forwards;
+  }
+  .hero-actions {
+    margin-top: 40px;
+    display: flex; flex-wrap: wrap; gap: 12px;
+    justify-content: center;
+    opacity: 0; animation: fadeUp 0.7s 0.5s forwards;
+  }
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 9px;
+    background: var(--accent); color: #fff;
+    padding: 14px 28px; border-radius: 100px;
+    font-size: 0.95rem; font-weight: 500;
+    text-decoration: none;
+    transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 20px rgba(10,133,255,0.25);
+  }
+  .btn-primary:hover { opacity: 0.88; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(10,133,255,0.35); }
+  @media (prefers-color-scheme: dark) {
+    .btn-primary { box-shadow: 0 4px 20px rgba(10,133,255,0.2); }
+    .btn-primary:hover { box-shadow: 0 8px 30px rgba(10,133,255,0.35); }
+  }
+  .btn-secondary {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: transparent; color: var(--text-muted);
+    padding: 14px 22px; border-radius: 100px;
+    font-size: 0.9rem; font-weight: 400;
+    text-decoration: none; border: 1px solid var(--border);
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .btn-secondary:hover { color: var(--text); border-color: var(--text-muted); }
+
+  /* PHONE MOCKUP */
+  .phone-wrap {
+    margin-top: 60px;
+    position: relative;
+    width: min(300px, 80vw);
+    opacity: 0; animation: fadeUp 0.8s 0.65s forwards;
+  }
+  .phone-frame {
+    width: 100%;
+    border-radius: 36px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.18), 0 0 0 1px var(--border);
+    position: relative;
+    background: var(--card-bg);
+  }
+  .phone-frame img {
+    width: 100%; display: block;
+  }
+
+  /* FEATURES STRIP */
+  .features-strip {
+    padding: 0 5vw 80px;
+    display: flex; flex-wrap: wrap;
+    gap: 10px; justify-content: center;
+    opacity: 0; animation: fadeUp 0.7s 0.8s forwards;
+  }
+  .feature-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.8rem; font-weight: 400;
+    padding: 7px 14px; border-radius: 100px;
+    box-shadow: var(--shadow);
+  }
+  .feature-pill span { font-size: 0.9em; }
+
+  /* SECTION */
+  section { padding: 90px 5vw; }
+  .section-label {
+    font-size: 0.7rem; font-weight: 500; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 14px;
+  }
+  h2 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 700; letter-spacing: -0.025em;
+    line-height: 1.15;
+    color: var(--text);
+    max-width: 560px;
+  }
+  h2 em { font-style: italic; color: var(--accent); }
+
+  /* CONTENT TYPES */
+  .content-types {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .content-types-inner {
+    max-width: 1100px; margin: 0 auto;
+  }
+  .content-types-header {
+    text-align: center; margin-bottom: 56px;
+  }
+  .content-types-header h2 { margin: 0 auto; max-width: 560px; }
+  .content-types-header p {
+    margin-top: 16px; color: var(--text-muted);
+    font-size: 1.05rem; max-width: 440px; margin-left: auto; margin-right: auto;
+  }
+  .types-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .type-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px 24px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: var(--shadow);
+  }
+  .type-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+  .type-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: var(--pill-bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; margin-bottom: 16px;
+    color: var(--accent);
+  }
+  .type-card h3 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1.05rem; font-weight: 700;
+    letter-spacing: -0.01em; margin-bottom: 8px;
+    color: var(--text);
+  }
+  .type-card p {
+    font-size: 0.85rem; color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  /* AI FEATURE */
+  .ai-section { max-width: 1100px; margin: 0 auto; }
+  .ai-grid {
+    margin-top: 56px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 700px) { .ai-grid { grid-template-columns: 1fr; } }
+  .ai-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px 28px;
+    box-shadow: var(--shadow);
+  }
+  .ai-card.featured {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: center;
+    background: var(--accent);
+    border-color: transparent;
+    color: #fff;
+  }
+  @media (max-width: 700px) { .ai-card.featured { grid-column: 1; grid-template-columns: 1fr; } }
+  .ai-card.featured .ai-card-label { color: rgba(255,255,255,0.6); }
+  .ai-card.featured h3 { color: #fff; }
+  .ai-card.featured p { color: rgba(255,255,255,0.75); }
+  .ai-card-label {
+    font-size: 0.7rem; font-weight: 500; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 10px;
+  }
+  .ai-card h3 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1.3rem; font-weight: 700;
+    letter-spacing: -0.02em; margin-bottom: 10px;
+    color: var(--text);
+  }
+  .ai-card p { font-size: 0.88rem; color: var(--text-muted); line-height: 1.7; }
+  .summary-preview {
+    background: rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 18px;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: rgba(255,255,255,0.85);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .summary-preview-label {
+    font-size: 0.65rem; font-weight: 500; letter-spacing: 0.1em;
+    text-transform: uppercase; color: rgba(255,255,255,0.5);
+    margin-bottom: 8px;
+  }
+
+  /* FEATURES LIST */
+  .features-section { max-width: 1100px; margin: 0 auto; }
+  .features-section h2 { margin-bottom: 40px; }
+  .features-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+  }
+  .feat-item {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 20px;
+    box-shadow: var(--shadow);
+    transition: transform 0.2s;
+  }
+  .feat-item:hover { transform: translateY(-2px); }
+  .feat-item-icon {
+    flex-shrink: 0;
+    width: 36px; height: 36px;
+    background: var(--pill-bg);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; color: var(--accent);
+  }
+  .feat-item-text h4 {
+    font-size: 0.9rem; font-weight: 500; color: var(--text);
+    margin-bottom: 3px; letter-spacing: -0.01em;
+  }
+  .feat-item-text p { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+
+  /* CTA */
+  .cta-section {
+    text-align: center;
+    max-width: 600px; margin: 0 auto;
+    padding-bottom: 100px;
+  }
+  .cta-section h2 { margin: 0 auto 20px; }
+  .cta-section p { color: var(--text-muted); font-size: 1rem; margin-bottom: 36px; }
+  .cta-note {
+    margin-top: 14px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 5vw;
+    display: flex; flex-wrap: wrap;
+    align-items: center; justify-content: space-between;
+    gap: 16px;
+  }
+  .footer-left {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.82rem; color: var(--text-muted);
+  }
+  .footer-left img { width: 22px; height: 22px; border-radius: 5px; }
+  .footer-links {
+    display: flex; flex-wrap: wrap; gap: 20px;
+  }
+  .footer-links a {
+    font-size: 0.82rem; color: var(--text-muted);
+    text-decoration: none; transition: color 0.2s;
+  }
+  .footer-links a:hover { color: var(--text); }
+
+  /* DIVIDER */
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0;
+  }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* SCROLL REVEAL */
+  .reveal {
+    opacity: 0; transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  /* APP STORE BADGE */
+  .appstore-badge {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--text);
+    color: var(--bg);
+    padding: 13px 22px; border-radius: 14px;
+    text-decoration: none;
+    font-size: 0.85rem; font-weight: 500;
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .appstore-badge:hover { opacity: 0.85; transform: translateY(-2px); }
+  .appstore-badge svg { flex-shrink: 0; }
+  .appstore-badge-text { text-align: left; }
+  .appstore-badge-text small { font-size: 0.65rem; font-weight: 300; display: block; opacity: 0.7; }
+  .appstore-badge-text strong { font-size: 0.9rem; font-weight: 600; }
+
+  @media (max-width: 480px) {
+    h1 { font-size: 2.1rem; }
+    h2 { font-size: 1.7rem; }
+    section { padding: 60px 5vw; }
+    .ai-card.featured { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#" class="nav-logo">
+    <img src="Icon_1024x1024.png" alt="Second Stream icon"/>
+    Second Stream
+  </a>
+  <a href="https://apps.apple.com/app/secondstream/id0000000000" class="nav-cta">Download Free</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow">Free for iOS</div>
+  <h1>One stream.<br/><em>Every source.</em></h1>
+  <p class="hero-sub">Podcasts, YouTube, RSS feeds, and curated news — aggregated into a single intelligent timeline.</p>
+  <div class="hero-actions">
+    <a href="https://apps.apple.com/app/secondstream/id0000000000" class="btn-primary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+      <span>Download on the App Store</span>
+    </a>
+  </div>
+  <div class="phone-wrap">
+    <div class="phone-frame">
+      <img src="screenshot1.PNG" alt="Second Stream app screenshot"/>
+    </div>
+  </div>
+</div>
+
+<div class="features-strip">
+  <div class="feature-pill"><span>🎙</span> Podcasts</div>
+  <div class="feature-pill"><span>▶️</span> YouTube</div>
+  <div class="feature-pill"><span>📰</span> RSS Feeds</div>
+  <div class="feature-pill"><span>✨</span> AI Summaries</div>
+  <div class="feature-pill"><span>🔖</span> Bookmarks</div>
+  <div class="feature-pill"><span>🌿</span> Obsidian Sync</div>
+</div>
+
+<hr/>
+
+<!-- CONTENT TYPES -->
+<section class="content-types">
+  <div class="content-types-inner">
+    <div class="content-types-header reveal">
+      <div class="section-label">What you can follow</div>
+      <h2>All your sources,<br/><em>finally together</em></h2>
+      <p>Stop juggling five apps. Everything flows into one clean timeline.</p>
+    </div>
+    <div class="types-grid reveal">
+      <div class="type-card">
+        <div class="type-icon">🎙</div>
+        <h3>Podcasts</h3>
+        <p>Subscribe via any RSS/Atom feed URL. Episodes surface as they publish with AI summaries so you know what's worth your time.</p>
+      </div>
+      <div class="type-card">
+        <div class="type-icon">▶️</div>
+        <h3>YouTube Channels</h3>
+        <p>Follow any channel and get new videos delivered as readable articles — complete with AI-generated summaries.</p>
+      </div>
+      <div class="type-card">
+        <div class="type-icon">📰</div>
+        <h3>RSS &amp; Atom Feeds</h3>
+        <p>Standard blog and news subscriptions. If it has a feed URL, Second Stream can follow it.</p>
+      </div>
+      <div class="type-card">
+        <div class="type-icon">🗞</div>
+        <h3>Curated Weekly News</h3>
+        <p>Configure topics that matter to you. Get smart digests — AI-curated, delivered weekly right in your timeline.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AI -->
+<section>
+  <div class="ai-section">
+    <div class="reveal">
+      <div class="section-label">Intelligence built in</div>
+      <h2>Decide before you<br/><em>press play</em></h2>
+    </div>
+    <div class="ai-grid reveal">
+      <div class="ai-card featured">
+        <div>
+          <div class="ai-card-label">AI Summaries</div>
+          <h3>Know what every episode is about — in seconds</h3>
+          <p>Every podcast episode and YouTube video gets an AI-generated summary. Skim. Decide. Listen only to what's worth it.</p>
+        </div>
+        <div class="summary-preview">
+          <div class="summary-preview-label">Summary · This Podcast Will Kill You</div>
+          Episode explores how proof and certainty interact — when do societies accept evidence as enough to act? Guest Adam Kucharski argues that certainty is often weaponized, setting impossibly high bars that delay public health responses. Discussion covers personal belief, media bias, and the shifting standards of "proof."
+        </div>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-label">Smart Feeds</div>
+        <h3>Today, Unread &amp; Bookmarks</h3>
+        <p>Automatic smart feeds surface what's new, what's fresh today, and what you've saved — no manual curation needed.</p>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-label">Weekly Digests</div>
+        <h3>Curated news on your topics</h3>
+        <p>Configure topics like AI or biohacking. Second Stream surfaces a weekly digest, intelligently filtered and ready to skim.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr/>
+
+<!-- FEATURES -->
+<section style="background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+  <div class="features-section">
+    <div class="reveal">
+      <div class="section-label">Everything included</div>
+      <h2>The reader that<br/><em>respects your time</em></h2>
+    </div>
+    <div class="features-list reveal">
+      <div class="feat-item">
+        <div class="feat-item-icon">🌿</div>
+        <div class="feat-item-text">
+          <h4>Obsidian Vault Sync</h4>
+          <p>Bookmarked articles flow directly into your Obsidian PKM vault.</p>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-item-icon">🔄</div>
+        <div class="feat-item-text">
+          <h4>Background Refresh</h4>
+          <p>Content updates automatically, even when the app isn't open.</p>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-item-icon">🔒</div>
+        <div class="feat-item-text">
+          <h4>Face ID &amp; Sign in with Apple</h4>
+          <p>Private by design. Your reading habits stay yours.</p>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-item-icon">☁️</div>
+        <div class="feat-item-text">
+          <h4>Automatic Cloud Sync</h4>
+          <p>Your subscriptions are backed up to our servers — switch devices without losing a thing.</p>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-item-icon">🌓</div>
+        <div class="feat-item-text">
+          <h4>Light &amp; Dark Mode</h4>
+          <p>Follows your system appearance. Looks great either way.</p>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-item-icon">💙</div>
+        <div class="feat-item-text">
+          <h4>Free with Tip Jar</h4>
+          <p>Completely free. Support development with an optional tip if you love it.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section>
+  <div class="cta-section reveal">
+    <div class="section-label">Get started</div>
+    <h2>Your <em>second stream</em> starts here</h2>
+    <a href="https://apps.apple.com/app/secondstream/id0000000000" class="appstore-badge">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+      <div class="appstore-badge-text">
+        <small>Download on the</small>
+        <strong>App Store</strong>
+      </div>
+    </a>
+    <p class="cta-note">No payment required · No tracking · No ads</p>
+  </div>
+</section>
+
+<hr/>
+
+<footer>
+  <div class="footer-left">
+    <img src="Icon_1024x1024.png" alt="Second Stream"/>
+    © 2026 Nicolas Widynski
+  </div>
+  <div class="footer-links">
+    <a href="https://apps.apple.com/app/secondstream/id0000000000">App Store</a>
+    <a href="mailto:secondstream@gmail.com">Contact</a>
+  </div>
+</footer>
+
+<script>
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
