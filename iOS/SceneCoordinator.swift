@@ -876,6 +876,9 @@ struct SidebarItemNode: Hashable, Sendable {
 			return
 		}
 		hidingReadArticlesState.toggleHidingReadArticles(for: sidebarItemID)
+		// Update the filter button immediately so it reflects the new state
+		// regardless of async fetch timing or cancellation.
+		mainTimelineViewController?.updateUI()
 		refreshTimeline(resetScroll: false)
 	}
 

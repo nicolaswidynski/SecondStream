@@ -98,7 +98,7 @@ struct DonationView: View {
 		List {
 			// Description
 			Section {
-				Text("Second Stream is free and I intend to keep it that way. Tips help cover server hosting, AI APIs, and other services that power the app.")
+				Text("Second Stream is free. Tips help cover server hosting, AI APIs, and other services that power the app.")
 					.font(.body)
 					.foregroundStyle(.secondary)
 					.padding(.vertical, 4)

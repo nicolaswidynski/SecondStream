@@ -126,6 +126,8 @@ private extension HidingReadArticlesState {
 			d[accountID] = d[accountID]?.filter { account.existingFolder(withDisplayName: $0) != nil }
 		}
 
+		// Keep in-memory state consistent with what was saved.
+		foldersShowingReadArticles = d
 		AppDefaults.shared.foldersShowingReadArticles = d
 	}
 
@@ -141,6 +143,9 @@ private extension HidingReadArticlesState {
 			d[accountID] = d[accountID]?.filter { account.existingFeed(withFeedID: $0) != nil }
 		}
 
+		// Keep in-memory state consistent with what was saved so deleted/re-added
+		// feeds don't inherit stale filter state from a previous subscription.
+		feedsHidingReadArticles = d
 		AppDefaults.shared.feedsHidingReadArticles = d
 	}
 

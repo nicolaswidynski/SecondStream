@@ -672,7 +672,8 @@ final class ArticlesTable: DatabaseTable, Sendable {
 
 			func makeDatabaseCalls(_ database: FMDatabase) {
 				let placeholders = NSString.rs_SQLValueList(withPlaceholders: UInt(feedIDs.count))!
-				let sql = "select articleID from articles where feedID not in \(placeholders);"
+				// Exclude starred articles so bookmarks survive feed removal and re-addition.
+				let sql = "select articleID from articles natural join statuses where feedID not in \(placeholders) and starred=0;"
 				let parameters = Array(feedIDs) as [Any]
 				guard let resultSet = database.executeQuery(sql, withArgumentsIn: parameters) else {
 					return

@@ -24,7 +24,7 @@ final class SourcePickerHeaderView: UICollectionReusableView {
 	private let infoButton: UIButton = {
 		let symbolConfig = UIImage.SymbolConfiguration(pointSize: 11, weight: .regular)
 		let button = UIButton(type: .system)
-		button.setImage(UIImage(systemName: "arrow.clockwise", withConfiguration: symbolConfig), for: .normal)
+		button.setImage(UIImage(systemName: "info.circle", withConfiguration: symbolConfig), for: .normal)
 		button.tintColor = .secondaryLabel
 		button.translatesAutoresizingMaskIntoConstraints = false
 		button.isHidden = true

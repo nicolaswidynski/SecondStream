@@ -338,7 +338,7 @@ extension MediaSourcesManager: WebhookSourcesManaging {
 			}
 
 			switch statusCode {
-			case 200, 201:
+			case 200, 201, 203:
 				if let json,
 				   let status = json["status"] as? String,
 				   status == "success",
