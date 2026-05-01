@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		17192ADA2567B3D500AAEACA /* RSSparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 17192AD92567B3D500AAEACA /* RSSparkle */; };
-		176814002564BB2D00D98635 /* SecondStream iOS Widget Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 176813F32564BB2C00D98635 /* SecondStream iOS Widget Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		179C39EA26F76B0500D4E741 /* Zip in Frameworks */ = {isa = PBXBuildFile; productRef = 179C39E926F76B0500D4E741 /* Zip */; };
 		179D280B26F6F93D003B2E0A /* Zip in Frameworks */ = {isa = PBXBuildFile; productRef = 179D280A26F6F93D003B2E0A /* Zip */; };
 		27B86EEB25A53AAB00264340 /* Account in Frameworks */ = {isa = PBXBuildFile; productRef = 51BC2F4A24D343A500E90810 /* Account */; };
@@ -186,8 +185,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				513C5CF0232571C2003D4054 /* SecondStream iOS Share Extension.appex in Embed Foundation Extensions */,
-				176814002564BB2D00D98635 /* SecondStream iOS Widget Extension.appex in Embed Foundation Extensions */,
-				5131463E235A7BBE00387FDC /* SecondStream iOS Intents Extension.appex in Embed Foundation Extensions */,
+					5131463E235A7BBE00387FDC /* SecondStream iOS Intents Extension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -723,8 +721,7 @@
 			dependencies = (
 				5138E94324D3404300AFF0FE /* PBXTargetDependency */,
 				5131463D235A7BBE00387FDC /* PBXTargetDependency */,
-				176813FF2564BB2D00D98635 /* PBXTargetDependency */,
-			);
+				);
 			fileSystemSynchronizedGroups = (
 				84A6CFB52D1B4EC500F23315 /* iOS */,
 				84D35D422DB9F32D004AA60E /* Shared */,

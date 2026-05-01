@@ -425,10 +425,10 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 			case .year(let y): return "\(y)"
 			case .feedCategory(let cat):
 				switch cat {
-				case .podcast: return NSLocalizedString("My Podcasts", comment: "Starred section: podcasts")
-				case .youtube: return NSLocalizedString("My YouTube Channels", comment: "Starred section: YouTube")
-				case .news:    return NSLocalizedString("News", comment: "Starred section: news")
-				case .rss:     return NSLocalizedString("My RSS Feeds", comment: "Starred section: RSS")
+				case .podcast: return NSLocalizedString("My Podcasts", comment: "Bookmark section: podcasts")
+				case .youtube: return NSLocalizedString("My YouTube Channels", comment: "Bookmark section: YouTube")
+				case .news:    return NSLocalizedString("News", comment: "Bookmark section: news")
+				case .rss:     return NSLocalizedString("My RSS Feeds", comment: "Bookmark section: RSS")
 				}
 			}
 		}
@@ -1691,8 +1691,8 @@ private extension MainTimelineViewController {
 	func toggleArticleStarStatusAction(_ article: Article) -> UIAction {
 
 		let title = article.status.starred ?
-			NSLocalizedString("Mark as Unstarred", comment: "Mark as Unstarred") :
-			NSLocalizedString("Mark as Starred", comment: "Mark as Starred")
+			NSLocalizedString("Remove Bookmark", comment: "Remove Bookmark") :
+			NSLocalizedString("Bookmark", comment: "Bookmark")
 		let image = article.status.starred ? Assets.Images.starOpen : Assets.Images.starClosed
 
 		let action = UIAction(title: title, image: image) { [weak self] _ in

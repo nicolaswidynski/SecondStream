@@ -75,7 +75,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
 		let image = UIImage(systemName: "bookmark", withConfiguration: config)
 		let button = UIBarButtonItem(image: image, style: .plain, target: self, action: #selector(starredTapped))
-		button.accessibilityLabel = NSLocalizedString("Starred", comment: "Starred")
+		button.accessibilityLabel = NSLocalizedString("Bookmark", comment: "Bookmark")
 		return button
 	}()
 
