@@ -1298,7 +1298,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	private func addPodcastWithWebhook(name: String, author: String?) {
 		if feedAlreadySubscribed(name: name, category: .podcast) {
-			showAddSourceError(message: NSLocalizedString("You are already subscribed to this podcast.", comment: "Already subscribed to podcast"))
+			showAddSourceSuccess(title: "Already Subscribed", message: NSLocalizedString("You are already subscribed to " + name + ".", comment: "Already subscribed to podcast")) {}
 			return
 		}
 		let coordinator = AddSourceCoordinator(manager: MediaSourcesManager.podcast, category: .podcast)
@@ -2050,7 +2050,7 @@ extension MainFeedCollectionViewController: MediaPickerDelegate {
 
 	private func addYoutubeWithWebhook(name: String, author: String?) {
 		if feedAlreadySubscribed(name: name, category: .youtube) {
-			showAddSourceError(message: NSLocalizedString("You are already subscribed to this channel.", comment: "Already subscribed to channel"))
+			showAddSourceSuccess(title: "Already Subscribed", message: NSLocalizedString("You are already subscribed to " + name + ".", comment: "Already subscribed to channel")) {}
 			return
 		}
 		let coordinator = AddSourceCoordinator(manager: MediaSourcesManager.youtube, category: .youtube)
@@ -2076,7 +2076,7 @@ extension MainFeedCollectionViewController: NewsPickerDelegate {
 
 	private func addTopicWithWebhook(name: String, author: String?) {
 		if feedAlreadySubscribed(name: name, category: .news) {
-			showAddSourceError(message: NSLocalizedString("You are already subscribed to this topic.", comment: "Already subscribed to topic"))
+			showAddSourceSuccess(title: "Already Subscribed", message: NSLocalizedString("You are already subscribed to " + name + ".", comment: "Already subscribed to topic")) {}
 			return
 		}
 		let coordinator = AddSourceCoordinator(manager: NewsSourcesManager.shared, category: .news)

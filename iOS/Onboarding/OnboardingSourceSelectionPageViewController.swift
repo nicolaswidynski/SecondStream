@@ -28,6 +28,7 @@ import RSCore
 	private let scrollView: UIScrollView = {
 		let sv = UIScrollView()
 		sv.showsVerticalScrollIndicator = false
+		sv.delaysContentTouches = false
 		sv.translatesAutoresizingMaskIntoConstraints = false
 		return sv
 	}()
@@ -161,11 +162,11 @@ import RSCore
 		if selected {
 			selectedSources.append(source)
 		} else {
-			selectedSources.removeAll { $0.url == source.url }
+			selectedSources.removeAll { $0.name == source.name }
 		}
 		let hasSelection = !selectedSources.isEmpty
 		continueButton.isEnabled = hasSelection
-		UIView.animate(withDuration: 0.2) {
+		UIView.animate(withDuration: 0.2, delay: 0, options: .allowUserInteraction) {
 			self.continueButton.alpha = hasSelection ? 1.0 : 0.5
 		}
 	}
@@ -198,12 +199,14 @@ import RSCore
 		return view
 	}()
 
-	private let scrollView: UIScrollView = {
-		let sv = UIScrollView()
+	private let scrollView: IconScrollView = {
+		let sv = IconScrollView()
 		sv.showsHorizontalScrollIndicator = false
 		sv.showsVerticalScrollIndicator = false
 		sv.alwaysBounceVertical = false
 		sv.isDirectionalLockEnabled = true
+		sv.clipsToBounds = false
+		sv.delaysContentTouches = false
 		sv.translatesAutoresizingMaskIntoConstraints = false
 		return sv
 	}()
@@ -211,14 +214,14 @@ import RSCore
 	private let stackView: UIStackView = {
 		let stack = UIStackView()
 		stack.axis = .horizontal
-		stack.spacing = 3
+		stack.spacing = 10
 		stack.alignment = .center
 		stack.translatesAutoresizingMaskIntoConstraints = false
 		return stack
 	}()
 
 	private var items: [(source: DiscoverSourceItem, view: OnboardingSourceIconView)] = []
-	private var selectedURLs = Set<String>()
+	private var selectedNames = Set<String>()
 
 	// MARK: - Init
 
@@ -236,6 +239,8 @@ import RSCore
 	// MARK: - Layout
 
 	private func setup() {
+		scrollView.contentInset = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
+
 		addSubview(titleLabel)
 		addSubview(backgroundView)
 		backgroundView.addSubview(scrollView)
@@ -249,7 +254,7 @@ import RSCore
 			backgroundView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
 			backgroundView.leadingAnchor.constraint(equalTo: leadingAnchor),
 			backgroundView.trailingAnchor.constraint(equalTo: trailingAnchor),
-			backgroundView.heightAnchor.constraint(equalToConstant: 86),
+			backgroundView.heightAnchor.constraint(equalToConstant: 108),
 			backgroundView.bottomAnchor.constraint(equalTo: bottomAnchor),
 
 			scrollView.topAnchor.constraint(equalTo: backgroundView.topAnchor, constant: 8),
@@ -259,8 +264,8 @@ import RSCore
 
 			stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
 			stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
-			stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
-			stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor)
+			stackView.topAnchor.constraint(equalTo: scrollView.frameLayoutGuide.topAnchor),
+			stackView.heightAnchor.constraint(equalTo: scrollView.frameLayoutGuide.heightAnchor)
 		])
 	}
 
@@ -269,7 +274,7 @@ import RSCore
 	func configure(with sources: [DiscoverSourceItem]) {
 		NotificationCenter.default.removeObserver(self, name: .sourceImageDidBecomeAvailable, object: nil)
 		items = []
-		selectedURLs = []
+		selectedNames = []
 		stackView.arrangedSubviews.forEach {
 			stackView.removeArrangedSubview($0)
 			$0.removeFromSuperview()
@@ -279,11 +284,14 @@ import RSCore
 			let iconView = OnboardingSourceIconView()
 			iconView.translatesAutoresizingMaskIntoConstraints = false
 			iconView.setImage(iconImage(for: source))
+			iconView.setName(source.name)
 			iconView.accessibilityLabel = source.name
-			iconView.addTarget(self, action: #selector(iconTapped(_:)), for: .touchUpInside)
+			iconView.onTap = { [weak self, weak iconView] in
+				guard let self, let iconView else { return }
+				self.iconTapped(iconView)
+			}
 			NSLayoutConstraint.activate([
-				iconView.widthAnchor.constraint(equalToConstant: 72),
-				iconView.heightAnchor.constraint(equalToConstant: 68)
+				iconView.widthAnchor.constraint(equalToConstant: 71)
 			])
 			stackView.addArrangedSubview(iconView)
 			items.append((source: source, view: iconView))
@@ -299,13 +307,14 @@ import RSCore
 
 	// MARK: - Actions
 
-	@objc private func iconTapped(_ sender: OnboardingSourceIconView) {
+	private func iconTapped(_ sender: OnboardingSourceIconView) {
 		guard let (source, _) = items.first(where: { $0.view === sender }) else { return }
-		let isNowSelected = !selectedURLs.contains(source.url)
+		let alreadySelected = selectedNames.contains(source.name)
+		let isNowSelected = !alreadySelected
 		if isNowSelected {
-			selectedURLs.insert(source.url)
+			selectedNames.insert(source.name)
 		} else {
-			selectedURLs.remove(source.url)
+			selectedNames.remove(source.name)
 		}
 		sender.setSelected(isNowSelected, animated: true)
 		onSelectionChanged?(source, isNowSelected)
@@ -350,8 +359,12 @@ import RSCore
 
 // MARK: - OnboardingSourceIconView
 
-/// A single tappable source icon with a thick blue selection ring.
+/// A single tappable source icon with a name label and a thick blue selection ring.
 @MainActor final class OnboardingSourceIconView: UIControl {
+
+	/// Called when the user taps the icon. Set by the strip view.
+	var onTap: (() -> Void)?
+
 
 	private let iconImageView: UIImageView = {
 		let iv = UIImageView()
@@ -367,7 +380,7 @@ import RSCore
 	private let selectionRing: UIView = {
 		let view = UIView()
 		view.translatesAutoresizingMaskIntoConstraints = false
-		view.layer.cornerRadius = 16
+		view.layer.cornerRadius = 15
 		view.layer.borderWidth = 3
 		view.layer.borderColor = Assets.Colors.primaryAccent.cgColor
 		view.isUserInteractionEnabled = false
@@ -375,29 +388,56 @@ import RSCore
 		return view
 	}()
 
+	private let nameLabel: UILabel = {
+		let label = UILabel()
+		label.translatesAutoresizingMaskIntoConstraints = false
+		label.font = .systemFont(ofSize: 10, weight: .medium)
+		label.textColor = .secondaryLabel
+		label.textAlignment = .center
+		label.numberOfLines = 1
+		label.lineBreakMode = .byTruncatingTail
+		return label
+	}()
+
 	// MARK: - Init
 
 	override init(frame: CGRect) {
 		super.init(frame: frame)
 
+		let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+		tap.cancelsTouchesInView = false
+		addGestureRecognizer(tap)
+
 		addSubview(selectionRing)
 		addSubview(iconImageView)
+		addSubview(nameLabel)
 
 		NSLayoutConstraint.activate([
 			selectionRing.centerXAnchor.constraint(equalTo: centerXAnchor),
-			selectionRing.centerYAnchor.constraint(equalTo: centerYAnchor),
-			selectionRing.widthAnchor.constraint(equalToConstant: 76),
-			selectionRing.heightAnchor.constraint(equalToConstant: 76),
+			selectionRing.topAnchor.constraint(equalTo: topAnchor),
+			selectionRing.widthAnchor.constraint(equalToConstant: 74),
+			selectionRing.heightAnchor.constraint(equalToConstant: 74),
 
 			iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
-			iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-			iconImageView.widthAnchor.constraint(equalToConstant: 68),
-			iconImageView.heightAnchor.constraint(equalToConstant: 68)
+			iconImageView.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+			iconImageView.widthAnchor.constraint(equalToConstant: 67),
+			iconImageView.heightAnchor.constraint(equalToConstant: 67),
+
+			nameLabel.topAnchor.constraint(equalTo: iconImageView.bottomAnchor, constant: 5),
+			nameLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
+			nameLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
+			nameLabel.bottomAnchor.constraint(equalTo: bottomAnchor),
 		])
 	}
 
 	@available(*, unavailable)
 	required init?(coder: NSCoder) { fatalError() }
+
+	// MARK: - Actions
+
+	@objc private func handleTap() {
+		onTap?()
+	}
 
 	// MARK: - API
 
@@ -405,17 +445,24 @@ import RSCore
 		iconImageView.image = image
 	}
 
+	func setName(_ name: String) {
+		nameLabel.text = name
+	}
+
 	func setSelected(_ selected: Bool, animated: Bool) {
 		let targetAlpha: CGFloat = selected ? 1 : 0
 		let targetScale: CGFloat = selected ? 1.06 : 1.0
+		let scaleTransform = CGAffineTransform(scaleX: targetScale, y: targetScale)
 		if animated {
-			UIView.animate(withDuration: 0.2, delay: 0, options: .curveEaseOut) {
+			UIView.animate(withDuration: 0.2, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
 				self.selectionRing.alpha = targetAlpha
-				self.transform = CGAffineTransform(scaleX: targetScale, y: targetScale)
+				self.iconImageView.transform = scaleTransform
+				self.selectionRing.transform = scaleTransform
 			}
 		} else {
 			selectionRing.alpha = targetAlpha
-			transform = CGAffineTransform(scaleX: targetScale, y: targetScale)
+			iconImageView.transform = scaleTransform
+			selectionRing.transform = scaleTransform
 		}
 	}
 
@@ -423,9 +470,17 @@ import RSCore
 
 	override var isHighlighted: Bool {
 		didSet {
-			UIView.animate(withDuration: 0.1) {
+			UIView.animate(withDuration: 0.1, delay: 0, options: .allowUserInteraction) {
 				self.iconImageView.alpha = self.isHighlighted ? 0.65 : 1.0
 			}
 		}
+	}
+}
+
+// MARK: - IconScrollView
+
+private final class IconScrollView: UIScrollView {
+	override func touchesShouldCancel(in view: UIView) -> Bool {
+		view is UIControl ? true : super.touchesShouldCancel(in: view)
 	}
 }

@@ -85,48 +85,62 @@ import os.log
 		Self.logger.info("DEBUG: simulating iOS-forced sign-out")
 	}
 
-	// MARK: - Registration
+	// MARK: - Sign In
 
-	/// Registers the user by sending their info to the backend and persisting their Apple user ID locally.
+	/// Handles a Sign in with Apple credential. Sends whatever Apple provided to the server;
+	/// the server decides new (202) vs existing (201) via the HTTP status code.
 	/// - Parameters:
-	///   - email: The email address returned by Sign in with Apple (only on first sign-in).
-	///   - appleUserID: The stable `sub` identifier from the Apple identity token.
-	///   - firstName: Given name, only present on first sign-in.
-	///   - lastName: Family name, only present on first sign-in.
+	///   - appleUserID: The stable `sub` identifier from Apple (always present).
+	///   - email: The email Apple returned — only present on the user's first authorization or
+	///     after revoking and re-authorizing Sign in with Apple.
+	///   - firstName: Given name from the Apple credential (only on first auth).
+	///   - lastName: Family name from the Apple credential (only on first auth).
 	///   - identityToken: Signed JWT from Apple, decoded to extract `is_private_email`.
 	///   - realUserStatus: Apple's assessment of whether this is a real person.
-	func register(
-		email: String,
+	func signIn(
 		appleUserID: String,
+		email: String?,
 		firstName: String?,
 		lastName: String?,
 		identityToken: Data?,
 		realUserStatus: String
-	) async throws {
-		let tokenClaims = identityToken.flatMap { decodeJWTPayload($0) }
-		let isPrivateEmail: Bool = {
-			if let value = tokenClaims?["is_private_email"] as? Bool { return value }
-			if let value = tokenClaims?["is_private_email"] as? String { return value == "true" }
-			return false
-		}()
-
+	) async throws -> ManageUserOutcome {
 		let requestID = UUID().uuidString
+		// Send "creation" if Apple provided an email (first authorization) OR if we have no
+		// stored session token (e.g. app was deleted — server doesn't know us yet).
+		// Send "reconnection" only when we're certain the server already has our account.
+		let hasSessionToken = sessionToken != nil
+		let hasEmail = email != nil && !email!.isEmpty
+		let operation = (hasEmail || !hasSessionToken) ? "creation" : "reconnection"
 		var body: [String: Any] = [
-			"apple_user_id":    appleUserID,
-			"email":            email,
-			"is_private_email": isPrivateEmail,
-			"real_user_status": realUserStatus,
-			"operation":        "creation",
-			"request_id":       requestID
+			"apple_user_id": appleUserID,
+			"operation":     operation,
+			"request_id":    requestID
 		]
-		if let firstName { body["first_name"] = firstName }
-		if let lastName  { body["last_name"]  = lastName }
 
+		if let email, !email.isEmpty {
+			let tokenClaims = identityToken.flatMap { decodeJWTPayload($0) }
+			let isPrivateEmail: Bool = {
+				if let value = tokenClaims?["is_private_email"] as? Bool { return value }
+				if let value = tokenClaims?["is_private_email"] as? String { return value == "true" }
+				return false
+			}()
+			body["email"]            = email
+			body["is_private_email"] = isPrivateEmail
+			body["real_user_status"] = realUserStatus
+			if let firstName { body["first_name"] = firstName }
+			if let lastName  { body["last_name"]  = lastName }
+		}
+
+		var responseStatusCode = 200
 		do {
 			let (data, statusCode) = try await client.post(to: .manageUser, body: body)
+			responseStatusCode = statusCode
 			guard (200...299).contains(statusCode) else {
 				throw AuthError.serverError(statusCode: statusCode, body: Self.webhookMessage(from: data))
 			}
+			let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
+			Self.logger.info("manage-user \(operation) response: \(rawBody, privacy: .public)")
 			let json = Self.firstJSON(from: data)
 			if let echoed = json?["request_id"] as? String, echoed != requestID {
 				Self.logger.warning("request_id mismatch: sent \(requestID), received \(echoed)")
@@ -134,7 +148,7 @@ import os.log
 			if let token = json?["user_token"] as? String, !token.isEmpty {
 				saveSessionToken(token)
 			} else {
-				Self.logger.warning("No user_token in registration response — body: \(String(data: data, encoding: .utf8) ?? "(empty)", privacy: .public)")
+				Self.logger.warning("No user_token in \(operation) response — body: \(rawBody, privacy: .public)")
 			}
 		} catch let error as AuthError {
 			throw error
@@ -145,31 +159,28 @@ import os.log
 		keychainWrite(key: appleUserIDKey, value: appleUserID)
 		isExplicitlyDisconnected = false
 		isSimulatingIOSSignOut = false
-		Self.logger.info("User registered successfully")
+		Self.logger.info("Sign-in successful (status: \(responseStatusCode, privacy: .public))")
+		switch responseStatusCode {
+		case 201: return .existingUser
+		case 202: return .newUser
+		default:  return .existingUser
+		}
 	}
 
-	/// Marks the user as disconnected without erasing the stored identity.
-	/// The identity is preserved so the user can reconnect without Sign in with Apple.
-	func disconnect() {
-		isExplicitlyDisconnected = true
-		Self.logger.info("User disconnected")
-	}
-
-	/// Reconnects using a stored or freshly-obtained Apple user ID.
-	/// - Parameter overrideAppleUserID: When provided (e.g. from a new Sign in with Apple flow),
-	///   this ID is used instead of the Keychain value and is persisted on success.
-	///   When nil, falls back to the stored Keychain identity.
-	func reconnect(overrideAppleUserID: String? = nil) async throws {
-		let idToUse = overrideAppleUserID ?? appleUserID
-		guard let storedID = idToUse else {
+	/// Reconnects using the stored Apple user ID without a new Apple credential.
+	/// Used by the Face ID fast path — the user's identity is already in the Keychain.
+	func reconnect() async throws -> ManageUserOutcome {
+		guard let storedID = appleUserID else {
 			throw AuthError.noStoredIdentity
 		}
 
 		let requestID = UUID().uuidString
 		let body: [String: Any] = ["apple_user_id": storedID, "operation": "reconnection", "request_id": requestID]
 
+		var responseStatusCode = 200
 		do {
 			let (data, statusCode) = try await client.post(to: .manageUser, body: body)
+			responseStatusCode = statusCode
 			guard (200...299).contains(statusCode) else {
 				throw AuthError.serverError(statusCode: statusCode, body: Self.webhookMessage(from: data))
 			}
@@ -190,12 +201,20 @@ import os.log
 			throw AuthError.serverError(statusCode: 0, body: error.localizedDescription)
 		}
 
-		if overrideAppleUserID != nil {
-			keychainWrite(key: appleUserIDKey, value: storedID)
-		}
 		isExplicitlyDisconnected = false
 		isSimulatingIOSSignOut = false
-		Self.logger.info("User reconnected successfully")
+		Self.logger.info("Reconnect successful (status: \(responseStatusCode, privacy: .public))")
+		switch responseStatusCode {
+		case 202: return .newUser
+		default:  return .existingUser
+		}
+	}
+
+	/// Marks the user as disconnected without erasing the stored identity.
+	/// The identity is preserved so the user can reconnect without Sign in with Apple.
+	func disconnect() {
+		isExplicitlyDisconnected = true
+		Self.logger.info("User disconnected")
 	}
 
 	/// Sends a delete request to the backend and wipes the local identity.
@@ -338,6 +357,18 @@ import os.log
 		]
 		SecItemDelete(query as CFDictionary)
 	}
+}
+
+// MARK: - ManageUserOutcome
+
+/// The semantic result returned by `register()` and `reconnect()` after a successful server call.
+enum ManageUserOutcome {
+	/// HTTP 201 — the server found an existing account. Feeds should be restored from the server.
+	case existingUser
+	/// HTTP 202 — the server created a new account. Onboarding / source selection should proceed.
+	case newUser
+	/// Other 2xx — standard reconnect without email context. No onboarding action needed.
+	case reconnected
 }
 
 // MARK: - AuthError

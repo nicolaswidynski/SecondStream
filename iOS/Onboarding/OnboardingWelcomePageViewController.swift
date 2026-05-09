@@ -7,8 +7,6 @@
 //
 
 import UIKit
-import AuthenticationServices
-import os.log
 
 /// Page 1 of onboarding: app name, value proposition, and an adaptive screenshot.
 ///
@@ -17,13 +15,8 @@ import os.log
 ///   - `onboarding_screenshot_light` — light-mode screenshot
 @MainActor final class OnboardingWelcomePageViewController: UIViewController {
 
-	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "OnboardingWelcome")
-
 	/// Called when the user taps "Get Started" — advances to source selection.
 	var onContinue: (() -> Void)?
-
-	/// Called after a successful existing-user reconnect — skips source selection and registration.
-	var onExistingUser: (() -> Void)?
 
 	// MARK: - Views
 
@@ -95,28 +88,12 @@ import os.log
 		return button
 	}()
 
-	private lazy var existingUserButton: UIButton = {
-		var config = UIButton.Configuration.plain()
-		config.title = "Existing User"
-		config.cornerStyle = .medium
-		let button = UIButton(configuration: config)
-		button.addTarget(self, action: #selector(existingUserTapped), for: .touchUpInside)
-		return button
-	}()
-
 	private lazy var buttonStack: UIStackView = {
-		let stack = UIStackView(arrangedSubviews: [continueButton, existingUserButton])
+		let stack = UIStackView(arrangedSubviews: [continueButton])
 		stack.axis = .vertical
 		stack.spacing = 8
 		stack.translatesAutoresizingMaskIntoConstraints = false
 		return stack
-	}()
-
-	private let spinner: UIActivityIndicatorView = {
-		let iv = UIActivityIndicatorView(style: .large)
-		iv.hidesWhenStopped = true
-		iv.translatesAutoresizingMaskIntoConstraints = false
-		return iv
 	}()
 
 	// MARK: - Lifecycle
@@ -141,7 +118,6 @@ import os.log
 		scrollView.addSubview(contentStack)
 		view.addSubview(scrollView)
 		view.addSubview(buttonStack)
-		view.addSubview(spinner)
 
 		NSLayoutConstraint.activate([
 			scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
@@ -168,9 +144,6 @@ import os.log
 			buttonStack.trailingAnchor.constraint(equalTo: view.layoutMarginsGuide.trailingAnchor),
 			buttonStack.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
 			continueButton.heightAnchor.constraint(equalToConstant: 50),
-
-			spinner.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-			spinner.centerYAnchor.constraint(equalTo: view.centerYAnchor)
 		])
 
 		updateScreenshot()
@@ -192,43 +165,7 @@ import os.log
 		onContinue?()
 	}
 
-	@objc private func existingUserTapped() {
-		let provider = ASAuthorizationAppleIDProvider()
-		let request = provider.createRequest()
-		request.requestedScopes = [.email, .fullName]
-		let controller = ASAuthorizationController(authorizationRequests: [request])
-		controller.delegate = self
-		controller.presentationContextProvider = self
-		controller.performRequests()
-	}
-
 	// MARK: - Private
-
-	private func setLoading(_ loading: Bool) {
-		continueButton.isEnabled = !loading
-		existingUserButton.isEnabled = !loading
-		if loading {
-			spinner.startAnimating()
-		} else {
-			spinner.stopAnimating()
-		}
-	}
-
-	private func reconnect(appleUserID: String) {
-		setLoading(true)
-		Task { @MainActor in
-			defer { setLoading(false) }
-			do {
-				try await AuthManager.shared.reconnect(overrideAppleUserID: appleUserID)
-				onExistingUser?()
-			} catch {
-				Self.logger.error("Existing user reconnect failed: \(error.localizedDescription)")
-				let alert = UIAlertController(title: "Sign In Failed", message: error.localizedDescription, preferredStyle: .alert)
-				alert.addAction(UIAlertAction(title: "OK", style: .default))
-				present(alert, animated: true)
-			}
-		}
-	}
 
 	private func updateGradientColors() {
 		gradientLayer?.colors = [
@@ -240,41 +177,5 @@ import os.log
 	private func updateScreenshot() {
 		let isDark = traitCollection.userInterfaceStyle == .dark
 		screenshotImageView.image = UIImage(named: isDark ? "onboarding_screenshot_dark" : "onboarding_screenshot_light")
-	}
-}
-
-// MARK: - ASAuthorizationControllerDelegate
-
-extension OnboardingWelcomePageViewController: ASAuthorizationControllerDelegate {
-
-	func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
-		guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else { return }
-		reconnect(appleUserID: credential.user)
-	}
-
-	func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
-		let nsError = error as NSError
-		guard nsError.domain == ASAuthorizationError.errorDomain,
-			  nsError.code == ASAuthorizationError.canceled.rawValue else {
-			Self.logger.error("Sign in with Apple failed: \(error.localizedDescription)")
-			let alert = UIAlertController(title: "Sign In Failed", message: error.localizedDescription, preferredStyle: .alert)
-			alert.addAction(UIAlertAction(title: "OK", style: .default))
-			present(alert, animated: true)
-			return
-		}
-	}
-}
-
-// MARK: - ASAuthorizationControllerPresentationContextProviding
-
-extension OnboardingWelcomePageViewController: ASAuthorizationControllerPresentationContextProviding {
-
-	func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-		if let window = view.window { return window }
-		guard let scene = UIApplication.shared.connectedScenes
-			.compactMap({ $0 as? UIWindowScene }).first else {
-			fatalError("No UIWindowScene available")
-		}
-		return scene.keyWindow ?? UIWindow(windowScene: scene)
 	}
 }
