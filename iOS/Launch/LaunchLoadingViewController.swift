@@ -4,6 +4,7 @@
 //
 
 import UIKit
+import AuthenticationServices
 
 /// Full-screen loading overlay shown on normal launch while sources and icons are being prepared.
 /// Runs auth migration, source JSON fetch, and image prefetch in parallel, then calls `onReady`.
@@ -72,11 +73,41 @@ final class LaunchLoadingViewController: UIViewController {
 	}
 
 	/// Silently reconnects if needed (per-user token migration) then detects missing feeds.
+	/// Skips all network work when the user is not connected — auth routing is handled by the caller.
 	private func authAndSync() async -> [MissingFeed] {
+		// Verify Apple credential state first. If revoked or not found, wipe local identity
+		// so the routing in onReady correctly sends the user back through onboarding.
+		await verifyAppleCredentialState()
+
+		guard AuthManager.shared.isConnected else { return [] }
 		if AuthManager.shared.sessionToken == nil {
-			try? await AuthManager.shared.reconnect()
+			_ = try? await AuthManager.shared.reconnect()
 		}
 		return (try? await SubscriptionSyncManager.shared.detectMissingFeeds()) ?? []
+	}
+
+	/// Checks whether the stored Apple user ID is still valid. Clears local identity and resets
+	/// the onboarding gate if Apple reports the credential as revoked or not found.
+	private func verifyAppleCredentialState() async {
+		guard let appleUserID = AuthManager.shared.appleUserID else {
+				return
+		}
+		do {
+			let state = try await ASAuthorizationAppleIDProvider().credentialState(forUserID: appleUserID)
+			switch state {
+			case .revoked, .notFound:
+				await MainActor.run {
+					AuthManager.shared.clearStoredIdentity()
+					AppDefaults.shared.hasShownLandingPage = false
+				}
+			case .authorized, .transferred:
+				break
+			@unknown default:
+				break
+			}
+		} catch {
+			// Non-fatal — if the check fails, leave the existing state intact.
+		}
 	}
 
 	/// Fetches fresh source JSON files then prefetches discover strip icons.

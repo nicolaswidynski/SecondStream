@@ -39,7 +39,7 @@ enum BootstrapJobState: Equatable {
 /// Manages polling for bootstrap progress on newly added shows that returned 202.
 ///
 /// Jobs are persisted in `UserDefaults` so they survive app restarts.
-/// Each job polls `query-bootstrap-progress` every 10 s (first poll after 10 s),
+/// Each job polls `query-bootstrap-progress` every 2 s starting immediately,
 /// and stops when progress reaches 100 or the job is older than 1 hour.
 ///
 /// Job state is keyed by feed URL for easy lookup from the sidebar.
@@ -51,7 +51,7 @@ enum BootstrapJobState: Equatable {
 
 	private let client = SecondStreamAPIClient.shared
 	private let jobsKey = "bootstrapProgressJobs"
-	private let pollInterval: TimeInterval = 10
+	private let pollInterval: TimeInterval = 2
 	private let maxDuration: TimeInterval = 3600        // 1 hour absolute cap
 	private let maxProgressDuration: TimeInterval = 420 // 7 minutes from first progress > 0
 
@@ -102,7 +102,7 @@ enum BootstrapJobState: Equatable {
 				continue
 			}
 			jobStates[job.feedURL] = .polling(progress: 0.0)
-			// Align the initial delay to the next 10-second boundary
+			// Align the initial delay to the next poll boundary
 			let remaining = pollInterval - elapsed.truncatingRemainder(dividingBy: pollInterval)
 			startPolling(job: job, initialDelay: max(0, remaining))
 		}
@@ -151,7 +151,7 @@ enum BootstrapJobState: Equatable {
 
 		jobStates[feedURL] = .polling(progress: 0.0)
 		notifyUpdate(feedURL: feedURL)
-		startPolling(job: job, initialDelay: pollInterval)
+		startPolling(job: job, initialDelay: 0)
 	}
 
 	/// Current progress fraction (0.0–1.0) for a given feed URL, or `nil` if not bootstrapping.
@@ -317,10 +317,12 @@ enum BootstrapJobState: Equatable {
 			return .transientFailure
 		}
 
+		let requestID = UUID().uuidString
 		var body: [String: Any] = [
 			"apple_user_id": appleUserID,
 			"type":          job.type,
-			"show":          job.show
+			"show":          job.show,
+			"request_id":    requestID
 		]
 		if !job.author.isEmpty {
 			body["author"] = job.author
@@ -362,8 +364,14 @@ enum BootstrapJobState: Equatable {
 			Self.logger.info("queryProgress response body: \(rawBody, privacy: .public)")
 			let dict = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
 				?? (try? JSONSerialization.jsonObject(with: data) as? [[String: Any]])?.first
-			if let dict, let pct = parsePercentage(from: dict) {
-				return .percentage(pct)
+			if let dict {
+				if let echoed = dict["request_id"] as? String, echoed != requestID {
+					Self.logger.warning("queryProgress request_id mismatch for \(job.feedURL): sent \(requestID), received \(echoed)")
+					return .transientFailure
+				}
+				if let pct = parsePercentage(from: dict) {
+					return .percentage(pct)
+				}
 			}
 			Self.logger.error("queryProgress — could not parse percentage from: \(rawBody, privacy: .public)")
 			return .transientFailure

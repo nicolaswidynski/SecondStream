@@ -8,15 +8,15 @@
 
 import UIKit
 import AuthenticationServices
-import LocalAuthentication
 import Account
 import os.log
 
-/// Page 3 of onboarding: account creation / sign-in, followed by adding selected sources.
+/// Page 3 of onboarding: Sign in with Apple, followed by adding selected sources.
 ///
-/// After a successful auth, each selected source is added via its manager's webhook, one by one,
-/// with progress shown in the UI. The caller receives the resulting `[AddFeedRequest]` via
-/// `onComplete` and is responsible for actually creating the feeds in the account.
+/// Tapping "Getting Started" triggers Sign in with Apple. The credential is sent to the server
+/// via `signIn()` and the HTTP status code determines what happens next:
+///   - 201 (existing user) → skip source setup and complete immediately
+///   - 202 (new user) → add the sources the user selected on page 2
 @MainActor final class OnboardingRegistrationPageViewController: UIViewController {
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "OnboardingRegistration")
@@ -26,10 +26,6 @@ import os.log
 
 	/// Called after all webhook calls finish. Receives the assembled feed requests.
 	var onComplete: (([AddFeedRequest]) -> Void)?
-
-	// MARK: - State
-
-	private var pendingIsReconnect = true
 
 	// MARK: - Auth phase views
 
@@ -61,25 +57,15 @@ import os.log
 		return label
 	}()
 
-	private lazy var existingUserButton: UIButton = {
+	private lazy var signInButton: UIButton = {
 		var config = UIButton.Configuration.filled()
-		config.title = "Already a User"
+		config.title = "Getting Started"
 		config.cornerStyle = .medium
 		config.baseBackgroundColor = Assets.Colors.primaryAccent
 		config.baseForegroundColor = .white
 		let button = UIButton(configuration: config)
 		button.translatesAutoresizingMaskIntoConstraints = false
-		button.addTarget(self, action: #selector(handleExistingUser), for: .touchUpInside)
-		return button
-	}()
-
-	private lazy var newUserButton: UIButton = {
-		var config = UIButton.Configuration.tinted()
-		config.title = "Create an Account"
-		config.cornerStyle = .medium
-		let button = UIButton(configuration: config)
-		button.translatesAutoresizingMaskIntoConstraints = false
-		button.addTarget(self, action: #selector(handleNewUser), for: .touchUpInside)
+		button.addTarget(self, action: #selector(handleSignIn), for: .touchUpInside)
 		return button
 	}()
 
@@ -137,16 +123,13 @@ import os.log
 		authStack.setCustomSpacing(8, after: titleLabel)
 		authStack.addArrangedSubview(subtitleLabel)
 		authStack.setCustomSpacing(48, after: subtitleLabel)
-		authStack.addArrangedSubview(existingUserButton)
-		authStack.addArrangedSubview(newUserButton)
+		authStack.addArrangedSubview(signInButton)
 		authStack.addArrangedSubview(authSpinner)
 		view.addSubview(authStack)
 
 		NSLayoutConstraint.activate([
-			existingUserButton.widthAnchor.constraint(equalTo: authStack.widthAnchor),
-			existingUserButton.heightAnchor.constraint(equalToConstant: 50),
-			newUserButton.widthAnchor.constraint(equalTo: authStack.widthAnchor),
-			newUserButton.heightAnchor.constraint(equalToConstant: 50),
+			signInButton.widthAnchor.constraint(equalTo: authStack.widthAnchor),
+			signInButton.heightAnchor.constraint(equalToConstant: 50),
 			authStack.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -40),
 			authStack.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
 			authStack.trailingAnchor.constraint(equalTo: view.layoutMarginsGuide.trailingAnchor)
@@ -165,57 +148,9 @@ import os.log
 		])
 	}
 
-	override func viewDidAppear(_ animated: Bool) {
-		super.viewDidAppear(animated)
-		guard AppDefaults.shared.faceIDEnabled else { return }
-		if UIApplication.shared.applicationState == .active {
-			DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-				self?.authenticateWithFaceID(fallBackToApple: false)
-			}
-		}
-	}
+	// MARK: - Actions
 
-	// MARK: - Auth actions
-
-	@objc private func handleExistingUser() {
-		pendingIsReconnect = true
-		if AppDefaults.shared.faceIDEnabled {
-			authenticateWithFaceID(fallBackToApple: true)
-		} else {
-			triggerAppleSignIn()
-		}
-	}
-
-	@objc private func handleNewUser() {
-		pendingIsReconnect = false
-		triggerAppleSignIn()
-	}
-
-	// MARK: - Face ID
-
-	private func authenticateWithFaceID(fallBackToApple: Bool) {
-		let context = LAContext()
-		var error: NSError?
-		guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
-			if fallBackToApple { triggerAppleSignIn() }
-			return
-		}
-		let reason = NSLocalizedString("Reconnect to your Second Stream account", comment: "Face ID reason")
-		context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { [weak self] success, _ in
-			DispatchQueue.main.async {
-				guard let self else { return }
-				if success {
-					self.reconnect()
-				} else if fallBackToApple {
-					self.triggerAppleSignIn()
-				}
-			}
-		}
-	}
-
-	// MARK: - Apple Sign In
-
-	private func triggerAppleSignIn() {
+	@objc private func handleSignIn() {
 		let provider = ASAuthorizationAppleIDProvider()
 		let request = provider.createRequest()
 		request.requestedScopes = [.email, .fullName]
@@ -225,29 +160,10 @@ import os.log
 		controller.performRequests()
 	}
 
-	// MARK: - Reconnect
-
-	private func reconnect(overrideAppleUserID: String? = nil) {
-		setAuthLoading(true)
-		Task { @MainActor in
-			defer { setAuthLoading(false) }
-			do {
-				try await AuthManager.shared.reconnect(overrideAppleUserID: overrideAppleUserID)
-				await addSources()
-			} catch AuthError.noStoredIdentity {
-				pendingIsReconnect = true
-				triggerAppleSignIn()
-			} catch {
-				showAuthError(error.localizedDescription)
-			}
-		}
-	}
-
 	// MARK: - Helpers
 
 	private func setAuthLoading(_ loading: Bool) {
-		existingUserButton.isEnabled = !loading
-		newUserButton.isEnabled = !loading
+		signInButton.isEnabled = !loading
 		if loading {
 			authSpinner.startAnimating()
 		} else {
@@ -324,15 +240,6 @@ import os.log
 		addingProgressLabel.text = "All done!"
 		addingSpinner.stopAnimating()
 
-		// Sync server subscriptions (restores feeds added on other devices).
-		do {
-			try await SubscriptionSyncManager.shared.sync()
-		} catch {
-			let alert = UIAlertController(title: "Sync Failed", message: error.localizedDescription, preferredStyle: .alert)
-			alert.addAction(UIAlertAction(title: "OK", style: .default))
-			present(alert, animated: true)
-		}
-
 		// Brief pause so the user sees "All done!" before dismissal.
 		try? await Task.sleep(nanoseconds: 700_000_000)
 		onComplete?(feedRequests)
@@ -345,26 +252,6 @@ extension OnboardingRegistrationPageViewController: ASAuthorizationControllerDel
 
 	func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
 		guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else { return }
-
-		if pendingIsReconnect {
-			reconnect(overrideAppleUserID: credential.user)
-			return
-		}
-
-		let email = credential.email ?? ""
-		guard !email.isEmpty else {
-			if AuthManager.shared.isConnected {
-				Task { await addSources() }
-			} else if AuthManager.shared.isRegistered {
-				Self.logger.info("Apple returned no email; falling back to reconnect()")
-				reconnect()
-			} else {
-				showAuthError(
-					"It looks like you previously started signing up but the account wasn't created. To try again, go to Settings → your name → Sign-In & Security → Apps Using Apple ID, find Second Stream, tap it, and select Stop Using Apple ID. Then come back and sign up again."
-				)
-			}
-			return
-		}
 
 		let realUserStatus: String = {
 			switch credential.realUserStatus {
@@ -379,17 +266,21 @@ extension OnboardingRegistrationPageViewController: ASAuthorizationControllerDel
 		Task { @MainActor in
 			defer { setAuthLoading(false) }
 			do {
-				try await AuthManager.shared.register(
-					email: email,
+				let outcome = try await AuthManager.shared.signIn(
 					appleUserID: credential.user,
+					email: credential.email,
 					firstName: credential.fullName?.givenName,
 					lastName: credential.fullName?.familyName,
 					identityToken: credential.identityToken,
 					realUserStatus: realUserStatus
 				)
-				await addSources()
+				if outcome == .existingUser {
+					onComplete?([])
+				} else {
+					await addSources()
+				}
 			} catch {
-				Self.logger.error("Registration error: \(error.localizedDescription)")
+				Self.logger.error("Sign in error: \(error.localizedDescription)")
 				showAuthError(error.localizedDescription)
 			}
 		}

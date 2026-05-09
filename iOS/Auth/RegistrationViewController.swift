@@ -11,15 +11,15 @@ import AuthenticationServices
 import LocalAuthentication
 import os.log
 
-/// Handles both reconnection and new-user registration (Sign in with Apple).
+/// Handles reconnection and new-user registration via Sign in with Apple.
 ///
-/// Shows two buttons: "Existing User" (Face ID → Apple Sign In fallback) and "New User" (Apple Sign In).
+/// Shows a single "Reconnect" button. Face ID is attempted automatically on appear when enabled.
+/// The Apple credential's email presence determines the operation — email present means first-time
+/// authorization, so `register()` is called and the server decides (201 = existing, 202 = new);
+/// no email means a returning user, so `reconnect()` is called.
 final class RegistrationViewController: UIViewController {
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "Auth")
-
-	/// Tracks whether a pending Apple Sign In sheet is for reconnection or new account creation.
-	private var pendingAppleSignInIsReconnect = true
 
 	/// Called after a successful sign-in or reconnect, just before dismissal.
 	var didSucceedHandler: (() -> Void)?
@@ -44,23 +44,15 @@ final class RegistrationViewController: UIViewController {
 		return label
 	}()
 
-	private let existingUserButton: UIButton = {
+	private lazy var reconnectButton: UIButton = {
 		var config = UIButton.Configuration.filled()
-		config.title = "Existing User"
+		config.title = "Reconnect"
 		config.cornerStyle = .medium
 		config.baseBackgroundColor = Assets.Colors.primaryAccent
 		config.baseForegroundColor = .white
 		let button = UIButton(configuration: config)
 		button.translatesAutoresizingMaskIntoConstraints = false
-		return button
-	}()
-
-	private let newUserButton: UIButton = {
-		var config = UIButton.Configuration.tinted()
-		config.title = "New User"
-		config.cornerStyle = .medium
-		let button = UIButton(configuration: config)
-		button.translatesAutoresizingMaskIntoConstraints = false
+		button.addTarget(self, action: #selector(handleReconnect), for: .touchUpInside)
 		return button
 	}()
 
@@ -76,13 +68,9 @@ final class RegistrationViewController: UIViewController {
 		super.viewDidLoad()
 		view.backgroundColor = Assets.Colors.background
 
-		existingUserButton.addTarget(self, action: #selector(handleExistingUser), for: .touchUpInside)
-		newUserButton.addTarget(self, action: #selector(handleNewUser), for: .touchUpInside)
-
 		stackView.addArrangedSubview(titleLabel)
 		stackView.setCustomSpacing(48, after: titleLabel)
-		stackView.addArrangedSubview(existingUserButton)
-		stackView.addArrangedSubview(newUserButton)
+		stackView.addArrangedSubview(reconnectButton)
 		stackView.addArrangedSubview(activityIndicator)
 
 		view.addSubview(stackView)
@@ -90,10 +78,8 @@ final class RegistrationViewController: UIViewController {
 			stackView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -40),
 			stackView.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
 			stackView.trailingAnchor.constraint(equalTo: view.layoutMarginsGuide.trailingAnchor),
-			existingUserButton.widthAnchor.constraint(equalTo: stackView.widthAnchor),
-			existingUserButton.heightAnchor.constraint(equalToConstant: 50),
-			newUserButton.widthAnchor.constraint(equalTo: stackView.widthAnchor),
-			newUserButton.heightAnchor.constraint(equalToConstant: 50),
+			reconnectButton.widthAnchor.constraint(equalTo: stackView.widthAnchor),
+			reconnectButton.heightAnchor.constraint(equalToConstant: 50),
 		])
 	}
 
@@ -120,16 +106,8 @@ final class RegistrationViewController: UIViewController {
 
 	// MARK: - Actions
 
-	@objc private func handleExistingUser() {
-		if AppDefaults.shared.faceIDEnabled {
-			authenticateWithFaceID(fallBackToApple: true)
-		} else {
-			triggerAppleSignIn(isReconnect: true)
-		}
-	}
-
-	@objc private func handleNewUser() {
-		triggerAppleSignIn(isReconnect: false)
+	@objc private func handleReconnect() {
+		triggerAppleSignIn()
 	}
 
 	// MARK: - Face ID
@@ -139,7 +117,7 @@ final class RegistrationViewController: UIViewController {
 		var error: NSError?
 		guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
 			Self.logger.info("Biometrics unavailable: \(error?.localizedDescription ?? "unknown")")
-			if fallBackToApple { triggerAppleSignIn(isReconnect: true) }
+			if fallBackToApple { triggerAppleSignIn() }
 			return
 		}
 		let reason = NSLocalizedString("Reconnect to your Second Stream account", comment: "Face ID reason")
@@ -150,7 +128,7 @@ final class RegistrationViewController: UIViewController {
 					self.reconnect()
 				} else {
 					Self.logger.info("Face ID not completed: \(authError?.localizedDescription ?? "cancelled")")
-					if fallBackToApple { self.triggerAppleSignIn(isReconnect: true) }
+					if fallBackToApple { self.triggerAppleSignIn() }
 				}
 			}
 		}
@@ -158,32 +136,29 @@ final class RegistrationViewController: UIViewController {
 
 	// MARK: - Apple Sign In
 
-	private func triggerAppleSignIn(isReconnect: Bool) {
-		pendingAppleSignInIsReconnect = isReconnect
+	private func triggerAppleSignIn() {
 		let provider = ASAuthorizationAppleIDProvider()
 		let request = provider.createRequest()
 		request.requestedScopes = [.email, .fullName]
-
 		let controller = ASAuthorizationController(authorizationRequests: [request])
 		controller.delegate = self
 		controller.presentationContextProvider = self
 		controller.performRequests()
 	}
 
-	// MARK: - Reconnect
+	// MARK: - Reconnect (Face ID path — no Apple credential)
 
-	private func reconnect(overrideAppleUserID: String? = nil) {
+	private func reconnect() {
 		setLoading(true)
 		Task { @MainActor in
 			defer { setLoading(false) }
 			do {
-				try await AuthManager.shared.reconnect(overrideAppleUserID: overrideAppleUserID)
+				_ = try await AuthManager.shared.reconnect()
 				didSucceedHandler?()
 				dismiss(animated: true)
 			} catch AuthError.noStoredIdentity {
-				// Keychain inaccessible (e.g. timing after unlock) — fall back to Apple Sign In.
 				Self.logger.info("Reconnect: no stored identity, falling back to Apple Sign In")
-				triggerAppleSignIn(isReconnect: true)
+				triggerAppleSignIn()
 			} catch {
 				Self.logger.error("Reconnect error: \(error.localizedDescription)")
 				showError(error.localizedDescription)
@@ -194,8 +169,7 @@ final class RegistrationViewController: UIViewController {
 	// MARK: - Helpers
 
 	private func setLoading(_ loading: Bool) {
-		existingUserButton.isEnabled = !loading
-		newUserButton.isEnabled = !loading
+		reconnectButton.isEnabled = !loading
 		if loading {
 			activityIndicator.startAnimating()
 		} else {
@@ -219,17 +193,6 @@ extension RegistrationViewController: ASAuthorizationControllerDelegate {
 			return
 		}
 
-		if pendingAppleSignInIsReconnect {
-			reconnect(overrideAppleUserID: credential.user)
-			return
-		}
-
-		// New account creation flow
-		let appleUserID = credential.user
-		let email = credential.email ?? ""
-		let firstName = credential.fullName?.givenName
-		let lastName = credential.fullName?.familyName
-		let identityToken = credential.identityToken
 		let realUserStatus: String = {
 			switch credential.realUserStatus {
 			case .likelyReal: return "likelyReal"
@@ -239,39 +202,22 @@ extension RegistrationViewController: ASAuthorizationControllerDelegate {
 			}
 		}()
 
-		guard !email.isEmpty else {
-			if AuthManager.shared.isConnected {
-				didSucceedHandler?()
-				dismiss(animated: true)
-			} else if AuthManager.shared.isRegistered {
-				Self.logger.info("Apple returned no email; using reconnect() path")
-				reconnect()
-			} else {
-				showError(
-					"It looks like you previously started signing up but the account wasn't created. To try again, go to Settings → your name → Sign-In & Security → Apps Using Apple ID, find Second Stream, tap it, and select Stop Using Apple ID. Then come back and sign up again.",
-					title: "Account Setup Incomplete"
-				)
-			}
-			return
-		}
-
 		setLoading(true)
-
 		Task { @MainActor in
 			defer { setLoading(false) }
 			do {
-				try await AuthManager.shared.register(
-					email: email,
-					appleUserID: appleUserID,
-					firstName: firstName,
-					lastName: lastName,
-					identityToken: identityToken,
+				_ = try await AuthManager.shared.signIn(
+					appleUserID: credential.user,
+					email: credential.email,
+					firstName: credential.fullName?.givenName,
+					lastName: credential.fullName?.familyName,
+					identityToken: credential.identityToken,
 					realUserStatus: realUserStatus
 				)
 				didSucceedHandler?()
 				dismiss(animated: true)
 			} catch {
-				Self.logger.error("Registration error: \(error.localizedDescription)")
+				Self.logger.error("Sign in error: \(error.localizedDescription)")
 				showError(error.localizedDescription)
 			}
 		}

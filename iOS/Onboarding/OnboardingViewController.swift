@@ -20,8 +20,7 @@ import UIKit
 
 	let isDebug: Bool
 
-	/// Called after dismissal with the `AddFeedRequest`s the registration page assembled.
-	/// Caller is responsible for actually creating the feeds.
+	/// Called after dismissal with the feed requests assembled on the registration page.
 	var onComplete: (([AddFeedRequest]) -> Void)?
 
 	// MARK: - Child pages
@@ -70,8 +69,8 @@ import UIKit
 		currentIndex = index
 	}
 
+	/// Dismisses the onboarding and signals completion with the assembled feed requests.
 	func finish(with requests: [AddFeedRequest]) {
-		AppDefaults.shared.hasShownLandingPage = true
 		AppDefaults.shared.debugShowLandingPage = false
 		dismiss(animated: true) { [weak self] in
 			self?.onComplete?(requests)
@@ -112,9 +111,6 @@ import UIKit
 	private func wirePageCallbacks() {
 		welcomePage.onContinue = { [weak self] in
 			self?.advance(to: 1)
-		}
-		welcomePage.onExistingUser = { [weak self] in
-			self?.finish(with: [])
 		}
 		selectionPage.onContinue = { [weak self] sources in
 			self?.registrationPage.selectedSources = sources

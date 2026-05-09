@@ -155,13 +155,13 @@ private let apiClientLogger = Logger(subsystem: Bundle.main.bundleIdentifier!, c
 			// Account creation and reconnect use the shared bootstrap token.
 			guard let bootstrap = bootstrapToken else { throw APIError.missingToken }
 			request.setValue("Bearer \(bootstrap)", forHTTPHeaderField: "Authorization")
-			// Also send session token if available — server requires it on reconnect for users who already have one.
-			if let sessionToken = AuthManager.shared.sessionToken {
-				request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "authorization_uuid")
-			}
 		} else {
-			// All other webhooks use the per-user session token.
-			guard let sessionToken = AuthManager.shared.sessionToken else { throw APIError.missingToken }
+			// All other webhooks require the per-user session token.
+			guard AuthManager.shared.sessionToken != nil else { throw APIError.missingToken }
+		}
+
+		// Always attach the session token when available — the server uses it on all endpoints.
+		if let sessionToken = AuthManager.shared.sessionToken {
 			request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "authorization_uuid")
 		}
 

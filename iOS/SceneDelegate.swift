@@ -45,16 +45,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 		updateUserInterfaceStyle()
 
-		if !AuthManager.shared.isConnected {
-			if AppDefaults.shared.shouldShowLandingPage {
-				presentOnboarding()
-			} else {
-				presentRegistration()
-			}
-		} else if AppDefaults.shared.shouldShowLandingPage {
-			presentLandingPage()
-		} else {
-			presentLaunchLoading()
+		// Always show the launch loading screen first so the feed scene is never visible
+		// before auth checks are complete. Auth routing happens inside presentLaunchLoading's
+		// onReady callback once the loading phase finishes.
+		presentLaunchLoading()
+
+		if AuthManager.shared.isConnected && AppDefaults.shared.shouldShowLandingPage {
+			syncAfterAuth()
 		}
 
 		NotificationCenter.default.addObserver(self, selector: #selector(handleUserInterfaceColorPaletteDidUpdate(_:)), name: .userInterfaceColorPaletteDidUpdate, object: AppDefaults.self)
@@ -104,7 +101,15 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		coordinator.resetFocus()
 		Task { @MainActor in BootstrapProgressManager.shared.resumeFromBackground() }
 		if !AuthManager.shared.isConnected {
-			presentRegistration()
+			// Skip auth routing during initial launch — the launch loading VC owns routing at that point.
+			// Only intervene if the loading VC is no longer active (i.e. this is a foreground resume).
+			let isLoadingActive = window?.rootViewController?.children.contains { $0 is LaunchLoadingViewController } == true
+			guard !isLoadingActive else { return }
+			if AppDefaults.shared.shouldShowLandingPage {
+				presentOnboarding()
+			} else {
+				presentRegistration()
+			}
 		}
 	}
 
@@ -254,10 +259,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 			let registrationVC = RegistrationViewController()
 			registrationVC.modalPresentationStyle = .fullScreen
 			registrationVC.isModalInPresentation = true // prevents swipe-to-dismiss
-			if AppDefaults.shared.shouldShowLandingPage {
-				registrationVC.didSucceedHandler = { [weak self] in
-					self?.presentLandingPage(reason: .newAccount)
-				}
+			registrationVC.didSucceedHandler = { [weak self] in
+				self?.syncAfterAuth()
 			}
 			self.window?.rootViewController?.present(registrationVC, animated: false)
 		}
@@ -277,15 +280,52 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		guard let rootVC = window?.rootViewController else { return }
 		let loadingVC = LaunchLoadingViewController()
 		loadingVC.onReady = { [weak self] missing in
-			UIView.animate(withDuration: 0.25, animations: {
-				loadingVC.view.alpha = 0
-			}, completion: { _ in
-				loadingVC.willMove(toParent: nil)
-				loadingVC.view.removeFromSuperview()
-				loadingVC.removeFromParent()
-				guard !missing.isEmpty else { return }
-				self?.presentSourceRestore(missing)
-			})
+			guard let self else { return }
+
+			func removeLoadingVC() {
+				MainActor.assumeIsolated {
+					loadingVC.willMove(toParent: nil)
+					loadingVC.view.removeFromSuperview()
+					loadingVC.removeFromParent()
+				}
+			}
+
+			if !AuthManager.shared.isConnected {
+				// Present the auth VC directly on top of the loading screen (no gap) then
+				// tear down the loading VC once the presentation is fully on-screen.
+				let authVC: UIViewController
+				if AppDefaults.shared.shouldShowLandingPage {
+					let vc = OnboardingViewController()
+					vc.onComplete = { [weak self] requests in
+						self?.syncAfterAuth(addingFeeds: requests)
+					}
+					authVC = vc
+				} else {
+					let vc = RegistrationViewController()
+					vc.didSucceedHandler = { [weak self] in
+						self?.syncAfterAuth()
+					}
+					authVC = vc
+				}
+				authVC.modalPresentationStyle = .fullScreen
+				authVC.isModalInPresentation = true
+				rootVC.present(authVC, animated: false) {
+					removeLoadingVC()
+				}
+			} else if !missing.isEmpty {
+				UIView.animate(withDuration: 0.25, animations: {
+					loadingVC.view.alpha = 0
+				}, completion: { _ in
+					removeLoadingVC()
+					self.presentSourceRestore(missing)
+				})
+			} else {
+				UIView.animate(withDuration: 0.25, animations: {
+					loadingVC.view.alpha = 0
+				}, completion: { _ in
+					removeLoadingVC()
+				})
+			}
 		}
 		rootVC.addChild(loadingVC)
 		loadingVC.view.frame = rootVC.view.bounds
@@ -315,34 +355,48 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 			onboardingVC.modalPresentationStyle = .fullScreen
 			onboardingVC.isModalInPresentation = true
 			onboardingVC.onComplete = { [weak self] requests in
-				self?.addOnboardingFeeds(requests)
+				self?.syncAfterAuth(addingFeeds: requests)
 			}
 			self.window?.rootViewController?.present(onboardingVC, animated: false)
 		}
 	}
 
-	private func addOnboardingFeeds(_ requests: [AddFeedRequest]) {
-		guard let account = AccountManager.shared.activeAccounts.first else { return }
+	/// Single post-auth handler. Called after every successful register or reconnect,
+	/// from every entry point (onboarding, registration screen, or scene launch).
+	/// Adds any onboarding-selected feeds, syncs server subscriptions, and refreshes.
+	func syncAfterAuth(addingFeeds: [AddFeedRequest] = []) {
 		Task { @MainActor in
-			BatchUpdate.shared.start()
-			for request in requests {
-				let normalized = request.urlString.normalizedURL
-				guard !normalized.isEmpty, let feedURL = URL(string: normalized) else { continue }
-				guard !account.hasFeed(withURL: feedURL.absoluteString) else { continue }
-				await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-					account.createFeed(url: feedURL.absoluteString, name: request.name, container: account, validateFeed: false) { result in
-						if case .success(let feed) = result {
-							feed.feedCategory = request.category
-							if let lightURL = request.imageURLLight {
-								LightFeedIconStore.shared.setLightIconURL(lightURL, for: feed.url)
+			if !addingFeeds.isEmpty, let account = AccountManager.shared.activeAccounts.first {
+				BatchUpdate.shared.start()
+				for request in addingFeeds {
+					let normalized = request.urlString.normalizedURL
+					guard !normalized.isEmpty, let feedURL = URL(string: normalized) else { continue }
+					guard !account.hasFeed(withURL: feedURL.absoluteString) else { continue }
+					await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+						account.createFeed(url: feedURL.absoluteString, name: request.name, container: account, validateFeed: false) { result in
+							if case .success(let feed) = result {
+								feed.feedCategory = request.category
+								if let lightURL = request.imageURLLight {
+									LightFeedIconStore.shared.setLightIconURL(lightURL, for: feed.url)
+								}
+								NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
 							}
-							NotificationCenter.default.post(name: .ChildrenDidChange, object: account)
+							continuation.resume()
 						}
-						continuation.resume()
 					}
 				}
+				BatchUpdate.shared.end()
+
+				// Expand category sections for all feed categories that were just added so
+				// the sidebar isn't collapsed when the user first sees the feed scene.
+				let addedCategories = Set(addingFeeds.map { $0.category })
+				if addedCategories.contains(.podcast) { coordinator.expandCategorySection(.podcasts) }
+				if addedCategories.contains(.youtube) { coordinator.expandCategorySection(.youtube) }
+				if addedCategories.contains(.news)    { coordinator.expandCategorySection(.news) }
+				if addedCategories.contains(.rss)     { coordinator.expandCategorySection(.rssFeeds) }
 			}
-			BatchUpdate.shared.end()
+			AppDefaults.shared.hasShownLandingPage = true
+			try? await SubscriptionSyncManager.shared.sync()
 			if let rootVC = self.window?.rootViewController {
 				appDelegate.manualRefresh(errorHandler: ErrorHandler.present(rootVC))
 			}
