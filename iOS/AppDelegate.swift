@@ -63,23 +63,7 @@ import Secrets
 
 		let isFirstRun = AppDefaults.shared.isFirstRun
 
-		// Reinstall detection: UserDefaults.standard is wiped on deletion; the App Group
-		// container (AppDefaults.store) is also wiped. Keychain is NOT wiped, leaving stale
-		// credentials. An app update preserves both containers, so hasShownLandingPage stays
-		// true — that distinguishes update (don't clear) from reinstall (clear stale Keychain).
-		let reinstallKey = "hasLaunchedBefore"
-		let neverLaunchedWithThisKey = UserDefaults.standard.object(forKey: reinstallKey) == nil
-		let isReinstall = neverLaunchedWithThisKey
-			&& !AppDefaults.shared.hasShownLandingPage
-			&& AuthManager.shared.appleUserID != nil
-		if neverLaunchedWithThisKey {
-			UserDefaults.standard.set(true, forKey: reinstallKey)
-		}
-		if isReinstall {
-			Self.logger.info("Reinstall detected — clearing stale auth and onboarding state.")
-			AuthManager.shared.clearStoredIdentity()
-			AppDefaults.shared.hasShownLandingPage = false
-		} else if isFirstRun {
+		if isFirstRun {
 			Self.logger.info("Is first run.")
 			AuthManager.shared.clearStoredIdentity()
 		}
