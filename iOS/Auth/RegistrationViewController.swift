@@ -24,6 +24,11 @@ final class RegistrationViewController: UIViewController {
 	/// Called after a successful sign-in or reconnect, just before dismissal.
 	var didSucceedHandler: (() -> Void)?
 
+	/// Called when the server returns 553 (user not found). The receiver should handle
+	/// routing — typically by dismissing this VC and starting the new-user onboarding flow.
+	/// When nil, a standard "account not found" error alert is shown instead.
+	var didFailWithUserNotFound: (() -> Void)?
+
 	// MARK: - UI
 
 	private let stackView: UIStackView = {
@@ -81,6 +86,7 @@ final class RegistrationViewController: UIViewController {
 			reconnectButton.widthAnchor.constraint(equalTo: stackView.widthAnchor),
 			reconnectButton.heightAnchor.constraint(equalToConstant: 50),
 		])
+
 	}
 
 	override func viewDidAppear(_ animated: Bool) {
@@ -154,11 +160,14 @@ final class RegistrationViewController: UIViewController {
 			defer { setLoading(false) }
 			do {
 				_ = try await AuthManager.shared.reconnect()
-				didSucceedHandler?()
-				dismiss(animated: true)
+				let handler = didSucceedHandler
+				dismiss(animated: true) { handler?() }
 			} catch AuthError.noStoredIdentity {
 				Self.logger.info("Reconnect: no stored identity, falling back to Apple Sign In")
 				triggerAppleSignIn()
+			} catch AuthError.userNotFound {
+				Self.logger.info("Reconnect: user not found (553)")
+				handleUserNotFound()
 			} catch {
 				Self.logger.error("Reconnect error: \(error.localizedDescription)")
 				showError(error.localizedDescription)
@@ -174,6 +183,14 @@ final class RegistrationViewController: UIViewController {
 			activityIndicator.startAnimating()
 		} else {
 			activityIndicator.stopAnimating()
+		}
+	}
+
+	private func handleUserNotFound() {
+		if let handler = didFailWithUserNotFound {
+			dismiss(animated: true) { handler() }
+		} else {
+			showError("No account found on this device. Please revoke Second Stream Sign-in with Apple in the settings, then uninstall and reinstall the app.", title: "Account Not Found")
 		}
 	}
 
@@ -214,8 +231,11 @@ extension RegistrationViewController: ASAuthorizationControllerDelegate {
 					identityToken: credential.identityToken,
 					realUserStatus: realUserStatus
 				)
-				didSucceedHandler?()
-				dismiss(animated: true)
+				let handler = didSucceedHandler
+				dismiss(animated: true) { handler?() }
+			} catch AuthError.userNotFound {
+				Self.logger.info("Sign in: user not found (553)")
+				handleUserNotFound()
 			} catch {
 				Self.logger.error("Sign in error: \(error.localizedDescription)")
 				showError(error.localizedDescription)

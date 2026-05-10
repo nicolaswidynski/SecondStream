@@ -18,6 +18,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 	var window: UIWindow?
 	var coordinator: SceneCoordinator!
 
+	private var authObservers: [NSObjectProtocol] = []
+
 	// UIWindowScene delegate
 
 	func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
@@ -51,6 +53,24 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		presentLaunchLoading()
 
 		NotificationCenter.default.addObserver(self, selector: #selector(handleUserInterfaceColorPaletteDidUpdate(_:)), name: .userInterfaceColorPaletteDidUpdate, object: AppDefaults.self)
+
+		// Apple credential revoked while app is running (user removed app in Settings → Apple ID).
+		// Session token expired or rejected by the server (401/403).
+		// Both cases: identity is already cleared by the time we route.
+		let nc = NotificationCenter.default
+		authObservers = [
+			nc.addObserver(forName: ASAuthorizationAppleIDProvider.credentialRevokedNotification, object: nil, queue: .main) { [weak self] _ in
+				Task { @MainActor [weak self] in
+					AuthManager.shared.clearStoredIdentity()
+					self?.handleAuthInvalidated()
+				}
+			},
+			nc.addObserver(forName: .authSessionDidExpire, object: nil, queue: .main) { [weak self] _ in
+				Task { @MainActor [weak self] in
+					self?.handleAuthInvalidated()
+				}
+			},
+		]
 
 		if connectionOptions.urlContexts.first?.url != nil {
 			self.scene(scene, openURLContexts: connectionOptions.urlContexts)
@@ -408,6 +428,21 @@ private extension SceneDelegate {
 			coordinator.showAddFeed()
 		default:
 			break
+		}
+	}
+
+	/// Routes the user back to the appropriate auth screen after a credential revocation
+	/// or session expiry. Skips routing if the launch loading VC is still active (it owns
+	/// routing at that point) or if auth is already presented.
+	func handleAuthInvalidated() {
+		let isLoadingActive = window?.rootViewController?.children.contains { $0 is LaunchLoadingViewController } == true
+		guard !isLoadingActive else { return }
+		guard !(window?.rootViewController?.presentedViewController is RegistrationViewController) else { return }
+		guard !(window?.rootViewController?.presentedViewController is OnboardingViewController) else { return }
+		if AppDefaults.shared.shouldShowLandingPage {
+			presentOnboarding()
+		} else {
+			presentRegistration()
 		}
 	}
 

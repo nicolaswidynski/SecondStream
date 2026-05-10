@@ -9,6 +9,12 @@
 import Foundation
 import os.log
 
+extension Notification.Name {
+	/// Posted on the main thread when the server returns 401 or 403, indicating the
+	/// session token is no longer valid. Observers should route the user back to auth.
+	static let authSessionDidExpire = Notification.Name("authSessionDidExpire")
+}
+
 // MARK: - APIError
 
 enum APIError: LocalizedError {
@@ -168,6 +174,13 @@ private let apiClientLogger = Logger(subsystem: Bundle.main.bundleIdentifier!, c
 		let (data, response) = try await URLSession.shared.data(for: request)
 		let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
 		apiClientLogger.debug("\(endpoint.url.lastPathComponent, privacy: .public) → HTTP \(statusCode, privacy: .public)")
+
+		// 401/403: session token is no longer valid. Invalidate and signal the app to re-auth.
+		if statusCode == 401 || statusCode == 403 {
+			apiClientLogger.error("\(endpoint.url.lastPathComponent, privacy: .public) → HTTP \(statusCode, privacy: .public) — invalidating session")
+			AuthManager.shared.invalidateSession()
+			NotificationCenter.default.post(name: .authSessionDidExpire, object: nil)
+		}
 
 		// If the server rotated the session token, persist the new one immediately.
 		let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])

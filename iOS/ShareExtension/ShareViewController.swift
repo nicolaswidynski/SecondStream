@@ -42,7 +42,7 @@ final class ShareViewController: SLComposeServiceViewController, ShareFolderPick
 			selectedContainer = ShareDefaultContainer.defaultContainer(containers: extensionContainers)
 		}
 
-		title = "NetNewsWire"
+		title = "Second Stream"
 		placeholder = "Feed Name (Optional)"
 		if let button = navigationController?.navigationBar.topItem?.rightBarButtonItem {
 		//	button.title = "Add Feed"
@@ -54,19 +54,21 @@ final class ShareViewController: SLComposeServiceViewController, ShareFolderPick
 			tableView.rowHeight = 38
 		}
 
+		guard let extensionContext else { return }
+
 		var provider: NSItemProvider?
 
 		// Try to get any HTML that is maybe passed in
-		for item in self.extensionContext!.inputItems as! [NSExtensionItem] {
-			for itemProvider in item.attachments! {
+		for item in extensionContext.inputItems.compactMap({ $0 as? NSExtensionItem }) {
+			for itemProvider in item.attachments ?? [] {
 				if itemProvider.hasItemConformingToTypeIdentifier(UTType.propertyList.identifier) {
 					provider = itemProvider
 				}
 			}
 		}
 
-		if provider != nil {
-			provider!.loadItem(forTypeIdentifier: UTType.propertyList.identifier, options: nil, completionHandler: { [weak self] (pList, error) in
+		if let provider {
+			provider.loadItem(forTypeIdentifier: UTType.propertyList.identifier, options: nil, completionHandler: { [weak self] (pList, error) in
 				if error != nil {
 					return
 				}
@@ -76,7 +78,7 @@ final class ShareViewController: SLComposeServiceViewController, ShareFolderPick
 				guard let results = dataGraph["NSExtensionJavaScriptPreprocessingResultsKey"] as? NSDictionary else {
 					return
 				}
-				if let url = URL(string: results["url"] as! String) {
+				if let urlString = results["url"] as? String, let url = URL(string: urlString) {
 					self?.url = url
 				}
 			})
@@ -84,16 +86,16 @@ final class ShareViewController: SLComposeServiceViewController, ShareFolderPick
 		}
 
 		// Try to get the URL if it is passed in
-		for item in self.extensionContext!.inputItems as! [NSExtensionItem] {
-			for itemProvider in item.attachments! {
+		for item in extensionContext.inputItems.compactMap({ $0 as? NSExtensionItem }) {
+			for itemProvider in item.attachments ?? [] {
 				if itemProvider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
 					provider = itemProvider
 				}
 			}
 		}
 
-		if provider != nil {
-			provider!.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil, completionHandler: { [weak self] (urlCoded, error) in
+		if let provider {
+			provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil, completionHandler: { [weak self] (urlCoded, error) in
 				if error != nil {
 					return
 				}
@@ -101,7 +103,6 @@ final class ShareViewController: SLComposeServiceViewController, ShareFolderPick
 					return
 				}
 				self?.url = url
-				return
 			})
 		}
 
@@ -115,7 +116,7 @@ final class ShareViewController: SLComposeServiceViewController, ShareFolderPick
 
 	override func didSelectPost() {
 		guard let url, let selectedContainer, let containerID = selectedContainer.containerID else {
-			self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
+			extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
 			return
 		}
 
@@ -127,7 +128,7 @@ final class ShareViewController: SLComposeServiceViewController, ShareFolderPick
 		let request = ExtensionFeedAddRequest(name: name, feedURL: url, destinationContainerID: containerID)
 		ExtensionFeedAddRequestFile.save(request)
 
-		self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
+		extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
 	}
 
 	func shareFolderPickerDidSelect(_ container: ExtensionContainer) {
@@ -143,7 +144,8 @@ final class ShareViewController: SLComposeServiceViewController, ShareFolderPick
 		urlItem.title = "URL"
 		urlItem.value = url?.absoluteString ?? ""
 
-		folderItem = SLComposeSheetConfigurationItem()
+		guard let item = SLComposeSheetConfigurationItem() else { return [urlItem] }
+		folderItem = item
 		folderItem.title = "Folder"
 		updateFolderItemValue()
 
@@ -160,7 +162,7 @@ final class ShareViewController: SLComposeServiceViewController, ShareFolderPick
 
 		}
 
-		return [folderItem!, urlItem]
+		return [item, urlItem]
 
 	}
 }

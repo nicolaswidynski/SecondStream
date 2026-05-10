@@ -112,6 +112,9 @@ import UIKit
 		welcomePage.onContinue = { [weak self] in
 			self?.advance(to: 1)
 		}
+		welcomePage.onExistingUser = { [weak self] in
+			self?.presentExistingUserSignIn()
+		}
 		selectionPage.onContinue = { [weak self] sources in
 			self?.registrationPage.selectedSources = sources
 			self?.advance(to: 2)
@@ -119,6 +122,22 @@ import UIKit
 		registrationPage.onComplete = { [weak self] requests in
 			self?.finish(with: requests)
 		}
+	}
+
+	/// Presents `RegistrationViewController` for users who already have an account.
+	/// On success, finishes onboarding without source selection (feeds restored via sync).
+	/// On 553 (user not found), dismisses and falls through to the normal new-user flow.
+	private func presentExistingUserSignIn() {
+		let vc = RegistrationViewController()
+		vc.modalPresentationStyle = .fullScreen
+		vc.isModalInPresentation = true
+		vc.didSucceedHandler = { [weak self] in
+			self?.finish(with: [])
+		}
+		vc.didFailWithUserNotFound = { [weak self] in
+			self?.advance(to: 1)
+		}
+		present(vc, animated: true)
 	}
 
 	private func prefetchSources() {

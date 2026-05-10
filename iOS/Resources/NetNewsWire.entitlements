@@ -24,7 +24,7 @@
 	</array>
 	<key>keychain-access-groups</key>
 	<array>
-		<string>$(AppIdentifierPrefix)$(ORGANIZATION_IDENTIFIER).SecondStream.iOS$(bundled_ID_SUFFIX)</string>
+		<string>$(AppIdentifierPrefix)$(ORGANIZATION_IDENTIFIER).SecondStream.iOS$(BUNDLE_ID_SUFFIX)</string>
 	</array>
 </dict>
 </plist>

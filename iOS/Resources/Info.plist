@@ -26,7 +26,7 @@
 				<string>nnwtheme</string>
 			</array>
 			<key>CFBundleTypeName</key>
-			<string>NetNewsWire Theme</string>
+			<string>Second Stream Theme</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
@@ -79,8 +79,6 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>DeveloperEntitlements</key>
 	<string>$(DEVELOPER_ENTITLEMENTS)</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
 	<key>Icon already includes gloss effects</key>
 	<true/>
 	<key>LSApplicationQueriesSchemes</key>
@@ -97,9 +95,7 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Grant permission to save images from the article.</string>
-	<key>NSUserActivityTypes</key>
+<key>NSUserActivityTypes</key>
 	<array>
 		<string>AddWebFeedIntent</string>
 		<string>NextUnread</string>
@@ -207,7 +203,7 @@
 				<string>com.apple.package</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>NetNewsWire Theme</string>
+			<string>Second Stream Theme</string>
 			<key>UTTypeIdentifier</key>
 			<string>com.stdn.secondstream.theme</string>
 			<key>UTTypeTagSpecification</key>
@@ -220,8 +216,8 @@
 		</dict>
 	</array>
 	<key>UserAgent</key>
-	<string>NetNewsWire (RSS Reader; https://netnewswire.com/)</string>
+	<string>SecondStream (RSS Reader)</string>
 	<key>UserAgentExtended</key>
-	<string>NetNewsWire (RSS Reader; https://netnewswire.com/; [platform]; [version] ([build]))</string>
+	<string>SecondStream (RSS Reader; [platform]; [version] ([build]))</string>
 </dict>
 </plist>

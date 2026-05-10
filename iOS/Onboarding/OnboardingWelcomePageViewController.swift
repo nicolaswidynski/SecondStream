@@ -18,6 +18,9 @@ import UIKit
 	/// Called when the user taps "Get Started" — advances to source selection.
 	var onContinue: (() -> Void)?
 
+	/// Called when the user taps "Existing user" — presents sign-in for returning users.
+	var onExistingUser: (() -> Void)?
+
 	// MARK: - Views
 
 	private var gradientLayer: CAGradientLayer?
@@ -88,10 +91,19 @@ import UIKit
 		return button
 	}()
 
+	private lazy var existingUserButton: UIButton = {
+		var config = UIButton.Configuration.plain()
+		config.title = "Existing user"
+		config.baseForegroundColor = .secondaryLabel
+		let button = UIButton(configuration: config)
+		button.addTarget(self, action: #selector(existingUserTapped), for: .touchUpInside)
+		return button
+	}()
+
 	private lazy var buttonStack: UIStackView = {
-		let stack = UIStackView(arrangedSubviews: [continueButton])
+		let stack = UIStackView(arrangedSubviews: [continueButton, existingUserButton])
 		stack.axis = .vertical
-		stack.spacing = 8
+		stack.spacing = 4
 		stack.translatesAutoresizingMaskIntoConstraints = false
 		return stack
 	}()
@@ -163,6 +175,10 @@ import UIKit
 
 	@objc private func continueTapped() {
 		onContinue?()
+	}
+
+	@objc private func existingUserTapped() {
+		onExistingUser?()
 	}
 
 	// MARK: - Private
