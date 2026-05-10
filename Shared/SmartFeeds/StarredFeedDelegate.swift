@@ -18,7 +18,7 @@ import Account
 		return SidebarItemIdentifier.smartFeed(String(describing: StarredFeedDelegate.self))
 	}
 
-	let nameForDisplay = NSLocalizedString("Starred", comment: "Starred pseudo-feed title")
+	let nameForDisplay = NSLocalizedString("Bookmarks", comment: "Bookmark pseudo-feed title")
 	let fetchType: FetchType = .starred(nil)
 	var smallIcon: IconImage? {
 		Assets.Images.starredFeed

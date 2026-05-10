@@ -147,7 +147,7 @@ private extension KeyboardManager {
 		let goToAllUnreadTitle = NSLocalizedString("Go To All Unread", comment: "Go To All Unread")
 		keys.append(KeyboardManager.createKeyCommand(title: goToAllUnreadTitle, action: "goToAllUnread:", input: "2", modifiers: [.command]))
 
-		let goToStarredTitle = NSLocalizedString("Go To Starred", comment: "Go To Starred")
+		let goToStarredTitle = NSLocalizedString("Go To Bookmarks", comment: "Go To Bookmarks")
 		keys.append(KeyboardManager.createKeyCommand(title: goToStarredTitle, action: "goToStarred:", input: "3", modifiers: [.command]))
 
 		let gotoSettings = NSLocalizedString("Go To Settings", comment: "Go To Settings")
@@ -201,7 +201,7 @@ private extension KeyboardManager {
 		let markBelowAsReadTitle = NSLocalizedString("Mark Below as Read", comment: "Mark Below as Read")
 		keys.append(KeyboardManager.createKeyCommand(title: markBelowAsReadTitle, action: "markBelowAsRead:", input: "k", modifiers: [.command, .shift]))
 
-		let toggleStarredTitle = NSLocalizedString("Toggle Starred Status", comment: "Toggle Starred Status")
+		let toggleStarredTitle = NSLocalizedString("Toggle Bookmark Status", comment: "Toggle Bookmark Status")
 		keys.append(KeyboardManager.createKeyCommand(title: toggleStarredTitle, action: "toggleStarred:", input: "l", modifiers: [.command, .shift]))
 
 		let findInArticleTitle = NSLocalizedString("Find in Article", comment: "Find in Article")

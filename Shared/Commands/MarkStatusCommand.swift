@@ -70,7 +70,7 @@ import Articles
 
 	static private let markReadActionName = NSLocalizedString("Mark Read", comment: "command")
 	static private let markUnreadActionName = NSLocalizedString("Mark Unread", comment: "command")
-	static private let markStarredActionName = NSLocalizedString("Mark Starred", comment: "command")
+	static private let markStarredActionName = NSLocalizedString("Mark Bookmark", comment: "command")
 	static private let markUnstarredActionName = NSLocalizedString("Mark Unstarred", comment: "command")
 
 	static func actionName(_ statusKey: ArticleStatus.Key, _ flag: Bool) -> String {

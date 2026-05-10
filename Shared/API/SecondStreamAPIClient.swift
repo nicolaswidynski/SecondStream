@@ -168,6 +168,14 @@ private let apiClientLogger = Logger(subsystem: Bundle.main.bundleIdentifier!, c
 		let (data, response) = try await URLSession.shared.data(for: request)
 		let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
 		apiClientLogger.debug("\(endpoint.url.lastPathComponent, privacy: .public) → HTTP \(statusCode, privacy: .public)")
+
+		// If the server rotated the session token, persist the new one immediately.
+		let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
+			?? (try? JSONSerialization.jsonObject(with: data) as? [[String: Any]])?.first
+		if let token = json?["user_token"] as? String, !token.isEmpty {
+			AuthManager.shared.saveSessionToken(token)
+		}
+
 		return (data, statusCode)
 	}
 

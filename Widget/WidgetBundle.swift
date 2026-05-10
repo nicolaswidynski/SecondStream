@@ -62,7 +62,7 @@ struct StarredWidget: Widget {
 				}
 				.clipped()
 		})
-		.configurationDisplayName(Text("label.text.starred", comment: "Starred"))
+		.configurationDisplayName(Text("label.text.starred", comment: "Bookmarks"))
 		.description(Text("label.text.starred-widget-description", comment: "A description of the Starred widget."))
 		.supportedFamilies([.systemMedium, .systemLarge])
 	}

@@ -5,6 +5,7 @@
 
 import UIKit
 import AuthenticationServices
+import os
 
 /// Full-screen loading overlay shown on normal launch while sources and icons are being prepared.
 /// Runs auth migration, source JSON fetch, and image prefetch in parallel, then calls `onReady`.
@@ -86,8 +87,9 @@ final class LaunchLoadingViewController: UIViewController {
 		return (try? await SubscriptionSyncManager.shared.detectMissingFeeds()) ?? []
 	}
 
-	/// Checks whether the stored Apple user ID is still valid. Clears local identity and resets
-	/// the onboarding gate if Apple reports the credential as revoked or not found.
+	/// Checks whether the stored Apple user ID is still valid. Clears local identity if Apple
+	/// reports the credential as revoked or not found. The onboarding gate (`hasShownLandingPage`)
+	/// is intentionally preserved so revoked-but-existing users are routed to Registration, not Onboarding.
 	private func verifyAppleCredentialState() async {
 		guard let appleUserID = AuthManager.shared.appleUserID else {
 				return
@@ -98,7 +100,6 @@ final class LaunchLoadingViewController: UIViewController {
 			case .revoked, .notFound:
 				await MainActor.run {
 					AuthManager.shared.clearStoredIdentity()
-					AppDefaults.shared.hasShownLandingPage = false
 				}
 			case .authorized, .transferred:
 				break
@@ -106,7 +107,8 @@ final class LaunchLoadingViewController: UIViewController {
 				break
 			}
 		} catch {
-			// Non-fatal — if the check fails, leave the existing state intact.
+			// Non-fatal — leave existing state intact, but log so it's visible in production.
+			os_log(.error, "verifyAppleCredentialState failed: %{public}@", error.localizedDescription)
 		}
 	}
 

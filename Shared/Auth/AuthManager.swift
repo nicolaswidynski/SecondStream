@@ -13,10 +13,10 @@ import os.log
 /// Manages user registration and identity for the app's backend.
 ///
 /// The unique user ID is the Apple `sub` claim — a stable, opaque identifier
-/// assigned by Apple per user per developer team. It is stored in the Keychain
-/// so it persists across app updates (but not across full uninstall/reinstall,
-/// which is standard behaviour). The server (NocoDB) uses it as the primary key
-/// for the user record.
+/// assigned by Apple per user per developer team. It is not a secret so it is
+/// stored in `UserDefaults` (wiped on reinstall, preserved on update). The
+/// session token IS a secret and lives in the Keychain. The server uses the
+/// Apple user ID as the primary key for the user record.
 @MainActor final class AuthManager {
 
 	static let shared = AuthManager()
@@ -25,10 +25,12 @@ import os.log
 
 	private let client = SecondStreamAPIClient.shared
 
-	// MARK: - Keychain keys
+	// MARK: - Storage keys
 
 	private let keychainService = Bundle.main.bundleIdentifier ?? "com.stdn.SecondStream"
-	private let appleUserIDKey = "appleUserID"
+	/// Legacy Keychain key — kept only for one-time migration to UserDefaults.
+	private let appleUserIDKeychainKey = "appleUserID"
+	private let appleUserIDDefaultsKey = "appleUserID"
 	private let sessionTokenKey = "userSessionToken"
 
 	// MARK: - Public state
@@ -47,8 +49,21 @@ import os.log
 	}
 
 	/// The stored Apple `sub` identifier, or `nil` if the user hasn't registered yet.
+	///
+	/// Stored in `UserDefaults` (not secret, wiped on reinstall). On first access after
+	/// an update from an older build, migrates any value found in the legacy Keychain slot.
 	var appleUserID: String? {
-		keychainRead(key: appleUserIDKey)
+		if let id = UserDefaults.standard.string(forKey: appleUserIDDefaultsKey) {
+			return id
+		}
+		// One-time migration from legacy Keychain storage.
+		if let id = keychainRead(key: appleUserIDKeychainKey) {
+			UserDefaults.standard.set(id, forKey: appleUserIDDefaultsKey)
+			keychainDelete(key: appleUserIDKeychainKey)
+			Self.logger.info("Migrated appleUserID from Keychain to UserDefaults")
+			return id
+		}
+		return nil
 	}
 
 	/// Per-user session token issued by the server after `manage-user`.
@@ -156,7 +171,7 @@ import os.log
 			throw AuthError.serverError(statusCode: 0, body: error.localizedDescription)
 		}
 
-		keychainWrite(key: appleUserIDKey, value: appleUserID)
+		UserDefaults.standard.set(appleUserID, forKey: appleUserIDDefaultsKey)
 		isExplicitlyDisconnected = false
 		isSimulatingIOSSignOut = false
 		Self.logger.info("Sign-in successful (status: \(responseStatusCode, privacy: .public))")
@@ -246,15 +261,16 @@ import os.log
 		Self.logger.info("Account deleted successfully")
 	}
 
-	/// Removes the stored Apple user ID and session token from the Keychain (full sign-out).
+	/// Removes the stored Apple user ID and session token (full sign-out).
 	func clearStoredIdentity() {
-		keychainDelete(key: appleUserIDKey)
+		UserDefaults.standard.removeObject(forKey: appleUserIDDefaultsKey)
 		keychainDelete(key: sessionTokenKey)
 		isExplicitlyDisconnected = false
+		isSimulatingIOSSignOut = false
 	}
 
 	/// Saves the session token to the Keychain.
-	private func saveSessionToken(_ token: String) {
+	func saveSessionToken(_ token: String) {
 		keychainWrite(key: sessionTokenKey, value: token)
 		Self.logger.info("Session token saved (length: \(token.count, privacy: .public))")
 	}

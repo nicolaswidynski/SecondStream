@@ -96,7 +96,7 @@ import os.log
 				}
 			}
 		} catch {
-			Self.logger.error("Failed to fetch articles for starred status change: \(error.localizedDescription)")
+			Self.logger.error("Failed to fetch articles for bookmark status change: \(error.localizedDescription)")
 		}
 	}
 

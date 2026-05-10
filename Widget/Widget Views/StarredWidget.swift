@@ -24,7 +24,7 @@ struct StarredWidgetView: View {
 				HStack(alignment: .center) {
 					starredImage
 						.layoutPriority(1)
-					Text("label.text.starred", comment: "Starred")
+					Text("label.text.starred", comment: "Bookmark")
 						.font(.caption2)
 						.bold()
 						.lineLimit(1)
@@ -86,11 +86,11 @@ struct StarredWidgetView: View {
 				.frame(width: 30)
 				.foregroundColor(.yellow)
 
-			Text("label.text.starred", comment: "Starred")
+			Text("label.text.starred", comment: "Bookmarks")
 				.font(.headline)
 				.foregroundColor(.primary)
 
-			Text("label.text.starred-no-articles", comment: "There are no starred articles.")
+			Text("label.text.starred-no-articles", comment: "There are no bookmark articles.")
 				.font(.caption)
 				.foregroundColor(.gray)
 			Spacer()

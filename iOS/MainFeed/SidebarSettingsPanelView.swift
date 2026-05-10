@@ -26,7 +26,7 @@ enum SettingsSidebarItem: CaseIterable {
 		case .appearance: return NSLocalizedString("Appearance", comment: "Appearance")
 		case .faceID: return NSLocalizedString("Face ID", comment: "Face ID")
 		case .obsidian: return NSLocalizedString("Obsidian", comment: "Obsidian")
-		case .donation: return NSLocalizedString("Donation", comment: "Donation")
+		case .donation: return NSLocalizedString("Donations", comment: "Donations")
 		case .about: return NSLocalizedString("About", comment: "About")
 		case .logOut: return NSLocalizedString("Log Out", comment: "Log Out")
 		case .deleteAccount: return NSLocalizedString("Delete Account", comment: "Delete Account")

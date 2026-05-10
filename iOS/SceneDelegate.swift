@@ -50,10 +50,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		// onReady callback once the loading phase finishes.
 		presentLaunchLoading()
 
-		if AuthManager.shared.isConnected && AppDefaults.shared.shouldShowLandingPage {
-			syncAfterAuth()
-		}
-
 		NotificationCenter.default.addObserver(self, selector: #selector(handleUserInterfaceColorPaletteDidUpdate(_:)), name: .userInterfaceColorPaletteDidUpdate, object: AppDefaults.self)
 
 		if connectionOptions.urlContexts.first?.url != nil {
@@ -266,16 +262,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		}
 	}
 
-	func presentLandingPage(reason: LandingViewController.Reason = .reinstall) {
-		DispatchQueue.main.async {
-			let landingVC = LandingViewController()
-			landingVC.reason = reason
-			landingVC.modalPresentationStyle = .fullScreen
-			landingVC.isModalInPresentation = true
-			self.window?.rootViewController?.present(landingVC, animated: true)
-		}
-	}
-
 	func presentLaunchLoading() {
 		guard let rootVC = window?.rootViewController else { return }
 		let loadingVC = LaunchLoadingViewController()
@@ -312,19 +298,25 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 				rootVC.present(authVC, animated: false) {
 					removeLoadingVC()
 				}
-			} else if !missing.isEmpty {
-				UIView.animate(withDuration: 0.25, animations: {
-					loadingVC.view.alpha = 0
-				}, completion: { _ in
-					removeLoadingVC()
-					self.presentSourceRestore(missing)
-				})
 			} else {
-				UIView.animate(withDuration: 0.25, animations: {
-					loadingVC.view.alpha = 0
-				}, completion: { _ in
-					removeLoadingVC()
-				})
+				// User is connected (app update, reinstall with valid Keychain, etc.).
+				// Mark onboarding as complete — covers reinstall where the App Group was
+				// wiped but the Keychain identity survived, without triggering a redundant sync.
+				AppDefaults.shared.hasShownLandingPage = true
+				if !missing.isEmpty {
+					UIView.animate(withDuration: 0.25, animations: {
+						loadingVC.view.alpha = 0
+					}, completion: { _ in
+						removeLoadingVC()
+						self.presentSourceRestore(missing)
+					})
+				} else {
+					UIView.animate(withDuration: 0.25, animations: {
+						loadingVC.view.alpha = 0
+					}, completion: { _ in
+						removeLoadingVC()
+					})
+				}
 			}
 		}
 		rootVC.addChild(loadingVC)

@@ -27,13 +27,13 @@ private struct Costs {
 	init?(dict: [String: Any]) {
 		guard
 			let priorInv    = dict["prior_investment"]    as? Int,
-			let priorDon    = dict["prior_donation"]      as? Int,
+			let priorDon    = dict["prior_donations"]      as? Int,
 			let priorTarget = dict["prior_gross_target"]  as? Int,
 			let monthlyInv  = dict["monthly_investment"]  as? Int,
-			let monthlyDon  = dict["monthly_donation"]    as? Int,
+			let monthlyDon  = dict["monthly_donations"]    as? Int,
 			let monthlyTarget = dict["monthly_gross_target"] as? Int,
 			let totalTarget = dict["total_gross_target"]  as? Int,
-			let totalDon    = dict["total_gross_donation"] as? Int
+			let totalDon    = dict["total_gross_donations"] as? Int
 		else {
 			return nil
 		}
@@ -164,7 +164,7 @@ struct DonationView: View {
 		.listStyle(.insetGrouped)
 		.scrollContentBackground(.hidden)
 		.background(Color(uiColor: Assets.Colors.SettingsContentBgColor))
-		.navigationTitle("Donation")
+		.navigationTitle("Donations")
 		.task { await loadCosts() }
 		.onChange(of: store.donationCount) {
 			purchaseSucceeded = true

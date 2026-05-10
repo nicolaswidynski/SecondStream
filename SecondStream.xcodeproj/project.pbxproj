@@ -74,13 +74,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		176813FE2564BB2D00D98635 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 849C64581ED37A5D003D8FC0 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 176813F22564BB2C00D98635;
-			remoteInfo = "NetNewsWire WidgetExtension";
-		};
 		510C416724E5CDE3008226FD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 849C64581ED37A5D003D8FC0 /* Project object */;
@@ -185,7 +178,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				513C5CF0232571C2003D4054 /* SecondStream iOS Share Extension.appex in Embed Foundation Extensions */,
-					5131463E235A7BBE00387FDC /* SecondStream iOS Intents Extension.appex in Embed Foundation Extensions */,
+				5131463E235A7BBE00387FDC /* SecondStream iOS Intents Extension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -721,7 +714,7 @@
 			dependencies = (
 				5138E94324D3404300AFF0FE /* PBXTargetDependency */,
 				5131463D235A7BBE00387FDC /* PBXTargetDependency */,
-				);
+			);
 			fileSystemSynchronizedGroups = (
 				84A6CFB52D1B4EC500F23315 /* iOS */,
 				84D35D422DB9F32D004AA60E /* Shared */,
@@ -1193,11 +1186,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		176813FF2564BB2D00D98635 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 176813F22564BB2C00D98635 /* SecondStream iOS Widget Extension */;
-			targetProxy = 176813FE2564BB2D00D98635 /* PBXContainerItemProxy */;
-		};
 		510C416824E5CDE3008226FD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 510C415B24E5CDE3008226FD /* SecondStream Share Extension */;

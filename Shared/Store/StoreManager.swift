@@ -80,7 +80,12 @@ final class StoreManager: ObservableObject {
 		isLoading = true
 		do {
 			let fetched = try await Product.products(for: productIDs)
-			storeLogger.debug("FETCH got \(fetched.count, privacy: .public) products")
+			if fetched.isEmpty {
+				storeLogger.error("FETCH returned 0 products — bundle ID: \(Bundle.main.bundleIdentifier ?? "nil", privacy: .public), expected IDs: \(self.productIDs.joined(separator: ", "), privacy: .public)")
+				lastError = "Could not load tip options. Tap to retry."
+			} else {
+				storeLogger.info("FETCH got \(fetched.count, privacy: .public) products")
+			}
 			products = fetched.sorted { $0.price < $1.price }
 			isLoading = false
 		} catch {
@@ -163,7 +168,7 @@ final class StoreManager: ObservableObject {
 		}
 		let body: [String: Any] = [
 			"request_id":    UUID().uuidString,
-			"operation":     "donation",
+			"operation":     "donations",
 			"apple_user_id": AuthManager.shared.appleUserID ?? "",
 			"product_id":    product.id,
 			"amount":        "\(product.price)",
