@@ -243,9 +243,16 @@ import Secrets
 private extension AppDelegate {
 
 	private func initializeDownloaders() {
-		let tempDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+		guard let tempDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+			Self.logger.error("Could not access caches directory")
+			return
+		}
 		let imagesFolderURL = tempDir.appendingPathComponent("Images")
-		try! FileManager.default.createDirectory(at: imagesFolderURL, withIntermediateDirectories: true, attributes: nil)
+		do {
+			try FileManager.default.createDirectory(at: imagesFolderURL, withIntermediateDirectories: true, attributes: nil)
+		} catch {
+			Self.logger.error("Failed to create Images folder: \(error.localizedDescription)")
+		}
 	}
 
 	private func initializeHomeScreenQuickActions() {

@@ -151,6 +151,9 @@ import os.log
 		do {
 			let (data, statusCode) = try await client.post(to: .manageUser, body: body)
 			responseStatusCode = statusCode
+			if statusCode == 553 {
+				throw AuthError.userNotFound
+			}
 			guard (200...299).contains(statusCode) else {
 				throw AuthError.serverError(statusCode: statusCode, body: Self.webhookMessage(from: data))
 			}
@@ -196,6 +199,9 @@ import os.log
 		do {
 			let (data, statusCode) = try await client.post(to: .manageUser, body: body)
 			responseStatusCode = statusCode
+			if statusCode == 553 {
+				throw AuthError.userNotFound
+			}
 			guard (200...299).contains(statusCode) else {
 				throw AuthError.serverError(statusCode: statusCode, body: Self.webhookMessage(from: data))
 			}
@@ -230,6 +236,16 @@ import os.log
 	func disconnect() {
 		isExplicitlyDisconnected = true
 		Self.logger.info("User disconnected")
+	}
+
+	/// Clears the session token and marks the user as disconnected, but preserves the
+	/// stored Apple user ID so the user can reconnect quickly via Face ID without SIWA.
+	/// Call this when the server returns 401/403 — the identity is still valid, the
+	/// session just needs to be renewed.
+	func invalidateSession() {
+		keychainDelete(key: sessionTokenKey)
+		isExplicitlyDisconnected = true
+		Self.logger.info("Session invalidated — token cleared, identity preserved")
 	}
 
 	/// Sends a delete request to the backend and wipes the local identity.
@@ -393,6 +409,7 @@ enum AuthError: LocalizedError {
 	case missingToken
 	case invalidResponse
 	case noStoredIdentity
+	case userNotFound
 	case serverError(statusCode: Int, body: String)
 
 	var errorDescription: String? {
@@ -403,6 +420,8 @@ enum AuthError: LocalizedError {
 			return "Received an invalid response from the server."
 		case .noStoredIdentity:
 			return "No stored account identity found."
+		case .userNotFound:
+			return "No account found for this Apple ID."
 		case .serverError(_, let body):
 			return body
 		}

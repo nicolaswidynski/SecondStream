@@ -1101,13 +1101,12 @@ private extension SettingsViewController {
 	func deleteSQLite() {
 		let alert = UIAlertController(
 			title: "Delete SQLite",
-			message: "This will delete all article databases. The app will terminate and must be relaunched.",
+			message: "This will delete all article databases. Restart the app to rebuild them.",
 			preferredStyle: .alert
 		)
 		alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 		alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { _ in
 			AccountManager.shared.deleteAllArticleDatabases()
-			exit(0)
 		})
 		present(alert, animated: true)
 	}
