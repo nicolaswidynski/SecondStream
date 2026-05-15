@@ -113,16 +113,6 @@ struct DonationView: View {
 			.listRowBackground(Color(uiColor: Assets.Colors.foreground))
 			.listRowSeparator(.hidden)
 
-			if let error = store.lastError {
-				Section {
-					Text(error)
-						.font(.footnote)
-						.foregroundStyle(.red)
-						.padding(.vertical, 4)
-				}
-				.listRowBackground(Color(uiColor: Assets.Colors.foreground))
-				.listRowSeparator(.hidden)
-			}
 
 			// Cost scales
 			switch costsState {
