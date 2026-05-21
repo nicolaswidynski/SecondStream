@@ -57,13 +57,9 @@ import os.log
 		return label
 	}()
 
-	private lazy var signInButton: UIButton = {
-		var config = UIButton.Configuration.filled()
-		config.title = "Getting Started"
-		config.cornerStyle = .medium
-		config.baseBackgroundColor = Assets.Colors.primaryAccent
-		config.baseForegroundColor = .white
-		let button = UIButton(configuration: config)
+	private lazy var signInButton: ASAuthorizationAppleIDButton = {
+		let button = ASAuthorizationAppleIDButton(authorizationButtonType: .signIn, authorizationButtonStyle: .whiteOutline)
+		button.cornerRadius = 10
 		button.translatesAutoresizingMaskIntoConstraints = false
 		button.addTarget(self, action: #selector(handleSignIn), for: .touchUpInside)
 		return button

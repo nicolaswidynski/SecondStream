@@ -15,21 +15,6 @@
   ],
   "products" : [
     {
-      "displayPrice" : "10.0",
-      "familyShareable" : false,
-      "internalID" : "6762559698",
-      "localizations" : [
-        {
-          "description" : "Help cover Second Stream costs",
-          "displayName" : "Tier 3",
-          "locale" : "en_US"
-        }
-      ],
-      "productID" : "secondstream_10_dollars",
-      "referenceName" : "tip_10_dollars",
-      "type" : "Consumable"
-    },
-    {
       "displayPrice" : "2.0",
       "familyShareable" : false,
       "internalID" : "6762559753",
@@ -40,23 +25,8 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "secondstream_2_dollars",
+      "productID" : "ss_2_dollars",
       "referenceName" : "tip_2_dollars",
-      "type" : "Consumable"
-    },
-    {
-      "displayPrice" : "30.0",
-      "familyShareable" : false,
-      "internalID" : "6762559643",
-      "localizations" : [
-        {
-          "description" : "Help cover Second Stream costs",
-          "displayName" : "Tier 4",
-          "locale" : "en_US"
-        }
-      ],
-      "productID" : "secondstream_30_dollars",
-      "referenceName" : "tip_30_dollars",
       "type" : "Consumable"
     },
     {
@@ -70,8 +40,23 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "secondstream_5_dollars",
+      "productID" : "ss_5_dollars",
       "referenceName" : "tip_5_dollars",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "10.0",
+      "familyShareable" : false,
+      "internalID" : "6762559698",
+      "localizations" : [
+        {
+          "description" : "Help cover Second Stream costs",
+          "displayName" : "Tier 3",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "ss_10_dollars",
+      "referenceName" : "tip_10_dollars",
       "type" : "Consumable"
     }
   ],

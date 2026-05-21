@@ -18,10 +18,9 @@ private let storeLogger = Logger(subsystem: Bundle.main.bundleIdentifier!, categ
 final class StoreManager: ObservableObject {
 
 	private let productIDs = [
-		"secondstream_2_dollars",
-		"secondstream_5_dollars",
-		"secondstream_10_dollars",
-		"secondstream_30_dollars",
+		"ss_2_dollars",
+		"ss_5_dollars",
+		"ss_10_dollars",
 	]
 
 	@Published var products: [Product] = []
@@ -76,20 +75,32 @@ final class StoreManager: ObservableObject {
 	// MARK: - Fetch
 
 	func fetchProducts() async {
-		storeLogger.debug("FETCH start")
+		let storefront = await Storefront.current
+		do {
+			if case .verified(let appTx) = try await AppTransaction.shared {
+				storeLogger.debug("FETCH environment: \(String(describing: appTx.environment), privacy: .public)")
+			}
+		} catch {
+			storeLogger.debug("FETCH AppTransaction error: \(error.localizedDescription, privacy: .public)")
+		}
+		storeLogger.debug("FETCH start — bundle: \(Bundle.main.bundleIdentifier ?? "nil", privacy: .public), storefront: \(storefront?.countryCode ?? "nil", privacy: .public)")
 		isLoading = true
 		do {
 			let fetched = try await Product.products(for: productIDs)
 			if fetched.isEmpty {
-				storeLogger.error("FETCH returned 0 products — bundle ID: \(Bundle.main.bundleIdentifier ?? "nil", privacy: .public), expected IDs: \(self.productIDs.joined(separator: ", "), privacy: .public)")
+				storeLogger.error("FETCH returned 0 products — IDs queried: \(self.productIDs.joined(separator: ", "), privacy: .public)")
 				lastError = "Could not load tip options. Tap to retry."
 			} else {
-				storeLogger.info("FETCH got \(fetched.count, privacy: .public) products")
+				storeLogger.info("FETCH got \(fetched.count, privacy: .public) products: \(fetched.map(\.id).joined(separator: ", "), privacy: .public)")
 			}
 			products = fetched.sorted { $0.price < $1.price }
 			isLoading = false
+		} catch let error as StoreKitError {
+			storeLogger.error("FETCH StoreKitError: \(String(describing: error), privacy: .public)")
+			lastError = "Could not load tip options. Tap to retry."
+			isLoading = false
 		} catch {
-			storeLogger.error("FETCH failed: \(error.localizedDescription, privacy: .public)")
+			storeLogger.error("FETCH failed (\(type(of: error), privacy: .public)): \(error.localizedDescription, privacy: .public)")
 			lastError = "Could not load tip options. Tap to retry."
 			isLoading = false
 		}

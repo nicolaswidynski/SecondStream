@@ -285,7 +285,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 	func presentLaunchLoading() {
 		guard let rootVC = window?.rootViewController else { return }
 		let loadingVC = LaunchLoadingViewController()
-		loadingVC.onReady = { [weak self] missing in
+		loadingVC.onReady = { [weak self] missing, bookmarkKeys in
 			guard let self else { return }
 
 			func removeLoadingVC() {
@@ -323,12 +323,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 				// Mark onboarding as complete — covers reinstall where the App Group was
 				// wiped but the Keychain identity survived, without triggering a redundant sync.
 				AppDefaults.shared.hasShownLandingPage = true
-				if !missing.isEmpty {
+				if !missing.isEmpty || !bookmarkKeys.isEmpty {
 					UIView.animate(withDuration: 0.25, animations: {
 						loadingVC.view.alpha = 0
 					}, completion: { _ in
 						removeLoadingVC()
-						self.presentSourceRestore(missing)
+						self.presentSourceRestore(missing, bookmarkKeys: bookmarkKeys)
 					})
 				} else {
 					UIView.animate(withDuration: 0.25, animations: {
@@ -346,9 +346,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		loadingVC.didMove(toParent: rootVC)
 	}
 
-	func presentSourceRestore(_ feeds: [MissingFeed]) {
+	func presentSourceRestore(_ feeds: [MissingFeed], bookmarkKeys: [String] = []) {
 		DispatchQueue.main.async {
-			let restoreVC = SourceRestoreViewController(feeds: feeds)
+			let restoreVC = SourceRestoreViewController(feeds: feeds, bookmarkKeys: bookmarkKeys)
 			restoreVC.modalPresentationStyle = .fullScreen
 			restoreVC.isModalInPresentation = true
 			restoreVC.onComplete = { [weak self] in

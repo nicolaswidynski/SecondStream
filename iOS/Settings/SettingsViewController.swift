@@ -57,10 +57,9 @@ final class SettingsViewController: UITableViewController {
 	private let ttsEnabledRow = 0
 	private let ttsVoiceRow = 1
 	private let timelineUnreadFirstRow = 1
-	private let timelineReadStylingRow = 2
-	private let sectionHeaderIconsRow = 3
-	private let collapsibleSectionsRow = 4
-	private let displayFaceIDRow = 5
+	private let sectionHeaderIconsRow = 2
+	private let collapsibleSectionsRow = 3
+	private let displayFaceIDRow = 4
 	// Debug section rows
 	private let debugCleanTempRow = 0
 	private let debugDialogRow = 1
@@ -243,8 +242,8 @@ final class SettingsViewController: UITableViewController {
 		case displaySection:
 			// When dev options are locked, show only the Appearance row.
 			if !devOptionsUnlocked { return 1 }
-			// Adds Unread First, Gray Read Articles, Show Category Icons, Collapsible Sections, and Face ID rows
-			return super.tableView(tableView, numberOfRowsInSection: section) + 5
+			// Adds Unread First, Show Category Icons, Collapsible Sections, and Face ID rows
+			return super.tableView(tableView, numberOfRowsInSection: section) + 4
 		case debugSection:
 			// Clear Temporary Files, Debug Dialog, Start Landing Page, Simulate iOS Sign Out, Color Highlight, Delete SQLite
 			return 6
@@ -315,8 +314,6 @@ final class SettingsViewController: UITableViewController {
 			cell.accessoryType = .disclosureIndicator
 		case displaySection where indexPath.row == 0:
 			cell = makeAppearanceSegmentedCell(tableView)
-		case displaySection where indexPath.row == timelineReadStylingRow:
-			cell = makeTimelineReadStylingCell(tableView)
 		case displaySection where indexPath.row == sectionHeaderIconsRow:
 			cell = makeSectionHeaderIconsCell(tableView)
 		case displaySection where indexPath.row == collapsibleSectionsRow:
@@ -584,10 +581,6 @@ final class SettingsViewController: UITableViewController {
 		}
 	}
 
-	@objc func switchTimelineReadStyling(_ sender: UISwitch) {
-		AppDefaults.shared.timelineDimReadArticles = sender.isOn
-	}
-
 	@objc func switchTimelineUnreadFirst(_ sender: UISwitch) {
 		AppDefaults.shared.timelineUnreadFirst = sender.isOn
 	}
@@ -770,21 +763,6 @@ private extension SettingsViewController {
 		toggle.removeTarget(self, action: #selector(switchSectionHeaderIcons(_:)), for: .valueChanged)
 		toggle.addTarget(self, action: #selector(switchSectionHeaderIcons(_:)), for: .valueChanged)
 		toggle.isOn = AppDefaults.shared.showSectionHeaderIcons
-		cell.accessoryView = toggle
-		return cell
-	}
-
-	func makeTimelineReadStylingCell(_ tableView: UITableView) -> UITableViewCell {
-		let cell = tableView.dequeueReusableCell(withIdentifier: "TimelineReadStylingCell") ??
-			UITableViewCell(style: .default, reuseIdentifier: "TimelineReadStylingCell")
-		var content = cell.defaultContentConfiguration()
-		content.text = NSLocalizedString("Gray Read Articles", comment: "Timeline styling toggle")
-		cell.contentConfiguration = content
-		cell.selectionStyle = .none
-		let toggle = (cell.accessoryView as? UISwitch) ?? UISwitch(frame: .zero)
-		toggle.removeTarget(self, action: #selector(switchTimelineReadStyling(_:)), for: .valueChanged)
-		toggle.addTarget(self, action: #selector(switchTimelineReadStyling(_:)), for: .valueChanged)
-		toggle.isOn = AppDefaults.shared.timelineDimReadArticles
 		cell.accessoryView = toggle
 		return cell
 	}

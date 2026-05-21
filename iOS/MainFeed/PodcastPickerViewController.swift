@@ -201,8 +201,18 @@ final class MediaPickerViewController: UIViewController {
 				header.configure(title: title)
 			case .paidSources:
 				let credits = FeedStatsManager.shared.cachedCredits ?? 0
+				let baseFont = UIFont.preferredFont(forTextStyle: .headline)
+				let full = NSMutableAttributedString(
+					string: "With limited credits only (",
+					attributes: [.font: baseFont]
+				)
+				full.append(NSAttributedString(
+					string: "\(credits)",
+					attributes: [.font: baseFont, .foregroundColor: Assets.Colors.primaryAccent as Any]
+				))
+				full.append(NSAttributedString(string: " remaining)", attributes: [.font: baseFont]))
 				header.configure(
-					title: "\(credits) remaining credits",
+					attributedTitle: full,
 					showsInfoButton: true,
 					onInfoTapped: { [weak self] in Task { await self?.handleCreditsInfo() } }
 				)
@@ -230,7 +240,7 @@ final class MediaPickerViewController: UIViewController {
 
 		if query.isEmpty {
 			if !topSources.isEmpty {
-				let topPicks = SourcePickerSection.sources(NSLocalizedString("Free Picks", comment: "Free Picks"))
+				let topPicks = SourcePickerSection.sources(NSLocalizedString("Free Popular Picks", comment: "Free Popular Picks"))
 				snapshot.appendSections([topPicks])
 				snapshot.appendItems(topSources.map { .mediaSource($0) }, toSection: topPicks)
 			}

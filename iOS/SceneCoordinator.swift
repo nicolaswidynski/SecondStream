@@ -148,10 +148,8 @@ struct SidebarItemNode: Hashable, Sendable {
 	// Which Containers used to be expanded. Reset by rebuilding the sidebar.
 	private var lastExpandedContainers = Set<ContainerIdentifier>()
 
-	// Which category sections are expanded (feed categories collapsed by default)
+	// Which category sections are expanded — persisted, all collapsed by default
 	private var expandedCategorySections = Set<FeedSectionIdentifier>()
-	// Set to true after the first unread-based expansion so user toggles are preserved
-	private var didApplyInitialCategoryExpansion = false
 
 	private let hidingReadArticlesState = HidingReadArticlesState()
 
@@ -461,6 +459,12 @@ struct SidebarItemNode: Hashable, Sendable {
 		} else {
 			expandedContainers = stateInfo.expandedContainers
 		}
+		if let saved = AppDefaults.shared.expandedCategorySections {
+			expandedCategorySections = Set(saved.compactMap { FeedSectionIdentifier(rawValue: $0) })
+		} else {
+			// No saved state — default to all sections expanded.
+			expandedCategorySections = Set([.podcasts, .youtube, .news, .rssFeeds])
+		}
 
 		hidingReadArticlesState.copy(from: stateInfo)
 
@@ -561,21 +565,6 @@ struct SidebarItemNode: Hashable, Sendable {
 		guard notification.object is AccountManager else {
 			return
 		}
-
-		// Expand any category section that has at least one unread feed.
-		// Only done once per session; subsequent user toggles are preserved.
-		if !didApplyInitialCategoryExpansion {
-			didApplyInitialCategoryExpansion = true
-			let allSections: [FeedSectionIdentifier] = [.podcasts, .youtube, .news, .rssFeeds]
-			for section in allSections {
-				if unreadCountForCategorySection(section) > 0 {
-					expandedCategorySections.insert(section)
-				}
-			}
-		}
-
-		// Always rebuild after unread counts initialize to ensure category sections
-		// display correct unread counts (not just when filtering read feeds)
 		rebuildBackingStores()
 	}
 
@@ -847,6 +836,10 @@ struct SidebarItemNode: Hashable, Sendable {
 		AppDefaults.shared.expandedContainers = expandedContainers
 	}
 
+	func saveExpandedCategorySections() {
+		AppDefaults.shared.expandedCategorySections = Set(expandedCategorySections.map { $0.rawValue })
+	}
+
 	func cleanUp(conditional: Bool) {
 		if isReadFeedsFiltered {
 			rebuildBackingStores()
@@ -1030,6 +1023,7 @@ struct SidebarItemNode: Hashable, Sendable {
 		} else {
 			expandedCategorySections.insert(section)
 		}
+		saveExpandedCategorySections()
 		rebuildBackingStores()
 	}
 
@@ -1038,6 +1032,7 @@ struct SidebarItemNode: Hashable, Sendable {
 			return
 		}
 		expandedCategorySections.insert(section)
+		saveExpandedCategorySections()
 		rebuildBackingStores()
 	}
 

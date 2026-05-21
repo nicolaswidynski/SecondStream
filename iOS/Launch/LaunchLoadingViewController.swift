@@ -5,6 +5,7 @@
 
 import UIKit
 import AuthenticationServices
+import Account
 import os
 
 /// Full-screen loading overlay shown on normal launch while sources and icons are being prepared.
@@ -13,7 +14,7 @@ final class LaunchLoadingViewController: UIViewController {
 
 	/// Called on the main thread when all loading is complete.
 	/// Receives any feeds that are missing from the local account and need to be restored.
-	var onReady: (([MissingFeed]) -> Void)?
+	var onReady: (([MissingFeed], [String]) -> Void)?
 
 	private let titleLabel: UILabel = {
 		let label = UILabel()
@@ -64,27 +65,36 @@ final class LaunchLoadingViewController: UIViewController {
 	// MARK: - Loading
 
 	private func load() async {
+		// Snapshot locally starred article IDs before the parallel tasks start — the DB is
+		// quiet here, so this sync call returns immediately.
+		let localStarredIDs = localStarredArticleIDs()
 		// Auth migration + subscription sync runs in parallel with sources + image prefetch.
-		async let missing = authAndSync()
+		async let sync = authAndSync()
 		async let sources: Void = sourcesAndImages()
-		let missingFeeds = await missing
+		let (missingFeeds, rawBookmarkKeys) = await sync
 		await sources
-		await FeedStatsManager.shared.fetchCreditsIfNeeded()
-		onReady?(missingFeeds)
+		let bookmarkKeys = rawBookmarkKeys.filter { !localStarredIDs.contains($0) }
+		// Fire update-user-stats in the background — don't block onReady waiting for it.
+		// If feeds or bookmarks need restoring, SourceRestoreViewController calls
+		// fetchCredits() after restore() completes so stats reflect the fully-restored state.
+		if missingFeeds.isEmpty && bookmarkKeys.isEmpty {
+			Task { await FeedStatsManager.shared.fetchCreditsIfNeeded() }
+		}
+		onReady?(missingFeeds, bookmarkKeys)
 	}
 
 	/// Silently reconnects if needed (per-user token migration) then detects missing feeds.
 	/// Skips all network work when the user is not connected — auth routing is handled by the caller.
-	private func authAndSync() async -> [MissingFeed] {
+	private func authAndSync() async -> (missing: [MissingFeed], bookmarkKeys: [String]) {
 		// Verify Apple credential state first. If revoked or not found, wipe local identity
 		// so the routing in onReady correctly sends the user back through onboarding.
 		await verifyAppleCredentialState()
 
-		guard AuthManager.shared.isConnected else { return [] }
+		guard AuthManager.shared.isConnected else { return ([], []) }
 		if AuthManager.shared.sessionToken == nil {
 			_ = try? await AuthManager.shared.reconnect()
 		}
-		return (try? await SubscriptionSyncManager.shared.detectMissingFeeds()) ?? []
+		return (try? await SubscriptionSyncManager.shared.detectMissingFeeds()) ?? ([], [])
 	}
 
 	/// Checks whether the stored Apple user ID is still valid. Clears local identity if Apple
@@ -110,6 +120,13 @@ final class LaunchLoadingViewController: UIViewController {
 			// Non-fatal — leave existing state intact, but log so it's visible in production.
 			os_log(.error, "verifyAppleCredentialState failed: %{public}@", error.localizedDescription)
 		}
+	}
+
+	/// Returns the set of article unique IDs that are currently starred locally.
+	/// Must be called before the parallel launch tasks start (DB is idle at that point).
+	private func localStarredArticleIDs() -> Set<String> {
+		guard let account = AccountManager.shared.activeAccounts.first else { return [] }
+		return Set((try? account.fetchArticles(.starred(nil)))?.map(\.uniqueID) ?? [])
 	}
 
 	/// Fetches fresh source JSON files then prefetches discover strip icons.

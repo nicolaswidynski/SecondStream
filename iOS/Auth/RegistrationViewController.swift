@@ -49,13 +49,19 @@ final class RegistrationViewController: UIViewController {
 		return label
 	}()
 
-	private lazy var reconnectButton: UIButton = {
-		var config = UIButton.Configuration.filled()
-		config.title = "Reconnect"
-		config.cornerStyle = .medium
-		config.baseBackgroundColor = Assets.Colors.primaryAccent
-		config.baseForegroundColor = .white
-		let button = UIButton(configuration: config)
+	private let subtitleLabel: UILabel = {
+		let label = UILabel()
+		label.text = "Your session has expired. Please sign in again."
+		label.font = .systemFont(ofSize: 17)
+		label.textColor = .secondaryLabel
+		label.textAlignment = .center
+		label.numberOfLines = 0
+		return label
+	}()
+
+	private lazy var reconnectButton: ASAuthorizationAppleIDButton = {
+		let button = ASAuthorizationAppleIDButton(authorizationButtonType: .signIn, authorizationButtonStyle: .whiteOutline)
+		button.cornerRadius = 10
 		button.translatesAutoresizingMaskIntoConstraints = false
 		button.addTarget(self, action: #selector(handleReconnect), for: .touchUpInside)
 		return button
@@ -69,12 +75,18 @@ final class RegistrationViewController: UIViewController {
 
 	// MARK: - Lifecycle
 
+	deinit {
+		NotificationCenter.default.removeObserver(self, name: UIApplication.didBecomeActiveNotification, object: nil)
+	}
+
 	override func viewDidLoad() {
 		super.viewDidLoad()
 		view.backgroundColor = Assets.Colors.background
 
 		stackView.addArrangedSubview(titleLabel)
-		stackView.setCustomSpacing(48, after: titleLabel)
+		stackView.setCustomSpacing(8, after: titleLabel)
+		stackView.addArrangedSubview(subtitleLabel)
+		stackView.setCustomSpacing(48, after: subtitleLabel)
 		stackView.addArrangedSubview(reconnectButton)
 		stackView.addArrangedSubview(activityIndicator)
 

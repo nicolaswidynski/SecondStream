@@ -46,6 +46,10 @@ final class ObsidianSettingsViewController: UITableViewController, UIDocumentPic
 		tableView.reloadData()
 	}
 
+	private var vaultIsSet: Bool {
+		ObsidianFileManager.vaultDisplayPath() != nil
+	}
+
 	private func rebuildRows() {
 		rows = AppDefaults.shared.isObsidianSyncEnabled
 			? [.sync, .vault, .subfolderFeedType, .subfolderFeedName, .preview, .removeOnUnbookmark]
@@ -90,6 +94,7 @@ final class ObsidianSettingsViewController: UITableViewController, UIDocumentPic
 			return makeToggleCell(
 				title: NSLocalizedString("Subfolder: FeedType/", comment: "Obsidian subfolder feed type"),
 				isOn: AppDefaults.shared.obsidianSubfolderFeedType,
+				isEnabled: vaultIsSet,
 				action: #selector(switchSubfolderFeedType(_:))
 			)
 
@@ -97,6 +102,7 @@ final class ObsidianSettingsViewController: UITableViewController, UIDocumentPic
 			return makeToggleCell(
 				title: NSLocalizedString("Subfolder: FeedName/", comment: "Obsidian subfolder feed name"),
 				isOn: AppDefaults.shared.obsidianSubfolderFeedName,
+				isEnabled: vaultIsSet,
 				action: #selector(switchSubfolderFeedName(_:))
 			)
 
@@ -111,10 +117,11 @@ final class ObsidianSettingsViewController: UITableViewController, UIDocumentPic
 			previewLabel = cell.textLabel
 			return cell
 
-		case .removeOnUnbookmark:	
+		case .removeOnUnbookmark:
 			return makeToggleCell(
 				title: NSLocalizedString("Remove Unbookmarked", comment: "Obsidian remove on unbookmark"),
 				isOn: AppDefaults.shared.obsidianRemoveOnUnbookmark,
+				isEnabled: vaultIsSet,
 				action: #selector(switchRemoveOnUnbookmark(_:))
 			)
 		}
@@ -176,6 +183,10 @@ final class ObsidianSettingsViewController: UITableViewController, UIDocumentPic
 		do {
 			try ObsidianFileManager.storeVaultBookmark(for: url)
 			vaultDetailLabel?.text = ObsidianFileManager.vaultDisplayPath() ?? NSLocalizedString("Not Set", comment: "Obsidian vault not configured")
+			let dependentIndexPaths = rows.enumerated()
+				.filter { [.subfolderFeedType, .subfolderFeedName, .preview, .removeOnUnbookmark].contains($0.element) }
+				.map { IndexPath(row: $0.offset, section: 0) }
+			tableView.reloadRows(at: dependentIndexPaths, with: .none)
 		} catch {
 			let alert = UIAlertController(
 				title: NSLocalizedString("Error", comment: "Error"),
@@ -189,13 +200,16 @@ final class ObsidianSettingsViewController: UITableViewController, UIDocumentPic
 
 	// MARK: - Helpers
 
-	private func makeToggleCell(title: String, isOn: Bool, action: Selector) -> UITableViewCell {
+	private func makeToggleCell(title: String, isOn: Bool, isEnabled: Bool = true, action: Selector) -> UITableViewCell {
 		let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
 		cell.textLabel?.text = title
 		cell.textLabel?.adjustsFontForContentSizeCategory = true
+		cell.textLabel?.isEnabled = isEnabled
 		cell.selectionStyle = .none
+		cell.isUserInteractionEnabled = isEnabled
 		let toggle = UISwitch()
 		toggle.isOn = isOn
+		toggle.isEnabled = isEnabled
 		toggle.addTarget(self, action: action, for: .valueChanged)
 		cell.accessoryView = toggle
 		return cell

@@ -12,11 +12,13 @@ struct AboutWPodView: View {
 	var body: some View {
 		List {
 			Section {
-				Text("Second Stream is free, please read Donation for more information.")
-					.font(.body)
-					.foregroundStyle(.secondary)
-					.padding(.vertical, 4)
-				Text("Second Stream code is based on NetNewsWire — I wish to thank their numerous contributors for their excellent apps.")
+				if SettingsSidebarItem.donationsEnabled {
+					Text("Second Stream is free, please read Donation for more information.")
+						.font(.body)
+						.foregroundStyle(.secondary)
+						.padding(.vertical, 4)
+				}
+				Text("Second Stream builds on NetNewsWire, an open-source RSS reader. Many thanks to its contributors for their outstanding work.")
 					.font(.body)
 					.foregroundStyle(.secondary)
 					.padding(.vertical, 4)
