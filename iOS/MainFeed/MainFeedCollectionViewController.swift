@@ -1197,7 +1197,13 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	@objc private func appWillEnterForeground() {
 		SourcesRefreshManager.shared.refreshIfNeeded()
 		stripController.refresh()
-		Task { await FeedStatsManager.shared.fetchCreditsIfNeeded() }
+		// Skip credit refresh during cold launch — willEnterForegroundNotification fires on
+		// cold launch too (sceneWillEnterForeground), but LaunchLoadingViewController owns
+		// the fetchCreditsIfNeeded() call and runs it after sync completes.
+		let isLoadingActive = view.window?.rootViewController?.children.contains { $0 is LaunchLoadingViewController } == true
+		if !isLoadingActive {
+			Task { await FeedStatsManager.shared.fetchCreditsIfNeeded() }
+		}
 		ServerMessageManager.shared.fetchAndPresentIfNeeded(presentingViewController: self)
 	}
 

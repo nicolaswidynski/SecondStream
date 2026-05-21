@@ -20,6 +20,7 @@ import os.log
 	var onComplete: (() -> Void)?
 
 	private let feeds: [MissingFeed]
+	private let bookmarkKeys: [String]
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "SourceRestore")
 
 	// MARK: - Views
@@ -50,8 +51,9 @@ import os.log
 
 	// MARK: - Init
 
-	init(feeds: [MissingFeed]) {
+	init(feeds: [MissingFeed], bookmarkKeys: [String] = []) {
 		self.feeds = feeds
+		self.bookmarkKeys = bookmarkKeys
 		super.init(nibName: nil, bundle: nil)
 	}
 
@@ -89,7 +91,11 @@ import os.log
 	private func performRestore() async {
 		spinner.startAnimating()
 
-		await SubscriptionSyncManager.shared.restore(feeds) { [weak self] name, index, total in
+		if feeds.isEmpty && !bookmarkKeys.isEmpty {
+			progressLabel.text = "Restoring bookmarks…"
+		}
+
+		await SubscriptionSyncManager.shared.restore(feeds, bookmarkKeys: bookmarkKeys) { [weak self] name, index, total in
 			self?.progressLabel.text = "Restoring \(name)… (\(index + 1) of \(total))"
 		}
 

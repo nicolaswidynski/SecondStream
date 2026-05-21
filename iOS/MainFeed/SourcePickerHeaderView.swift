@@ -68,4 +68,10 @@ final class SourcePickerHeaderView: UICollectionReusableView {
 		infoButton.isHidden = !showsInfoButton
 		self.onInfoTapped = onInfoTapped
 	}
+
+	func configure(attributedTitle: NSAttributedString, showsInfoButton: Bool = false, onInfoTapped: (() -> Void)? = nil) {
+		label.attributedText = attributedTitle
+		infoButton.isHidden = !showsInfoButton
+		self.onInfoTapped = onInfoTapped
+	}
 }

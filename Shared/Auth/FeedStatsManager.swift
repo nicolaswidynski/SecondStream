@@ -26,6 +26,9 @@ import os.log
 	private let client = SecondStreamAPIClient.shared
 	private let outboxKey = "feedStats_deletionOutbox"
 	private let creditsKey = "feedStats_cachedCredits"
+	/// Stable serialization of the last `feeds_for_update` payload that received HTTP 2xx.
+	/// Used to skip redundant `update-user-stats` calls when nothing has changed.
+	private var lastSentFeedsPayload: Data?
 	private var isDrainingOutbox = false
 	/// Set by `queueDelete` so that `childrenDidChange` only drains after an actual delete,
 	/// not after every structural change (e.g. feed adds).
@@ -110,10 +113,14 @@ import os.log
 
 	// MARK: - Get user feeds
 
-	/// POSTs `get-user-feeds` and returns the user's server-side subscriptions grouped by category.
+	/// POSTs `get-user-feeds` and returns the user's server-side subscriptions grouped by category,
+	/// plus bookmark `uniqueID`s to restore after feeds are re-added.
 	///
+	/// - Returns: `(feeds: [FeedCategory: [String]], bookmarkKeys: [String])`
+	///   where feeds maps each category to its list of URLs (pod/yt/topics use summary URLs,
+	///   rss uses direct feed URLs) and bookmarkKeys are the `id_entry` values to re-star.
 	/// - Throws: `FeedStatsError` on network failure, bad status, or a server-level error.
-	func getUserFeeds() async throws -> [FeedCategory: [String]] {
+	func getUserFeeds() async throws -> (feeds: [FeedCategory: [String]], bookmarkKeys: [String]) {
 		let appleUserID = AuthManager.shared.appleUserID ?? ""
 		guard !appleUserID.isEmpty else {
 			throw FeedStatsError.invalidResponse
@@ -140,18 +147,20 @@ import os.log
 			throw FeedStatsError.serverError(statusCode: statusCode, body: message)
 		}
 
-		func parseURLs(_ raw: String?) -> [String] {
+		func parseList(_ raw: String?) -> [String] {
 			guard let raw, !raw.isEmpty else { return [] }
 			return raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
 		}
 
-		let result: [FeedCategory: [String]] = [
-			.podcast: parseURLs(decoded.summaryURLsPod),
-			.youtube:  parseURLs(decoded.summaryURLsYT),
-			.news:     parseURLs(decoded.summaryURLsTopics)
+		let feeds: [FeedCategory: [String]] = [
+			.podcast: parseList(decoded.summaryURLsPod),
+			.youtube:  parseList(decoded.summaryURLsYT),
+			.news:     parseList(decoded.summaryURLsTopics),
+			.rss:      parseList(decoded.summaryURLsRSS),
 		]
-		Self.logger.debug("get-user-feeds parsed — pod: \(result[.podcast]?.count ?? 0, privacy: .public), yt: \(result[.youtube]?.count ?? 0, privacy: .public), topics: \(result[.news]?.count ?? 0, privacy: .public)")
-		return result
+		let bookmarkKeys = parseList(decoded.bookmarks)
+		Self.logger.debug("get-user-feeds parsed — pod: \(feeds[.podcast]?.count ?? 0, privacy: .public), yt: \(feeds[.youtube]?.count ?? 0, privacy: .public), topics: \(feeds[.news]?.count ?? 0, privacy: .public), rss: \(feeds[.rss]?.count ?? 0, privacy: .public), bookmarks: \(bookmarkKeys.count, privacy: .public)")
+		return (feeds, bookmarkKeys)
 	}
 
 	// MARK: - Credits
@@ -263,6 +272,13 @@ import os.log
 		let podFreeCount = podSources.filter { podFreeNames.contains($0.lowercased()) }.count
 		let ytFreeCount  = ytSources.filter  { ytFreeNames.contains($0.lowercased()) }.count
 
+		// Collect uniqueIDs (id_entry) of starred non-RSS articles for bookmark sync
+		let rssFeedIDs = Set(allFeeds.filter { $0.feedCategory == .rss }.map { $0.feedID })
+		let starredArticles = (try? account.fetchArticles(.starred(nil))) ?? []
+		let bookmarkKeys = starredArticles
+			.filter { !rssFeedIDs.contains($0.feedID) }
+			.map { $0.uniqueID }
+
 		return [
 			"pod": [
 				"count":      String(podSources.count),
@@ -283,7 +299,8 @@ import os.log
 				"count":      String(rssSources.count),
 				"count_free": String(rssSources.count),
 				"sources":    rssSources
-			]
+			],
+			"bookmarks": bookmarkKeys
 		]
 	}
 
@@ -309,8 +326,16 @@ import os.log
 			"request_id":    requestID,
 			"operation":     operation,
 		]
+		var feedsPayloadData: Data?
 		if operation == "update-user-stats" {
-			body["feeds_for_update"] = buildFeedsForUpdate()
+			let feeds = buildFeedsForUpdate()
+			let data = try? JSONSerialization.data(withJSONObject: feeds, options: .sortedKeys)
+			if let data, data == lastSentFeedsPayload {
+				Self.logger.info("update-user-stats skipped — payload unchanged since last successful call")
+				return cachedCredits
+			}
+			feedsPayloadData = data
+			body["feeds_for_update"] = feeds
 		}
 		if let type   { body["type"]   = type }
 		if let show   { body["show"]   = show }
@@ -322,6 +347,9 @@ import os.log
 				let rawBody = String(data: data, encoding: .utf8) ?? "(empty)"
 				Self.logger.error("all-feed-requests \(operation) failed [\(statusCode, privacy: .public)]: \(rawBody, privacy: .public)")
 				return nil
+			}
+			if let feedsPayloadData {
+				lastSentFeedsPayload = feedsPayloadData
 			}
 			let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
 				?? (try? JSONSerialization.jsonObject(with: data) as? [[String: Any]])?.first
@@ -372,6 +400,11 @@ import os.log
 
 	/// Sends `update-user-stats` only if at least `foregroundFetchInterval` seconds
 	/// have elapsed since the last foreground fetch. Call on every app-foreground event.
+	///
+	/// Ordering guarantee: `lastForegroundFetchDate` is set before the async network
+	/// call so that a concurrent invocation (e.g. a background→foreground transition
+	/// while an existing call is in-flight) returns early instead of making a second
+	/// redundant request.
 	func fetchCreditsIfNeeded() async {
 		let now = Date()
 		if let last = lastForegroundFetchDate, now.timeIntervalSince(last) < foregroundFetchInterval {
@@ -547,6 +580,8 @@ private struct GetUserFeedsResponse: Decodable {
 	let summaryURLsPod: String?
 	let summaryURLsYT: String?
 	let summaryURLsTopics: String?
+	let summaryURLsRSS: String?
+	let bookmarks: String?
 
 	enum CodingKeys: String, CodingKey {
 		case status
@@ -554,6 +589,8 @@ private struct GetUserFeedsResponse: Decodable {
 		case summaryURLsPod    = "summary_urls_pod"
 		case summaryURLsYT     = "summary_urls_yt"
 		case summaryURLsTopics = "summary_urls_topics"
+		case summaryURLsRSS    = "summary_urls_rss"
+		case bookmarks
 	}
 }
 

@@ -69,6 +69,7 @@ final class AppDefaults: Sendable {
 		static let isShowingExtractedArticle = "isShowingExtractedArticle"
 		static let articleWindowScrollY = "articleWindowScrollY"
 		static let expandedContainers = "expandedContainers"
+		static let expandedCategorySections = "expandedCategorySections"
 		static let smartFeedsHidingReadArticles = "smartFeedsHidingReadArticles"
 		static let feedsHidingReadArticles = "feedsHidingReadArticles"
 		static let foldersShowingReadArticles = "foldersShowingReadArticles"
@@ -327,6 +328,24 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	// nil = never set (use default); empty set = user collapsed everything
+	var expandedCategorySections: Set<String>? {
+		get {
+			guard UserDefaults.standard.object(forKey: Key.expandedCategorySections) != nil else {
+				return nil
+			}
+			let raw = UserDefaults.standard.array(forKey: Key.expandedCategorySections) as? [String] ?? []
+			return Set(raw)
+		}
+		set {
+			guard let newValue else {
+				UserDefaults.standard.removeObject(forKey: Key.expandedCategorySections)
+				return
+			}
+			UserDefaults.standard.set(Array(newValue), forKey: Key.expandedCategorySections)
+		}
+	}
+
 	var smartFeedsHidingReadArticles: Set<String> {
 		get {
 			let smartFeedIDs = UserDefaults.standard.array(forKey: Key.smartFeedsHidingReadArticles) as? [String] ?? []
@@ -535,16 +554,7 @@ final class AppDefaults: Sendable {
 		}
 	}
 
-	/// Timeline styling toggle:
-	/// when enabled, read article titles are grayed and unread blue-dot indicators are hidden.
-	var timelineDimReadArticles: Bool {
-		get {
-			AppDefaults.bool(for: Key.timelineDimReadArticles)
-		}
-		set {
-			AppDefaults.setBool(for: Key.timelineDimReadArticles, newValue)
-		}
-	}
+	var timelineDimReadArticles: Bool { true }
 
 	/// Timeline ordering toggle:
 	/// when enabled, unread articles are listed first while preserving date ordering within each read state.
@@ -617,7 +627,7 @@ final class AppDefaults: Sendable {
 									   Key.splitViewPreferredDisplayMode: UISplitViewController.DisplayMode.oneBesideSecondary.rawValue,
 										   Key.obsidianSubfolderFeedType: true,
 										   Key.obsidianSubfolderFeedName: true,
-										   Key.obsidianRemoveOnUnbookmark: true,
+										   Key.obsidianRemoveOnUnbookmark: false,
 										   Key.ttsEnabled: false,
 										   Key.showAddShowSourceFailureDialog: false,
 									   Key.showHomepageResolutionDebugDialog: false,

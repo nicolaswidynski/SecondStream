@@ -20,6 +20,13 @@ enum SettingsSidebarItem: CaseIterable {
 	case logOut
 	case deleteAccount
 
+	static let donationsEnabled = false
+
+	static var allCases: [SettingsSidebarItem] {
+		let all: [SettingsSidebarItem] = [.notifications, .appearance, .faceID, .obsidian, .donation, .about, .logOut, .deleteAccount]
+		return donationsEnabled ? all : all.filter { $0 != .donation }
+	}
+
 	var title: String {
 		switch self {
 		case .notifications: return NSLocalizedString("Notifications", comment: "Notifications")

@@ -13,7 +13,6 @@ final class AppearanceSettingsViewController: UITableViewController {
 	private enum Row: CaseIterable {
 		case appearance
 		case timelineUnreadFirst
-		case timelineReadStyling
 		case sectionHeaderIcons
 		case collapsibleSections
 	}
@@ -49,12 +48,6 @@ final class AppearanceSettingsViewController: UITableViewController {
 				title: NSLocalizedString("Unread First", comment: "Timeline ordering toggle"),
 				isOn: AppDefaults.shared.timelineUnreadFirst,
 				action: #selector(switchTimelineUnreadFirst(_:))
-			)
-		case .timelineReadStyling:
-			return makeToggleCell(
-				title: NSLocalizedString("Gray Read Articles", comment: "Timeline styling toggle"),
-				isOn: AppDefaults.shared.timelineDimReadArticles,
-				action: #selector(switchTimelineReadStyling(_:))
 			)
 		case .sectionHeaderIcons:
 			return makeToggleCell(
@@ -132,10 +125,6 @@ final class AppearanceSettingsViewController: UITableViewController {
 
 	@objc private func switchTimelineUnreadFirst(_ sender: UISwitch) {
 		AppDefaults.shared.timelineUnreadFirst = sender.isOn
-	}
-
-	@objc private func switchTimelineReadStyling(_ sender: UISwitch) {
-		AppDefaults.shared.timelineDimReadArticles = sender.isOn
 	}
 
 	@objc private func switchSectionHeaderIcons(_ sender: UISwitch) {

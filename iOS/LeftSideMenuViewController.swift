@@ -502,26 +502,16 @@ private final class LeftSideMenuContentViewController: UIViewController {
 	}
 
 	@objc private func reportBugTapped() {
-		let alert = UIAlertController(
-			title: NSLocalizedString("Report a Bug", comment: "Report a Bug"),
-			message: NSLocalizedString("Describe the issue you encountered.", comment: "Bug report prompt"),
-			preferredStyle: .alert
-		)
-		alert.addTextField { field in
-			field.placeholder = NSLocalizedString("Description", comment: "Bug description placeholder")
-			field.autocapitalizationType = .sentences
-			field.returnKeyType = .send
+		let bugVC = BugReportSheetViewController()
+		bugVC.onSubmit = { [weak self] text in
+			Task { await self?.sendBugReport(text) }
 		}
-		alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Cancel"), style: .cancel))
-		alert.addAction(UIAlertAction(title: NSLocalizedString("Send", comment: "Send bug report"), style: .default) { [weak self, weak alert] _ in
-			guard let self,
-				  let text = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines),
-				  !text.isEmpty else { return }
-			Task {
-				await self.sendBugReport(text)
-			}
-		})
-		present(alert, animated: true)
+		let nav = UINavigationController(rootViewController: bugVC)
+		if let sheet = nav.sheetPresentationController {
+			sheet.detents = [.large()]
+			sheet.prefersGrabberVisible = true
+		}
+		present(nav, animated: true)
 	}
 
 	private func sendBugReport(_ bug: String) async {
@@ -551,5 +541,92 @@ private final class LeftSideMenuContentViewController: UIViewController {
 		coordinator?.hideLeftMenu { [weak self] in
 			self?.coordinator?.showSettings(devOptionsUnlocked: true)
 		}
+	}
+}
+
+// MARK: - BugReportSheetViewController
+
+private final class BugReportSheetViewController: UIViewController {
+
+	var onSubmit: ((String) -> Void)?
+
+	private let textView = UITextView()
+	private let placeholderLabel = UILabel()
+
+	override func viewDidLoad() {
+		super.viewDidLoad()
+		view.backgroundColor = .systemBackground
+
+		navigationItem.title = NSLocalizedString("Report a Bug", comment: "Report a Bug")
+		navigationItem.leftBarButtonItem = UIBarButtonItem(
+			barButtonSystemItem: .cancel,
+			target: self,
+			action: #selector(cancelTapped)
+		)
+		navigationItem.rightBarButtonItem = UIBarButtonItem(
+			title: NSLocalizedString("Send", comment: "Send bug report"),
+			style: .prominent,
+			target: self,
+			action: #selector(sendTapped)
+		)
+		navigationItem.rightBarButtonItem?.isEnabled = false
+
+		setupTextView()
+	}
+
+	override func viewDidAppear(_ animated: Bool) {
+		super.viewDidAppear(animated)
+		textView.becomeFirstResponder()
+	}
+
+	private func setupTextView() {
+		// Placeholder
+		placeholderLabel.text = NSLocalizedString("Describe the issue you encountered.", comment: "Bug report prompt")
+		placeholderLabel.font = .preferredFont(forTextStyle: .body)
+		placeholderLabel.textColor = .placeholderText
+		placeholderLabel.numberOfLines = 0
+		placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
+
+		// Text view
+		textView.font = .preferredFont(forTextStyle: .body)
+		textView.autocapitalizationType = .sentences
+		textView.backgroundColor = .clear
+		textView.delegate = self
+		textView.textContainerInset = UIEdgeInsets(top: 16, left: 12, bottom: 16, right: 12)
+		textView.translatesAutoresizingMaskIntoConstraints = false
+
+		view.addSubview(textView)
+		textView.addSubview(placeholderLabel)
+
+		NSLayoutConstraint.activate([
+			textView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+			textView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+			textView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+			textView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+
+			placeholderLabel.topAnchor.constraint(equalTo: textView.topAnchor, constant: textView.textContainerInset.top),
+			placeholderLabel.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: textView.textContainerInset.left + 5),
+			placeholderLabel.trailingAnchor.constraint(equalTo: textView.trailingAnchor, constant: -(textView.textContainerInset.right + 5)),
+		])
+	}
+
+	@objc private func cancelTapped() {
+		dismiss(animated: true)
+	}
+
+	@objc private func sendTapped() {
+		let text = textView.text.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard !text.isEmpty else { return }
+		dismiss(animated: true) { [weak self] in
+			self?.onSubmit?(text)
+		}
+	}
+}
+
+extension BugReportSheetViewController: UITextViewDelegate {
+	func textViewDidChange(_ textView: UITextView) {
+		let hasText = !textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+		placeholderLabel.isHidden = hasText
+		navigationItem.rightBarButtonItem?.isEnabled = hasText
 	}
 }
