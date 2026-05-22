@@ -71,6 +71,8 @@ import os.log
 		return iv
 	}()
 
+	private var authorizationController: ASAuthorizationController?
+
 	// MARK: - Adding-sources phase views
 
 	private let addingStack: UIStackView = {
@@ -153,6 +155,7 @@ import os.log
 		let controller = ASAuthorizationController(authorizationRequests: [request])
 		controller.delegate = self
 		controller.presentationContextProvider = self
+		authorizationController = controller
 		controller.performRequests()
 	}
 
@@ -284,13 +287,19 @@ extension OnboardingRegistrationPageViewController: ASAuthorizationControllerDel
 
 	func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
 		let nsError = error as NSError
-		guard nsError.domain == ASAuthorizationError.errorDomain,
-			  nsError.code == ASAuthorizationError.canceled.rawValue else {
+		guard nsError.domain == ASAuthorizationError.errorDomain else {
 			Self.logger.error("Sign in with Apple failed: \(error.localizedDescription)")
-			showAuthError(error.localizedDescription)
+			showAuthError("Sign in with Apple failed. Please try again.")
 			return
 		}
-		Self.logger.info("Sign in with Apple cancelled by user")
+		switch ASAuthorizationError.Code(rawValue: nsError.code) {
+		case .canceled, .unknown:
+			// .unknown (1000) is returned in the same circumstances as .canceled on some OS versions.
+			Self.logger.info("Sign in with Apple cancelled or dismissed (code \(nsError.code))")
+		default:
+			Self.logger.error("Sign in with Apple failed (code \(nsError.code)): \(error.localizedDescription)")
+			showAuthError("Sign in with Apple failed. Please try again.")
+		}
 	}
 }
 
