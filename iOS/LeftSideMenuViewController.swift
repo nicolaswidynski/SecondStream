@@ -176,13 +176,16 @@ private final class LeftSideMenuContentViewController: UIViewController {
 		super.viewDidLoad()
 		view.backgroundColor = Assets.Colors.SettingsContentBgColor
 		setupViews()
-		updateCredits()
-
 		NotificationCenter.default.addObserver(self, selector: #selector(creditsDidUpdate), name: .creditsDidUpdate, object: nil)
 
 		let tripleTap = UITapGestureRecognizer(target: self, action: #selector(buildLabelTripleTapped))
 		tripleTap.numberOfTapsRequired = 3
 		buildLabel.addGestureRecognizer(tripleTap)
+	}
+
+	override func viewWillAppear(_ animated: Bool) {
+		super.viewWillAppear(animated)
+		updateCredits()
 	}
 
 	private func setupViews() {

@@ -67,6 +67,8 @@ final class RegistrationViewController: UIViewController {
 		return button
 	}()
 
+	private var authorizationController: ASAuthorizationController?
+
 	private let activityIndicator: UIActivityIndicatorView = {
 		let indicator = UIActivityIndicatorView(style: .medium)
 		indicator.hidesWhenStopped = true
@@ -161,6 +163,7 @@ final class RegistrationViewController: UIViewController {
 		let controller = ASAuthorizationController(authorizationRequests: [request])
 		controller.delegate = self
 		controller.presentationContextProvider = self
+		authorizationController = controller
 		controller.performRequests()
 	}
 
@@ -257,13 +260,18 @@ extension RegistrationViewController: ASAuthorizationControllerDelegate {
 
 	func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
 		let nsError = error as NSError
-		guard nsError.domain == ASAuthorizationError.errorDomain,
-			  nsError.code == ASAuthorizationError.canceled.rawValue else {
+		guard nsError.domain == ASAuthorizationError.errorDomain else {
 			Self.logger.error("Sign in with Apple failed: \(error.localizedDescription)")
-			showError(error.localizedDescription)
+			showError("Sign in with Apple failed. Please try again.")
 			return
 		}
-		Self.logger.info("Sign in with Apple cancelled by user")
+		switch ASAuthorizationError.Code(rawValue: nsError.code) {
+		case .canceled, .unknown:
+			Self.logger.info("Sign in with Apple cancelled or dismissed (code \(nsError.code))")
+		default:
+			Self.logger.error("Sign in with Apple failed (code \(nsError.code)): \(error.localizedDescription)")
+			showError("Sign in with Apple failed. Please try again.")
+		}
 	}
 }
 

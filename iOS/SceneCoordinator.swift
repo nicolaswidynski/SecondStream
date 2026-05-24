@@ -1555,7 +1555,11 @@ struct SidebarItemNode: Hashable, Sendable {
 	}
 
 	func toggleStar(_ article: Article) {
-		markArticlesWithUndo([article], statusKey: .starred, flag: !article.status.starred)
+		let isStarring = !article.status.starred
+		markArticlesWithUndo([article], statusKey: .starred, flag: isStarring)
+		if isStarring && AuthManager.shared.isConnected {
+			Task { await FeedStatsManager.shared.fetchCreditsIfNeeded() }
+		}
 	}
 
 	func timelineFeedIsEqualTo(_ feed: Feed) -> Bool {
