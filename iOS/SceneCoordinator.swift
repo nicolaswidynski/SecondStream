@@ -73,7 +73,7 @@ enum FeedSectionIdentifier: String {
 	var displayName: String {
 		switch self {
 		case .smartFeeds:
-			return NSLocalizedString("Recently Updated", comment: "Recently Updated section")
+			return NSLocalizedString("Recent Articles", comment: "Recent Articles section")
 		case .rssFeeds:
 			return NSLocalizedString("My RSS Feeds", comment: "My RSS Feeds section")
 		case .podcasts:

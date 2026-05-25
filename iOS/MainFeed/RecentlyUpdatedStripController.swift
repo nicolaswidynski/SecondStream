@@ -71,7 +71,7 @@ enum RecentlyUpdatedStripPayload {
 		label.translatesAutoresizingMaskIntoConstraints = false
 		label.font = UIFont.preferredFont(forTextStyle: .title3).bold()
 		label.textColor = .label
-		label.text = NSLocalizedString("Recently Updated", comment: "Recently Updated")
+		label.text = NSLocalizedString("Recent Articles", comment: "Recent Articles")
 		return label
 	}()
 
@@ -89,13 +89,12 @@ enum RecentlyUpdatedStripPayload {
 		return sv
 	}()
 
-	private lazy var pageControl: UIPageControl = {
-		let pc = UIPageControl()
+	private lazy var pageControl: CompactPageControl = {
+		let pc = CompactPageControl()
 		pc.translatesAutoresizingMaskIntoConstraints = false
 		pc.currentPageIndicatorTintColor = .label
 		pc.pageIndicatorTintColor = .tertiaryLabel
 		pc.hidesForSinglePage = true
-		pc.addTarget(self, action: #selector(pageControlChanged), for: .valueChanged)
 		return pc
 	}()
 
@@ -185,7 +184,7 @@ enum RecentlyUpdatedStripPayload {
 		}()
 		titleLabel.text = isDiscoverMode
 			? NSLocalizedString("Discover", comment: "Discover")
-			: NSLocalizedString("Recently Updated", comment: "Recently Updated")
+			: NSLocalizedString("Recent Articles", comment: "Recent Articles")
 
 		let wasEmpty = cardViews.isEmpty
 
@@ -255,46 +254,22 @@ enum RecentlyUpdatedStripPayload {
 	}
 
 	func computeRecentlyUpdatedUnreadFeeds() async -> [(feed: Feed, article: Article)] {
-		var latestDateByFeedID = [String: Date]()
-		var oldestArticleByFeedID = [String: Article]()
 		var feedByID = [String: Feed]()
+		var results: [(feed: Feed, article: Article)] = []
 
 		for account in AccountManager.shared.activeAccounts {
 			for feed in account.flattenedFeeds() where feed.unreadCount > 0 {
 				feedByID[feed.feedID] = feed
 			}
-
-			guard !feedByID.isEmpty else {
-				continue
-			}
-
-			guard let unreadArticles = try? await account.fetchArticlesAsync(.unread()) else {
-				continue
-			}
-
+			guard !feedByID.isEmpty else { continue }
+			guard let unreadArticles = try? await account.fetchArticlesAsync(.unread()) else { continue }
 			for article in unreadArticles {
-				guard feedByID[article.feedID] != nil else { continue }
-				let date = article.logicalDatePublished
-
-				let existingLatest = latestDateByFeedID[article.feedID] ?? .distantPast
-				if date > existingLatest {
-					latestDateByFeedID[article.feedID] = date
-				}
-
-				let existingOldest = oldestArticleByFeedID[article.feedID]
-				if existingOldest == nil || date < existingOldest!.logicalDatePublished {
-					oldestArticleByFeedID[article.feedID] = article
-				}
+				guard let feed = feedByID[article.feedID] else { continue }
+				results.append((feed: feed, article: article))
 			}
 		}
 
-		return latestDateByFeedID
-			.sorted { $0.value > $1.value }
-			.compactMap { entry -> (feed: Feed, article: Article)? in
-				guard let feed = feedByID[entry.key],
-					  let article = oldestArticleByFeedID[entry.key] else { return nil }
-				return (feed: feed, article: article)
-			}
+		return results.sorted { $0.article.logicalDatePublished > $1.article.logicalDatePublished }
 	}
 
 	func buildDiscoverSourceItems() -> [DiscoverSourceItem] {
@@ -395,12 +370,6 @@ enum RecentlyUpdatedStripPayload {
 		card.performTapFeedback { [weak self] in
 			self?.onPayloadTapped?(payload)
 		}
-	}
-
-	@objc private func pageControlChanged(_ sender: UIPageControl) {
-		let x = CGFloat(sender.currentPage) * pageScrollView.bounds.width
-		pageScrollView.setContentOffset(CGPoint(x: x, y: 0), animated: true)
-		resetInactivityTimer()
 	}
 
 	// MARK: - Auto-scroll
@@ -562,6 +531,68 @@ final class RecentlyUpdatedCardView: UIControl {
 			self.pressOverlayView.alpha = 0
 		} completion: { _ in
 			completion()
+		}
+	}
+}
+
+// MARK: - CompactPageControl
+
+final class CompactPageControl: UIView {
+
+	var numberOfPages: Int = 0 { didSet { setNeedsLayout() } }
+	var currentPage: Int = 0 { didSet { setNeedsLayout() } }
+	var hidesForSinglePage = true { didSet { setNeedsLayout() } }
+	var currentPageIndicatorTintColor: UIColor = .label { didSet { setNeedsLayout() } }
+	var pageIndicatorTintColor: UIColor = .tertiaryLabel { didSet { setNeedsLayout() } }
+
+	private let maxDots = 5
+	private let fullSize: CGFloat = 7
+	private let smallSize: CGFloat = 4
+	private let spacing: CGFloat = 5
+	private var dots: [UIView] = []
+
+	override init(frame: CGRect) { super.init(frame: frame); setup() }
+	required init?(coder: NSCoder) { super.init(coder: coder); setup() }
+
+	private func setup() {
+		for _ in 0..<maxDots {
+			let dot = UIView()
+			addSubview(dot)
+			dots.append(dot)
+		}
+	}
+
+	private var windowStart: Int {
+		guard numberOfPages > maxDots else { return 0 }
+		return max(0, min(currentPage - maxDots / 2, numberOfPages - maxDots))
+	}
+
+	override func layoutSubviews() {
+		super.layoutSubviews()
+		isHidden = hidesForSinglePage && numberOfPages <= 1
+
+		let count = min(numberOfPages, maxDots)
+		let start = windowStart
+
+		var sizes = [CGFloat](repeating: fullSize, count: count)
+		if numberOfPages > maxDots {
+			if start > 0 { sizes[0] = smallSize }
+			if start + count < numberOfPages { sizes[count - 1] = smallSize }
+		}
+
+		let totalWidth = sizes.reduce(0, +) + CGFloat(max(0, count - 1)) * spacing
+		var x = (bounds.width - totalWidth) / 2
+		let midY = bounds.height / 2
+
+		for i in 0..<maxDots {
+			let dot = dots[i]
+			guard i < count else { dot.frame = .zero; continue }
+			let page = start + i
+			let size = sizes[i]
+			dot.frame = CGRect(x: x, y: midY - size / 2, width: size, height: size)
+			dot.layer.cornerRadius = size / 2
+			dot.backgroundColor = (page == currentPage) ? currentPageIndicatorTintColor : pageIndicatorTintColor
+			x += size + spacing
 		}
 	}
 }
