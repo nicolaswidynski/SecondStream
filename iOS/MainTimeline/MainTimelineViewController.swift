@@ -692,6 +692,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		navigationController?.navigationBar.scrollEdgeAppearance = navAppearance
 		navigationController?.navigationBar.compactAppearance = navAppearance
 		navigationController?.view.backgroundColor = Assets.Colors.TimelineSceneContentBgColor
+		navigationController?.additionalSafeAreaInsets.top = 6
 		navigationController?.setNavigationBarHidden(false, animated: false)
 		self.navigationController?.isToolbarHidden = false
 		shouldFadeInNavigationSubtitle = true

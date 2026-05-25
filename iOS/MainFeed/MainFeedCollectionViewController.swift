@@ -474,6 +474,7 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 	override func viewWillAppear(_ animated: Bool) {
 		navigationController?.view.backgroundColor = Assets.Colors.FeedSceneContentBgColor
 		navigationController?.setToolbarHidden(false, animated: animated)
+		navigationController?.additionalSafeAreaInsets.top = 6
 		navigationController?.additionalSafeAreaInsets.bottom = 60
 		stripController.applyNavigationBarBackgroundStyle()
 		stripController.refresh()
