@@ -646,7 +646,7 @@ final class AppDefaults: Sendable {
 									   Key.timelineUnreadFirst: false,
 									   Key.showSectionHeaderIcons: true,
 									   Key.collapsibleArticleSectionsEnabled: false,
-					   Key.recentlyUpdatedAutoScroll: true,
+									   Key.recentlyUpdatedAutoScroll: false,
 									   Key.faceIDEnabled: false,
 								   Key.hasShownLandingPage: false,
 								   Key.debugShowLandingPage: false]

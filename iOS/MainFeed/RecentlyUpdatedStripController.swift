@@ -59,6 +59,13 @@ enum RecentlyUpdatedStripPayload {
 		return view
 	}()
 
+	private lazy var pageControlBackgroundView: UIView = {
+		let view = UIView()
+		view.translatesAutoresizingMaskIntoConstraints = false
+		view.isUserInteractionEnabled = false
+		return view
+	}()
+
 	private lazy var titleLabel: UILabel = {
 		let label = UILabel()
 		label.translatesAutoresizingMaskIntoConstraints = false
@@ -106,6 +113,7 @@ enum RecentlyUpdatedStripPayload {
 	/// Call once from `viewDidLoad`.
 	func install(in parentView: UIView, above collectionView: UIView) {
 		parentView.insertSubview(navBarExtendedBackgroundView, aboveSubview: collectionView)
+		parentView.insertSubview(pageControlBackgroundView, aboveSubview: navBarExtendedBackgroundView)
 		parentView.addSubview(containerView)
 		containerView.addSubview(titleLabel)
 		containerView.addSubview(pageScrollView)
@@ -118,7 +126,12 @@ enum RecentlyUpdatedStripPayload {
 			navBarExtendedBackgroundView.leadingAnchor.constraint(equalTo: parentView.leadingAnchor),
 			navBarExtendedBackgroundView.trailingAnchor.constraint(equalTo: parentView.trailingAnchor),
 			navBarExtendedBackgroundView.topAnchor.constraint(equalTo: parentView.topAnchor),
-			navBarExtendedBackgroundView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: 10),
+			navBarExtendedBackgroundView.bottomAnchor.constraint(equalTo: pageScrollView.bottomAnchor),
+
+			pageControlBackgroundView.leadingAnchor.constraint(equalTo: parentView.leadingAnchor),
+			pageControlBackgroundView.trailingAnchor.constraint(equalTo: parentView.trailingAnchor),
+			pageControlBackgroundView.topAnchor.constraint(equalTo: pageScrollView.bottomAnchor),
+			pageControlBackgroundView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: 10),
 
 			containerView.leadingAnchor.constraint(equalTo: parentView.leadingAnchor, constant: 16),
 			containerView.trailingAnchor.constraint(equalTo: parentView.trailingAnchor, constant: -16),
@@ -140,11 +153,11 @@ enum RecentlyUpdatedStripPayload {
 		])
 	}
 
-	/// Applies the navigation bar background style using `FeedSceneRecentlyUpdatedColor`.
 	func applyNavigationBarBackgroundStyle() {
 		navBarExtendedBackgroundView.effect = nil
-		navBarExtendedBackgroundView.backgroundColor = Assets.Colors.FeedSceneRecentlyUpdatedColor
+		navBarExtendedBackgroundView.contentView.backgroundColor = Assets.Colors.FeedSceneRecentlyUpdatedLabelColor
 		navBarExtendedBackgroundView.alpha = 1.0
+		pageControlBackgroundView.backgroundColor = Assets.Colors.FeedSceneRecentlyUpdatedColor
 	}
 
 	// MARK: - Refresh
