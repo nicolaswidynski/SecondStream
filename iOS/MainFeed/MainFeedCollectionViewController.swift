@@ -163,9 +163,21 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		stripController.onPayloadTapped = { [weak self] payload in
 			guard let self else { return }
 			switch payload {
-			case .feed(let feed):
+			case .feed(let feed, let article):
 				expandCategorySectionForCategory(feed.feedCategory)
-				coordinator.selectFeed(feed, animations: [.navigation, .scroll])
+				coordinator.selectFeed(feed, animations: [.navigation, .scroll], deselectArticle: false) { [weak self] in
+					guard let self else { return }
+					// show(.supplementary) runs a push animation; wait for it to finish before
+					// pushing secondary, otherwise the two in-flight pushes conflict and revert.
+					if let tc = navigationController?.transitionCoordinator {
+						tc.animate(alongsideTransition: nil) { [weak self] context in
+							guard let self, !context.isCancelled else { return }
+							coordinator.selectArticle(article, animations: [.scroll, .select, .navigation])
+						}
+					} else {
+						coordinator.selectArticle(article, animations: [.scroll, .select, .navigation])
+					}
+				}
 			case .discover(let source):
 				addDiscoverSource(source)
 			}
@@ -1395,6 +1407,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		coordinator.toggleCategorySection(feedSection)
 	}
 
+	override func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+		stripController.resetInactivityTimer()
+	}
 
 }
 

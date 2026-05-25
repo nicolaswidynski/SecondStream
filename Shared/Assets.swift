@@ -307,8 +307,8 @@ struct Assets {
 		
 		// MARK: - Feed Scene
 
-		static var FeedSceneNavBarColor: RSColor          { dbg(dbgColor: .blue, color: foreground) }
-		static var FeedSceneRecentlyUpdatedColor: RSColor { dbg(dbgColor: .red, color: foreground) }
+		static var FeedSceneNavBarColor: RSColor          { dbg(dbgColor: .blue, color: background) }//foreground) }
+		static var FeedSceneRecentlyUpdatedColor: RSColor { dbg(dbgColor: .red, color: background) }//foreground) }
 		static var FeedSceneContentBgColor: RSColor       { dbg(dbgColor: .yellow, color: background) }
 		static var FeedSceneContentTableColor: RSColor    { dbg(dbgColor: .green, color: background) }
 
@@ -371,19 +371,21 @@ struct Assets {
 		// MARK: - Separators
 
 		static var separator: RSColor {
-			RSColor { tc in
-				tc.userInterfaceStyle == .dark
-				? RSColor(red:  27/255, green:  26/255, blue:  25/255, alpha: 0)
-				: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 0)
-			}
+			return background;
+//			RSColor { tc in
+//				tc.userInterfaceStyle == .dark
+//				? RSColor(red:  27/255, green:  26/255, blue:  25/255, alpha: 0)
+//				: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 0)
+//			}
 		}
 
 		static var separatorSection: RSColor {
-			RSColor { tc in
-				tc.userInterfaceStyle == .dark
-				? RSColor(red:  27/255, green:  26/255, blue:  25/255, alpha: 0)
-				: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 0)
-			}
+			return background;
+//			RSColor { tc in
+//				tc.userInterfaceStyle == .dark
+//				? RSColor(red:  27/255, green:  26/255, blue:  25/255, alpha: 0)
+//				: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 0)
+//			}
 		}
 
 		/// Separator inside article reading cards (between paragraphs).

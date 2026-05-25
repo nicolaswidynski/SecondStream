@@ -15,6 +15,7 @@ final class AppearanceSettingsViewController: UITableViewController {
 		case timelineUnreadFirst
 		case sectionHeaderIcons
 		case collapsibleSections
+		case recentlyUpdatedAutoScroll
 	}
 
 	override func viewDidLoad() {
@@ -60,6 +61,12 @@ final class AppearanceSettingsViewController: UITableViewController {
 				title: NSLocalizedString("Collapsible Article Sections", comment: "Article sections collapsible toggle"),
 				isOn: AppDefaults.shared.collapsibleArticleSectionsEnabled,
 				action: #selector(switchCollapsibleSections(_:))
+			)
+		case .recentlyUpdatedAutoScroll:
+			return makeToggleCell(
+				title: NSLocalizedString("Auto-scroll", comment: "Recently Updated auto-scroll toggle"),
+				isOn: AppDefaults.shared.recentlyUpdatedAutoScroll,
+				action: #selector(switchRecentlyUpdatedAutoScroll(_:))
 			)
 		}
 	}
@@ -133,5 +140,9 @@ final class AppearanceSettingsViewController: UITableViewController {
 
 	@objc private func switchCollapsibleSections(_ sender: UISwitch) {
 		AppDefaults.shared.collapsibleArticleSectionsEnabled = sender.isOn
+	}
+
+	@objc private func switchRecentlyUpdatedAutoScroll(_ sender: UISwitch) {
+		AppDefaults.shared.recentlyUpdatedAutoScroll = sender.isOn
 	}
 }

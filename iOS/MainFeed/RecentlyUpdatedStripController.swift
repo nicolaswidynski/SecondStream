@@ -23,29 +23,25 @@ struct DiscoverSourceItem {
 }
 
 enum RecentlyUpdatedStripPayload {
-	case feed(Feed)
+	case feed(Feed, Article)
 	case discover(DiscoverSourceItem)
 }
 
 // MARK: - RecentlyUpdatedStripController
 
-/// Owns the "Recently Updated" / "Discover" horizontal strip that sits above the feed list.
+/// Owns the "Recently Updated" / "Discover" paging strip that sits above the feed list.
 ///
-/// Responsibilities:
-/// - Building and owning the strip view hierarchy
-/// - Computing payloads (recently-updated feeds or discover items)
-/// - Animating icon appearance
-///
-/// `MainFeedCollectionViewController` holds this as a plain owned object, adds the views to
-/// its hierarchy, wires `onPayloadTapped`, and calls `refresh()` when it needs the strip updated.
-@MainActor final class RecentlyUpdatedStripController {
+/// Each page shows one feed: icon on the left, article title and snippet on the right.
+/// For feeds with multiple unread articles, the oldest unread article is shown.
+/// Tapping navigates directly to that article.
+@MainActor final class RecentlyUpdatedStripController: NSObject {
 
 	// MARK: - Public interface
 
 	/// The top inset the collection view must apply to clear the strip.
-	let topInset: CGFloat = 156
+	let topInset: CGFloat = 164
 
-	/// Called whenever the user taps an item in the strip.
+	/// Called whenever the user taps a card in the strip.
 	var onPayloadTapped: ((RecentlyUpdatedStripPayload) -> Void)?
 
 	// MARK: - Views (owned; caller adds them to the view hierarchy)
@@ -72,36 +68,37 @@ enum RecentlyUpdatedStripPayload {
 		return label
 	}()
 
-	private lazy var scrollView: UIScrollView = {
-		let scrollView = UIScrollView()
-		scrollView.translatesAutoresizingMaskIntoConstraints = false
-		scrollView.showsHorizontalScrollIndicator = false
-		scrollView.showsVerticalScrollIndicator = false
-		scrollView.alwaysBounceVertical = false
-		scrollView.isDirectionalLockEnabled = true
-		return scrollView
+	private lazy var pageScrollView: UIScrollView = {
+		let sv = UIScrollView()
+		sv.translatesAutoresizingMaskIntoConstraints = false
+		sv.isPagingEnabled = true
+		sv.showsHorizontalScrollIndicator = false
+		sv.showsVerticalScrollIndicator = false
+		sv.alwaysBounceVertical = false
+		sv.isDirectionalLockEnabled = true
+		sv.clipsToBounds = true
+		sv.layer.cornerRadius = 16
+		sv.delegate = self
+		return sv
 	}()
 
-	private lazy var backgroundView: UIVisualEffectView = {
-		let view = UIVisualEffectView(effect: nil)
-		view.translatesAutoresizingMaskIntoConstraints = false
-		view.layer.cornerRadius = 20
-		view.clipsToBounds = true
-		return view
-	}()
-
-	private lazy var stackView: UIStackView = {
-		let stack = UIStackView()
-		stack.translatesAutoresizingMaskIntoConstraints = false
-		stack.axis = .horizontal
-		stack.spacing = 3
-		stack.alignment = .center
-		return stack
+	private lazy var pageControl: UIPageControl = {
+		let pc = UIPageControl()
+		pc.translatesAutoresizingMaskIntoConstraints = false
+		pc.currentPageIndicatorTintColor = .label
+		pc.pageIndicatorTintColor = .tertiaryLabel
+		pc.hidesForSinglePage = true
+		pc.addTarget(self, action: #selector(pageControlChanged), for: .valueChanged)
+		return pc
 	}()
 
 	// MARK: - Private state
 
+	private var payloads: [RecentlyUpdatedStripPayload] = []
+	private var cardViews: [RecentlyUpdatedCardView] = []
 	private var stripTask: Task<Void, Never>?
+	private var autoScrollTimer: Timer?
+	private var inactivityTimer: Timer?
 
 	// MARK: - Setup
 
@@ -111,9 +108,11 @@ enum RecentlyUpdatedStripPayload {
 		parentView.insertSubview(navBarExtendedBackgroundView, aboveSubview: collectionView)
 		parentView.addSubview(containerView)
 		containerView.addSubview(titleLabel)
-		containerView.addSubview(backgroundView)
-		backgroundView.contentView.addSubview(scrollView)
-		scrollView.addSubview(stackView)
+		containerView.addSubview(pageScrollView)
+		containerView.addSubview(pageControl)
+
+		let pageControlHeight = pageControl.heightAnchor.constraint(equalToConstant: 20)
+		pageControlHeight.priority = .required
 
 		NSLayoutConstraint.activate([
 			navBarExtendedBackgroundView.leadingAnchor.constraint(equalTo: parentView.leadingAnchor),
@@ -129,28 +128,20 @@ enum RecentlyUpdatedStripPayload {
 			titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: containerView.trailingAnchor),
 			titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor),
 
-			backgroundView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-			backgroundView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-			backgroundView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
-			backgroundView.heightAnchor.constraint(equalToConstant: 86),
-			backgroundView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
+			pageScrollView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+			pageScrollView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+			pageScrollView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
+			pageScrollView.heightAnchor.constraint(equalToConstant: 88),
 
-			scrollView.leadingAnchor.constraint(equalTo: backgroundView.contentView.leadingAnchor, constant: 10),
-			scrollView.trailingAnchor.constraint(equalTo: backgroundView.contentView.trailingAnchor, constant: -10),
-			scrollView.topAnchor.constraint(equalTo: backgroundView.contentView.topAnchor, constant: 8),
-			scrollView.bottomAnchor.constraint(equalTo: backgroundView.contentView.bottomAnchor, constant: -8),
-
-			stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
-			stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
-			stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
-			stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor)
+			pageControlHeight,
+			pageControl.topAnchor.constraint(equalTo: pageScrollView.bottomAnchor, constant: 6),
+			pageControl.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+			pageControl.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
 		])
 	}
 
 	/// Applies the navigation bar background style using `FeedSceneRecentlyUpdatedColor`.
 	func applyNavigationBarBackgroundStyle() {
-		backgroundView.effect = nil
-		backgroundView.backgroundColor = Assets.Colors.FeedSceneRecentlyUpdatedColor
 		navBarExtendedBackgroundView.effect = nil
 		navBarExtendedBackgroundView.backgroundColor = Assets.Colors.FeedSceneRecentlyUpdatedColor
 		navBarExtendedBackgroundView.alpha = 1.0
@@ -171,11 +162,11 @@ enum RecentlyUpdatedStripPayload {
 	// MARK: - Data pipeline
 
 	private func applyPayloads() async {
-		let payloads = await buildPayloads()
+		let newPayloads = await buildPayloads()
 		guard !Task.isCancelled else { return }
 
 		let isDiscoverMode: Bool = {
-			guard let first = payloads.first else { return false }
+			guard let first = newPayloads.first else { return false }
 			if case .discover = first { return true }
 			return false
 		}()
@@ -183,60 +174,76 @@ enum RecentlyUpdatedStripPayload {
 			? NSLocalizedString("Discover", comment: "Discover")
 			: NSLocalizedString("Recently Updated", comment: "Recently Updated")
 
-		let wasEmpty = stackView.arrangedSubviews.isEmpty
+		let wasEmpty = cardViews.isEmpty
 
-		stackView.arrangedSubviews.forEach { view in
-			stackView.removeArrangedSubview(view)
-			view.removeFromSuperview()
-		}
+		cardViews.forEach { $0.removeFromSuperview() }
+		cardViews = []
+		payloads = newPayloads
 
-		for payload in payloads {
-			let itemView = RecentlyUpdatedFeedItemView()
-			itemView.payload = payload
-			itemView.translatesAutoresizingMaskIntoConstraints = false
-			itemView.addTarget(self, action: #selector(itemTapped(_:)), for: .touchUpInside)
+		pageControl.numberOfPages = newPayloads.count
+		pageControl.currentPage = 0
+
+		for (index, payload) in newPayloads.enumerated() {
+			let card = RecentlyUpdatedCardView()
+			card.payload = payload
+			card.translatesAutoresizingMaskIntoConstraints = false
+			card.addTarget(self, action: #selector(cardTapped(_:)), for: .touchUpInside)
+
 			switch payload {
-			case .feed(let feed):
-				itemView.accessibilityLabel = feed.nameForDisplay
-				itemView.setImage(iconImage(forFeed: feed))
+			case .feed(let feed, let article):
+				card.accessibilityLabel = feed.nameForDisplay
+				card.setImage(iconImage(forFeed: feed))
+				card.setText(title: article.title ?? feed.nameForDisplay, snippet: snippetText(for: article))
 			case .discover(let source):
-				itemView.accessibilityLabel = source.name
-				itemView.setImage(iconImage(forSource: source))
+				card.accessibilityLabel = source.name
+				card.setImage(iconImage(forSource: source))
+				card.setText(title: source.name, snippet: source.author)
 			}
-			NSLayoutConstraint.activate([
-				itemView.widthAnchor.constraint(equalToConstant: 72),
-				itemView.heightAnchor.constraint(equalToConstant: 68)
-			])
-			stackView.addArrangedSubview(itemView)
+
+			pageScrollView.addSubview(card)
+			cardViews.append(card)
+
+			var cardConstraints: [NSLayoutConstraint] = [
+				card.topAnchor.constraint(equalTo: pageScrollView.contentLayoutGuide.topAnchor),
+				card.bottomAnchor.constraint(equalTo: pageScrollView.contentLayoutGuide.bottomAnchor),
+				card.widthAnchor.constraint(equalTo: pageScrollView.frameLayoutGuide.widthAnchor),
+				card.heightAnchor.constraint(equalTo: pageScrollView.frameLayoutGuide.heightAnchor),
+			]
+
+			if index == 0 {
+				cardConstraints.append(card.leadingAnchor.constraint(equalTo: pageScrollView.contentLayoutGuide.leadingAnchor))
+			} else {
+				cardConstraints.append(card.leadingAnchor.constraint(equalTo: cardViews[index - 1].trailingAnchor))
+			}
+
+			if index == newPayloads.count - 1 {
+				cardConstraints.append(card.trailingAnchor.constraint(equalTo: pageScrollView.contentLayoutGuide.trailingAnchor))
+			}
+
+			NSLayoutConstraint.activate(cardConstraints)
 		}
 
-		if !payloads.isEmpty && wasEmpty {
-			let itemViews = stackView.arrangedSubviews
-			for (index, view) in itemViews.enumerated() {
-				view.alpha = 0
-				view.transform = CGAffineTransform(translationX: 44, y: 0)
-				UIView.animate(
-					withDuration: 0.28,
-					delay: Double(index) * 0.06,
-					options: .curveEaseOut
-				) {
-					view.alpha = 1
-					view.transform = .identity
-				}
+		if !newPayloads.isEmpty && wasEmpty {
+			pageScrollView.alpha = 0
+			UIView.animate(withDuration: 0.28, delay: 0, options: .curveEaseOut) {
+				self.pageScrollView.alpha = 1
 			}
 		}
+
+		resetInactivityTimer()
 	}
 
 	func buildPayloads() async -> [RecentlyUpdatedStripPayload] {
 		let recentFeeds = await computeRecentlyUpdatedUnreadFeeds()
 		if !recentFeeds.isEmpty {
-			return recentFeeds.map { .feed($0) }
+			return recentFeeds.map { .feed($0.feed, $0.article) }
 		}
 		return buildDiscoverSourceItems().map { .discover($0) }
 	}
 
-	func computeRecentlyUpdatedUnreadFeeds() async -> [Feed] {
+	func computeRecentlyUpdatedUnreadFeeds() async -> [(feed: Feed, article: Article)] {
 		var latestDateByFeedID = [String: Date]()
+		var oldestArticleByFeedID = [String: Article]()
 		var feedByID = [String: Feed]()
 
 		for account in AccountManager.shared.activeAccounts {
@@ -255,16 +262,26 @@ enum RecentlyUpdatedStripPayload {
 			for article in unreadArticles {
 				guard feedByID[article.feedID] != nil else { continue }
 				let date = article.logicalDatePublished
-				let existing = latestDateByFeedID[article.feedID] ?? .distantPast
-				if date > existing {
+
+				let existingLatest = latestDateByFeedID[article.feedID] ?? .distantPast
+				if date > existingLatest {
 					latestDateByFeedID[article.feedID] = date
+				}
+
+				let existingOldest = oldestArticleByFeedID[article.feedID]
+				if existingOldest == nil || date < existingOldest!.logicalDatePublished {
+					oldestArticleByFeedID[article.feedID] = article
 				}
 			}
 		}
 
 		return latestDateByFeedID
 			.sorted { $0.value > $1.value }
-			.compactMap { feedByID[$0.key] }
+			.compactMap { entry -> (feed: Feed, article: Article)? in
+				guard let feed = feedByID[entry.key],
+					  let article = oldestArticleByFeedID[entry.key] else { return nil }
+				return (feed: feed, article: article)
+			}
 	}
 
 	func buildDiscoverSourceItems() -> [DiscoverSourceItem] {
@@ -284,6 +301,33 @@ enum RecentlyUpdatedStripPayload {
 		}
 
 		return items
+	}
+
+	// MARK: - Snippet
+
+	private func snippetText(for article: Article) -> String? {
+		if let summary = article.summary, !summary.isEmpty {
+			return summary
+		}
+		if let text = article.contentText, !text.isEmpty {
+			let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+			if !trimmed.isEmpty { return String(trimmed.prefix(300)) }
+		}
+		if let html = article.contentHTML, !html.isEmpty {
+			let stripped = html
+				.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+				.replacingOccurrences(of: "&amp;", with: "&")
+				.replacingOccurrences(of: "&lt;", with: "<")
+				.replacingOccurrences(of: "&gt;", with: ">")
+				.replacingOccurrences(of: "&quot;", with: "\"")
+				.replacingOccurrences(of: "&#39;", with: "'")
+				.replacingOccurrences(of: "&nbsp;", with: " ")
+				.components(separatedBy: .whitespacesAndNewlines)
+				.filter { !$0.isEmpty }
+				.joined(separator: " ")
+			if !stripped.isEmpty { return String(stripped.prefix(300)) }
+		}
+		return nil
 	}
 
 	// MARK: - Icon helpers
@@ -331,36 +375,121 @@ enum RecentlyUpdatedStripPayload {
 
 	// MARK: - Actions
 
-	@objc private func itemTapped(_ sender: UIControl) {
-		guard let itemView = sender as? RecentlyUpdatedFeedItemView,
-			  let payload = itemView.payload else {
-			return
-		}
-		itemView.performTapFeedback { [weak self] in
+	@objc private func cardTapped(_ sender: UIControl) {
+		guard let card = sender as? RecentlyUpdatedCardView,
+			  let payload = card.payload else { return }
+		resetInactivityTimer()
+		card.performTapFeedback { [weak self] in
 			self?.onPayloadTapped?(payload)
 		}
 	}
+
+	@objc private func pageControlChanged(_ sender: UIPageControl) {
+		let x = CGFloat(sender.currentPage) * pageScrollView.bounds.width
+		pageScrollView.setContentOffset(CGPoint(x: x, y: 0), animated: true)
+		resetInactivityTimer()
+	}
+
+	// MARK: - Auto-scroll
+
+	private func startAutoScrollTimer() {
+		autoScrollTimer?.invalidate()
+		guard payloads.count > 1 else { return }
+		autoScrollTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+			MainActor.assumeIsolated { self?.advanceToNextPage() }
+		}
+	}
+
+	private func stopAutoScrollTimer() {
+		autoScrollTimer?.invalidate()
+		autoScrollTimer = nil
+	}
+
+	/// Stops auto-scroll and restarts the 20-second inactivity countdown.
+	/// Call on any user interaction with the strip or feed list.
+	func resetInactivityTimer() {
+		stopAutoScrollTimer()
+		inactivityTimer?.invalidate()
+		inactivityTimer = nil
+		guard payloads.count > 1, AppDefaults.shared.recentlyUpdatedAutoScroll else { return }
+		inactivityTimer = Timer.scheduledTimer(withTimeInterval: 20.0, repeats: false) { [weak self] _ in
+			MainActor.assumeIsolated { self?.startAutoScrollTimer() }
+		}
+	}
+
+	private func advanceToNextPage() {
+		guard payloads.count > 1, pageScrollView.bounds.width > 0 else { return }
+		let next = (pageControl.currentPage + 1) % payloads.count
+		pageScrollView.setContentOffset(CGPoint(x: CGFloat(next) * pageScrollView.bounds.width, y: 0), animated: true)
+	}
 }
 
-// MARK: - RecentlyUpdatedFeedItemView
+// MARK: - UIScrollViewDelegate
 
-final class RecentlyUpdatedFeedItemView: UIControl {
+extension RecentlyUpdatedStripController: UIScrollViewDelegate {
+	func scrollViewDidScroll(_ scrollView: UIScrollView) {
+		guard scrollView.bounds.width > 0 else { return }
+		let page = Int(round(scrollView.contentOffset.x / scrollView.bounds.width))
+		pageControl.currentPage = max(0, min(page, payloads.count - 1))
+	}
+
+	func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+		stopAutoScrollTimer()
+	}
+
+	func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+		resetInactivityTimer()
+	}
+}
+
+// MARK: - RecentlyUpdatedCardView
+
+final class RecentlyUpdatedCardView: UIControl {
 	var payload: RecentlyUpdatedStripPayload?
 
 	private let iconImageView: UIImageView = {
-		let imageView = UIImageView()
-		imageView.translatesAutoresizingMaskIntoConstraints = false
-		imageView.contentMode = .scaleAspectFill
-		imageView.backgroundColor = Assets.Colors.foreground
-		imageView.layer.cornerRadius = 12
-		imageView.clipsToBounds = true
-		return imageView
+		let iv = UIImageView()
+		iv.translatesAutoresizingMaskIntoConstraints = false
+		iv.contentMode = .scaleAspectFill
+		iv.backgroundColor = Assets.Colors.foreground
+		iv.layer.cornerRadius = 12
+		iv.clipsToBounds = true
+		return iv
+	}()
+
+	private let titleLabel: UILabel = {
+		let label = UILabel()
+		label.translatesAutoresizingMaskIntoConstraints = false
+		label.font = .preferredFont(forTextStyle: .subheadline).bold()
+		label.textColor = .label
+		label.numberOfLines = 1
+		return label
+	}()
+
+	private let snippetLabel: UILabel = {
+		let label = UILabel()
+		label.translatesAutoresizingMaskIntoConstraints = false
+		label.font = .preferredFont(forTextStyle: .caption1)
+		label.textColor = .secondaryLabel
+		label.numberOfLines = 3
+		label.lineBreakMode = .byTruncatingTail
+		return label
+	}()
+
+	private let textStack: UIStackView = {
+		let stack = UIStackView()
+		stack.translatesAutoresizingMaskIntoConstraints = false
+		stack.axis = .vertical
+		stack.spacing = 2
+		stack.alignment = .leading
+		stack.isUserInteractionEnabled = false
+		return stack
 	}()
 
 	private let pressOverlayView: UIView = {
 		let view = UIView()
 		view.translatesAutoresizingMaskIntoConstraints = false
-		view.backgroundColor = Assets.Colors.primaryAccent.withAlphaComponent(1)
+		view.backgroundColor = .black.withAlphaComponent(0.06)
 		view.isUserInteractionEnabled = false
 		view.alpha = 0
 		return view
@@ -374,19 +503,28 @@ final class RecentlyUpdatedFeedItemView: UIControl {
 
 	override init(frame: CGRect) {
 		super.init(frame: frame)
+		backgroundColor = Assets.Colors.FeedSceneRecentlyUpdatedColor
+
+		textStack.addArrangedSubview(titleLabel)
+		textStack.addArrangedSubview(snippetLabel)
 		addSubview(iconImageView)
-		iconImageView.addSubview(pressOverlayView)
+		addSubview(textStack)
+		addSubview(pressOverlayView)
 
 		NSLayoutConstraint.activate([
-			iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
+			iconImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
 			iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-			iconImageView.widthAnchor.constraint(equalToConstant: 68),
-			iconImageView.heightAnchor.constraint(equalToConstant: 68),
+			iconImageView.widthAnchor.constraint(equalToConstant: 70),
+			iconImageView.heightAnchor.constraint(equalToConstant: 70),
 
-			pressOverlayView.leadingAnchor.constraint(equalTo: iconImageView.leadingAnchor),
-			pressOverlayView.trailingAnchor.constraint(equalTo: iconImageView.trailingAnchor),
-			pressOverlayView.topAnchor.constraint(equalTo: iconImageView.topAnchor),
-			pressOverlayView.bottomAnchor.constraint(equalTo: iconImageView.bottomAnchor)
+			textStack.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 10),
+			textStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+			textStack.centerYAnchor.constraint(equalTo: centerYAnchor),
+
+			pressOverlayView.leadingAnchor.constraint(equalTo: leadingAnchor),
+			pressOverlayView.trailingAnchor.constraint(equalTo: trailingAnchor),
+			pressOverlayView.topAnchor.constraint(equalTo: topAnchor),
+			pressOverlayView.bottomAnchor.constraint(equalTo: bottomAnchor),
 		])
 	}
 
@@ -397,6 +535,12 @@ final class RecentlyUpdatedFeedItemView: UIControl {
 
 	func setImage(_ image: UIImage?) {
 		iconImageView.image = image
+	}
+
+	func setText(title: String?, snippet: String?) {
+		titleLabel.text = title
+		snippetLabel.text = snippet
+		snippetLabel.isHidden = snippet == nil || snippet!.isEmpty
 	}
 
 	func performTapFeedback(_ completion: @escaping () -> Void) {
