@@ -296,7 +296,7 @@ struct Assets {
 
 		/// Background colour applied to feed and article rows when tapped / selected.
 		/// Set to nil to fall back to the default UIKit grey highlight.
-		static var cellSelectionColor: RSColor? { nil } //primaryAccent }
+		static var cellSelectionColor: RSColor? { RSColor.systemGray5 }
 
 		static var readArticleTitle: RSColor {
 			RSColor { tc in tc.userInterfaceStyle == .dark ? .secondaryLabel : .secondaryLabel }
@@ -351,6 +351,7 @@ struct Assets {
 
 		// MARK: - Layout Spacing — Timeline Scene
 
+		static let cellCornerRadius: CGFloat                 = 6
 		static let timelineCellVerticalPadding: CGFloat      = 8
 		static let timelineCellMinimumHeight: CGFloat        = 35
 		static let timelineSeparatorVerticalPadding: CGFloat = 0

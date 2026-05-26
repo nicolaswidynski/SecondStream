@@ -132,21 +132,25 @@ class MainFeedCollectionViewFolderCell: UICollectionViewCell {
 	override func updateConfiguration(using state: UICellConfigurationState) {
 		var backgroundConfig = UIBackgroundConfiguration.listCell().updated(for: state)
 
+		let selectionColor = Assets.Colors.cellSelectionColor
+		let normalBg: UIColor = traitCollection.userInterfaceIdiom == .phone
+			? Assets.Colors.FeedSceneContentTableColor
+			: Assets.Colors.foreground
 		switch (state.isHighlighted || state.isSelected || state.isFocused, traitCollection.userInterfaceIdiom) {
 		case (true, .pad):
-			if let selectionColor = Assets.Colors.cellSelectionColor {
+			if let selectionColor {
 				backgroundConfig.backgroundColor = selectionColor.withAlphaComponent(0.12)
 				folderTitle.textColor = selectionColor
+			} else {
+				backgroundConfig.backgroundColor = normalBg
 			}
 			folderTitle.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .semibold)
 			unreadCountLabel.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .semibold)
 		case (true, .phone):
-			if let selectionColor = Assets.Colors.cellSelectionColor {
-				backgroundConfig.backgroundColor = selectionColor
-			}
-			folderTitle.textColor = .white
+			backgroundConfig.backgroundColor = selectionColor ?? normalBg
+			folderTitle.textColor = .label
 			unreadCountLabel.textColor = .secondaryLabel
-			faviconView.tintColor = .white
+			faviconView.tintColor = Assets.Colors.primaryAccent
 		default:
 			backgroundConfig.backgroundColor = traitCollection.userInterfaceIdiom == .phone
 				? Assets.Colors.FeedSceneContentTableColor
@@ -158,10 +162,11 @@ class MainFeedCollectionViewFolderCell: UICollectionViewCell {
 			unreadCountLabel.font = UIFont.preferredFont(forTextStyle: .body)
 		}
 
-		if state.cellDropState == .targeted, let selectionColor = Assets.Colors.cellSelectionColor {
-			backgroundConfig.backgroundColor = selectionColor.withAlphaComponent(0.18)
+		if state.cellDropState == .targeted {
+			backgroundConfig.backgroundColor = (Assets.Colors.cellSelectionColor ?? Assets.Colors.primaryAccent).withAlphaComponent(0.18)
 		}
 
+		backgroundConfig.cornerRadius = Assets.Colors.cellCornerRadius
 		self.backgroundConfiguration = backgroundConfig
 	}
 

@@ -843,10 +843,12 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	func updateNavigationBarSubtitle(_ text: String) {
-		FeedNavigationChrome.setSubtitle(text, in: navigationItem.titleView)
-		let hasSubtitleText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-		let alpha: CGFloat = (shouldFadeInNavigationSubtitle && hasSubtitleText) ? 0 : 1
-		FeedNavigationChrome.setSubtitleAlpha(alpha, in: navigationItem.titleView)
+		if false {
+			FeedNavigationChrome.setSubtitle(text, in: navigationItem.titleView)
+			let hasSubtitleText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+			let alpha: CGFloat = (shouldFadeInNavigationSubtitle && hasSubtitleText) ? 0 : 1
+			FeedNavigationChrome.setSubtitleAlpha(alpha, in: navigationItem.titleView)
+		}
 	}
 
 	func reinitializeArticles(resetScroll: Bool) {

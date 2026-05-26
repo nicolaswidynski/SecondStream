@@ -15,16 +15,6 @@ class MainTimelineFeedCell: UITableViewCell {
 	@IBOutlet var articleDate: UILabel!
 	@IBOutlet var metaDataStackView: UIStackView!
 
-	private let chevronView: UIImageView = {
-		let config = UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
-		let image = UIImage(systemName: "chevron.right", withConfiguration: config)
-		let view = UIImageView(image: image)
-		view.tintColor = .tertiaryLabel
-		view.translatesAutoresizingMaskIntoConstraints = false
-		view.contentMode = .center
-		return view
-	}()
-
 	private let inlineDateLabel: UILabel = {
 		let label = UILabel()
 		label.numberOfLines = 2
@@ -52,7 +42,7 @@ class MainTimelineFeedCell: UITableViewCell {
 	private var topPaddingConstraint: NSLayoutConstraint?
 	private var bottomPaddingConstraint: NSLayoutConstraint?
 	private var indicatorCenterXConstraint: NSLayoutConstraint?
-	private var chevronTrailingConstraint: NSLayoutConstraint?
+	private var titleTrailingConstraint: NSLayoutConstraint?
 	private var minimumHeightConstraint: NSLayoutConstraint?
 	private var isStarred = false
 
@@ -73,7 +63,6 @@ class MainTimelineFeedCell: UITableViewCell {
 			configureStackView()
 			articleDate.isHidden = true
 			contentView.addSubview(inlineDateLabel)
-			contentView.addSubview(chevronView)
 			setupConstraints()
 			registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (self: MainTimelineFeedCell, _: UITraitCollection) in
 				self.configureStackView()
@@ -119,10 +108,10 @@ class MainTimelineFeedCell: UITableViewCell {
 
 		let dateLeading = inlineDateLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16)
 		let indCenterX = indicatorView.centerXAnchor.constraint(equalTo: inlineDateLabel.centerXAnchor)
-		let chevTrailing = chevronView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
+		let titleTrailing = articleTitle.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
 		dateLabelLeadingConstraint = dateLeading
 		indicatorCenterXConstraint = indCenterX
-		chevronTrailingConstraint = chevTrailing
+		titleTrailingConstraint = titleTrailing
 
 		// Center the title+metadata group as a unit within the cell.
 		let groupGuide = UILayoutGuide()
@@ -143,12 +132,9 @@ class MainTimelineFeedCell: UITableViewCell {
 			indCenterX,
 			indicatorView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
 			articleTitle.leadingAnchor.constraint(equalTo: inlineDateLabel.trailingAnchor, constant: 8),
-			articleTitle.trailingAnchor.constraint(equalTo: chevronView.leadingAnchor, constant: -6),
+			titleTrailing,
 			metaDataStackView.leadingAnchor.constraint(equalTo: articleTitle.leadingAnchor),
-			metaDataStackView.trailingAnchor.constraint(equalTo: chevronView.leadingAnchor, constant: -6),
-			chevTrailing,
-			chevronView.widthAnchor.constraint(equalToConstant: 10),
-			chevronView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+			metaDataStackView.trailingAnchor.constraint(equalTo: articleTitle.trailingAnchor),
 			groupGuide.topAnchor.constraint(equalTo: articleTitle.topAnchor),
 			groupGuide.bottomAnchor.constraint(equalTo: metaDataStackView.bottomAnchor),
 			groupGuide.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
@@ -291,13 +277,14 @@ class MainTimelineFeedCell: UITableViewCell {
 		articleTitle.text = cellData.title
 		articleTitle.font = UIFont.preferredFont(forTextStyle: .body)
 		articleTitle.textColor = titleTextColor(for: state)
+		articleTitle.textAlignment = .justified
 		articleTitle.lineBreakMode = .byTruncatingTail
 	}
 
 	func titleTextColor(for state: UICellConfigurationState) -> UIColor {
 		let isSelected = state.isSelected || state.isHighlighted || state.isFocused || state.isSwiped
-		if isSelected {
-			return .white
+		if isSelected && Assets.Colors.cellSelectionColor != nil {
+			return .label
 		} else if AppDefaults.shared.timelineDimReadArticles, cellData?.read == true {
 			return Assets.Colors.readArticleTitle
 		} else {
@@ -310,7 +297,7 @@ class MainTimelineFeedCell: UITableViewCell {
 		guard traitCollection.userInterfaceIdiom == .phone else { return }
 		let inset = (bounds.width * 0.05).rounded()
 		dateLabelLeadingConstraint?.constant = inset + 6
-		chevronTrailingConstraint?.constant = -(inset + 12)
+		titleTrailingConstraint?.constant = -(inset + 12)
 	}
 
 	override func systemLayoutSizeFitting(
@@ -337,30 +324,28 @@ class MainTimelineFeedCell: UITableViewCell {
 			backgroundConfig.edgesAddingLayoutMarginsToBackgroundInsets = []
 			let hInset = (bounds.width * 0.05).rounded()
 			backgroundConfig.backgroundInsets = NSDirectionalEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset)
+			backgroundConfig.cornerRadius = Assets.Colors.cellCornerRadius
 		}
 		if traitCollection.userInterfaceIdiom == .pad {
 			backgroundConfig.edgesAddingLayoutMarginsToBackgroundInsets = [.leading, .trailing]
 			backgroundConfig.backgroundInsets = NSDirectionalEdgeInsets(top: 0, leading: !isPreview ? -4 : -12, bottom: 0, trailing: !isPreview ? -4 : -12)
 		}
 
+		let normalBg: UIColor = traitCollection.userInterfaceIdiom == .phone
+			? Assets.Colors.TimelineSceneContentTableColor
+			: Assets.Colors.foreground
 		if state.isSelected || state.isHighlighted || state.isFocused || state.isSwiped {
-			if let selectionColor = Assets.Colors.cellSelectionColor {
-				backgroundConfig.backgroundColor = selectionColor
-			}
-			applyTitleTextWithAttributes(state)
-			articleDate.textColor = .lightText
-			authorByLine.textColor = .lightText
-			inlineDateLabel.textColor = .lightText
-			chevronView.tintColor = UIColor.white.withAlphaComponent(0.6)
-		} else {
-			backgroundConfig.backgroundColor = traitCollection.userInterfaceIdiom == .phone
-				? Assets.Colors.TimelineSceneContentTableColor
-				: Assets.Colors.foreground
+			backgroundConfig.backgroundColor = Assets.Colors.cellSelectionColor ?? normalBg
 			applyTitleTextWithAttributes(state)
 			articleDate.textColor = .secondaryLabel
 			authorByLine.textColor = .secondaryLabel
 			inlineDateLabel.textColor = .secondaryLabel
-			chevronView.tintColor = .tertiaryLabel
+		} else {
+			backgroundConfig.backgroundColor = normalBg
+			applyTitleTextWithAttributes(state)
+			articleDate.textColor = .secondaryLabel
+			authorByLine.textColor = .secondaryLabel
+			inlineDateLabel.textColor = .secondaryLabel
 		}
 
 		self.backgroundConfiguration = backgroundConfig
