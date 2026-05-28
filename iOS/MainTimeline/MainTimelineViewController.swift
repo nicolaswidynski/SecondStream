@@ -692,6 +692,7 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		navigationController?.navigationBar.scrollEdgeAppearance = navAppearance
 		navigationController?.navigationBar.compactAppearance = navAppearance
 		navigationController?.view.backgroundColor = Assets.Colors.TimelineSceneContentBgColor
+		navigationController?.additionalSafeAreaInsets.top = 6
 		navigationController?.setNavigationBarHidden(false, animated: false)
 		self.navigationController?.isToolbarHidden = false
 		shouldFadeInNavigationSubtitle = true
@@ -842,10 +843,12 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 	}
 
 	func updateNavigationBarSubtitle(_ text: String) {
-		FeedNavigationChrome.setSubtitle(text, in: navigationItem.titleView)
-		let hasSubtitleText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-		let alpha: CGFloat = (shouldFadeInNavigationSubtitle && hasSubtitleText) ? 0 : 1
-		FeedNavigationChrome.setSubtitleAlpha(alpha, in: navigationItem.titleView)
+		if false {
+			FeedNavigationChrome.setSubtitle(text, in: navigationItem.titleView)
+			let hasSubtitleText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+			let alpha: CGFloat = (shouldFadeInNavigationSubtitle && hasSubtitleText) ? 0 : 1
+			FeedNavigationChrome.setSubtitleAlpha(alpha, in: navigationItem.titleView)
+		}
 	}
 
 	func reinitializeArticles(resetScroll: Bool) {
@@ -1096,17 +1099,28 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		let visibleArticles = tableView.indexPathsForVisibleRows!.compactMap { return dataSource.itemIdentifier(for: $0) }
 		let visibleUpdatedArticles = visibleArticles.filter { articleIDs.contains($0.articleID) }
 
+		var heightChanged = false
 		for article in visibleUpdatedArticles {
 			if let indexPath = dataSource.indexPath(for: article) {
+				let cellData = configure(article: article)
 				if let cell = tableView.cellForRow(at: indexPath) as? MainTimelineIconFeedCell {
-					let cellData = configure(article: article)
+					if cell.cellData?.readingTimeMinutes != cellData.readingTimeMinutes {
+						heightChanged = true
+					}
 					cell.cellData = cellData
 				}
 				if let cell = tableView.cellForRow(at: indexPath) as? MainTimelineFeedCell {
-					let cellData = configure(article: article)
+					if cell.cellData?.readingTimeMinutes != cellData.readingTimeMinutes {
+						heightChanged = true
+					}
 					cell.cellData = cellData
 				}
 			}
+		}
+
+		if heightChanged {
+			tableView.beginUpdates()
+			tableView.endUpdates()
 		}
 	}
 

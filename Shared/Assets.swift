@@ -205,99 +205,41 @@ struct Assets {
 		// MARK: - Core Palette
 		// Single source of truth for base colors. Scene variables below reference these.
 		
-		nonisolated(unsafe) static var theme = "orange"
+		nonisolated(unsafe) static var theme = "gradients" // plain, gradients
 
 		static var primaryAccent: RSColor {
-			if (theme == "blue" || theme == "gray" || theme == "orange") {
-				RSColor { tc in
-					tc.userInterfaceStyle == .dark
-					? RSColor(red: 0.04, green: 0.52, blue: 1.0, alpha: 1)
-					: RSColor(red: 0.0,  green: 0.48, blue: 1.0, alpha: 1)
-				}
-			}
-			else {
-				RSColor { tc in
-					tc.userInterfaceStyle == .dark
-					? RSColor(red:  217/255, green:  119/255, blue:  87/255, alpha: 1)
-					: RSColor(red: 217/255, green: 119/255, blue: 87/255, alpha: 1)
-				}
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark
+				? RSColor(red: 0.04, green: 0.52, blue: 1.0, alpha: 1)
+				: RSColor(red: 0.0,  green: 0.48, blue: 1.0, alpha: 1)
 			}
 		}
 
 		static var secondaryAccent: RSColor { primaryAccent	}
 
 		static var background: RSColor {
-			if (theme == "blue") {
-				RSColor { tc in
-					tc.userInterfaceStyle == .dark
-					? RSColor(red:  27/255, green:  26/255, blue:  30/255, alpha: 1)
-					: RSColor(red: 236/255, green: 238/255, blue: 245/255, alpha: 1)
-				}
-			}
-			else if (theme == "orange") {
-				RSColor { tc in
-					tc.userInterfaceStyle == .dark
-					? RSColor(red:  25/255, green:  25/255, blue:  25/255, alpha: 1)
-					: RSColor(red: 239/255, green: 237/255, blue: 236/255, alpha: 1)
-				}
-			}
-			else { // gray
-				RSColor { tc in
-					tc.userInterfaceStyle == .dark
-					? RSColor(red:  25/255, green:  25/255, blue:  25/255, alpha: 1)
-					: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 1)
-				}
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark
+				? RSColor(red:  27/255, green:  26/255, blue:  30/255, alpha: 1)
+				: RSColor(red: 236/255, green: 238/255, blue: 245/255, alpha: 1)
 			}
 		}
 
 		static var foreground: RSColor {
-			if (theme == "blue") {
-				RSColor { tc in
-					tc.userInterfaceStyle == .dark
-					? RSColor(red:  39/255, green:  39/255, blue: 43/255, alpha: 1)
-					: RSColor(red: 247/255, green: 248/255, blue: 255/255, alpha: 1)
-				}
-			}
-			else if (theme == "orange") {
-				RSColor { tc in
-					tc.userInterfaceStyle == .dark
-					? RSColor(red:  44/255, green:  44/255, blue:  44/255, alpha: 1)
-					: RSColor(red: 251/255, green: 249/255, blue: 249/255, alpha: 1)
-				}
-			}
-			else { // gray
-				RSColor { tc in
-					tc.userInterfaceStyle == .dark
-					? RSColor(red:  44/255, green:  44/255, blue:  44/255, alpha: 1)
-					: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 1)
-				}
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark
+				? RSColor(red:  39/255, green:  39/255, blue: 43/255, alpha: 1)
+				: RSColor(red: 247/255, green: 248/255, blue: 255/255, alpha: 1)
 			}
 		}
 
 		static var foreground2: RSColor { //foreground
-			if (theme == "blue") {
-				RSColor { tc in
-					tc.userInterfaceStyle == .dark
-					? RSColor(red:  33/255, green:  32/255, blue:  36/255, alpha: 1)
-					: RSColor(red: 244/255, green: 246/255, blue: 253/255, alpha: 1)
-				}
-			}
-			else if (theme == "orange") {
-				RSColor { tc in
-					tc.userInterfaceStyle == .dark
-					? RSColor(red:  31/255, green:  31/255, blue:  31/255, alpha: 1)
-					: RSColor(red: 245/255, green: 244/255, blue: 244/255, alpha: 1)
-				}
-			}
-			else { // gray
-				RSColor { tc in
-					tc.userInterfaceStyle == .dark
-					? RSColor(red:  32/255, green:  32/255, blue:  32/255, alpha: 1)
-					: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 1)
-				}
+			RSColor { tc in
+				tc.userInterfaceStyle == .dark
+				? RSColor(red:  33/255, green:  32/255, blue:  36/255, alpha: 1)
+				: RSColor(red: 244/255, green: 246/255, blue: 253/255, alpha: 1)
 			}
 		}
-
 		
 		// MARK: - Debug
 		
@@ -306,9 +248,14 @@ struct Assets {
 		}
 		
 		// MARK: - Feed Scene
+		
+		nonisolated(unsafe) static var foregroundTheme = theme == "plain" ? background : foreground;
+		nonisolated(unsafe) static var foreground2Theme = theme == "plain" ? background : foreground2;
 
-		static var FeedSceneNavBarColor: RSColor          { dbg(dbgColor: .blue, color: foreground) }
-		static var FeedSceneRecentlyUpdatedColor: RSColor { dbg(dbgColor: .red, color: foreground) }
+		static var FeedSceneNavBarColor: RSColor          { dbg(dbgColor: .blue, color: foregroundTheme) }
+		static var FeedSceneNavBarContourColor: RSColor?   { theme == "plain" ? nil : .opaqueSeparator }
+		static var FeedSceneRecentlyUpdatedLabelColor: RSColor { dbg(dbgColor: .purple, color: background) }
+		static var FeedSceneRecentlyUpdatedColor: RSColor { dbg(dbgColor: .red, color: background).withAlphaComponent(0.85) }
 		static var FeedSceneContentBgColor: RSColor       { dbg(dbgColor: .yellow, color: background) }
 		static var FeedSceneContentTableColor: RSColor    { dbg(dbgColor: .green, color: background) }
 
@@ -322,7 +269,7 @@ struct Assets {
 
 		static var ArticleSceneNavBarColor: RSColor        { FeedSceneNavBarColor }
 		static var ArticleSceneContentBgColor: RSColor     { FeedSceneContentBgColor }
-		static var ArticleSceneContentBoxesColor: RSColor { dbg(dbgColor: .cyan, color: foreground2) }
+		static var ArticleSceneContentBoxesColor: RSColor { dbg(dbgColor: .cyan, color: foreground2Theme) }
 		
 		// MARK: - Settings
 
@@ -349,7 +296,7 @@ struct Assets {
 
 		/// Background colour applied to feed and article rows when tapped / selected.
 		/// Set to nil to fall back to the default UIKit grey highlight.
-		static var cellSelectionColor: RSColor? { nil } //primaryAccent }
+		static var cellSelectionColor: RSColor? { RSColor.systemGray5 }
 
 		static var readArticleTitle: RSColor {
 			RSColor { tc in tc.userInterfaceStyle == .dark ? .secondaryLabel : .secondaryLabel }
@@ -378,13 +325,7 @@ struct Assets {
 			}
 		}
 
-		static var separatorSection: RSColor {
-			RSColor { tc in
-				tc.userInterfaceStyle == .dark
-				? RSColor(red:  27/255, green:  26/255, blue:  25/255, alpha: 0)
-				: RSColor(red: 235/255, green: 237/255, blue: 242/255, alpha: 0)
-			}
-		}
+		static var separatorSection: RSColor { separator }
 
 		/// Separator inside article reading cards (between paragraphs).
 		static var separatorArticle: RSColor {
@@ -410,6 +351,7 @@ struct Assets {
 
 		// MARK: - Layout Spacing — Timeline Scene
 
+		static let cellCornerRadius: CGFloat                 = 6
 		static let timelineCellVerticalPadding: CGFloat      = 8
 		static let timelineCellMinimumHeight: CGFloat        = 35
 		static let timelineSeparatorVerticalPadding: CGFloat = 0

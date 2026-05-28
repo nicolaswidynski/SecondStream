@@ -165,6 +165,7 @@ final class ArticleViewController: UIViewController {
 		navigationController?.navigationBar.compactAppearance = navAppearance
 		navigationController?.navigationBar.compactScrollEdgeAppearance = navAppearance
 		navigationController?.view.backgroundColor = Assets.Colors.ArticleSceneContentBgColor
+		navigationController?.additionalSafeAreaInsets.top = 6
 		let hideToolbars = AppDefaults.shared.logicalArticleFullscreenEnabled
 		if hideToolbars {
 			currentWebViewController?.hideBars()

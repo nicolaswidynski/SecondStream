@@ -27,6 +27,7 @@ import Articles
 	let starred: Bool
 	let numberOfLines: Int
 	let iconSize: IconSize
+	let readingTimeMinutes: Int?
 
 	init(article: Article, showFeedName: ShowFeedName, feedName: String?, byline: String?, iconImage: IconImage?, showIcon: Bool, numberOfLines: Int, iconSize: IconSize, includeListingSummary: Bool = true, dateStringOverride: String? = nil, overrideStarred: Bool? = nil) {
 
@@ -68,6 +69,11 @@ import Articles
 		self.starred = overrideStarred ?? article.status.starred
 		self.numberOfLines = numberOfLines
 		self.iconSize = iconSize
+		if !article.status.read, let wc = article.wordCount, wc > 0 {
+			self.readingTimeMinutes = max(1, wc / 200)
+		} else {
+			self.readingTimeMinutes = nil
+		}
 
 	}
 
@@ -86,6 +92,7 @@ import Articles
 		self.starred = false
 		self.numberOfLines = 0
 		self.iconSize = .medium
+		self.readingTimeMinutes = nil
 	}
 
 }

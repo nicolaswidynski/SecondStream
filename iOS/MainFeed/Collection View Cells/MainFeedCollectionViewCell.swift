@@ -130,23 +130,27 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 	override func updateConfiguration(using state: UICellConfigurationState) {
 		var backgroundConfig = UIBackgroundConfiguration.listCell().updated(for: state)
 
+		let selectionColor = Assets.Colors.cellSelectionColor
+		let normalBg: UIColor = traitCollection.userInterfaceIdiom == .phone
+			? Assets.Colors.FeedSceneContentTableColor
+			: Assets.Colors.foreground
 		switch (state.isHighlighted || state.isSelected || state.isFocused, traitCollection.userInterfaceIdiom) {
 		case (true, .pad):
-			if let selectionColor = Assets.Colors.cellSelectionColor {
+			if let selectionColor {
 				backgroundConfig.backgroundColor = selectionColor.withAlphaComponent(0.12)
 				feedTitle.textColor = selectionColor
+			} else {
+				backgroundConfig.backgroundColor = normalBg
 			}
 			feedTitle.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize,
 											   weight: .semibold)
 			unreadCountLabel.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .semibold)
 		case (true, .phone):
-			if let selectionColor = Assets.Colors.cellSelectionColor {
-				backgroundConfig.backgroundColor = selectionColor
-			}
-			feedTitle.textColor = .white
-			unreadCountLabel.textColor = .white
+			backgroundConfig.backgroundColor = selectionColor ?? normalBg
+			feedTitle.textColor = .label
+			unreadCountLabel.textColor = .secondaryLabel
 			if feedTitle.text == "All Unread" {
-				faviconView.tintColor = .white
+				faviconView.tintColor = nil
 			}
 		default:
 			backgroundConfig.backgroundColor = traitCollection.userInterfaceIdiom == .phone
@@ -166,6 +170,7 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 				}
 			}
 		}
+		backgroundConfig.cornerRadius = Assets.Colors.cellCornerRadius
 		updateUnreadDisclosureText()
 		applyBootstrapState()
 		self.backgroundConfiguration = backgroundConfig
@@ -194,9 +199,9 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 
 		let textColor = unreadCountLabel.textColor ?? .secondaryLabel
 		let font = unreadCountLabel.font ?? UIFont.preferredFont(forTextStyle: .body)
-		let symbolConfig = UIImage.SymbolConfiguration(pointSize: max(10, font.pointSize * 0.68), weight: .semibold)
-		let symbolImage = UIImage(systemName: "chevron.right", withConfiguration: symbolConfig)?
-			.withTintColor(textColor, renderingMode: .alwaysOriginal)
+	//	let symbolConfig = UIImage.SymbolConfiguration(pointSize: max(10, font.pointSize * 0.68), weight: .semibold)
+		//let symbolImage = UIImage(systemName: "chevron.right", withConfiguration: symbolConfig)?
+		//	.withTintColor(textColor, renderingMode: .alwaysOriginal)
 
 		let result = NSMutableAttributedString()
 		if _unreadCount > 0 {
@@ -211,13 +216,13 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 			]))
 		}
 
-		if let symbolImage {
-			let attachment = NSTextAttachment()
-			attachment.image = symbolImage
-			let baselineOffset = (font.capHeight - symbolImage.size.height) / 2
-			attachment.bounds = CGRect(x: 0, y: baselineOffset, width: symbolImage.size.width, height: symbolImage.size.height)
-			result.append(NSAttributedString(attachment: attachment))
-		}
+//		if let symbolImage {
+//			let attachment = NSTextAttachment()
+//			attachment.image = symbolImage
+//			let baselineOffset = (font.capHeight - symbolImage.size.height) / 2
+//			attachment.bounds = CGRect(x: 0, y: baselineOffset, width: symbolImage.size.width, height: symbolImage.size.height)
+//			result.append(NSAttributedString(attachment: attachment))
+//		}
 
 		unreadCountLabel.attributedText = result
 	}

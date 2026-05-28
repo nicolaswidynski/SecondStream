@@ -95,6 +95,7 @@ final class AppDefaults: Sendable {
 		static let timelineUnreadFirst = "timelineUnreadFirst"
 		static let showSectionHeaderIcons = "showSectionHeaderIcons"
 		static let collapsibleArticleSectionsEnabled = "collapsibleArticleSectionsEnabled"
+		static let recentlyUpdatedAutoScroll = "recentlyUpdatedAutoScroll"
 		static let faceIDEnabled = "faceIDEnabled"
 		static let hasShownLandingPage = "hasShownLandingPage"
 		static let debugShowLandingPage = "debugShowLandingPage"
@@ -585,6 +586,15 @@ final class AppDefaults: Sendable {
 		}
 	}
 
+	var recentlyUpdatedAutoScroll: Bool {
+		get {
+			AppDefaults.bool(for: Key.recentlyUpdatedAutoScroll)
+		}
+		set {
+			AppDefaults.setBool(for: Key.recentlyUpdatedAutoScroll, newValue)
+		}
+	}
+
 	var faceIDEnabled: Bool {
 		get {
 			AppDefaults.bool(for: Key.faceIDEnabled)
@@ -636,6 +646,7 @@ final class AppDefaults: Sendable {
 									   Key.timelineUnreadFirst: false,
 									   Key.showSectionHeaderIcons: true,
 									   Key.collapsibleArticleSectionsEnabled: false,
+									   Key.recentlyUpdatedAutoScroll: false,
 									   Key.faceIDEnabled: false,
 								   Key.hasShownLandingPage: false,
 								   Key.debugShowLandingPage: false]

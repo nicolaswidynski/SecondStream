@@ -244,7 +244,7 @@ import os.log
 	/// Builds the `feeds_for_update` dictionary that must accompany every request
 	/// to `all-feed-requests`. Uses already-cached free source lists from the
 	/// source managers — no extra network calls needed.
-	func buildFeedsForUpdate() -> [String: Any] {
+	func buildFeedsForUpdate() async -> [String: Any] {
 		guard let account = AccountManager.shared.activeAccounts.first else {
 			return [:]
 		}
@@ -274,7 +274,7 @@ import os.log
 
 		// Collect uniqueIDs (id_entry) of starred non-RSS articles for bookmark sync
 		let rssFeedIDs = Set(allFeeds.filter { $0.feedCategory == .rss }.map { $0.feedID })
-		let starredArticles = (try? account.fetchArticles(.starred(nil))) ?? []
+		let starredArticles = (try? await account.fetchArticlesAsync(.starred(nil))) ?? []
 		let bookmarkKeys = starredArticles
 			.filter { !rssFeedIDs.contains($0.feedID) }
 			.map { $0.uniqueID }
@@ -328,7 +328,7 @@ import os.log
 		]
 		var feedsPayloadData: Data?
 		if operation == "update-user-stats" {
-			let feeds = buildFeedsForUpdate()
+			let feeds = await buildFeedsForUpdate()
 			let data = try? JSONSerialization.data(withJSONObject: feeds, options: .sortedKeys)
 			if let data, data == lastSentFeedsPayload {
 				Self.logger.info("update-user-stats skipped — payload unchanged since last successful call")

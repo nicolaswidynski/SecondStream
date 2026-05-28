@@ -57,6 +57,8 @@ struct HTTP4xxResponse {
 	/// These URLs are skipped for a period of time.
 	private var http4xxResponses = [URL: HTTP4xxResponse]()
 
+	private nonisolated(unsafe) var blocklistCleanupTimer: Timer?
+
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "DownloadSession")
 
 	public init(delegate: DownloadSessionDelegate) {
@@ -79,9 +81,16 @@ struct HTTP4xxResponse {
 		}
 
 		urlSession = URLSession(configuration: sessionConfiguration, delegate: self, delegateQueue: OperationQueue.main)
+
+		blocklistCleanupTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
+			Task { @MainActor [weak self] in
+				self?.cleanUp4xxResponsesCache()
+			}
+		}
 	}
 
 	deinit {
+		blocklistCleanupTimer?.invalidate()
 		urlSession.invalidateAndCancel()
 	}
 
@@ -355,7 +364,7 @@ private extension DownloadSession {
 			numberRemaining = 0
 			numberCompleted = 0
 		} else {
-			numberRemaining = tasksPending.count + tasksInProgress.count + queue.count
+			numberRemaining = min(tasksPending.count + tasksInProgress.count + queue.count, numberOfTasks)
 			numberCompleted = numberOfTasks - numberRemaining
 		}
 

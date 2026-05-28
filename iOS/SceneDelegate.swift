@@ -29,6 +29,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 		let globalNavAppearance = UINavigationBarAppearance()
 		globalNavAppearance.configureWithOpaqueBackground()
 		globalNavAppearance.backgroundColor = Assets.Colors.FeedSceneNavBarColor
+		globalNavAppearance.shadowColor = Assets.Colors.FeedSceneNavBarContourColor
 		UINavigationBar.appearance().standardAppearance = globalNavAppearance
 		UINavigationBar.appearance().scrollEdgeAppearance = globalNavAppearance
 		UINavigationBar.appearance().compactAppearance = globalNavAppearance

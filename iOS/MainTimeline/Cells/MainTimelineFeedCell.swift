@@ -15,16 +15,6 @@ class MainTimelineFeedCell: UITableViewCell {
 	@IBOutlet var articleDate: UILabel!
 	@IBOutlet var metaDataStackView: UIStackView!
 
-	private let chevronView: UIImageView = {
-		let config = UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
-		let image = UIImage(systemName: "chevron.right", withConfiguration: config)
-		let view = UIImageView(image: image)
-		view.tintColor = .tertiaryLabel
-		view.translatesAutoresizingMaskIntoConstraints = false
-		view.contentMode = .center
-		return view
-	}()
-
 	private let inlineDateLabel: UILabel = {
 		let label = UILabel()
 		label.numberOfLines = 2
@@ -33,6 +23,27 @@ class MainTimelineFeedCell: UITableViewCell {
 		label.textAlignment = .center
 		label.translatesAutoresizingMaskIntoConstraints = false
 		return label
+	}()
+
+	private let readingTimeMinLabel: UILabel = {
+		let label = UILabel()
+		label.font = UIFont.preferredFont(forTextStyle: .caption2)
+		label.textColor = .label
+		label.textAlignment = .center
+		return label
+	}()
+
+	private lazy var readingTimeView: UIStackView = {
+		let iconConfig = UIImage.SymbolConfiguration(pointSize: 10, weight: .regular)
+		let icon = UIImageView(image: UIImage(systemName: "book", withConfiguration: iconConfig))
+		icon.tintColor = .label
+		icon.contentMode = .center
+		let stack = UIStackView(arrangedSubviews: [icon, readingTimeMinLabel])
+		stack.axis = .vertical
+		stack.spacing = 2
+		stack.alignment = .center
+		stack.translatesAutoresizingMaskIntoConstraints = false
+		return stack
 	}()
 
 	var cellData: MainTimelineCellData! {
@@ -52,9 +63,10 @@ class MainTimelineFeedCell: UITableViewCell {
 	private var topPaddingConstraint: NSLayoutConstraint?
 	private var bottomPaddingConstraint: NSLayoutConstraint?
 	private var indicatorCenterXConstraint: NSLayoutConstraint?
-	private var chevronTrailingConstraint: NSLayoutConstraint?
+	private var titleTrailingConstraint: NSLayoutConstraint?
 	private var minimumHeightConstraint: NSLayoutConstraint?
 	private var isStarred = false
+
 
 	private func scaledDateColumnWidth() -> CGFloat {
 		let base = Assets.Colors.timelineDateColumnWidth
@@ -73,7 +85,8 @@ class MainTimelineFeedCell: UITableViewCell {
 			configureStackView()
 			articleDate.isHidden = true
 			contentView.addSubview(inlineDateLabel)
-			contentView.addSubview(chevronView)
+			contentView.addSubview(readingTimeView)
+			readingTimeView.isHidden = true
 			setupConstraints()
 			registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (self: MainTimelineFeedCell, _: UITraitCollection) in
 				self.configureStackView()
@@ -119,17 +132,17 @@ class MainTimelineFeedCell: UITableViewCell {
 
 		let dateLeading = inlineDateLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16)
 		let indCenterX = indicatorView.centerXAnchor.constraint(equalTo: inlineDateLabel.centerXAnchor)
-		let chevTrailing = chevronView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
+		let titleTrailing = articleTitle.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
 		dateLabelLeadingConstraint = dateLeading
 		indicatorCenterXConstraint = indCenterX
-		chevronTrailingConstraint = chevTrailing
+		titleTrailingConstraint = titleTrailing
+
+		let dateWidth = inlineDateLabel.widthAnchor.constraint(equalToConstant: scaledDateColumnWidth())
+		dateLabelWidthConstraint = dateWidth
 
 		// Center the title+metadata group as a unit within the cell.
 		let groupGuide = UILayoutGuide()
 		contentView.addLayoutGuide(groupGuide)
-
-		let dateWidth = inlineDateLabel.widthAnchor.constraint(equalToConstant: scaledDateColumnWidth())
-		dateLabelWidthConstraint = dateWidth
 
 		let topPad = groupGuide.topAnchor.constraint(greaterThanOrEqualTo: contentView.topAnchor, constant: scaledVerticalPadding())
 		let bottomPad = contentView.bottomAnchor.constraint(greaterThanOrEqualTo: groupGuide.bottomAnchor, constant: scaledVerticalPadding())
@@ -143,17 +156,19 @@ class MainTimelineFeedCell: UITableViewCell {
 			indCenterX,
 			indicatorView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
 			articleTitle.leadingAnchor.constraint(equalTo: inlineDateLabel.trailingAnchor, constant: 8),
-			articleTitle.trailingAnchor.constraint(equalTo: chevronView.leadingAnchor, constant: -6),
+			titleTrailing,
 			metaDataStackView.leadingAnchor.constraint(equalTo: articleTitle.leadingAnchor),
-			metaDataStackView.trailingAnchor.constraint(equalTo: chevronView.leadingAnchor, constant: -6),
-			chevTrailing,
-			chevronView.widthAnchor.constraint(equalToConstant: 10),
-			chevronView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+			metaDataStackView.trailingAnchor.constraint(equalTo: articleTitle.trailingAnchor),
 			groupGuide.topAnchor.constraint(equalTo: articleTitle.topAnchor),
 			groupGuide.bottomAnchor.constraint(equalTo: metaDataStackView.bottomAnchor),
 			groupGuide.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
 			topPad,
 			bottomPad,
+		])
+
+		NSLayoutConstraint.activate([
+			readingTimeView.centerXAnchor.constraint(equalTo: inlineDateLabel.centerXAnchor),
+			readingTimeView.centerYAnchor.constraint(equalTo: inlineDateLabel.centerYAnchor),
 		])
 
 		let minH = contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: Assets.Colors.timelineCellMinimumHeight)
@@ -193,10 +208,16 @@ class MainTimelineFeedCell: UITableViewCell {
 
 		articleDate.text = cellData.dateString
 		inlineDateLabel.text = cellData.inlineDateString
+
+		if let minutes = cellData.readingTimeMinutes {
+			readingTimeMinLabel.text = "\(minutes) min"
+			readingTimeMinLabel.isHidden = false
+		} else {
+			readingTimeMinLabel.isHidden = true
+		}
 	}
 
 	private func updateIndicatorView(_ cellData: MainTimelineCellData) {
-		let dimReadArticles = AppDefaults.shared.timelineDimReadArticles
 		let wasStarred = isStarred
 
 		if cellData.starred {
@@ -210,52 +231,49 @@ class MainTimelineFeedCell: UITableViewCell {
 			UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut) {
 				self.indicatorView.alpha = 1.0
 				self.inlineDateLabel.alpha = 0.0
+				self.readingTimeView.alpha = 0.0
 				self.contentView.layoutIfNeeded()
 			} completion: { _ in
 				self.inlineDateLabel.isHidden = true
 				self.inlineDateLabel.alpha = 1.0
+				self.readingTimeView.isHidden = true
+				self.readingTimeView.alpha = 1.0
 			}
 
-		} else if cellData.read == false && !dimReadArticles {
+		} else if cellData.read == false {
+			// Unread: book icon + reading time replaces the date entirely.
 			isStarred = false
 			indicatorCenterXConstraint?.isActive = false
-			indicatorCenterXConstraint = indicatorView.centerXAnchor.constraint(equalTo: inlineDateLabel.leadingAnchor, constant: -6)
+			indicatorCenterXConstraint = indicatorView.centerXAnchor.constraint(equalTo: inlineDateLabel.centerXAnchor)
 			indicatorCenterXConstraint?.isActive = true
 
+			inlineDateLabel.isHidden = true
+			readingTimeView.isHidden = false
+
 			if wasStarred {
-				// Phase 1: fade out bookmark; date stays hidden.
-				inlineDateLabel.alpha = 0.0
-				inlineDateLabel.isHidden = false
+				readingTimeView.alpha = 0.0
 				UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
 					self.indicatorView.alpha = 0.0
 					self.contentView.layoutIfNeeded()
 				} completion: { _ in
-					self.setIndicatorViewSize(10)
-					self.indicatorView.iconImage = Assets.Images.unreadCellIndicator
-					self.indicatorView.tintColor = Assets.Colors.secondaryAccent
-					// Phase 2: fade in date and unread dot together.
 					UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
-						self.inlineDateLabel.alpha = 1.0
-						self.indicatorView.alpha = 1.0
+						self.readingTimeView.alpha = 1.0
 					}
 				}
 			} else {
-				setIndicatorViewSize(10)
-				indicatorView.iconImage = Assets.Images.unreadCellIndicator
-				indicatorView.tintColor = Assets.Colors.secondaryAccent
-				inlineDateLabel.isHidden = false
 				UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut) {
-					self.indicatorView.alpha = 1.0
-					self.inlineDateLabel.alpha = 1.0
+					self.indicatorView.alpha = 0.0
 					self.contentView.layoutIfNeeded()
 				}
 			}
 
 		} else {
+			// Read (or dimmed): show date, hide indicator and reading time.
 			isStarred = false
+			readingTimeView.isHidden = true
 
 			if wasStarred {
-				// Phase 1: fade out bookmark; date stays hidden.
+				// Phase 1: fade out bookmark.
 				inlineDateLabel.alpha = 0.0
 				inlineDateLabel.isHidden = false
 				UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
@@ -296,8 +314,8 @@ class MainTimelineFeedCell: UITableViewCell {
 
 	func titleTextColor(for state: UICellConfigurationState) -> UIColor {
 		let isSelected = state.isSelected || state.isHighlighted || state.isFocused || state.isSwiped
-		if isSelected {
-			return .white
+		if isSelected && Assets.Colors.cellSelectionColor != nil {
+			return .label
 		} else if AppDefaults.shared.timelineDimReadArticles, cellData?.read == true {
 			return Assets.Colors.readArticleTitle
 		} else {
@@ -310,7 +328,7 @@ class MainTimelineFeedCell: UITableViewCell {
 		guard traitCollection.userInterfaceIdiom == .phone else { return }
 		let inset = (bounds.width * 0.05).rounded()
 		dateLabelLeadingConstraint?.constant = inset + 6
-		chevronTrailingConstraint?.constant = -(inset + 12)
+		titleTrailingConstraint?.constant = -(inset + 12)
 	}
 
 	override func systemLayoutSizeFitting(
@@ -337,30 +355,32 @@ class MainTimelineFeedCell: UITableViewCell {
 			backgroundConfig.edgesAddingLayoutMarginsToBackgroundInsets = []
 			let hInset = (bounds.width * 0.05).rounded()
 			backgroundConfig.backgroundInsets = NSDirectionalEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset)
+			backgroundConfig.cornerRadius = Assets.Colors.cellCornerRadius
 		}
 		if traitCollection.userInterfaceIdiom == .pad {
 			backgroundConfig.edgesAddingLayoutMarginsToBackgroundInsets = [.leading, .trailing]
 			backgroundConfig.backgroundInsets = NSDirectionalEdgeInsets(top: 0, leading: !isPreview ? -4 : -12, bottom: 0, trailing: !isPreview ? -4 : -12)
 		}
 
+		let normalBg: UIColor = traitCollection.userInterfaceIdiom == .phone
+			? Assets.Colors.TimelineSceneContentTableColor
+			: Assets.Colors.foreground
 		if state.isSelected || state.isHighlighted || state.isFocused || state.isSwiped {
-			if let selectionColor = Assets.Colors.cellSelectionColor {
-				backgroundConfig.backgroundColor = selectionColor
-			}
-			applyTitleTextWithAttributes(state)
-			articleDate.textColor = .lightText
-			authorByLine.textColor = .lightText
-			inlineDateLabel.textColor = .lightText
-			chevronView.tintColor = UIColor.white.withAlphaComponent(0.6)
-		} else {
-			backgroundConfig.backgroundColor = traitCollection.userInterfaceIdiom == .phone
-				? Assets.Colors.TimelineSceneContentTableColor
-				: Assets.Colors.foreground
+			backgroundConfig.backgroundColor = Assets.Colors.cellSelectionColor ?? normalBg
 			applyTitleTextWithAttributes(state)
 			articleDate.textColor = .secondaryLabel
 			authorByLine.textColor = .secondaryLabel
 			inlineDateLabel.textColor = .secondaryLabel
-			chevronView.tintColor = .tertiaryLabel
+			readingTimeMinLabel.textColor = titleTextColor(for: state)
+			readingTimeView.tintColor = titleTextColor(for: state)
+		} else {
+			backgroundConfig.backgroundColor = normalBg
+			applyTitleTextWithAttributes(state)
+			articleDate.textColor = .secondaryLabel
+			authorByLine.textColor = .secondaryLabel
+			inlineDateLabel.textColor = .secondaryLabel
+			readingTimeMinLabel.textColor = titleTextColor(for: state)
+			readingTimeView.tintColor = titleTextColor(for: state)
 		}
 
 		self.backgroundConfiguration = backgroundConfig
