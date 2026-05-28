@@ -1099,17 +1099,28 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 		let visibleArticles = tableView.indexPathsForVisibleRows!.compactMap { return dataSource.itemIdentifier(for: $0) }
 		let visibleUpdatedArticles = visibleArticles.filter { articleIDs.contains($0.articleID) }
 
+		var heightChanged = false
 		for article in visibleUpdatedArticles {
 			if let indexPath = dataSource.indexPath(for: article) {
+				let cellData = configure(article: article)
 				if let cell = tableView.cellForRow(at: indexPath) as? MainTimelineIconFeedCell {
-					let cellData = configure(article: article)
+					if cell.cellData?.readingTimeMinutes != cellData.readingTimeMinutes {
+						heightChanged = true
+					}
 					cell.cellData = cellData
 				}
 				if let cell = tableView.cellForRow(at: indexPath) as? MainTimelineFeedCell {
-					let cellData = configure(article: article)
+					if cell.cellData?.readingTimeMinutes != cellData.readingTimeMinutes {
+						heightChanged = true
+					}
 					cell.cellData = cellData
 				}
 			}
+		}
+
+		if heightChanged {
+			tableView.beginUpdates()
+			tableView.endUpdates()
 		}
 	}
 

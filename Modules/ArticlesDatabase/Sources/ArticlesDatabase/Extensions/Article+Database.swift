@@ -41,8 +41,11 @@ extension Article {
 		let dateModified = row.date(forColumn: DatabaseKey.dateModified)
 		let mp3URL = row.string(forColumn: DatabaseKey.mp3URL)
 		let durationInSeconds: Int? = row.columnIsNull(DatabaseKey.durationInSeconds) ? nil : Int(row.int(forColumn: DatabaseKey.durationInSeconds))
+		let wordCount: Int? = row.columnIsNull(DatabaseKey.wordCount)
+			? Article.computeWordCount(contentText: contentText, contentHTML: contentHTML)
+			: Int(row.int(forColumn: DatabaseKey.wordCount))
 
-		self.init(accountID: accountID, articleID: articleID, feedID: feedID, uniqueID: uniqueID, title: title, contentHTML: contentHTML, contentText: contentText, markdown: markdown, contentJSON: contentJSON, url: url, externalURL: externalURL, summary: summary, imageURL: imageURL, datePublished: datePublished, dateModified: dateModified, authors: nil, status: status, mp3URL: mp3URL, durationInSeconds: durationInSeconds)
+		self.init(accountID: accountID, articleID: articleID, feedID: feedID, uniqueID: uniqueID, title: title, contentHTML: contentHTML, contentText: contentText, markdown: markdown, contentJSON: contentJSON, url: url, externalURL: externalURL, summary: summary, imageURL: imageURL, datePublished: datePublished, dateModified: dateModified, authors: nil, status: status, mp3URL: mp3URL, durationInSeconds: durationInSeconds, wordCount: wordCount)
 	}
 
 	convenience init(parsedItem: ParsedItem, maximumDateAllowed: Date, accountID: String, feedID: String, status: ArticleStatus) {
@@ -63,8 +66,22 @@ extension Article {
 		}
 
 		let durationInSeconds = parsedItem.attachments?.compactMap(\.durationInSeconds).first
+		let wordCount = Article.computeWordCount(contentText: parsedItem.contentText, contentHTML: parsedItem.contentHTML)
 
-		self.init(accountID: accountID, articleID: parsedItem.syncServiceID, feedID: feedID, uniqueID: parsedItem.uniqueID, title: parsedItem.title, contentHTML: parsedItem.contentHTML, contentText: parsedItem.contentText, markdown: parsedItem.markdown, contentJSON: parsedItem.contentJSON, url: parsedItem.url, externalURL: parsedItem.externalURL, summary: parsedItem.summary, imageURL: parsedItem.imageURL, datePublished: datePublished, dateModified: dateModified, authors: authors, status: status, mp3URL: parsedItem.mp3URL, durationInSeconds: durationInSeconds)
+		self.init(accountID: accountID, articleID: parsedItem.syncServiceID, feedID: feedID, uniqueID: parsedItem.uniqueID, title: parsedItem.title, contentHTML: parsedItem.contentHTML, contentText: parsedItem.contentText, markdown: parsedItem.markdown, contentJSON: parsedItem.contentJSON, url: parsedItem.url, externalURL: parsedItem.externalURL, summary: parsedItem.summary, imageURL: parsedItem.imageURL, datePublished: datePublished, dateModified: dateModified, authors: authors, status: status, mp3URL: parsedItem.mp3URL, durationInSeconds: durationInSeconds, wordCount: wordCount)
+	}
+
+	static func computeWordCount(contentText: String?, contentHTML: String?) -> Int? {
+		let text: String
+		if let contentText, !contentText.isEmpty {
+			text = contentText
+		} else if let contentHTML, !contentHTML.isEmpty {
+			text = contentHTML.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+		} else {
+			return nil
+		}
+		let count = text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
+		return count > 0 ? count : nil
 	}
 
 	private func addPossibleStringChangeWithKeyPath(_ comparisonKeyPath: KeyPath<Article, String?>, _ otherArticle: Article, _ key: String, _ dictionary: inout DatabaseDictionary) {
@@ -77,7 +94,7 @@ extension Article {
 		if authors.isEmpty {
 			return self
 		}
-		return Article(accountID: self.accountID, articleID: self.articleID, feedID: self.feedID, uniqueID: self.uniqueID, title: self.title, contentHTML: self.contentHTML, contentText: self.contentText, markdown: self.markdown, contentJSON: self.contentJSON, url: self.rawLink, externalURL: self.rawExternalLink, summary: self.summary, imageURL: self.rawImageLink, datePublished: self.datePublished, dateModified: self.dateModified, authors: authors, status: self.status, mp3URL: self.mp3URL, durationInSeconds: self.durationInSeconds)
+		return Article(accountID: self.accountID, articleID: self.articleID, feedID: self.feedID, uniqueID: self.uniqueID, title: self.title, contentHTML: self.contentHTML, contentText: self.contentText, markdown: self.markdown, contentJSON: self.contentJSON, url: self.rawLink, externalURL: self.rawExternalLink, summary: self.summary, imageURL: self.rawImageLink, datePublished: self.datePublished, dateModified: self.dateModified, authors: authors, status: self.status, mp3URL: self.mp3URL, durationInSeconds: self.durationInSeconds, wordCount: self.wordCount)
 	}
 
 	func changesFrom(_ existingArticle: Article) -> DatabaseDictionary? {
@@ -117,6 +134,11 @@ extension Article {
 		if durationInSeconds != existingArticle.durationInSeconds {
 			if let updated = durationInSeconds {
 				d[DatabaseKey.durationInSeconds] = updated
+			}
+		}
+		if wordCount != existingArticle.wordCount {
+			if let updated = wordCount {
+				d[DatabaseKey.wordCount] = updated
 			}
 		}
 
@@ -198,6 +220,9 @@ extension Article: @retroactive DatabaseObject {
 		}
 		if let durationInSeconds = durationInSeconds {
 			d[DatabaseKey.durationInSeconds] = durationInSeconds
+		}
+		if let wordCount = wordCount {
+			d[DatabaseKey.wordCount] = wordCount
 		}
 		return d
 	}

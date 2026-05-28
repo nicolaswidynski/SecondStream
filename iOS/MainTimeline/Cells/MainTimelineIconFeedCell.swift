@@ -26,6 +26,27 @@ class MainTimelineIconFeedCell: UITableViewCell {
 		return label
 	}()
 
+	private let readingTimeMinLabel: UILabel = {
+		let label = UILabel()
+		label.font = UIFont.preferredFont(forTextStyle: .caption2)
+		label.textColor = .label
+		label.textAlignment = .center
+		return label
+	}()
+
+	private lazy var readingTimeView: UIStackView = {
+		let iconConfig = UIImage.SymbolConfiguration(pointSize: 10, weight: .regular)
+		let icon = UIImageView(image: UIImage(systemName: "book", withConfiguration: iconConfig))
+		icon.tintColor = .label
+		icon.contentMode = .center
+		let stack = UIStackView(arrangedSubviews: [icon, readingTimeMinLabel])
+		stack.axis = .vertical
+		stack.spacing = 2
+		stack.alignment = .center
+		stack.translatesAutoresizingMaskIntoConstraints = false
+		return stack
+	}()
+
 	var cellData: MainTimelineCellData! {
 		didSet {
 			configure(cellData)
@@ -40,6 +61,7 @@ class MainTimelineIconFeedCell: UITableViewCell {
 	private var bottomPaddingConstraint: NSLayoutConstraint?
 	private var titleTrailingConstraint: NSLayoutConstraint?
 	private var minimumHeightConstraint: NSLayoutConstraint?
+
 
 	private func scaledDateColumnWidth() -> CGFloat {
 		let base = Assets.Colors.timelineDateColumnWidth
@@ -58,6 +80,8 @@ class MainTimelineIconFeedCell: UITableViewCell {
 			configureStackView()
 			articleDate.isHidden = true
 			contentView.addSubview(inlineDateLabel)
+			contentView.addSubview(readingTimeView)
+			readingTimeView.isHidden = true
 			setupConstraints()
 			registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (self: MainTimelineIconFeedCell, _: UITraitCollection) in
 				self.configureStackView()
@@ -103,12 +127,12 @@ class MainTimelineIconFeedCell: UITableViewCell {
 		contentLeadingConstraint = iconLeading
 		titleTrailingConstraint = titleTrailing
 
+		let dateWidth = inlineDateLabel.widthAnchor.constraint(equalToConstant: scaledDateColumnWidth())
+		dateLabelWidthConstraint = dateWidth
+
 		// Center the title+metadata group as a unit within the cell.
 		let groupGuide = UILayoutGuide()
 		contentView.addLayoutGuide(groupGuide)
-
-		let dateWidth = inlineDateLabel.widthAnchor.constraint(equalToConstant: scaledDateColumnWidth())
-		dateLabelWidthConstraint = dateWidth
 
 		let topPad = groupGuide.topAnchor.constraint(greaterThanOrEqualTo: contentView.topAnchor, constant: scaledVerticalPadding())
 		let bottomPad = contentView.bottomAnchor.constraint(greaterThanOrEqualTo: groupGuide.bottomAnchor, constant: scaledVerticalPadding())
@@ -131,6 +155,11 @@ class MainTimelineIconFeedCell: UITableViewCell {
 			groupGuide.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
 			topPad,
 			bottomPad,
+		])
+
+		NSLayoutConstraint.activate([
+			readingTimeView.centerXAnchor.constraint(equalTo: inlineDateLabel.centerXAnchor),
+			readingTimeView.centerYAnchor.constraint(equalTo: inlineDateLabel.centerYAnchor),
 		])
 
 		let minH = contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: Assets.Colors.timelineCellMinimumHeight)
@@ -171,6 +200,13 @@ class MainTimelineIconFeedCell: UITableViewCell {
 
 		articleDate.text = cellData.dateString
 		inlineDateLabel.text = cellData.inlineDateString
+
+		if let minutes = cellData.readingTimeMinutes {
+			readingTimeMinLabel.text = "\(minutes) min"
+			readingTimeMinLabel.isHidden = false
+		} else {
+			readingTimeMinLabel.isHidden = true
+		}
 	}
 
 	private func setIconImage(_ iconImage: IconImage?, with size: IconSize) {
@@ -196,33 +232,35 @@ class MainTimelineIconFeedCell: UITableViewCell {
 	}
 
 	private func updateIndicatorView(_ cellData: MainTimelineCellData) {
-		let dimReadArticles = AppDefaults.shared.timelineDimReadArticles
 		if cellData.starred {
-			if indicatorView.alpha == 0.0 {
-				indicatorView.alpha = 1.0
-			}
+			if indicatorView.alpha == 0.0 { indicatorView.alpha = 1.0 }
 			setIndicatorViewSize(22)
 			UIView.animate(withDuration: 0.25) {
 				self.indicatorView.iconImage = Assets.Images.starredCellIndicator
 				self.indicatorView.tintColor = .label
 			}
-			return
-		} else if cellData.read == false && !dimReadArticles {
-			if indicatorView.alpha == 0.0 {
-				indicatorView.alpha = 1.0
-			}
+			inlineDateLabel.isHidden = false
+			readingTimeView.isHidden = true
+		} else if cellData.read == false {
+			// Unread: book icon + reading time replaces the date entirely.
+			if indicatorView.alpha == 0.0 { indicatorView.alpha = 1.0 }
 			setIndicatorViewSize(16)
 			UIView.animate(withDuration: 0.25) {
 				self.indicatorView.iconImage = Assets.Images.unreadCellIndicator
 				self.indicatorView.tintColor = Assets.Colors.secondaryAccent
 			}
-			return
-		} else if indicatorView.alpha == 1.0 {
-			setIndicatorViewSize(16)
-			UIView.animate(withDuration: 0.25) {
-				self.indicatorView.alpha = 0.0
-				self.indicatorView.iconImage = nil
+			inlineDateLabel.isHidden = true
+			readingTimeView.isHidden = false
+		} else {
+			if indicatorView.alpha == 1.0 {
+				setIndicatorViewSize(16)
+				UIView.animate(withDuration: 0.25) {
+					self.indicatorView.alpha = 0.0
+					self.indicatorView.iconImage = nil
+				}
 			}
+			inlineDateLabel.isHidden = false
+			readingTimeView.isHidden = true
 		}
 	}
 
@@ -237,7 +275,6 @@ class MainTimelineIconFeedCell: UITableViewCell {
 		articleTitle.text = cellData.title
 		articleTitle.font = UIFont.preferredFont(forTextStyle: .body)
 		articleTitle.textColor = titleTextColor(for: state)
-		articleTitle.textAlignment = .justified
 		articleTitle.lineBreakMode = .byTruncatingTail
 	}
 
@@ -300,12 +337,16 @@ class MainTimelineIconFeedCell: UITableViewCell {
 			articleDate.textColor = .secondaryLabel
 			authorByLine.textColor = .secondaryLabel
 			inlineDateLabel.textColor = .secondaryLabel
+			readingTimeMinLabel.textColor = titleTextColor(for: state)
+			readingTimeView.tintColor = titleTextColor(for: state)
 		} else {
 			backgroundConfig.backgroundColor = normalBg
 			applyTitleTextWithAttributes(state)
 			articleDate.textColor = .secondaryLabel
 			authorByLine.textColor = .secondaryLabel
 			inlineDateLabel.textColor = .secondaryLabel
+			readingTimeMinLabel.textColor = titleTextColor(for: state)
+			readingTimeView.tintColor = titleTextColor(for: state)
 		}
 
 		self.backgroundConfiguration = backgroundConfig
