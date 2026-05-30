@@ -1253,7 +1253,7 @@
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 1.00;
+				MARKETING_VERSION = 1.01;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.WE;
 			};
@@ -1266,7 +1266,7 @@
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 1.00;
+				MARKETING_VERSION = 1.01;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.WE;
 			};
@@ -1279,7 +1279,7 @@
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 1.00;
+				MARKETING_VERSION = 1.01;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.SE;
 			};
@@ -1292,7 +1292,7 @@
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 1.00;
+				MARKETING_VERSION = 1.01;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.SE;
 			};
@@ -1305,7 +1305,7 @@
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 1.00;
+				MARKETING_VERSION = 1.01;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.IE;
 			};
@@ -1318,7 +1318,7 @@
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 1.00;
+				MARKETING_VERSION = 1.01;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.IE;
 			};
@@ -1331,7 +1331,7 @@
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 1.00;
+				MARKETING_VERSION = 1.01;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.SE;
 			};
@@ -1344,7 +1344,7 @@
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 1.00;
+				MARKETING_VERSION = 1.01;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.SE;
 			};
@@ -1380,7 +1380,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
-				MARKETING_VERSION = 1.00;
+				MARKETING_VERSION = 1.01;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
 			};
@@ -1394,7 +1394,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
-				MARKETING_VERSION = 1.00;
+				MARKETING_VERSION = 1.01;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
 			};
@@ -1410,7 +1410,7 @@
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				MARKETING_VERSION = 1.00;
+				MARKETING_VERSION = 1.01;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -1429,7 +1429,7 @@
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				MARKETING_VERSION = 1.00;
+				MARKETING_VERSION = 1.01;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -1464,7 +1464,7 @@
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				MARKETING_VERSION = 1.00;
+				MARKETING_VERSION = 1.01;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
 			};
@@ -1480,7 +1480,7 @@
 				DEVELOPMENT_TEAM = TA7LM6E222;
 				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				MARKETING_VERSION = 1.00;
+				MARKETING_VERSION = 1.01;
 				ORGANIZATION_IDENTIFIER = com.nwidynski;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
 			};
