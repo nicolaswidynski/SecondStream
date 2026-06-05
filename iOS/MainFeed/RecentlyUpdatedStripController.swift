@@ -262,7 +262,7 @@ enum RecentlyUpdatedStripPayload {
 				feedByID[feed.feedID] = feed
 			}
 			guard !feedByID.isEmpty else { continue }
-			guard let unreadArticles = try? await account.fetchArticlesAsync(.unread()) else { continue }
+			guard let unreadArticles = try? await account.fetchArticlesAsync(.unread(10)) else { continue }
 			for article in unreadArticles {
 				guard let feed = feedByID[article.feedID] else { continue }
 				results.append((feed: feed, article: article))
