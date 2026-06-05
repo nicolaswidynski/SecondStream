@@ -771,6 +771,7 @@ nonisolated private extension ArticlesTable {
 	func articlesWithResultSet(_ resultSet: FMResultSet, _ database: FMDatabase) -> Set<Article> {
 		var cachedArticles = Set<Article>()
 		var fetchedArticles = Set<Article>()
+		var wordCountBackfill = [(articleID: String, wordCount: Int)]()
 
 		while resultSet.next() {
 
@@ -791,12 +792,30 @@ nonisolated private extension ArticlesTable {
 				continue
 			}
 
+			let hadNullWordCount = resultSet.columnIsNull(DatabaseKey.wordCount)
+
 			guard let article = Article(accountID: accountID, row: resultSet, status: status) else {
 				continue
 			}
 			fetchedArticles.insert(article)
+
+			if hadNullWordCount, let wc = article.wordCount {
+				wordCountBackfill.append((articleID: article.articleID, wordCount: wc))
+			}
 		}
 		resultSet.close()
+
+		// Persist word counts computed on-the-fly so we don't recompute on every subsequent load.
+		if !wordCountBackfill.isEmpty {
+			database.beginTransaction()
+			for (articleID, wordCount) in wordCountBackfill {
+				database.executeUpdate(
+					"UPDATE articles SET wordCount = ? WHERE articleID = ?",
+					withArgumentsIn: [wordCount, articleID]
+				)
+			}
+			database.commit()
+		}
 
 		if fetchedArticles.isEmpty {
 			return cachedArticles
