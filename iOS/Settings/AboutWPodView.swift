@@ -27,6 +27,16 @@ struct AboutWPodView: View {
 			.listRowSeparator(.hidden)
 
 			Section {
+				Button {
+					rateApp()
+				} label: {
+					Text("Rate this App")
+				}
+			}
+			.listRowBackground(Color(uiColor: Assets.Colors.foreground))
+			.listRowSeparator(.hidden)
+
+			Section {
 				NavigationLink(destination: LegalView()) {
 					Text("Legal")
 				}
@@ -38,6 +48,13 @@ struct AboutWPodView: View {
 		.scrollContentBackground(.hidden)
 		.background(Color(uiColor: Assets.Colors.SettingsContentBgColor))
 		.navigationTitle("About Second Stream")
+	}
+
+	private func rateApp() {
+		guard let url = URL(string: "itms-apps://itunes.apple.com/app/id6760979035?action=write-review") else {
+			return
+		}
+		UIApplication.shared.open(url)
 	}
 }
 
