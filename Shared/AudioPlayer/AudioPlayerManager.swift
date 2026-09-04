@@ -103,7 +103,7 @@ final class AudioPlayerManager: NSObject, ObservableObject {
 	private func updateNowPlayingInfo() {
 		var nowPlayingInfo = [String: Any]()
 		nowPlayingInfo[MPMediaItemPropertyTitle] = currentTitle ?? "Podcast"
-		nowPlayingInfo[MPMediaItemPropertyArtist] = "NetNewsWire"
+		nowPlayingInfo[MPMediaItemPropertyArtist] = "Second Stream"
 
 		if let player, let currentItem = player.currentItem {
 			let duration = currentItem.duration
