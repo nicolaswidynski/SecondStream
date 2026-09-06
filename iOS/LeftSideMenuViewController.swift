@@ -166,7 +166,6 @@ private final class LeftSideMenuContentViewController: UIViewController {
 		label.font = .systemFont(ofSize: 11)
 		label.textColor = .tertiaryLabel
 		label.textAlignment = .center
-		label.isUserInteractionEnabled = true
 		return label
 	}()
 
@@ -177,10 +176,6 @@ private final class LeftSideMenuContentViewController: UIViewController {
 		view.backgroundColor = Assets.Colors.SettingsContentBgColor
 		setupViews()
 		NotificationCenter.default.addObserver(self, selector: #selector(creditsDidUpdate), name: .creditsDidUpdate, object: nil)
-
-		let tripleTap = UITapGestureRecognizer(target: self, action: #selector(buildLabelTripleTapped))
-		tripleTap.numberOfTapsRequired = 3
-		buildLabel.addGestureRecognizer(tripleTap)
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
@@ -540,11 +535,6 @@ private final class LeftSideMenuContentViewController: UIViewController {
 		presenter.present(confirmation, animated: true)
 	}
 
-	@objc private func buildLabelTripleTapped() {
-		coordinator?.hideLeftMenu { [weak self] in
-			self?.coordinator?.showSettings(devOptionsUnlocked: true)
-		}
-	}
 }
 
 // MARK: - BugReportSheetViewController
