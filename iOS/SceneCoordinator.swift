@@ -1762,16 +1762,6 @@ struct SidebarItemNode: Hashable, Sendable {
 		rootSplitViewController.present(alert, animated: true)
 	}
 
-	func showSettings(scrollToArticlesSection: Bool = false, devOptionsUnlocked: Bool = false) {
-		let settingsNavController = UIStoryboard.settings.instantiateInitialViewController() as! UINavigationController
-		let settingsViewController = settingsNavController.topViewController as! SettingsViewController
-		settingsViewController.scrollToArticlesSection = scrollToArticlesSection
-		settingsViewController.openWithDevOptionsUnlocked = devOptionsUnlocked
-		settingsNavController.modalPresentationStyle = .formSheet
-		settingsViewController.presentingParentController = rootSplitViewController
-		rootSplitViewController.present(settingsNavController, animated: true)
-	}
-
 	func showAccountInspector(for account: Account) {
 		let accountInspectorNavController =
 			UIStoryboard.inspector.instantiateViewController(identifier: "AccountInspectorNavigationViewController") as! UINavigationController
@@ -2205,8 +2195,7 @@ struct SidebarItemNode: Hashable, Sendable {
 	/// selecting an article via a notification).
 	///
 	/// The dismiss is only applicable if the view controller is a
-	/// `SFSafariViewController` or `SettingsViewController`,
-	/// otherwise, this function does nothing.
+	/// `SFSafariViewController`, otherwise, this function does nothing.
 	func dismissIfLaunchingFromExternalAction() {
 		guard let presentedController = mainFeedCollectionViewController.presentedViewController else {
 			return
@@ -2215,10 +2204,6 @@ struct SidebarItemNode: Hashable, Sendable {
 		if presentedController.isKind(of: SFSafariViewController.self) {
 			presentedController.dismiss(animated: true, completion: nil)
 		}
-		guard let settings = presentedController.children.first as? SettingsViewController else {
-			return
-		}
-		settings.dismiss(animated: true, completion: nil)
 	}
 
 }

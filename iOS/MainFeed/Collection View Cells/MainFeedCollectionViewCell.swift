@@ -131,42 +131,25 @@ final class MainFeedCollectionViewCell: UICollectionViewCell {
 		var backgroundConfig = UIBackgroundConfiguration.listCell().updated(for: state)
 
 		let selectionColor = Assets.Colors.cellSelectionColor
-		let normalBg: UIColor = traitCollection.userInterfaceIdiom == .phone
-			? Assets.Colors.FeedSceneContentTableColor
-			: Assets.Colors.foreground
-		switch (state.isHighlighted || state.isSelected || state.isFocused, traitCollection.userInterfaceIdiom) {
-		case (true, .pad):
-			if let selectionColor {
-				backgroundConfig.backgroundColor = selectionColor.withAlphaComponent(0.12)
-				feedTitle.textColor = selectionColor
-			} else {
-				backgroundConfig.backgroundColor = normalBg
-			}
-			feedTitle.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize,
-											   weight: .semibold)
-			unreadCountLabel.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .semibold)
-		case (true, .phone):
+		let normalBg: UIColor = Assets.Colors.FeedSceneContentTableColor
+		if state.isHighlighted || state.isSelected || state.isFocused {
 			backgroundConfig.backgroundColor = selectionColor ?? normalBg
 			feedTitle.textColor = .label
 			unreadCountLabel.textColor = .secondaryLabel
 			if feedTitle.text == "All Unread" {
 				faviconView.tintColor = nil
 			}
-		default:
-			backgroundConfig.backgroundColor = traitCollection.userInterfaceIdiom == .phone
-				? Assets.Colors.FeedSceneContentTableColor
-				: Assets.Colors.foreground
+		} else {
+			backgroundConfig.backgroundColor = Assets.Colors.FeedSceneContentTableColor
 			feedTitle.textColor = .label
 			feedTitle.font = UIFont.preferredFont(forTextStyle: .body)
 			unreadCountLabel.font = UIFont.preferredFont(forTextStyle: .body)
 			unreadCountLabel.textColor = .secondaryLabel
-			if traitCollection.userInterfaceIdiom == .phone {
-				if feedTitle.text == "All Unread" {
-					if let preferredColor = iconImage?.preferredColor {
-						faviconView.tintColor = UIColor(cgColor: preferredColor)
-					} else {
-						faviconView.tintColor = Assets.Colors.secondaryAccent
-					}
+			if feedTitle.text == "All Unread" {
+				if let preferredColor = iconImage?.preferredColor {
+					faviconView.tintColor = UIColor(cgColor: preferredColor)
+				} else {
+					faviconView.tintColor = Assets.Colors.secondaryAccent
 				}
 			}
 		}

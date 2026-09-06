@@ -11,7 +11,6 @@ import Foundation
 
 public enum TransportError: LocalizedError, Sendable {
 	case noData
-    case noURL
 	case suspended
 	case httpError(status: Int)
 
@@ -255,21 +254,4 @@ nonisolated extension URLSession: Transport {
 		task.resume()
 	}
 
-	public static func webserviceTransport() -> Transport {
-
-		let sessionConfiguration = URLSessionConfiguration.default
-		sessionConfiguration.requestCachePolicy = .reloadIgnoringLocalCacheData
-		sessionConfiguration.timeoutIntervalForRequest = 60.0
-		sessionConfiguration.httpShouldSetCookies = false
-		sessionConfiguration.httpCookieAcceptPolicy = .never
-		sessionConfiguration.httpMaximumConnectionsPerHost = 2
-		sessionConfiguration.httpCookieStorage = nil
-		sessionConfiguration.urlCache = nil
-
-		if let userAgentHeaders = UserAgent.headers() {
-			sessionConfiguration.httpAdditionalHeaders = userAgentHeaders
-		}
-
-		return URLSession(configuration: sessionConfiguration)
-	}
 }

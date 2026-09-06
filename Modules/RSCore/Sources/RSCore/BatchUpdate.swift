@@ -25,12 +25,6 @@ public extension Notification.Name {
 
 	private var count = 0
 
-	/// Is updating in progress?
-	public var isPerforming: Bool {
-		precondition(Thread.isMainThread)
-		return count > 0
-	}
-
 	/// Perform a batch update.
 	public func perform(_ batchUpdateBlock: BatchUpdateBlock) {
 		precondition(Thread.isMainThread)

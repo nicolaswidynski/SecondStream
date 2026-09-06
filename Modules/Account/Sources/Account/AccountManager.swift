@@ -17,9 +17,6 @@ import RSDatabase
 @MainActor public final class AccountManager: UnreadCountProvider {
 	public static var shared = AccountManager()
 
-	public static let netNewsWireNewsURL = "https://netnewswire.blog/feed.xml"
-    private static let jsonNetNewsWireNewsURL = "https://netnewswire.blog/feed.json"
-
 	public let defaultAccount: Account
 
 	private let accountsFolder: String
@@ -57,15 +54,6 @@ import RSDatabase
 		sortByName(accounts)
 	}
 
-	public var hasiCloudAccount: Bool {
-		for account in accounts {
-			if account.type == .cloudKit {
-				return true
-			}
-		}
-		return false
-	}
-
 	public var activeAccounts: [Account] {
 		assert(Thread.isMainThread)
 		return Array(accountsDictionary.values.filter { $0.isActive })
@@ -85,10 +73,6 @@ import RSDatabase
 			}
 		}
 		return lastArticleFetchEndTime
-	}
-
-	public func existingActiveAccount(forDisplayName displayName: String) -> Account? {
-		AccountManager.shared.activeAccounts.first(where: { $0.nameForDisplay == displayName })
 	}
 
 	public var refreshInProgress: Bool {
@@ -306,16 +290,6 @@ import RSDatabase
 		}
 	}
 
-	public func sendArticleStatusAll() async {
-		await withTaskGroup(of: Void.self, isolation: MainActor.shared) { group in
-			for account in activeAccounts {
-				group.addTask {
-					try? await account.sendArticleStatus()
-				}
-			}
-		}
-	}
-
 	public func syncArticleStatusAllWithoutWaiting() {
 		Task {
 			await syncArticleStatusAll()
@@ -332,12 +306,6 @@ import RSDatabase
 		}
 	}
 
-	public func saveAll() {
-		for account in accounts {
-			account.save()
-		}
-	}
-
 	public func anyAccountHasAtLeastOneFeed() -> Bool {
 		for account in activeAccounts {
 			if account.hasAtLeastOneFeed() {
@@ -345,19 +313,6 @@ import RSDatabase
 			}
 		}
 
-		return false
-	}
-
-	public func anyAccountHasNetNewsWireNewsSubscription() -> Bool {
-		anyAccountHasFeedWithURL(Self.netNewsWireNewsURL) || anyAccountHasFeedWithURL(Self.jsonNetNewsWireNewsURL)
-	}
-
-	public func anyAccountHasFeedWithURL(_ urlString: String) -> Bool {
-		for account in activeAccounts {
-			if account.existingFeed(withURL: urlString) != nil {
-				return true
-			}
-		}
 		return false
 	}
 
@@ -520,8 +475,6 @@ private struct AccountSpecifier {
 	let type: AccountType
 	let identifier: String
 	let folderPath: String
-	let folderName: String
-	let dataFilePath: String
 
 	init?(folderPath: String) {
 		if !FileManager.default.isFolder(atPath: folderPath) {
@@ -540,16 +493,7 @@ private struct AccountSpecifier {
 		}
 
 		self.folderPath = folderPath
-		self.folderName = name
 		self.type = accountType
 		self.identifier = nameComponents[1]
-
-		self.dataFilePath = AccountSpecifier.accountFilePathWithFolder(self.folderPath)
-	}
-
-	private static let accountDataFileName = "AccountData.plist"
-
-	private static func accountFilePathWithFolder(_ folderPath: String) -> String {
-		return NSString(string: folderPath).appendingPathComponent(accountDataFileName)
 	}
 }

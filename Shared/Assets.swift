@@ -104,7 +104,6 @@ struct Assets {
 		}
 
 #else // iOS
-		static var accountLocalPadImage: RSImage { RSImage(named: "accountLocalPad")! }
 		static var accountLocalPhoneImage: RSImage { RSImage(named: "accountLocalPhone")! }
 
 		static var articleExtractorOnSF: RSImage { RSImage(named: "articleExtractorOnSF")! }
@@ -182,11 +181,7 @@ struct Assets {
 #if os(macOS)
 			return Assets.Images.accountLocal
 #else // iOS
-			if UIDevice.current.userInterfaceIdiom == .pad {
-				return Assets.Images.accountLocalPadImage
-			} else {
-				return Assets.Images.accountLocalPhoneImage
-			}
+			return Assets.Images.accountLocalPhoneImage
 #endif
 		case .cloudKit:
 			return Assets.Images.accountCloudKit
@@ -284,7 +279,6 @@ struct Assets {
 
 		// MARK: - Utility Colors
 
-		static var sectionHeader: RSColor        { background }
 		static var iconBackground: RSColor       { foreground }
 		static var fullScreenBackground: RSColor { background }
 
@@ -300,14 +294,6 @@ struct Assets {
 
 		static var readArticleTitle: RSColor {
 			RSColor { tc in tc.userInterfaceStyle == .dark ? .secondaryLabel : .secondaryLabel }
-		}
-
-		static var controlBackground: RSColor {
-			RSColor { tc in
-				tc.userInterfaceStyle == .dark
-				? RSColor.white.withAlphaComponent(0.25)
-				: RSColor.black.withAlphaComponent(0.25)
-			}
 		}
 
 		/// Background for interactive input elements (text fields, search bars, icon tiles).
@@ -340,7 +326,6 @@ struct Assets {
 
 		static let shadowTablesCornerRadius: CGFloat = 10
 		static let scenePaneCornerRadius: CGFloat    = 0//24
-		static let menuOpenCornerRadius: CGFloat     = 28
 
 		// MARK: - Layout Spacing — Feeds Scene
 
@@ -358,8 +343,6 @@ struct Assets {
 		static let timelineSectionSpacingTop: CGFloat        = 0
 		static let timelineSectionSpacingBottom: CGFloat     = 15
 
-		/// Storyboard constraint IDs: arj-Vg-UZ3 (IconFeedCell), nQe-AM-26Q (FeedCell).
-		static let timelineCellBottomPadding: CGFloat = 6
 		/// Fixed width of the date column — all titles left-align at the same offset.
 		static let timelineDateColumnWidth: CGFloat   = 44
 
@@ -377,9 +360,7 @@ struct Assets {
 		// All native shadow appearances derive from these constants.
 
 		private static let tableShadowColorLight      = UIColor.black
-		private static let tableShadowColorDark       = UIColor.clear
 		private static let tableShadowOpacityLight: Float = 0//0.03
-		private static let tableShadowOpacityDark:  Float = 0
 		private static let tableShadowRadius:  CGFloat    = 2
 		private static let tableShadowOffsetX: CGFloat    = 3
 		private static let tableShadowOffsetY: CGFloat    = 3

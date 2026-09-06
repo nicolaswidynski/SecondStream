@@ -77,7 +77,7 @@ final class ImageViewController: UIViewController {
 
 	private func layoutTitleLabel() {
 		let width = view.frame.width
-		let multiplier = traitCollection.userInterfaceIdiom == .pad ? CGFloat(0.1) : CGFloat(0.04)
+		let multiplier = CGFloat(0.04)
 		titleLeading.constant += width * multiplier
 		titleTrailing.constant -= width * multiplier
 		titleLabel.layoutIfNeeded()

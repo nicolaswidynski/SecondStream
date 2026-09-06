@@ -43,9 +43,6 @@ import Foundation
 		return 0
 	}
 
-	public var isLeaf: Bool {
-		numberOfChildNodes < 1
-	}
 
 	public init(representedObject: AnyObject, parent: Node?) {
 		precondition(Thread.isMainThread)
@@ -124,32 +121,6 @@ import Foundation
 		}
 	}
 
-	public static func nodesOrganizedByParent(_ nodes: [Node]) -> [Node: [Node]] {
-		let nodesWithParents = nodes.filter { $0.parent != nil }
-		return Dictionary(grouping: nodesWithParents, by: { $0.parent! })
-	}
-
-	public static func indexSetsGroupedByParent(_ nodes: [Node]) -> [Node: IndexSet] {
-		let d = nodesOrganizedByParent(nodes)
-		let indexSetDictionary = d.mapValues { (nodes) -> IndexSet in
-
-			var indexSet = IndexSet()
-			if nodes.isEmpty {
-				return indexSet
-			}
-
-			let parent = nodes.first!.parent!
-			for node in nodes {
-				if let index = parent.indexOfChild(node) {
-					indexSet.insert(index)
-				}
-			}
-
-			return indexSet
-		}
-
-		return indexSetDictionary
-	}
 
 	// MARK: - Hashable
 

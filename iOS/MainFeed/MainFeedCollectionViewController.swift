@@ -25,18 +25,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "AddSource")
 
-	private let keyboardManager = KeyboardManager(type: .sidebar)
-	override var keyCommands: [UIKeyCommand]? {
-
-		// If the first responder is the WKWebView (PreloadedWebView) we don't want to supply any keyboard
-		// commands that the system is looking for by going up the responder chain. They will interfere with
-		// the WKWebViews built in hardware keyboard shortcuts, specifically the up and down arrow keys.
-		guard let current = UIResponder.currentFirstResponder, !(current is PreloadedWebView) else {
-			return nil
-		}
-
-		return keyboardManager.keyCommands
-	}
 
 	override var canBecomeFirstResponder: Bool {
 		return true
@@ -551,10 +539,9 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 
 	// MARK: - Collection View Configuration
 	func configureCollectionView() {
-		let isPhone = traitCollection.userInterfaceIdiom == .phone
 		let layout = UICollectionViewCompositionalLayout { [weak self] _, layoutEnvironment in
 			guard let self else { return nil }
-			var config = UICollectionLayoutListConfiguration(appearance: traitCollection.userInterfaceIdiom == .pad ? .sidebar : .grouped)
+			var config = UICollectionLayoutListConfiguration(appearance: .grouped)
 			config.backgroundColor = Assets.Colors.FeedSceneContentBgColor
 			config.separatorConfiguration.color = Assets.Colors.separator
 			config.headerMode = .supplementary
@@ -577,24 +564,17 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 			}
 
 			let section = NSCollectionLayoutSection.list(using: config, layoutEnvironment: layoutEnvironment)
-			if isPhone {
-				let hMargin = layoutEnvironment.container.effectiveContentSize.width * 0.05
-				section.contentInsets = NSDirectionalEdgeInsets(top: Assets.Colors.feedSectionSpacingTop, leading: hMargin, bottom: Assets.Colors.feedSectionSpacingBottom, trailing: hMargin)
-				section.interGroupSpacing = Assets.Colors.feedSeparatorVerticalPadding
-			}
+			let hMargin = layoutEnvironment.container.effectiveContentSize.width * 0.05
+			section.contentInsets = NSDirectionalEdgeInsets(top: Assets.Colors.feedSectionSpacingTop, leading: hMargin, bottom: Assets.Colors.feedSectionSpacingBottom, trailing: hMargin)
+			section.interGroupSpacing = Assets.Colors.feedSeparatorVerticalPadding
 			return section
 		}
 		collectionView.setCollectionViewLayout(layout, animated: false)
 		collectionView.refreshControl = UIRefreshControl()
 		collectionView.refreshControl!.addTarget(self, action: #selector(refreshAccounts(_:)), for: .valueChanged)
 
-		if traitCollection.userInterfaceIdiom == .pad {
-			// This defrosts the glass.
-			collectionView.backgroundColor = .clear
-		} else {
-			collectionView.backgroundColor = Assets.Colors.FeedSceneContentBgColor
-			collectionView.backgroundView = nil
-		}
+		collectionView.backgroundColor = Assets.Colors.FeedSceneContentBgColor
+		collectionView.backgroundView = nil
 
 		updateScrollIndicatorStyle()
 	}
@@ -749,7 +729,6 @@ final class MainFeedCollectionViewController: UICollectionViewController, Undoab
 		   BootstrapProgressManager.shared.progress(forFeedURL: feed.url) != nil {
 			return false
 		}
-		if traitCollection.userInterfaceIdiom == .pad { return true }
 		return !isAnimating
     }
 

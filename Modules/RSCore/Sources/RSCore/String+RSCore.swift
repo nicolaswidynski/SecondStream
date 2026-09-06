@@ -210,41 +210,6 @@ public extension String {
 		}
 	}
 
-	/// A copy of an HTML string converted to plain text.
-	///
-	/// Replaces `p`, `blockquote`, `div`, `br`, and `li` tags with varying quantities
-	/// of newlines, strips all other tags, and guarantees no more than two consecutive newlines.
-	///
-	/// - Returns: A copy of self, with HTML tags removed.
-	func convertingToPlainText() -> String {
-		if !self.contains("<") {
-			return self
-		}
-
-		var preflight = self
-
-		// NOTE: If performance on repeated invocations becomes an issue here, the regexes can be cached.
-		let options: String.CompareOptions = [.regularExpression, .caseInsensitive]
-		preflight = preflight.replacingOccurrences(of: "</?blockquote>|</p>", with: "\n\n", options: options)
-		preflight = preflight.replacingOccurrences(of: "<p>|</?div>|<br(?: ?/)?>|</li>", with: "\n", options: options)
-
-		var s = String()
-		s.reserveCapacity(preflight.count)
-		var level = 0
-
-		for char in preflight {
-			if char == "<" {
-				level += 1
-			} else if char == ">" {
-				level -= 1
-			} else if level == 0 {
-				s.append(char)
-			}
-		}
-
-		return s.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
-	}
-
 	/// Returns a Boolean value indicating whether the string contains another string, case-insensitively.
 	///
 	/// - Parameter string: The string to search for.

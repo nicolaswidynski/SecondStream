@@ -121,14 +121,6 @@ public final class Folder: SidebarItem, Renamable, Container, Hashable {
 		postChildrenDidChangeNotification()
 	}
 
-	public func addFeeds(_ feeds: Set<Feed>) {
-		guard !feeds.isEmpty else {
-			return
-		}
-		topLevelFeeds.formUnion(feeds)
-		postChildrenDidChangeNotification()
-	}
-
 	public func removeFeedFromTreeAtTopLevel(_ feed: Feed) {
 		topLevelFeeds.remove(feed)
 		postChildrenDidChangeNotification()
@@ -165,10 +157,6 @@ private extension Folder {
 			updatedUnreadCount += feed.unreadCount
 		}
 		unreadCount = updatedUnreadCount
-	}
-
-	func childrenContain(_ feed: Feed) -> Bool {
-		return topLevelFeeds.contains(feed)
 	}
 }
 

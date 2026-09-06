@@ -23,11 +23,6 @@ public extension DatabaseTable {
 		return database.rs_selectRowsWhereKey(key, equalsValue: value, tableName: name)
 	}
 
-	func selectSingleRowWhere(key: String, equals value: Any, in database: FMDatabase) -> FMResultSet? {
-
-		return database.rs_selectSingleRowWhereKey(key, equalsValue: value, tableName: name)
-	}
-
 	func selectRowsWhere(key: String, inValues values: [Any], in database: FMDatabase) -> FMResultSet? {
 		if values.isEmpty {
 			return nil
@@ -81,19 +76,6 @@ public extension DatabaseTable {
 			return numberWithCountResultSet(resultSet)
 		}
 		return 0
-	}
-
-	// MARK: Mapping
-
-	func mapResultSet<T>(_ resultSet: FMResultSet, _ completion: (_ resultSet: FMResultSet) -> T?) -> [T] {
-
-		var objects = [T]()
-		while resultSet.next() {
-			if let obj = completion(resultSet) {
-				objects += [obj]
-			}
-		}
-		return objects
 	}
 
 	// MARK: Columns

@@ -352,7 +352,7 @@ final class RootSplitViewController: UISplitViewController {
 	}
 
 	@objc func goToSettings(_ sender: Any?) {
-		coordinator.showSettings()
+		coordinator.showLeftMenu()
 	}
 
 	@objc func toggleRead(_ sender: Any?) {
