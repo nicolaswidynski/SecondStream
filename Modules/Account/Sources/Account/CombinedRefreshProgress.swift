@@ -79,9 +79,3 @@ import RSWeb
 									numberRemaining: updatedNumberRemaining)
 	}
 }
-
-private extension CombinedRefreshProgress {
-	func reset() {
-		progressInfo = ProgressInfo()
-	}
-}

@@ -316,15 +316,6 @@ import RSDatabase
 		return false
 	}
 
-	public func anyAccountHasFeedWithURL(_ urlString: String) -> Bool {
-		for account in activeAccounts {
-			if account.existingFeed(withURL: urlString) != nil {
-				return true
-			}
-		}
-		return false
-	}
-
 	// MARK: - Fetching Articles
 
 	// These fetch articles from active accounts and return a merged Set<Article>.
@@ -484,8 +475,6 @@ private struct AccountSpecifier {
 	let type: AccountType
 	let identifier: String
 	let folderPath: String
-	let folderName: String
-	let dataFilePath: String
 
 	init?(folderPath: String) {
 		if !FileManager.default.isFolder(atPath: folderPath) {
@@ -504,16 +493,7 @@ private struct AccountSpecifier {
 		}
 
 		self.folderPath = folderPath
-		self.folderName = name
 		self.type = accountType
 		self.identifier = nameComponents[1]
-
-		self.dataFilePath = AccountSpecifier.accountFilePathWithFolder(self.folderPath)
-	}
-
-	private static let accountDataFileName = "AccountData.plist"
-
-	private static func accountFilePathWithFolder(_ folderPath: String) -> String {
-		return NSString(string: folderPath).appendingPathComponent(accountDataFileName)
 	}
 }
