@@ -36,9 +36,6 @@ struct Assets {
 		static var nnwFeedIcon: RSImage { RSImage(named: "nnwFeedIcon")! }
 		static var faviconTemplate: RSImage { RSImage(named: "faviconTemplateImage")! }
 
-		static var articleExtractorError: RSImage { RSImage(named: "articleExtractorError")! }
-		static var articleExtractorOn: RSImage { RSImage(named: "articleExtractorOn")! }
-		static var articleExtractorOff: RSImage { RSImage(named: "articleExtractorOff")! }
 		static var share: RSImage { RSImage(symbol: "square.and.arrow.up")! }
 		static var folder: RSImage { RSImage(symbol: "folder")! }
 		static var starredFeed: IconImage {
@@ -106,14 +103,6 @@ struct Assets {
 #else // iOS
 		static var accountLocalPhoneImage: RSImage { RSImage(named: "accountLocalPhone")! }
 
-		static var articleExtractorOnSF: RSImage { RSImage(named: "articleExtractorOnSF")! }
-		static var articleExtractorOffSF: RSImage { RSImage(symbol: "doc.plaintext")! }
-		@MainActor static var articleExtractorOnTinted: RSImage {
-			articleExtractorOn.tinted(color: Assets.Colors.primaryAccent)!
-		}
-		@MainActor static var articleExtractorOffTinted: RSImage {
-			articleExtractorOff.tinted(color: Assets.Colors.primaryAccent)!
-		}
 
 		static var circleClosed: RSImage { RSImage(symbol: "largecircle.fill.circle")! }
 		static var markBelowAsRead: RSImage { RSImage(symbol: "arrowtriangle.down.circle")! }
