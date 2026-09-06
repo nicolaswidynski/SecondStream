@@ -15,11 +15,6 @@ import Articles
 
 final class ArticleViewController: UIViewController {
 
-	typealias State = (extractedArticle: ExtractedArticle?,
-		isShowingExtractedArticle: Bool,
-		articleExtractorButtonState: ArticleExtractorButtonState,
-		windowScrollY: Int)
-
 	@IBOutlet private weak var prevArticleBarButtonItem: UIBarButtonItem!
 	@IBOutlet private weak var nextArticleBarButtonItem: UIBarButtonItem!
 	@IBOutlet private weak var readBarButtonItem: UIBarButtonItem!
@@ -55,24 +50,13 @@ final class ArticleViewController: UIViewController {
 		}
 	}
 
-	var restoreScrollPosition: (isShowingExtractedArticle: Bool, articleWindowScrollY: Int)? {
+	var restoreScrollPosition: Int? {
 		didSet {
 			if let rsp = restoreScrollPosition {
-				currentWebViewController?.setScrollPosition(isShowingExtractedArticle: rsp.isShowingExtractedArticle, articleWindowScrollY: rsp.articleWindowScrollY)
+				currentWebViewController?.setScrollPosition(articleWindowScrollY: rsp)
 			}
 		}
 	}
-
-	var currentState: State? {
-		guard let controller = currentWebViewController else { return nil}
-		return State(extractedArticle: controller.extractedArticle,
-					 isShowingExtractedArticle: controller.isShowingExtractedArticle,
-					 articleExtractorButtonState: controller.articleExtractorButtonState,
-					 windowScrollY: controller.windowScrollY)
-	}
-
-	var restoreState: State?
-
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -120,19 +104,10 @@ final class ArticleViewController: UIViewController {
 			view.bottomAnchor.constraint(equalTo: pageViewController.view.bottomAnchor)
 		])
 
-		let controller: WebViewController
-		if let state = restoreState {
-			controller = createWebViewController(article, updateView: false)
-			controller.extractedArticle = state.extractedArticle
-			controller.isShowingExtractedArticle = state.isShowingExtractedArticle
-			controller.articleExtractorButtonState = state.articleExtractorButtonState
-			controller.windowScrollY = state.windowScrollY
-		} else {
-			controller = createWebViewController(article, updateView: true)
-		}
+		let controller = createWebViewController(article, updateView: true)
 
 		if let rsp = restoreScrollPosition {
-			controller.setScrollPosition(isShowingExtractedArticle: rsp.isShowingExtractedArticle, articleWindowScrollY: rsp.articleWindowScrollY)
+			controller.setScrollPosition(articleWindowScrollY: rsp)
 		}
 
 		self.pageViewController.setViewControllers([controller], direction: .forward, animated: false, completion: nil)
@@ -332,10 +307,6 @@ final class ArticleViewController: UIViewController {
 		coordinator?.openHomepageForArticleOrTimelineFeed(article)
 	}
 
-	@IBAction func toggleArticleExtractor(_ sender: Any) {
-		currentWebViewController?.toggleArticleExtractor()
-	}
-
 	@IBAction func prevArticle(_ sender: Any) {
 		coordinator.selectPrevArticle()
 	}
@@ -376,10 +347,6 @@ final class ArticleViewController: UIViewController {
 		updateUI()
 	}
 
-	@objc func toggleReaderView(_ sender: Any?) {
-		currentWebViewController?.toggleArticleExtractor()
-	}
-
 	// MARK: Keyboard Shortcuts
 
 	@objc func navigateToTimeline(_ sender: Any?) {
@@ -408,16 +375,12 @@ final class ArticleViewController: UIViewController {
 		currentWebViewController?.scrollPageUp()
 	}
 
-	func stopArticleExtractorIfProcessing() {
-		currentWebViewController?.stopArticleExtractorIfProcessing()
-	}
-
 	func openInAppBrowser() {
 		currentWebViewController?.openInAppBrowser()
 	}
 
-	func setScrollPosition(isShowingExtractedArticle: Bool, articleWindowScrollY: Int) {
-		currentWebViewController?.setScrollPosition(isShowingExtractedArticle: isShowingExtractedArticle, articleWindowScrollY: articleWindowScrollY)
+	func setScrollPosition(articleWindowScrollY: Int) {
+		currentWebViewController?.setScrollPosition(articleWindowScrollY: articleWindowScrollY)
 	}
 }
 
@@ -493,16 +456,6 @@ extension ArticleViewController {
 
 }
 
-// MARK: WebViewControllerDelegate
-
-extension ArticleViewController: WebViewControllerDelegate {
-
-	func webViewController(_ webViewController: WebViewController, articleExtractorButtonStateDidUpdate buttonState: ArticleExtractorButtonState) {
-		// Article extractor button removed - no-op
-	}
-
-}
-
 // MARK: UIPageViewControllerDataSource
 
 extension ArticleViewController: UIPageViewControllerDataSource {
@@ -559,7 +512,6 @@ private extension ArticleViewController {
 	func createWebViewController(_ article: Article?, updateView: Bool = true) -> WebViewController {
 		let controller = WebViewController()
 		controller.coordinator = coordinator
-		controller.delegate = self
 		controller.setArticle(article, updateView: updateView)
 		return controller
 	}

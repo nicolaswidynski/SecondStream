@@ -66,7 +66,6 @@ final class AppDefaults: Sendable {
 		static let currentThemeName = "currentThemeName"
 		static let articleContentJavascriptEnabled = "articleContentJavascriptEnabled"
 		static let hideReadFeeds = "hideReadFeeds"
-		static let isShowingExtractedArticle = "isShowingExtractedArticle"
 		static let articleWindowScrollY = "articleWindowScrollY"
 		static let expandedContainers = "expandedContainers"
 		static let expandedCategorySections = "expandedCategorySections"
@@ -286,15 +285,6 @@ final class AppDefaults: Sendable {
 		}
 		set {
 			UserDefaults.standard.set(newValue, forKey: Key.hideReadFeeds)
-		}
-	}
-
-	var isShowingExtractedArticle: Bool {
-		get {
-			UserDefaults.standard.bool(forKey: Key.isShowingExtractedArticle)
-		}
-		set {
-			UserDefaults.standard.set(newValue, forKey: Key.isShowingExtractedArticle)
 		}
 	}
 
@@ -716,7 +706,6 @@ struct StateRestorationInfo {
 	let foldersShowingReadArticles: [String: Set<String>]
 	let selectedArticle: ArticleSpecifier?
 	let articleWindowScrollY: Int
-	let isShowingExtractedArticle: Bool
 
 	init(hideReadFeeds: Bool,
 	     expandedContainers: Set<ContainerIdentifier>,
@@ -725,8 +714,7 @@ struct StateRestorationInfo {
 	     feedsHidingReadArticles: [String: Set<String>],
 	     foldersShowingReadArticles: [String: Set<String>],
 	     selectedArticle: ArticleSpecifier?,
-	     articleWindowScrollY: Int,
-	     isShowingExtractedArticle: Bool) {
+	     articleWindowScrollY: Int) {
 		self.hideReadFeeds = hideReadFeeds
 		self.expandedContainers = expandedContainers
 		self.selectedSidebarItem = selectedSidebarItem
@@ -735,9 +723,8 @@ struct StateRestorationInfo {
 		self.foldersShowingReadArticles = foldersShowingReadArticles
 		self.selectedArticle = selectedArticle
 		self.articleWindowScrollY = articleWindowScrollY
-		self.isShowingExtractedArticle = isShowingExtractedArticle
 
-		AppDefaults.logger.debug("AppDefaults: StateRestorationInfo:\nexpandedContainers: \(expandedContainers)\nselectedSidebarItem: \(selectedSidebarItem?.userInfo ?? [String: String]())\nsmartFeedsHidingReadArticles: \(smartFeedsHidingReadArticles)\nfeedsHidingReadArticles: \(feedsHidingReadArticles)\nfoldersShowingReadArticles: \(foldersShowingReadArticles)\nselectedArticle: \(selectedArticle?.dictionary ?? [String: String]())\narticleWindowScrollY: \(articleWindowScrollY)\nisShowingExtractedArticle: \(isShowingExtractedArticle ? "true" : "false")")
+		AppDefaults.logger.debug("AppDefaults: StateRestorationInfo:\nexpandedContainers: \(expandedContainers)\nselectedSidebarItem: \(selectedSidebarItem?.userInfo ?? [String: String]())\nsmartFeedsHidingReadArticles: \(smartFeedsHidingReadArticles)\nfeedsHidingReadArticles: \(feedsHidingReadArticles)\nfoldersShowingReadArticles: \(foldersShowingReadArticles)\nselectedArticle: \(selectedArticle?.dictionary ?? [String: String]())\narticleWindowScrollY: \(articleWindowScrollY)")
 	}
 
 	init() {
@@ -748,8 +735,7 @@ struct StateRestorationInfo {
 				  feedsHidingReadArticles: AppDefaults.shared.feedsHidingReadArticles,
 				  foldersShowingReadArticles: AppDefaults.shared.foldersShowingReadArticles,
 				  selectedArticle: AppDefaults.shared.selectedArticle,
-				  articleWindowScrollY: AppDefaults.shared.articleWindowScrollY,
-				  isShowingExtractedArticle: AppDefaults.shared.isShowingExtractedArticle)
+				  articleWindowScrollY: AppDefaults.shared.articleWindowScrollY)
 	}
 
 	// TODO: Delete for NetNewsWire 7.1.
@@ -839,7 +825,6 @@ struct StateRestorationInfo {
 				  feedsHidingReadArticles: feedsHidingReadArticles,
 				  foldersShowingReadArticles: AppDefaults.shared.foldersShowingReadArticles,
 				  selectedArticle: AppDefaults.shared.selectedArticle,
-				  articleWindowScrollY: AppDefaults.shared.articleWindowScrollY,
-				  isShowingExtractedArticle: AppDefaults.shared.isShowingExtractedArticle)
+				  articleWindowScrollY: AppDefaults.shared.articleWindowScrollY)
 	}
 }

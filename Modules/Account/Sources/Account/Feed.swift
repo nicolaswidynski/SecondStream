@@ -151,15 +151,6 @@ import Articles
 		}
 	}
 
-	public var isArticleExtractorAlwaysOn: Bool? {
-		get {
-            metadata.isArticleExtractorAlwaysOn
-		}
-		set {
-			metadata.isArticleExtractorAlwaysOn = newValue
-		}
-	}
-
 	public var externalID: String? {
 		get {
 			return metadata.externalID

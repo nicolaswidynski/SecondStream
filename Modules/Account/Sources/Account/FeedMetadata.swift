@@ -32,7 +32,6 @@ public enum FeedCategory: String, Codable, Sendable {
 		case authors
 		case contentHash
 		case isNotifyAboutNewArticles
-		case isArticleExtractorAlwaysOn
 		case conditionalGetInfo
 		case conditionalGetInfoDate
 		case cacheControlInfo
@@ -96,14 +95,6 @@ public enum FeedCategory: String, Codable, Sendable {
 		didSet {
 			if isNotifyAboutNewArticles != oldValue {
 				valueDidChange(.isNotifyAboutNewArticles)
-			}
-		}
-	}
-
-	var isArticleExtractorAlwaysOn: Bool? {
-		didSet {
-			if isArticleExtractorAlwaysOn != oldValue {
-				valueDidChange(.isArticleExtractorAlwaysOn)
 			}
 		}
 	}

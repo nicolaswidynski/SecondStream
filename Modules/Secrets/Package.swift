@@ -16,7 +16,6 @@ let package = Package(
 		.target(
 			name: "Secrets",
 			dependencies: [],
-			exclude: ["SecretKey.swift.gyb"],
 			swiftSettings: [
 				.enableUpcomingFeature("NonisolatedNonsendingByDefault"),
 				.enableUpcomingFeature("InferIsolatedConformances"),
