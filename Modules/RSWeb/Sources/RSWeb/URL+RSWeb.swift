@@ -11,8 +11,6 @@ import Foundation
 private struct URLConstants {
 	static let schemeHTTP = "http"
 	static let schemeHTTPS = "https"
-	static let prefixHTTP = "http://"
-	static let prefixHTTPS = "https://"
 }
 
 public extension URL {
@@ -27,22 +25,6 @@ public extension URL {
 
 	func isHTTPOrHTTPSURL() -> Bool {
 		return self.isHTTPSURL() || self.isHTTPURL()
-	}
-
-	func absoluteStringWithHTTPOrHTTPSPrefixRemoved() -> String? {
-		// Case-inensitive. Turns http://example.com/foo into example.com/foo
-
-		if isHTTPSURL() {
-			return absoluteString.stringByRemovingCaseInsensitivePrefix(URLConstants.prefixHTTPS)
-		} else if isHTTPURL() {
-			return absoluteString.stringByRemovingCaseInsensitivePrefix(URLConstants.prefixHTTP)
-		}
-
-		return nil
-	}
-
-	func appendingQueryItem(_ queryItem: URLQueryItem) -> URL? {
-		appendingQueryItems([queryItem])
 	}
 
 	func appendingQueryItems(_ queryItems: [URLQueryItem]) -> URL? {
@@ -64,25 +46,5 @@ public extension URL {
 		urlString = urlString.replacingOccurrences(of: "&#38;", with: "&")
 
 		return URL(string: urlString)
-	}
-}
-
-private extension String {
-
-	func stringByRemovingCaseInsensitivePrefix(_ prefix: String) -> String {
-		// Returns self if it doesn’t have the given prefix.
-
-		let lowerPrefix = prefix.lowercased()
-		let lowerSelf = self.lowercased()
-
-		if lowerSelf == lowerPrefix {
-			return ""
-		}
-		if !lowerSelf.hasPrefix(lowerPrefix) {
-			return self
-		}
-
-		let index = self.index(self.startIndex, offsetBy: prefix.count)
-		return String(self[..<index])
 	}
 }

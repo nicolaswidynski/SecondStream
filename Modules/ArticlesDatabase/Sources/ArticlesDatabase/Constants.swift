@@ -47,9 +47,6 @@ struct DatabaseKey {
 	static let starred = "starred"
 	static let dateArrived = "dateArrived"
 
-	// Tag
-	static let tagName = "tagName"
-
 	// Author
 	static let authorID = "authorID"
 	static let name = "name"

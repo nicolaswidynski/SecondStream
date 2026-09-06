@@ -72,40 +72,9 @@ public extension Notification.Name {
 		}
 	}
 
-	public var hasNoRemainingTasks: Bool {
-		assert(numberRemaining >= 0)
-		return numberRemaining < 1
-	}
-
 	public init(numberOfTasks: Int = 0) {
 		assert(numberOfTasks >= 0)
 		self.numberOfTasks = numberOfTasks
-	}
-
-	/// Directly set the number of remaining tasks, instead of calling `completeTasks`.
-	/// Updates `numberCompleted`.
-	public func updateNumberRemaining(_ newNumberRemaining: Int) {
-		if newNumberRemaining == numberRemaining {
-			return
-		}
-
-		assert(newNumberRemaining <= numberOfTasks)
-		numberRemaining = newNumberRemaining
-		numberCompleted = numberOfTasks - numberRemaining
-		updateProgressInfo()
-	}
-
-	/// Directly set the number of completed tasks, instead of calling `completeTasks`.
-	/// Updates `numberRemaining`.
-	public func updateNumberCompleted(_ newNumberCompleted: Int) {
-		if newNumberCompleted == numberCompleted {
-			return
-		}
-
-		assert(newNumberCompleted <= numberOfTasks)
-		numberCompleted = newNumberCompleted
-		numberRemaining = numberOfTasks - numberCompleted
-		updateProgressInfo()
 	}
 
 	public func addTasks(_ count: Int) {
@@ -133,12 +102,6 @@ public extension Notification.Name {
 
 	public func completeTask() {
 		completeTasks(1)
-	}
-
-	public func completeAll() {
-		numberCompleted = numberOfTasks
-		numberRemaining = 0
-		updateProgressInfo()
 	}
 
 	public func reset() {

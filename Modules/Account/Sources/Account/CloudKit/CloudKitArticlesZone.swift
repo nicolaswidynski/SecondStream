@@ -23,8 +23,6 @@ final class CloudKitArticlesZone: CloudKitZone {
 	weak var database: CKDatabase?
 	var delegate: CloudKitZoneDelegate?
 
-	let compressionQueue = DispatchQueue(label: "Articles Zone Compression Queue")
-
 	struct CloudKitArticle: Sendable {
 		static let recordType = "Article"
 		struct Fields {

@@ -30,18 +30,6 @@ public struct FeedParser {
 		}
 	}
 
-	public static func mightBeAbleToParseBasedOnPartialData(_ parserData: ParserData) -> Bool {
-
-		let type = feedType(parserData, isPartialData: true)
-
-		switch type {
-		case .jsonFeed, .rssInJSON, .rss, .atom, .unknown:
-			return true
-		default:
-			return false
-		}
-	}
-
 	public static func parse(_ parserData: ParserData) throws -> ParsedFeed? {
 
 		// This is generally fast enough to call on the main thread —

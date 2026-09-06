@@ -35,22 +35,6 @@ public struct Author: Codable, Hashable, Sendable {
 		}
 	}
 
-	public static func authorsWithJSON(_ jsonString: String) -> Set<Author>? {
-		// This is JSON stored in the database, not the JSON Feed version of an author.
-		guard let data = jsonString.data(using: .utf8) else {
-			return nil
-		}
-
-		let decoder = JSONDecoder()
-		do {
-			let authors = try decoder.decode([Author].self, from: data)
-			return Set(authors)
-		} catch {
-			assertionFailure("JSON representation of Author array could not be decoded: \(jsonString) error: \(error)")
-		}
-		return nil
-	}
-
 	// MARK: - Hashable
 
 	public func hash(into hasher: inout Hasher) {

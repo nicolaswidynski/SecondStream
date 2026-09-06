@@ -95,10 +95,6 @@ final class StatusesTable: DatabaseTable, Sendable {
 
 	// MARK: - Fetching
 
-	func fetchUnreadArticleIDs() throws -> Set<String> {
-		return try fetchArticleIDs("select articleID from statuses where read=0;")
-	}
-
 	func fetchStarredArticleIDs() throws -> Set<String> {
 		return try fetchArticleIDs("select articleID from statuses where starred=1;")
 	}
@@ -273,10 +269,6 @@ private final class StatusCache: Sendable {
 	}
 
 	private let state = Mutex(State())
-
-	var cachedStatuses: Set<ArticleStatus> {
-		state.withLock { Set($0.dictionary.values) }
-	}
 
 	func add(_ statuses: Set<ArticleStatus>) {
 		// Replaces any cached statuses.

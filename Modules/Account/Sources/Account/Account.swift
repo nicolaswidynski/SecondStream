@@ -59,7 +59,6 @@ public enum FetchType {
 		public static let statusKey = "statusKey" // StatusesDidChange
 		public static let statusFlag = "statusFlag" // StatusesDidChange
 		public static let feeds = "feeds" // AccountDidDownloadArticles, StatusesDidChange
-		public static let syncErrors = "syncErrors" // AccountsDidFailToSyncWithErrors
 	}
 
 	public static let defaultLocalAccountName = NSLocalizedString("account.name.on-my-device", tableName: "DefaultAccountNames", comment: "Device specific default account name, e.g: On My iPhone")
@@ -145,10 +144,6 @@ public enum FetchType {
 			rebuildFeedDictionaries()
 		}
 		return _externalIDToFeedDictionary
-	}
-
-	var flattenedFeedURLs: Set<String> {
-		return Set(flattenedFeeds().map({ $0.url }))
 	}
 
 	@MainActor var username: String? {
@@ -699,29 +694,6 @@ public enum FetchType {
 		try await database.fetchArticleIDsForStatusesWithoutArticlesNewerThanCutoffDateAsync()
 	}
 
-	/// Hard-resets local article/status state for a specific set of feed IDs.
-	/// Used by app-level maintenance actions when JSON-backed feeds are rebuilt.
-	/// - Returns: Number of deleted articles.
-	@discardableResult
-	@MainActor public func hardResetArticlesForFeedIDs(_ feedIDs: Set<String>) async throws -> Int {
-		guard !feedIDs.isEmpty else {
-			return 0
-		}
-
-		let articlesToReset = try database.fetchArticles(feedIDs: feedIDs)
-		guard !articlesToReset.isEmpty else {
-			return 0
-		}
-
-		let articleIDs = Set(articlesToReset.map { $0.articleID })
-		// Ensure any surviving/reappearing article IDs are reset to defaults.
-		_ = try await markAndFetchNewAsync(articleIDs: articleIDs, statusKey: .starred, flag: false)
-		_ = try await markAndFetchNewAsync(articleIDs: articleIDs, statusKey: .read, flag: false)
-		try await database.deleteAsync(articleIDs: articleIDs)
-		sendNotificationAbout(ArticleChanges(new: nil, updated: nil, deleted: articlesToReset))
-		return articleIDs.count
-	}
-
 	// MARK: - Unread Counts
 	public func unreadCount(for feed: Feed) -> Int {
 		unreadCounts[feed.feedID] ?? 0
@@ -881,19 +853,6 @@ public enum FetchType {
 		postChildrenDidChangeNotification()
 	}
 
-	public func removeAllInstancesOfFeedFromTreeAtAllLevels(_ feed: Feed) {
-		topLevelFeeds.remove(feed)
-
-		if let folders {
-			for folder in folders {
-				folder.removeFeedFromTreeAtTopLevel(feed)
-			}
-		}
-
-		structureDidChange()
-		postChildrenDidChangeNotification()
-	}
-
 	public func removeFeedsFromTreeAtTopLevel(_ feeds: Set<Feed>) {
 		guard !feeds.isEmpty else {
 			return
@@ -909,37 +868,11 @@ public enum FetchType {
 		postChildrenDidChangeNotification()
 	}
 
-	func addFeedIfNotInAnyFolder(_ feed: Feed) {
-		if !flattenedFeeds().contains(feed) {
-			addFeedToTreeAtTopLevel(feed)
-		}
-	}
-
 	/// Remove the folder from this account. Does not call delegate.
 	func removeFolderFromTree(_ folder: Folder) {
 		folders?.remove(folder)
 		structureDidChange()
 		postChildrenDidChangeNotification()
-	}
-
-	// MARK: - Debug
-
-	public func debugDropConditionalGetInfo() {
-#if DEBUG
-		for feed in flattenedFeeds() {
-			feed.dropConditionalGetInfo()
-		}
-#endif
-	}
-
-	public func debugRunSearch() {
-		#if DEBUG
-		let t1 = Date()
-		let articles = try! _fetchArticlesMatching(searchString: "Brent NetNewsWire")
-		let t2 = Date()
-		print(t2.timeIntervalSince(t1))
-		print(articles.count)
-		#endif
 	}
 
 	// MARK: - Notifications

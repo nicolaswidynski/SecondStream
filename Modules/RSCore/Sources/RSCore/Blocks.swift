@@ -9,6 +9,5 @@
 import Foundation
 
 public typealias VoidBlock = @Sendable () -> Void
-public typealias VoidCompletionBlock = VoidBlock
 
 public typealias ImageResultBlock = @MainActor (RSImage?) -> Void

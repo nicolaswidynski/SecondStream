@@ -52,11 +52,6 @@ public final class Cache<T: CacheRecord>: Sendable {
 		}
 	}
 
-	public func cleanup() {
-		stateLock.withLock { state in
-			cleanupIfNeeded(&state)
-		}
-	}
 }
 
 extension Cache {

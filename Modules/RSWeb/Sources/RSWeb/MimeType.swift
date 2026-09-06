@@ -20,38 +20,3 @@ nonisolated public struct MimeType: Sendable {
 
 	public static let formURLEncoded = "application/x-www-form-urlencoded"
 }
-
-nonisolated public extension String {
-
-	func isMimeTypeImage() -> Bool {
-
-		return self.isOfGeneralMimeType("image")
-	}
-
-	func isMimeTypeAudio() -> Bool {
-
-		return self.isOfGeneralMimeType("audio")
-	}
-
-	func isMimeTypeVideo() -> Bool {
-
-		return self.isOfGeneralMimeType("video")
-	}
-
-	func isMimeTypeTimeBasedMedia() -> Bool {
-
-		return self.isMimeTypeAudio() || self.isMimeTypeVideo()
-	}
-
-	private func isOfGeneralMimeType(_ type: String) -> Bool {
-
-		let lower = self.lowercased()
-		if lower.hasPrefix(type) {
-			return true
-		}
-		if lower.hasPrefix("x-\(type)") {
-			return true
-		}
-		return false
-	}
-}
