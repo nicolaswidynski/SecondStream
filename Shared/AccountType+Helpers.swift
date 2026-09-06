@@ -36,11 +36,7 @@ extension AccountType {
 			#if os(macOS)
 			return Image("accountLocal")
 			#else
-			if UIDevice.current.userInterfaceIdiom == .pad {
-				return Image("accountLocalPad")
-			} else {
-				return Image("accountLocalPhone")
-			}
+			return Image("accountLocalPhone")
 			#endif
 		case .cloudKit:
 			return Image("accountCloudKit")

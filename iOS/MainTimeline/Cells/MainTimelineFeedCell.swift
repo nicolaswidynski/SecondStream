@@ -325,7 +325,6 @@ class MainTimelineFeedCell: UITableViewCell {
 
 	override func layoutSubviews() {
 		super.layoutSubviews()
-		guard traitCollection.userInterfaceIdiom == .phone else { return }
 		let inset = (bounds.width * 0.05).rounded()
 		dateLabelLeadingConstraint?.constant = inset + 6
 		titleTrailingConstraint?.constant = -(inset + 12)
@@ -351,20 +350,12 @@ class MainTimelineFeedCell: UITableViewCell {
 		super.updateConfiguration(using: state)
 
 		var backgroundConfig = UIBackgroundConfiguration.listCell().updated(for: state)
-		if traitCollection.userInterfaceIdiom == .phone {
-			backgroundConfig.edgesAddingLayoutMarginsToBackgroundInsets = []
-			let hInset = (bounds.width * 0.05).rounded()
-			backgroundConfig.backgroundInsets = NSDirectionalEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset)
-			backgroundConfig.cornerRadius = Assets.Colors.cellCornerRadius
-		}
-		if traitCollection.userInterfaceIdiom == .pad {
-			backgroundConfig.edgesAddingLayoutMarginsToBackgroundInsets = [.leading, .trailing]
-			backgroundConfig.backgroundInsets = NSDirectionalEdgeInsets(top: 0, leading: !isPreview ? -4 : -12, bottom: 0, trailing: !isPreview ? -4 : -12)
-		}
+		backgroundConfig.edgesAddingLayoutMarginsToBackgroundInsets = []
+		let hInset = (bounds.width * 0.05).rounded()
+		backgroundConfig.backgroundInsets = NSDirectionalEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset)
+		backgroundConfig.cornerRadius = Assets.Colors.cellCornerRadius
 
-		let normalBg: UIColor = traitCollection.userInterfaceIdiom == .phone
-			? Assets.Colors.TimelineSceneContentTableColor
-			: Assets.Colors.foreground
+		let normalBg: UIColor = Assets.Colors.TimelineSceneContentTableColor
 		if state.isSelected || state.isHighlighted || state.isFocused || state.isSwiped {
 			backgroundConfig.backgroundColor = Assets.Colors.cellSelectionColor ?? normalBg
 			applyTitleTextWithAttributes(state)

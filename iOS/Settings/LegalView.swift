@@ -22,11 +22,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 	var body: some View {
 		ScrollView {
 			VStack(alignment: .leading, spacing: 16) {
-				NavigationLink(destination: AboutView()) {
-					Text("NetNewsWire")
-						.font(.title)
-						.foregroundColor(.accentColor)
-				}
+				Text("NetNewsWire")
+					.font(.title)
 
 				Text("Copyright © 2002–2025 Brent Simmons")
 					.font(.subheadline)

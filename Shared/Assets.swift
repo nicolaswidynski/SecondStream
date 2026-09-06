@@ -104,7 +104,6 @@ struct Assets {
 		}
 
 #else // iOS
-		static var accountLocalPadImage: RSImage { RSImage(named: "accountLocalPad")! }
 		static var accountLocalPhoneImage: RSImage { RSImage(named: "accountLocalPhone")! }
 
 		static var articleExtractorOnSF: RSImage { RSImage(named: "articleExtractorOnSF")! }
@@ -182,11 +181,7 @@ struct Assets {
 #if os(macOS)
 			return Assets.Images.accountLocal
 #else // iOS
-			if UIDevice.current.userInterfaceIdiom == .pad {
-				return Assets.Images.accountLocalPadImage
-			} else {
-				return Assets.Images.accountLocalPhoneImage
-			}
+			return Assets.Images.accountLocalPhoneImage
 #endif
 		case .cloudKit:
 			return Assets.Images.accountCloudKit

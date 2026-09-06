@@ -629,11 +629,6 @@ final class MainTimelineViewController: UITableViewController, UndoableCommandRu
 			NSLocalizedString("All Articles", comment: "All Articles")
 		]
 		navigationItem.searchController = searchController
-
-		if traitCollection.userInterfaceIdiom == .pad {
-			searchController.searchBar.selectedScopeButtonIndex = 1
-			navigationItem.searchBarPlacementAllowsExternalIntegration = true
-		}
 		definesPresentationContext = true
 
 		// Configure the table

@@ -133,28 +133,14 @@ class MainFeedCollectionViewFolderCell: UICollectionViewCell {
 		var backgroundConfig = UIBackgroundConfiguration.listCell().updated(for: state)
 
 		let selectionColor = Assets.Colors.cellSelectionColor
-		let normalBg: UIColor = traitCollection.userInterfaceIdiom == .phone
-			? Assets.Colors.FeedSceneContentTableColor
-			: Assets.Colors.foreground
-		switch (state.isHighlighted || state.isSelected || state.isFocused, traitCollection.userInterfaceIdiom) {
-		case (true, .pad):
-			if let selectionColor {
-				backgroundConfig.backgroundColor = selectionColor.withAlphaComponent(0.12)
-				folderTitle.textColor = selectionColor
-			} else {
-				backgroundConfig.backgroundColor = normalBg
-			}
-			folderTitle.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .semibold)
-			unreadCountLabel.font = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .semibold)
-		case (true, .phone):
+		let normalBg: UIColor = Assets.Colors.FeedSceneContentTableColor
+		if state.isHighlighted || state.isSelected || state.isFocused {
 			backgroundConfig.backgroundColor = selectionColor ?? normalBg
 			folderTitle.textColor = .label
 			unreadCountLabel.textColor = .secondaryLabel
 			faviconView.tintColor = Assets.Colors.primaryAccent
-		default:
-			backgroundConfig.backgroundColor = traitCollection.userInterfaceIdiom == .phone
-				? Assets.Colors.FeedSceneContentTableColor
-				: Assets.Colors.foreground
+		} else {
+			backgroundConfig.backgroundColor = Assets.Colors.FeedSceneContentTableColor
 			folderTitle.textColor = .label
 			unreadCountLabel.textColor = Assets.Colors.primaryAccent
 			faviconView.tintColor = Assets.Colors.primaryAccent
