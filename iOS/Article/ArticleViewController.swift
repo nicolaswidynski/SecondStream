@@ -73,10 +73,6 @@ final class ArticleViewController: UIViewController {
 
 	var restoreState: State?
 
-	private let keyboardManager = KeyboardManager(type: .detail)
-	override var keyCommands: [UIKeyCommand]? {
-		return keyboardManager.keyCommands
-	}
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
