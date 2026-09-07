@@ -177,18 +177,6 @@ import RSDatabase
 		NotificationCenter.default.post(name: .UserDidDeleteAccount, object: self, userInfo: userInfo)
 	}
 
-	public func duplicateServiceAccount(type: AccountType, username: String?) -> Bool {
-		guard type != .onMyMac else {
-			return false
-		}
-		for account in accounts {
-			if account.type == type && username == account.username {
-				return true
-			}
-		}
-		return false
-	}
-
 	public func existingAccount(accountID: String) -> Account? {
 		return accountsDictionary[accountID]
 	}
@@ -438,15 +426,9 @@ private extension AccountManager {
 				continue
 			}
 			if let oneAccount = loadAccount(oneFilename) {
-				if !duplicateServiceAccount(oneAccount) {
-					accountsDictionary[oneAccount.accountID] = oneAccount
-				}
+				accountsDictionary[oneAccount.accountID] = oneAccount
 			}
 		}
-	}
-
-	func duplicateServiceAccount(_ account: Account) -> Bool {
-		duplicateServiceAccount(type: account.type, username: account.username)
 	}
 
 	func sortByName(_ accounts: [Account]) -> [Account] {

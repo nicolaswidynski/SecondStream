@@ -704,7 +704,6 @@ public enum FetchType {
 	@discardableResult
 	@MainActor func updateAsync(feed: Feed, parsedFeed: ParsedFeed) async throws -> ArticleChanges {
 		precondition(Thread.isMainThread)
-		precondition(type == .onMyMac)
 
 		feed.takeSettings(from: parsedFeed)
 		let parsedItems = parsedFeed.items
@@ -717,7 +716,6 @@ public enum FetchType {
 
 	@MainActor func updateAsync(feedID: String, parsedItems: Set<ParsedItem>, deleteOlder: Bool = true) async throws -> ArticleChanges {
 		precondition(Thread.isMainThread)
-		precondition(type == .onMyMac)
 
 		let articleChanges = try await database.updateAsync(parsedItems: parsedItems, feedID: feedID, deleteOlder: deleteOlder)
 		sendNotificationAbout(articleChanges)

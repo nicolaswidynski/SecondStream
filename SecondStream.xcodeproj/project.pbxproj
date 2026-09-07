@@ -56,7 +56,6 @@
 /* Begin PBXFileReference section */
 		2974B5752FB7D0FC0026921D /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/StoreKit.framework; sourceTree = DEVELOPER_DIR; };
 		29D2D9CE2F958501007599B7 /* SecondStream.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = SecondStream.storekit; sourceTree = "<group>"; };
-		6581C73320CED60000F4AD34 /* Subscribe to Feed.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Subscribe to Feed.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		840D617C2029031C009BC708 /* Second Stream.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Second Stream.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		845B14A51FC2299E0013CF92 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -89,13 +88,6 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		6581C73020CED60000F4AD34 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		840D61792029031C009BC708 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -144,7 +136,6 @@
 			isa = PBXGroup;
 			children = (
 				840D617C2029031C009BC708 /* Second Stream.app */,
-				6581C73320CED60000F4AD34 /* Subscribe to Feed.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -152,23 +143,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		6581C73220CED60000F4AD34 /* Subscribe to Feed */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 6581C75620CED60100F4AD34 /* Build configuration list for PBXNativeTarget "Subscribe to Feed" */;
-			buildPhases = (
-				6581C72F20CED60000F4AD34 /* Sources */,
-				6581C73020CED60000F4AD34 /* Frameworks */,
-				6581C73120CED60000F4AD34 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "Subscribe to Feed";
-			productName = "Subscribe to Feed";
-			productReference = 6581C73320CED60000F4AD34 /* Subscribe to Feed.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
 		840D617B2029031C009BC708 /* SecondStream-iOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 840D61A32029031E009BC708 /* Build configuration list for PBXNativeTarget "SecondStream-iOS" */;
@@ -214,9 +188,6 @@
 				LastUpgradeCheck = 2620;
 				ORGANIZATIONNAME = STDN;
 				TargetAttributes = {
-					6581C73220CED60000F4AD34 = {
-						ProvisioningStyle = Automatic;
-					};
 					840D617B2029031C009BC708 = {
 						CreatedOnToolsVersion = 9.3;
 						LastSwiftMigration = 1250;
@@ -250,19 +221,11 @@
 			projectRoot = "";
 			targets = (
 				840D617B2029031C009BC708 /* SecondStream-iOS */,
-				6581C73220CED60000F4AD34 /* Subscribe to Feed */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		6581C73120CED60000F4AD34 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		840D617A2029031C009BC708 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -295,13 +258,6 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		6581C72F20CED60000F4AD34 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		840D61782029031C009BC708 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -312,34 +268,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		6581C74720CED60100F4AD34 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
-			baseConfigurationReferenceRelativePath = NetNewsWire_safariextension_target.xcconfig;
-			buildSettings = {
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = TA7LM6E222;
-				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
-				MARKETING_VERSION = 1.12;
-				ORGANIZATION_IDENTIFIER = com.nwidynski;
-				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
-			};
-			name = Debug;
-		};
-		6581C74820CED60100F4AD34 /* Release */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
-			baseConfigurationReferenceRelativePath = NetNewsWire_safariextension_target.xcconfig;
-			buildSettings = {
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = TA7LM6E222;
-				INFOPLIST_KEY_CFBundleDisplayName = "Second Stream";
-				MARKETING_VERSION = 1.12;
-				ORGANIZATION_IDENTIFIER = com.nwidynski;
-				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream;
-			};
-			name = Release;
-		};
 		840D61A42029031E009BC708 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
@@ -397,15 +325,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		6581C75620CED60100F4AD34 /* Build configuration list for PBXNativeTarget "Subscribe to Feed" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				6581C74720CED60100F4AD34 /* Debug */,
-				6581C74820CED60100F4AD34 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		840D61A32029031E009BC708 /* Build configuration list for PBXNativeTarget "SecondStream-iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

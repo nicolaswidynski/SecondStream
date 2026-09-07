@@ -101,7 +101,10 @@
       "Bash(sips -g pixelWidth -g pixelHeight /Users/nwidynski/Documents/code/SecondStream/iOS/Resources/Assets.xcassets/AppIcon.appiconset/Icon_1024x1024.png /Users/nwidynski/Documents/code/SecondStream/Widget/Assets.xcassets/AppIcon.appiconset/Icon_1024x1024.png)",
       "Bash(gh auth:*)",
       "Bash(gh api:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Read(//Users/SharedXcodeSettings/**)",
+      "Read(//Users/nwidynski/Documents/SharedXcodeSettings/**)",
+      "Read(//Users/**)"
     ],
     "deny": [],
     "ask": []
