@@ -433,7 +433,6 @@ struct SidebarItemNode: Hashable, Sendable {
 		NotificationCenter.default.addObserver(self, selector: #selector(userDidAddFeed(_:)), name: .UserDidAddFeed, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(accountDidDownloadArticles(_:)), name: .AccountDidDownloadArticles, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground(_:)), name: UIApplication.willEnterForegroundNotification, object: nil)
-		NotificationCenter.default.addObserver(self, selector: #selector(importDownloadedTheme(_:)), name: .didEndDownloadingTheme, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(themeDownloadDidFail(_:)), name: .didFailToImportThemeWithError, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(updateNavigationBarSubtitles(_:)), name: .progressInfoDidChange, object: CombinedRefreshProgress.shared)
 
@@ -696,17 +695,6 @@ struct SidebarItemNode: Hashable, Sendable {
 		// in the foreground.
 		if !fetchRequestQueue.isAnyCurrentRequest {
 			queueFetchAndMergeArticles()
-		}
-	}
-
-	@objc func importDownloadedTheme(_ note: Notification) {
-		guard let userInfo = note.userInfo,
-			let url = userInfo["url"] as? URL else {
-			return
-		}
-
-		DispatchQueue.main.async {
-			self.importTheme(filename: url.path)
 		}
 	}
 

@@ -9,7 +9,5 @@
 import Foundation
 
 extension Notification.Name {
-	static let didBeginDownloadingTheme = Notification.Name("didBeginDownloadingTheme")
-	static let didEndDownloadingTheme = Notification.Name("didEndDownloadingTheme")
 	static let didFailToImportThemeWithError = Notification.Name("didFailToImportThemeWithError")
 }
