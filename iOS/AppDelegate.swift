@@ -99,11 +99,6 @@ import Secrets
 		ArticleThemesManager.shared.start()
 		NetworkMonitor.shared.start()
 
-#if !SKIP_APP_GROUP_ACCESS
-		ExtensionContainersFile.shared.start()
-		ExtensionFeedAddRequestFile.shared.start()
-#endif
-
 		#if DEBUG
 		ArticleStatusSyncTimer.shared.update()
 		#endif
@@ -171,10 +166,6 @@ import Secrets
 	func prepareAccountsForBackground() {
 		updateBadge()
 
-#if !SKIP_APP_GROUP_ACCESS
-		ExtensionFeedAddRequestFile.shared.suspend()
-#endif
-
 		ArticleStatusSyncTimer.shared.invalidate()
 		scheduleBackgroundFeedRefresh()
 		syncArticleStatus()
@@ -184,9 +175,6 @@ import Secrets
 
 	func prepareAccountsForForeground() {
 		updateBadge()
-#if !SKIP_APP_GROUP_ACCESS
-		ExtensionFeedAddRequestFile.shared.resume()
-#endif
 		ArticleStatusSyncTimer.shared.update()
 
 		if let lastRefresh = AppDefaults.shared.lastRefresh {

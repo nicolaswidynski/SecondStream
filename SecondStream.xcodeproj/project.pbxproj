@@ -74,8 +74,6 @@
 			membershipExceptions = (
 				Commands/MarkCommandValidationStatus.swift,
 				Resources/NewsFax.nnwtheme,
-				ShareExtension/SafariExt.js,
-				ShareExtension/ShareDefaultContainer.swift,
 				SmartFeeds/SmartFeedPasteboardWriter.swift,
 				Timer/AccountRefreshTimer.swift,
 			);
