@@ -49,7 +49,6 @@
 		843E2F182CF2B8A700ED170F /* RSWeb in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 843E2F162CF2B8A700ED170F /* RSWeb */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		843E2F1A2CF2B8C500ED170F /* RSWeb in Frameworks */ = {isa = PBXBuildFile; productRef = 843E2F192CF2B8C500ED170F /* RSWeb */; };
 		843E2F1B2CF2B8C500ED170F /* RSWeb in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 843E2F192CF2B8C500ED170F /* RSWeb */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		843E2F1D2CF2B8D300ED170F /* RSWeb in Frameworks */ = {isa = PBXBuildFile; productRef = 843E2F1C2CF2B8D300ED170F /* RSWeb */; };
 		848E84CD2DB749440023F3BA /* RSCore in Frameworks */ = {isa = PBXBuildFile; productRef = 848E84CC2DB749440023F3BA /* RSCore */; };
 		848E84CE2DB749440023F3BA /* RSCore in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 848E84CC2DB749440023F3BA /* RSCore */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		848E84D02DB749440023F3BA /* RSCoreResources in Frameworks */ = {isa = PBXBuildFile; productRef = 848E84CF2DB749440023F3BA /* RSCoreResources */; };
@@ -118,16 +117,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		17EF6A1725C4E59D002C9F81 /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		4679672A25E596BA00844E8D /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -256,7 +245,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		176813F32564BB2C00D98635 /* SecondStream iOS Widget Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "SecondStream iOS Widget Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2974B5752FB7D0FC0026921D /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/StoreKit.framework; sourceTree = DEVELOPER_DIR; };
 		29D2D9CE2F958501007599B7 /* SecondStream.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = SecondStream.storekit; sourceTree = "<group>"; };
 		510C415C24E5CDE3008226FD /* SecondStream Share Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "SecondStream Share Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -275,13 +263,6 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		8448F2052D1E36BF0048BA50 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 176813F22564BB2C00D98635 /* SecondStream iOS Widget Extension */;
-		};
 		84719F272DB9C52B00EEF332 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -289,13 +270,6 @@
 				NetNewsWireTests/Info.plist,
 			);
 			target = 849C64701ED37A5D003D8FC0 /* SecondStreamTests */;
-		};
-		84719F392DB9C60500EEF332 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				NetNewsWire_iOSwidgetextension_target.xcconfig,
-			);
-			target = 840D617B2029031C009BC708 /* SecondStream-iOS */;
 		};
 		84A6D03F2D1B4EC500F23315 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
@@ -339,10 +313,6 @@
 			membershipExceptions = (
 				ShareExtension/SafariExt.js,
 				ShareExtension/ShareDefaultContainer.swift,
-				Widget/WidgetData.swift,
-				Widget/WidgetDataDecoder.swift,
-				Widget/WidgetDataEncoder.swift,
-				Widget/WidgetDeepLinks.swift,
 			);
 			target = 849C645F1ED37A5D003D8FC0 /* SecondStream */;
 		};
@@ -385,15 +355,6 @@
 			);
 			target = 51314636235A7BBE00387FDC /* SecondStream iOS Intents Extension */;
 		};
-		84D35E0E2DB9F32D004AA60E /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Widget/WidgetData.swift,
-				Widget/WidgetDataDecoder.swift,
-				Widget/WidgetDeepLinks.swift,
-			);
-			target = 176813F22564BB2C00D98635 /* SecondStream iOS Widget Extension */;
-		};
 		84D35E0F2DB9F32D004AA60E /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -411,23 +372,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		8448F1F62D1E36BF0048BA50 /* Widget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (8448F2052D1E36BF0048BA50 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Widget; sourceTree = "<group>"; };
 		84719F0E2DB9C52B00EEF332 /* Tests */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (84719F272DB9C52B00EEF332 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Tests; sourceTree = "<group>"; };
-		84719F372DB9C60400EEF332 /* xcconfig */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (84719F392DB9C60500EEF332 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (common, ); path = xcconfig; sourceTree = "<group>"; };
+		84719F372DB9C60400EEF332 /* xcconfig */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (); explicitFileTypes = {}; explicitFolders = (common, ); path = xcconfig; sourceTree = "<group>"; };
 		84A6CFB52D1B4EC500F23315 /* iOS */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (84A6D03F2D1B4EC500F23315 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 84A6D0402D1B4EC500F23315 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 84A6D0412D1B4EC500F23315 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = iOS; sourceTree = "<group>"; };
 		84CB35042DB9B5E2002AC251 /* Modules */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Modules; sourceTree = "<group>"; };
-		84D35D422DB9F32D004AA60E /* Shared */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (84D35E0A2DB9F32D004AA60E /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 84D35E0B2DB9F32D004AA60E /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 84D35E0C2DB9F32D004AA60E /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 84D35E0D2DB9F32D004AA60E /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 84D35E0E2DB9F32D004AA60E /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 84D35E0F2DB9F32D004AA60E /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Shared; sourceTree = "<group>"; };
+		84D35D422DB9F32D004AA60E /* Shared */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (84D35E0A2DB9F32D004AA60E /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 84D35E0B2DB9F32D004AA60E /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 84D35E0C2DB9F32D004AA60E /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 84D35E0D2DB9F32D004AA60E /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 84D35E0F2DB9F32D004AA60E /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Shared; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		176813F02564BB2C00D98635 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				843E2F1D2CF2B8D300ED170F /* RSWeb in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		510C415924E5CDE3008226FD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -546,7 +498,6 @@
 				840A1F0A2E4133F400CFCCFC /* CLAUDE.md */,
 				84A6CFB52D1B4EC500F23315 /* iOS */,
 				513145F9235A55A700387FDC /* Intents */,
-				8448F1F62D1E36BF0048BA50 /* Widget */,
 				84D35D422DB9F32D004AA60E /* Shared */,
 				84719F0E2DB9C52B00EEF332 /* Tests */,
 				84719F372DB9C60400EEF332 /* xcconfig */,
@@ -568,7 +519,6 @@
 				518B2ED22351B3DD00400001 /* SecondStream-iOSTests.xctest */,
 				51314637235A7BBE00387FDC /* SecondStream iOS Intents Extension.appex */,
 				510C415C24E5CDE3008226FD /* SecondStream Share Extension.appex */,
-				176813F32564BB2C00D98635 /* SecondStream iOS Widget Extension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -576,31 +526,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		176813F22564BB2C00D98635 /* SecondStream iOS Widget Extension */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 176814012564BB2D00D98635 /* Build configuration list for PBXNativeTarget "SecondStream iOS Widget Extension" */;
-			buildPhases = (
-				176813EF2564BB2C00D98635 /* Sources */,
-				176813F02564BB2C00D98635 /* Frameworks */,
-				176813F12564BB2C00D98635 /* Resources */,
-				17EF6A1725C4E59D002C9F81 /* Embed Frameworks */,
-				84BB8F7F26224B5F00DB61F8 /* Delete Unnecessary Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				8448F1F62D1E36BF0048BA50 /* Widget */,
-			);
-			name = "SecondStream iOS Widget Extension";
-			packageProductDependencies = (
-				843E2F1C2CF2B8D300ED170F /* RSWeb */,
-			);
-			productName = "NetNewsWire WidgetExtension";
-			productReference = 176813F32564BB2C00D98635 /* SecondStream iOS Widget Extension.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
 		510C415B24E5CDE3008226FD /* SecondStream Share Extension */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 510C417A24E5CDE3008226FD /* Build configuration list for PBXNativeTarget "SecondStream Share Extension" */;
@@ -825,9 +750,6 @@
 				LastUpgradeCheck = 2620;
 				ORGANIZATIONNAME = STDN;
 				TargetAttributes = {
-					176813F22564BB2C00D98635 = {
-						CreatedOnToolsVersion = 12.2;
-					};
 					510C415B24E5CDE3008226FD = {
 						CreatedOnToolsVersion = 12.0;
 					};
@@ -901,7 +823,6 @@
 				6581C73220CED60000F4AD34 /* Subscribe to Feed */,
 				513C5CE5232571C2003D4054 /* SecondStream iOS Share Extension */,
 				51314636235A7BBE00387FDC /* SecondStream iOS Intents Extension */,
-				176813F22564BB2C00D98635 /* SecondStream iOS Widget Extension */,
 				518B2ED12351B3DD00400001 /* SecondStream-iOSTests */,
 				510C415B24E5CDE3008226FD /* SecondStream Share Extension */,
 			);
@@ -909,13 +830,6 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		176813F12564BB2C00D98635 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		510C415A24E5CDE3008226FD /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1070,25 +984,6 @@
 			shellPath = /bin/sh;
 			shellScript = "# Remove unused Sparkle components\nSPARKLE_DIR=\"${CODESIGNING_FOLDER_PATH}/Contents/Frameworks/Sparkle.framework\"\nfind \"${SPARKLE_DIR}\" -name Updater.app -execdir rm -rf {} \\;\nfind \"${SPARKLE_DIR}\" -name Autoupdate -execdir rm -rf {} \\;\n\nPLUGINS_DIR=\"${CODESIGNING_FOLDER_PATH}/Contents/PlugIns\"\nXPC_DIR=\"${CODESIGNING_FOLDER_PATH}/Contents/XPCServices\"\nfind \"${PLUGINS_DIR}\" -name Sparkle* -execdir rm -rf {} \\;\nfind \"${XPC_DIR}\" -name Sparkle* -execdir rm -rf {} \\;\n\n# Re-sign Sparkle after removing components\ncodesign --verbose --force -o runtime --preserve-metadata=entitlements --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" \"${CODESIGNING_FOLDER_PATH}/Contents/Frameworks/Sparkle.framework\"\n\n# Sign XPC Helpers and their internal binaries\ncodesign --verbose --force -o runtime --preserve-metadata=entitlements --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" \"${CODESIGNING_FOLDER_PATH}/Contents/XPCServices/org.sparkle-project.InstallerLauncher.xpc/Contents/MacOS/Updater.app\"\ncodesign --verbose --force -o runtime --preserve-metadata=entitlements --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" \"${CODESIGNING_FOLDER_PATH}/Contents/XPCServices/org.sparkle-project.InstallerLauncher.xpc/Contents/MacOS/Autoupdate\"\ncodesign --verbose --entitlements \"${PROJECT_DIR}/submodules/Sparkle/Downloader/org.sparkle-project.Downloader.entitlements\" --force -o runtime --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" \"${CODESIGNING_FOLDER_PATH}/Contents/XPCServices/org.sparkle-project.Downloader.xpc\"\ncodesign --verbose --force -o runtime --preserve-metadata=entitlements --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" \"${CODESIGNING_FOLDER_PATH}/Contents/XPCServices/org.sparkle-project.InstallerLauncher.xpc\"\ncodesign --verbose --force -o runtime --preserve-metadata=entitlements --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" \"${CODESIGNING_FOLDER_PATH}/Contents/XPCServices/org.sparkle-project.InstallerConnection.xpc\"\ncodesign --verbose --force -o runtime --preserve-metadata=entitlements --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" \"${CODESIGNING_FOLDER_PATH}/Contents/XPCServices/org.sparkle-project.InstallerStatus.xpc\"\n";
 		};
-		84BB8F7F26224B5F00DB61F8 /* Delete Unnecessary Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Delete Unnecessary Frameworks";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Delete the framework that Xcode should have never included\n# https://forums.swift.org/t/is-this-an-xcode-bug-or-somehow-related-to-spm/33987\nrm -rf \"${TARGET_BUILD_DIR}/NetNewsWire iOS Widget Extension.appex/Frameworks\"\n";
-		};
 		84C987A52000AC9E0066B150 /* Run Script: Automated build numbers */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -1126,13 +1021,6 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		176813EF2564BB2C00D98635 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		510C415824E5CDE3008226FD /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1239,32 +1127,6 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		176814022564BB2D00D98635 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
-			baseConfigurationReferenceRelativePath = NetNewsWire_iOSwidgetextension_target.xcconfig;
-			buildSettings = {
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 1.11;
-				ORGANIZATION_IDENTIFIER = com.nwidynski;
-				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.WE;
-			};
-			name = Debug;
-		};
-		176814032564BB2D00D98635 /* Release */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
-			baseConfigurationReferenceRelativePath = NetNewsWire_iOSwidgetextension_target.xcconfig;
-			buildSettings = {
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = TA7LM6E222;
-				MARKETING_VERSION = 1.11;
-				ORGANIZATION_IDENTIFIER = com.nwidynski;
-				PRODUCT_BUNDLE_IDENTIFIER = com.stdn.SecondStream.iOS.WE;
-			};
-			name = Release;
-		};
 		510C416A24E5CDE3008226FD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReferenceAnchor = 84719F372DB9C60400EEF332 /* xcconfig */;
@@ -1504,15 +1366,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		176814012564BB2D00D98635 /* Build configuration list for PBXNativeTarget "SecondStream iOS Widget Extension" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				176814022564BB2D00D98635 /* Debug */,
-				176814032564BB2D00D98635 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		510C417A24E5CDE3008226FD /* Build configuration list for PBXNativeTarget "SecondStream Share Extension" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1695,10 +1548,6 @@
 			productName = RSWeb;
 		};
 		843E2F192CF2B8C500ED170F /* RSWeb */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = RSWeb;
-		};
-		843E2F1C2CF2B8D300ED170F /* RSWeb */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = RSWeb;
 		};
