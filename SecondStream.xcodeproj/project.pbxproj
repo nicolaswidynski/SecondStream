@@ -8,8 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		17192ADA2567B3D500AAEACA /* RSSparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 17192AD92567B3D500AAEACA /* RSSparkle */; };
-		179C39EA26F76B0500D4E741 /* Zip in Frameworks */ = {isa = PBXBuildFile; productRef = 179C39E926F76B0500D4E741 /* Zip */; };
-		179D280B26F6F93D003B2E0A /* Zip in Frameworks */ = {isa = PBXBuildFile; productRef = 179D280A26F6F93D003B2E0A /* Zip */; };
 		27B86EEB25A53AAB00264340 /* Account in Frameworks */ = {isa = PBXBuildFile; productRef = 51BC2F4A24D343A500E90810 /* Account */; };
 		2974B5762FB7D0FC0026921D /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2974B5752FB7D0FC0026921D /* StoreKit.framework */; };
 		4679674625E599C100844E8D /* Articles in Frameworks */ = {isa = PBXBuildFile; productRef = 4679674525E599C100844E8D /* Articles */; };
@@ -479,7 +477,6 @@
 			files = (
 				84EE3F152DB8A0A0009D3A8D /* RSTree in Frameworks */,
 				848E84D52DB749670023F3BA /* RSCore in Frameworks */,
-				179D280B26F6F93D003B2E0A /* Zip in Frameworks */,
 				2974B5762FB7D0FC0026921D /* StoreKit.framework in Frameworks */,
 				8424B31B2DB73D530053AA11 /* RSParser in Frameworks */,
 				516B695F24D2F33B00B5702F /* Account in Frameworks */,
@@ -505,7 +502,6 @@
 				84EE3F122DB8A088009D3A8D /* RSTree in Frameworks */,
 				513277612590FC640064F1E7 /* ArticlesDatabase in Frameworks */,
 				51C4CFF624D37DD500AF9874 /* Secrets in Frameworks */,
-				179C39EA26F76B0500D4E741 /* Zip in Frameworks */,
 				514C16CE24D2E63F009A3AFA /* Account in Frameworks */,
 				848E84CD2DB749440023F3BA /* RSCore in Frameworks */,
 				843E2F172CF2B8A700ED170F /* RSWeb in Frameworks */,
@@ -738,7 +734,6 @@
 				513F32732593EE6F0003048F /* ArticlesDatabase */,
 				513F32762593EE6F0003048F /* Secrets */,
 				513F32792593EE6F0003048F /* SyncDatabase */,
-				179D280A26F6F93D003B2E0A /* Zip */,
 				843E2F192CF2B8C500ED170F /* RSWeb */,
 				8424B31A2DB73D530053AA11 /* RSParser */,
 				848E84D42DB749670023F3BA /* RSCore */,
@@ -782,7 +777,6 @@
 				5132775D2590FC640064F1E7 /* Articles */,
 				513277602590FC640064F1E7 /* ArticlesDatabase */,
 				513277632590FC640064F1E7 /* SyncDatabase */,
-				179C39E926F76B0500D4E741 /* Zip */,
 				843E2F162CF2B8A700ED170F /* RSWeb */,
 				8424B3172DB73D4C0053AA11 /* RSParser */,
 				848E84CC2DB749440023F3BA /* RSCore */,
@@ -895,7 +889,6 @@
 			packageReferences = (
 				17192AD82567B3D500AAEACA /* XCRemoteSwiftPackageReference "Sparkle-Binary" */,
 				519CA8E325841DB700EB079A /* XCRemoteSwiftPackageReference "plcrashreporter" */,
-				179D280926F6F93D003B2E0A /* XCRemoteSwiftPackageReference "Zip" */,
 			);
 			preferredProjectObjectVersion = 46;
 			productRefGroup = 849C64611ED37A5D003D8FC0 /* Products */;
@@ -1612,14 +1605,6 @@
 				minimumVersion = 2.0.0;
 			};
 		};
-		179D280926F6F93D003B2E0A /* XCRemoteSwiftPackageReference "Zip" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/marmelroy/Zip.git";
-			requirement = {
-				kind = revision;
-				revision = 059e7346082d02de16220cd79df7db18ddeba8c3;
-			};
-		};
 		519CA8E325841DB700EB079A /* XCRemoteSwiftPackageReference "plcrashreporter" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/microsoft/plcrashreporter.git";
@@ -1635,16 +1620,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 17192AD82567B3D500AAEACA /* XCRemoteSwiftPackageReference "Sparkle-Binary" */;
 			productName = RSSparkle;
-		};
-		179C39E926F76B0500D4E741 /* Zip */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 179D280926F6F93D003B2E0A /* XCRemoteSwiftPackageReference "Zip" */;
-			productName = Zip;
-		};
-		179D280A26F6F93D003B2E0A /* Zip */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 179D280926F6F93D003B2E0A /* XCRemoteSwiftPackageReference "Zip" */;
-			productName = Zip;
 		};
 		4679674525E599C100844E8D /* Articles */ = {
 			isa = XCSwiftPackageProductDependency;

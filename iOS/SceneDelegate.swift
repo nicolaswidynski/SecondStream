@@ -229,41 +229,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 				self.coordinator.importTheme(filename: filename)
 				return
 			}
-
-			// Handle theme URLs: netnewswire://theme/add?url={url}
-			guard let comps = URLComponents(url: context.url, resolvingAgainstBaseURL: false),
-				  "theme" == comps.host,
-				 let queryItems = comps.queryItems else {
-				return
-			}
-
-			if let providedThemeURL = queryItems.first(where: { $0.name == "url" })?.value {
-				if let themeURL = URL(string: providedThemeURL) {
-					let request = URLRequest(url: themeURL)
-
-					DispatchQueue.main.async {
-						NotificationCenter.default.post(name: .didBeginDownloadingTheme, object: nil)
-					}
-					let task = URLSession.shared.downloadTask(with: request) { location, _, error in
-						guard
-							  let location = location else { return }
-
-						Task { @MainActor in
-							do {
-								try ArticleThemeDownloader.shared.handleFile(at: location)
-							} catch {
-								NotificationCenter.default.post(name: .didFailToImportThemeWithError, object: nil, userInfo: ["error": error])
-							}
-						}
-					}
-					task.resume()
-				} else {
-					print("No theme URL")
-					return
-				}
-			} else {
-				return
-			}
 		}
 	}
 

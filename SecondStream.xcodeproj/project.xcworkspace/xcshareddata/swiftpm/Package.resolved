@@ -1,5 +1,5 @@
 {
-  "originHash" : "fd9f92eb638653e563425f5545a538c3a52ae23ba2b08ae041108f56bfb3ebe6",
+  "originHash" : "5a4bf4e9edb17593893dc14ab35977409f3a654807b3fc5a79f7c8bc176107fc",
   "pins" : [
     {
       "identity" : "plcrashreporter",
@@ -35,14 +35,6 @@
       "state" : {
         "revision" : "7d9a5ce307528578dfa777d505496bd5f544ad94",
         "version" : "0.7.3"
-      }
-    },
-    {
-      "identity" : "zip",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/marmelroy/Zip.git",
-      "state" : {
-        "revision" : "059e7346082d02de16220cd79df7db18ddeba8c3"
       }
     }
   ],
