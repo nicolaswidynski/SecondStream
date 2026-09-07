@@ -9,7 +9,6 @@
 import UIKit
 @preconcurrency import BackgroundTasks
 import os
-import WidgetKit
 import RSCore
 import RSWeb
 import Account
@@ -179,7 +178,6 @@ import Secrets
 		ArticleStatusSyncTimer.shared.invalidate()
 		scheduleBackgroundFeedRefresh()
 		syncArticleStatus()
-		WidgetDataEncoder.shared?.encode()
 		waitForSyncTasksToFinish()
 		IconImageCache.shared.emptyCache()
 	}
@@ -304,7 +302,7 @@ private extension AppDelegate {
 			return
 		}
 
-		if AccountManager.shared.refreshInProgress || isSyncArticleStatusRunning || WidgetDataEncoder.shared?.isRunning ?? false {
+		if AccountManager.shared.refreshInProgress || isSyncArticleStatusRunning {
 			Self.logger.info("Waiting for sync to finish…")
 			DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
 				self?.waitToComplete(completion: completion)
@@ -407,7 +405,6 @@ private extension AppDelegate {
 			}
 			await AccountManager.shared.refreshAll(errorHandler: ErrorHandler.log)
 			if !AccountManager.shared.isSuspended {
-				WidgetDataEncoder.shared?.encode()
 				self.suspendApplication()
 				Self.logger.info("Background refresh completed.")
 				task.setTaskCompleted(success: true)
