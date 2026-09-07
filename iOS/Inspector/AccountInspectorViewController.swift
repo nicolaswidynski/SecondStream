@@ -17,7 +17,6 @@ final class AccountInspectorViewController: UITableViewController {
 	@IBOutlet var nameTextField: UITextField!
 	@IBOutlet var activeSwitch: UISwitch!
 	@IBOutlet var deleteAccountButton: VibrantButton!
-	@IBOutlet var limitationsAndSolutionsButton: UIButton!
 
 	var isModal = false
 	weak var account: Account?
@@ -33,14 +32,6 @@ final class AccountInspectorViewController: UITableViewController {
 		activeSwitch.isOn = account.isActive
 
 		navigationItem.title = account.nameForDisplay
-
-		if account.type != .onMyMac {
-			deleteAccountButton.setTitle(NSLocalizedString("Remove Account", comment: "Remove Account"), for: .normal)
-		}
-
-		if account.type != .cloudKit {
-			limitationsAndSolutionsButton.isHidden = true
-		}
 
 		if isModal {
 			let doneBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(done))
@@ -91,12 +82,6 @@ final class AccountInspectorViewController: UITableViewController {
 		alertController.preferredAction = markAction
 
 		present(alertController, animated: true)
-	}
-
-	@IBAction func openLimitationsAndSolutions(_ sender: Any) {
-		let vc = SFSafariViewController(url: CloudKitWebDocumentation.limitationsAndSolutionsURL)
-		vc.modalPresentationStyle = .pageSheet
-		present(vc, animated: true)
 	}
 }
 

@@ -13,7 +13,6 @@ let package = Package(
 	dependencies: [
 		.package(path: "../Articles"),
 		.package(path: "../ArticlesDatabase"),
-		.package(path: "../CloudKitSync"),
 		.package(path: "../FeedFinder"),
 		.package(path: "../Secrets"),
 		.package(path: "../SyncDatabase"),
@@ -32,7 +31,6 @@ let package = Package(
 				"RSWeb",
 				"Articles",
 				"ArticlesDatabase",
-				"CloudKitSync",
 				"FeedFinder",
 				"Secrets",
 				"SyncDatabase"

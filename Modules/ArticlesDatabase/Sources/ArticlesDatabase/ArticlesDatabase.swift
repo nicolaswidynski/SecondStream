@@ -274,15 +274,6 @@ public struct ArticleChanges: Sendable {
 		}
 	}
 
-	/// Update articles and save new ones — for sync systems (Feedbin, Feedly, etc.).
-	public func updateAsync(feedIDsAndItems: [String: Set<ParsedItem>], defaultRead: Bool) async throws -> ArticleChanges {
-		try await withCheckedThrowingContinuation { continuation in
-			_update(feedIDsAndItems: feedIDsAndItems, defaultRead: defaultRead) { result in
-				continuation.resume(with: result)
-			}
-		}
-	}
-
 	/// Delete articles
 	public func deleteAsync(articleIDs: Set<String>) async throws {
 		try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
@@ -555,12 +546,6 @@ private extension ArticlesDatabase {
 		Self.logger.debug("ArticlesDatabase: \(#function, privacy: .public) \(self.accountID, privacy: .public)")
 		precondition(retentionStyle == .feedBased)
 		articlesTable.update(parsedItems, feedID, deleteOlder, completion)
-	}
-
-	func _update(feedIDsAndItems: [String: Set<ParsedItem>], defaultRead: Bool, completion: @escaping UpdateArticlesCompletionBlock) {
-		Self.logger.debug("ArticlesDatabase: \(#function, privacy: .public) \(self.accountID, privacy: .public)")
-		precondition(retentionStyle == .syncSystem)
-		articlesTable.update(feedIDsAndItems, defaultRead, completion)
 	}
 
 	func _delete(articleIDs: Set<String>, completion: DatabaseCompletionBlock?) {

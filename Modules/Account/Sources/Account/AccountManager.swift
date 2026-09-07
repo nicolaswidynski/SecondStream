@@ -123,13 +123,7 @@ import RSDatabase
 	// MARK: - API
 
 	public func createAccount(type: AccountType) -> Account {
-		if type == .cloudKit {
-			if let existingiCloudAccount = accounts.first(where: { $0.type == .cloudKit }) {
-				return existingiCloudAccount
-			}
-		}
-
-		let accountID = type == .cloudKit ? "iCloud" : UUID().uuidString
+		let accountID = UUID().uuidString
 		let accountFolder = (accountsFolder as NSString).appendingPathComponent("\(type.rawValue)_\(accountID)")
 
 		do {

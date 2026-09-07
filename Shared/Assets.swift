@@ -23,7 +23,6 @@ typealias RSColor = UIColor
 
 struct Assets {
 	struct Images {
-		static var accountCloudKit: RSImage { RSImage(named: "accountCloudKit")! }
 
 //		static var starOpen: RSImage { RSImage(symbol: "star")! }
 //		static var starClosed: RSImage { RSImage(symbol: "star.fill")! }
@@ -165,16 +164,11 @@ struct Assets {
 	}
 
 	@MainActor static func accountImage(_ accountType: AccountType) -> RSImage {
-		switch accountType {
-		case .onMyMac:
 #if os(macOS)
-			return Assets.Images.accountLocal
+		return Assets.Images.accountLocal
 #else // iOS
-			return Assets.Images.accountLocalPhoneImage
+		return Assets.Images.accountLocalPhoneImage
 #endif
-		case .cloudKit:
-			return Assets.Images.accountCloudKit
-		}
 	}
 
 	struct Colors {

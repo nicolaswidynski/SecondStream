@@ -15,26 +15,6 @@
                     <tableView key="view" clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="static" style="insetGrouped" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="18" sectionFooterHeight="18" id="xcc-i3-tPS">
                         <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                        <view key="tableFooterView" contentMode="scaleToFill" id="3V2-Cm-ezj">
-                            <rect key="frame" x="0.0" y="312" width="414" height="44"/>
-                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                            <subviews>
-                                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="dgD-uX-vcx">
-                                    <rect key="frame" x="75" y="7" width="264" height="30"/>
-                                    <fontDescription key="fontDescription" style="UICTFontTextStyleSubhead"/>
-                                    <inset key="imageEdgeInsets" minX="0.0" minY="0.0" maxX="2.2250738585072014e-308" maxY="0.0"/>
-                                    <state key="normal" title="iCloud Syncing Limitations &amp; Solutions"/>
-                                    <connections>
-                                        <action selector="openLimitationsAndSolutions:" destination="1m3-fZ-n7g" eventType="touchUpInside" id="DKt-dF-a6L"/>
-                                    </connections>
-                                </button>
-                            </subviews>
-                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                            <constraints>
-                                <constraint firstItem="dgD-uX-vcx" firstAttribute="centerX" secondItem="3V2-Cm-ezj" secondAttribute="centerX" id="IDg-5p-aZs"/>
-                                <constraint firstItem="dgD-uX-vcx" firstAttribute="centerY" secondItem="3V2-Cm-ezj" secondAttribute="centerY" id="w0c-Qa-ADC"/>
-                            </constraints>
-                        </view>
                         <sections>
                             <tableViewSection id="vec-ab-Ylg">
                                 <cells>
@@ -173,7 +153,6 @@
                     <connections>
                         <outlet property="activeSwitch" destination="6YV-K0-yPS" id="d9M-GP-aTR"/>
                         <outlet property="deleteAccountButton" destination="obv-a5-Pl6" id="idW-gm-BIJ"/>
-                        <outlet property="limitationsAndSolutionsButton" destination="dgD-uX-vcx" id="5ti-AM-xms"/>
                         <outlet property="nameTextField" destination="LUW-uv-piz" id="e2P-Hq-guh"/>
                     </connections>
                 </tableViewController>

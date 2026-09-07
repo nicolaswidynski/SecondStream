@@ -34,7 +34,6 @@ public extension Notification.Name {
 nonisolated public enum AccountType: Int, Codable, Sendable {
 	// Raw values should not change since they’re stored on disk.
 	case onMyMac = 1
-	case cloudKit = 2
 }
 
 public enum FetchType {
@@ -231,12 +230,7 @@ public enum FetchType {
 	}
 
 	init(dataFolder: String, type: AccountType, accountID: String, transport: Transport? = nil) {
-		switch type {
-		case .onMyMac:
-			self.delegate = LocalAccountDelegate()
-		case .cloudKit:
-			self.delegate = CloudKitAccountDelegate(dataFolder: dataFolder)
-		}
+		self.delegate = LocalAccountDelegate()
 
 		self.delegate.accountMetadata = metadata
 
@@ -245,15 +239,9 @@ public enum FetchType {
 		self.dataFolder = dataFolder
 
 		let databaseFilePath = (dataFolder as NSString).appendingPathComponent("DB.sqlite3")
-		let retentionStyle: ArticlesDatabase.RetentionStyle = (type == .onMyMac || type == .cloudKit) ? .feedBased : .syncSystem
-		self.database = ArticlesDatabase(databaseFilePath: databaseFilePath, accountID: accountID, retentionStyle: retentionStyle)
+		self.database = ArticlesDatabase(databaseFilePath: databaseFilePath, accountID: accountID, retentionStyle: .feedBased)
 
-		switch type {
-		case .onMyMac:
-			defaultName = Account.defaultLocalAccountName
-		case .cloudKit:
-			defaultName = NSLocalizedString("iCloud", comment: "iCloud")
-		}
+		defaultName = Account.defaultLocalAccountName
 
 		NotificationCenter.default.addObserver(self, selector: #selector(progressInfoDidChange(_:)), name: .progressInfoDidChange, object: delegate)
 		NotificationCenter.default.addObserver(self, selector: #selector(unreadCountDidChange(_:)), name: .UnreadCountDidChange, object: nil)
@@ -716,7 +704,7 @@ public enum FetchType {
 	@discardableResult
 	@MainActor func updateAsync(feed: Feed, parsedFeed: ParsedFeed) async throws -> ArticleChanges {
 		precondition(Thread.isMainThread)
-		precondition(type == .onMyMac || type == .cloudKit)
+		precondition(type == .onMyMac)
 
 		feed.takeSettings(from: parsedFeed)
 		let parsedItems = parsedFeed.items
@@ -728,25 +716,12 @@ public enum FetchType {
 	}
 
 	@MainActor func updateAsync(feedID: String, parsedItems: Set<ParsedItem>, deleteOlder: Bool = true) async throws -> ArticleChanges {
-		// Used only by an On My Mac or iCloud account.
 		precondition(Thread.isMainThread)
-		precondition(type == .onMyMac || type == .cloudKit)
+		precondition(type == .onMyMac)
 
 		let articleChanges = try await database.updateAsync(parsedItems: parsedItems, feedID: feedID, deleteOlder: deleteOlder)
 		sendNotificationAbout(articleChanges)
 		return articleChanges
-	}
-
-	@MainActor func updateAsync(feedIDsAndItems: [String: Set<ParsedItem>], defaultRead: Bool) async throws {
-		// Used only by syncing systems.
-		precondition(Thread.isMainThread)
-		precondition(type != .onMyMac && type != .cloudKit)
-		guard !feedIDsAndItems.isEmpty else {
-			return
-		}
-
-		let newAndUpdatedArticles = try await database.updateAsync(feedIDsAndItems: feedIDsAndItems, defaultRead: defaultRead)
-		sendNotificationAbout(newAndUpdatedArticles)
 	}
 
 	/// Returns set of Article whose statuses did change.
