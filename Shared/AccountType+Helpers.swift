@@ -20,27 +20,16 @@ extension AccountType {
 	// TODO: Move this to the Account Package.
 
 	func localizedAccountName() -> String {
-
-		switch self {
-		case .onMyMac:
-			return NSLocalizedString("account.name.on-my-device", tableName: "DefaultAccountNames", comment: "Device specific default account name, e.g: On my iPhone")
-		case .cloudKit:
-			return NSLocalizedString("iCloud", comment: "Account name")
-		}
+		NSLocalizedString("account.name.on-my-device", tableName: "DefaultAccountNames", comment: "Device specific default account name, e.g: On my iPhone")
 	}
 
 	// MARK: - SwiftUI Images
 	@MainActor func image() -> Image {
-		switch self {
-		case .onMyMac:
-			#if os(macOS)
-			return Image("accountLocal")
-			#else
-			return Image("accountLocalPhone")
-			#endif
-		case .cloudKit:
-			return Image("accountCloudKit")
-		}
+		#if os(macOS)
+		return Image("accountLocal")
+		#else
+		return Image("accountLocalPhone")
+		#endif
 	}
 
 }
