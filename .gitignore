@@ -80,6 +80,9 @@ fastlane/test_output
 # Podcast API token
 /Shared/PodcastSources/podcast_token.txt
 
+# Webhook base URL
+/Shared/API/webhook_base_url.txt
+
 # Mac app (iOS only fork)
 /Mac/
 .claude/settings.local.json

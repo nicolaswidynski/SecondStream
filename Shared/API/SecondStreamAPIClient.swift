@@ -49,6 +49,16 @@ private let apiClientLogger = Logger(subsystem: Bundle.main.bundleIdentifier!, c
 
 	private init() {}
 
+	/// Base URL for all n8n webhooks. Bundled as a gitignored text file so the
+	/// private domain never lands in source control; see Shared/API/webhook_base_url.txt.
+	private nonisolated static let webhookBaseURLString: String = {
+		guard let url = Bundle.main.url(forResource: "webhook_base_url", withExtension: "txt"),
+			  let contents = try? String(contentsOf: url, encoding: .utf8) else {
+			fatalError("Missing Shared/API/webhook_base_url.txt")
+		}
+		return contents.trimmingCharacters(in: .whitespacesAndNewlines)
+	}()
+
 	// MARK: - Endpoints
 
 	enum Endpoint {
@@ -63,19 +73,19 @@ private let apiClientLogger = Logger(subsystem: Bundle.main.bundleIdentifier!, c
 		var url: URL {
 			switch self {
 			case .manageUser:
-				return URL(string: "https://n8n.nwidynski.com/webhook/manage-user")!
+				return URL(string: SecondStreamAPIClient.webhookBaseURLString + "manage-user")!
 			case .allFeedRequests:
-				return URL(string: "https://n8n.nwidynski.com/webhook/all-feed-requests")!
+				return URL(string: SecondStreamAPIClient.webhookBaseURLString + "all-feed-requests")!
 			case .findShow:
-				return URL(string: "https://n8n.nwidynski.com/webhook/find-show")!
+				return URL(string: SecondStreamAPIClient.webhookBaseURLString + "find-show")!
 			case .queryBootstrapProgress:
-				return URL(string: "https://n8n.nwidynski.com/webhook/query-bootstrap-progress")!
+				return URL(string: SecondStreamAPIClient.webhookBaseURLString + "query-bootstrap-progress")!
 			case .costsAndDonations:
-				return URL(string: "https://n8n.nwidynski.com/webhook/costs_and_donations")!
+				return URL(string: SecondStreamAPIClient.webhookBaseURLString + "costs_and_donations")!
 			case .queryMessages:
-				return URL(string: "https://n8n.nwidynski.com/webhook/query-messages")!
+				return URL(string: SecondStreamAPIClient.webhookBaseURLString + "query-messages")!
 			case .reportBug:
-				return URL(string: "https://n8n.nwidynski.com/webhook/report-bug")!
+				return URL(string: SecondStreamAPIClient.webhookBaseURLString + "report-bug")!
 			}
 		}
 	}
